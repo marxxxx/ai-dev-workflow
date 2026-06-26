@@ -1,0 +1,15 @@
+{
+  "name": "product-architect",
+  "description": "Use when defining, refining, or documenting a {{project.name}} feature or bug before implementation, including requests to create a product {{ticketing.itemNoun}} or agree on UI requirements.",
+  "platforms": {
+    "claude": {},
+    "codex": {},
+    "opencode": {}
+  },
+  "interface": {
+    "display_name": "{{project.name}} Product Architect",
+    "short_description": "Shape features and bugs into approved {{ticketing.itemNoun}}s",
+    "default_prompt": "Use $product-architect to define this {{project.name}} change and create an approved vertical {{ticketing.itemNoun}}."
+  },
+  "tokens": {}
+}

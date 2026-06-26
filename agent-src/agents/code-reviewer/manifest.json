@@ -1,0 +1,30 @@
+{
+  "name": "code-reviewer",
+  "description": "Read-only code-review agent for an implemented {{project.name}} {{ticketing.itemNoun}} in the review state. Compares branch changes against acceptance criteria and reports findings without changing application code.",
+  "platforms": {
+    "claude": {
+      "model": "opus",
+      "tools": [
+        "Read",
+        "Glob",
+        "Grep",
+        "Bash",
+        "mcp__plugin_serena_serena__get_symbols_overview",
+        "mcp__plugin_serena_serena__find_symbol",
+        "mcp__plugin_serena_serena__find_referencing_symbols",
+        "mcp__plugin_serena_serena__search_for_pattern"
+      ]
+    },
+    "codex": {
+      "model": "gpt-5.5",
+      "model_reasoning_effort": "medium",
+      "nickname_candidates": ["Reviewer", "Auditor"]
+    },
+    "opencode": {
+      "model": "openrouter/qwen/qwen3.7-plus",
+      "temperature": 0,
+      "mode": "subagent"
+    }
+  },
+  "tokens": {}
+}

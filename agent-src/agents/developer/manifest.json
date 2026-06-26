@@ -1,0 +1,36 @@
+{
+  "name": "developer",
+  "description": "Implementation agent for a scoped {{project.name}} {{ticketing.itemNoun}}. Use after requirements are documented and the {{ticketing.itemNoun}} is ready for code changes.",
+  "platforms": {
+    "claude": {
+      "model": "opus",
+      "tools": [
+        "AskUserQuestion",
+        "Read",
+        "Write",
+        "Glob",
+        "Bash",
+        "mcp__plugin_serena_serena__find_symbol",
+        "mcp__plugin_serena_serena__get_symbols_overview",
+        "mcp__plugin_serena_serena__find_referencing_symbols",
+        "mcp__plugin_serena_serena__replace_symbol_body",
+        "mcp__plugin_serena_serena__insert_after_symbol",
+        "mcp__plugin_serena_serena__insert_before_symbol",
+        "mcp__plugin_serena_serena__rename_symbol",
+        "mcp__plugin_serena_serena__search_for_pattern",
+        "mcp__plugin_serena_serena__replace_content"
+      ]
+    },
+    "codex": {
+      "model": "gpt-5.5",
+      "model_reasoning_effort": "high",
+      "nickname_candidates": ["Builder", "Implementer"]
+    },
+    "opencode": {
+      "model": "openrouter/moonshotai/kimi-k2.6",
+      "temperature": 0,
+      "mode": "subagent"
+    }
+  },
+  "tokens": {}
+}
