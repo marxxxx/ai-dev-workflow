@@ -64,7 +64,7 @@ Per-unit `manifest.tokens` still work and override a global token of the same na
 
 **Ticketing is read at runtime, not inlined.** The generator renders the selected
 `includes/ticketing-<backend>.md` (with tokens substituted) to `ticketing.includePath`
-(default `.agent/includes/ticketing.md`) and **every** agent/skill body — across all three harnesses —
+(default `.agents/includes/ticketing.md`) and **every** agent/skill body — across all three harnesses —
 instructs the agent to read that one file before any ticket operation. The includes are the single
 place that knows repository names, CLI commands, status encoding, comment mechanisms, and PR/handoff;
 the includes folder is where you add a new backend.
@@ -94,7 +94,7 @@ platforms, so that guidance lives in the shared `body.md`.
 ## Output map
 
 The selected ticketing variant is also emitted once, to `ticketing.includePath`
-(default `.agent/includes/ticketing.md`); all three harnesses read that same file at runtime.
+(default `.agents/includes/ticketing.md`); all three harnesses read that same file at runtime.
 
 | Source unit | → Claude | → Codex | → OpenCode |
 |---|---|---|---|

@@ -11,7 +11,7 @@
   },
   "ticketing": {
     "backend": "file",
-    "includePath": ".agent/includes/ticketing.md",
+    "includePath": ".agents/includes/ticketing.md",
     "itemNoun": "issue",
     "github": {
     },
