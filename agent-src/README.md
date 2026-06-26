@@ -26,7 +26,7 @@ non-zero on drift — suitable for a pre-commit hook or CI gate).
 ```
 agent-src/
   generate.mjs                 # zero-dependency Node renderer (node:fs + node:path); also --check
-  project.json                 # single source of truth for project identity + ticketing (see below)
+  ai-workflow.json             # PACKAGE-owned config: workflow states/artifacts + ticketing.includePath
   includes/
     ticketing-github.md        # ticketing operations — GitHub (gh CLI) variant
     ticketing-file.md          # ticketing operations — file-based (.tickets/) variant
@@ -36,19 +36,35 @@ agent-src/
   agents/<name>/
     body.md                    # shared agent instructions — uses {{token}}s
     manifest.json              # name, description, platforms{} (model/tools/config per platform)
+
+<project-root>/
+  ai-project.json              # PROJECT-owned config: project/repository/git identity + ticketing backend choice
 ```
 
-## Portability: `project.json` + the ticketing include
+## Portability: two config files + the ticketing include
 
-Everything project-specific — the project name, the repository, the ticketing backend, the workflow
-state names — lives in `agent-src/project.json`. Bodies and manifest descriptions reference it through
-`{{token}}`s, so the same agent/skill sources work for any project.
+Config is split by ownership so the package can be updated without clobbering project settings, and
+the project can't accidentally desync skill-coupled values:
 
-To take this setup to another project: edit `project.json` (project identity, `repository.slug`) and
-run the generator. To switch ticketing backends (e.g. GitHub ⇄ local files), change one line —
-`ticketing.backend` (`"github"` | `"file"`) — and regenerate.
+- **`ai-project.json`** lives at the **project root** and is project-owned: `project` identity,
+  `repository`, `git`, and the `ticketing` **backend choice** (`"github"` | `"file"`) plus
+  `itemNoun` and the `github`/`file` sub-configs. This file stays in the project across updates.
+- **`agent-src/ai-workflow.json`** ships **with the package** and is package-owned: the
+  `workflow.states` / `workflow.artifacts` (coupled to the orchestrator skill) and
+  `ticketing.includePath` (the fixed runtime convention). It updates with the package; projects
+  don't edit it.
 
-**Global tokens.** The generator flattens `project.json` into a dotted token namespace available to
+Bodies and manifest descriptions reference both through `{{token}}`s, so the same agent/skill sources
+work for any project. The generator merges the two files (package wins on `workflow` and
+`ticketing.includePath`; project owns the rest of `ticketing`) and reads `ai-project.json` from the
+project root (`cwd`, overridable with `--root <dir>`).
+
+To take this setup to another project: edit `ai-project.json` (project identity, `repository.slug`,
+`ticketing.backend`) and run the generator. To switch ticketing backends (e.g. GitHub ⇄ local files),
+change one line — `ticketing.backend` — and regenerate; the matching `includes/ticketing-<backend>.md`
+is copied to `ticketing.includePath`.
+
+**Global tokens.** The generator flattens the merged config into a dotted token namespace available to
 every body and to each manifest `description`/`interface` string:
 
 - `{{project.name}}`, `{{project.slug}}`, `{{project.serena}}`, `{{project.description}}`
@@ -88,7 +104,7 @@ platforms, so that guidance lives in the shared `body.md`.
 - `interface` (skills only) — Codex skill descriptor written to `agents/openai.yaml`
   (`display_name`, `short_description`, `default_prompt`).
 - `tokens` — per-unit `{{token}}` overrides (string or per-platform map). These override the global
-  tokens derived from `project.json` for that unit only. Prefer overlays for structural/tooling/workflow
+  tokens derived from the merged config for that unit only. Prefer overlays for structural/tooling/workflow
   differences.
 
 ## Output map

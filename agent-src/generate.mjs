@@ -4,8 +4,15 @@
 // Reads the canonical units under agent-src/{agents,skills}/<name>/ (body.md +
 // manifest.json, optional overlays/<platform>.md) and renders each platform's files.
 //
-//   node agent-src/generate.mjs          write all platform files
-//   node agent-src/generate.mjs --check  render in-memory, diff against disk, exit 1 on drift
+//   node agent-src/generate.mjs                 write all platform files
+//   node agent-src/generate.mjs --check         render in-memory, diff against disk, exit 1 on drift
+//   node agent-src/generate.mjs --root <dir>    target a project root other than cwd
+//
+// Config is split across two files:
+//   - ai-workflow.json  (package-owned, next to this script): workflow states/artifacts +
+//                        ticketing.includePath. Travels and updates with the package.
+//   - ai-project.json   (project-owned, at the project root): project/repository/git identity
+//                        and the ticketing backend choice (file | github).
 //
 // Zero dependencies: node:fs + node:path only. Writes LF line endings on every platform.
 
@@ -13,9 +20,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// SRC_DIR is where the package payload lives (this script + its sources). PROJECT_ROOT is the
+// consuming project: where ai-project.json is read from and where generated files are written.
+// They coincide during in-repo dev; they diverge once the package is installed under node_modules.
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.dirname(SRC_DIR);
 const KNOWN_PLATFORMS = ['claude', 'codex', 'opencode'];
+
+/** Resolve the project root: `--root <dir>` if given, else the current working directory. */
+function resolveProjectRoot(argv) {
+  const i = argv.indexOf('--root');
+  if (i !== -1 && argv[i + 1]) return path.resolve(argv[i + 1]);
+  return process.cwd();
+}
 
 // ---------------------------------------------------------------------------
 // Small serializers (we WRITE known field sets; we never parse YAML/TOML).
@@ -83,18 +99,37 @@ function loadUnits() {
 // Central project config → global tokens
 // ---------------------------------------------------------------------------
 
-/**
- * Read the single source of truth for project identity + ticketing.
- * Returns {} when absent so the generator still runs on a fresh/unmigrated repo.
- */
-function loadConfig() {
-  const p = path.join(SRC_DIR, 'project.json');
-  if (!fs.existsSync(p)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(p, 'utf8'));
-  } catch (e) {
-    throw new Error(`agent-src/project.json is not valid JSON: ${e.message}`);
+/** Read and parse a JSON file. Returns null when absent unless `required`. */
+function readJson(absPath, label, required) {
+  if (!fs.existsSync(absPath)) {
+    if (required) throw new Error(`${label} not found at ${absPath}`);
+    return null;
   }
+  try {
+    return JSON.parse(fs.readFileSync(absPath, 'utf8'));
+  } catch (e) {
+    throw new Error(`${label} is not valid JSON: ${e.message}`);
+  }
+}
+
+/**
+ * Merge the two config sources into the single object the token builder consumes:
+ *   - workflow states/artifacts and ticketing.includePath come from the package
+ *     (ai-workflow.json) — they are skill-coupled and must not be reconfigured per project.
+ *   - project/repository/git identity and the ticketing backend choice come from the
+ *     project (ai-project.json).
+ * The package wins on `workflow` and on `ticketing.includePath`; the project owns the rest of
+ * `ticketing` (backend, itemNoun, github/file sub-configs). ai-project.json may be absent on a
+ * fresh/unmigrated repo, in which case only the package-owned config is returned.
+ */
+function loadConfig(projectRoot) {
+  const pkg = readJson(path.join(SRC_DIR, 'ai-workflow.json'), 'agent-src/ai-workflow.json', true);
+  const project = readJson(path.join(projectRoot, 'ai-project.json'), 'ai-project.json', false) || {};
+  return {
+    ...project,
+    workflow: pkg.workflow,
+    ticketing: { ...(project.ticketing || {}), includePath: pkg.ticketing?.includePath },
+  };
 }
 
 /**
@@ -350,8 +385,8 @@ const RENDERERS = {
 // Orchestration
 // ---------------------------------------------------------------------------
 
-function renderAll() {
-  const config = loadConfig();
+function renderAll(projectRoot) {
+  const config = loadConfig(projectRoot);
   const globalTokens = buildGlobalTokens(config);
   const units = loadUnits();
   for (const unit of units) substituteManifestStrings(unit, globalTokens);
@@ -421,19 +456,19 @@ function smokeCheck(out, platform, unit) {
   }
 }
 
-function writeAll(outputs) {
+function writeAll(outputs, projectRoot) {
   for (const out of outputs) {
-    const abs = path.join(REPO_ROOT, out.path);
+    const abs = path.join(projectRoot, out.path);
     fs.mkdirSync(path.dirname(abs), { recursive: true });
     fs.writeFileSync(abs, out.content);
   }
   console.log(`Generated ${outputs.length} file(s) from agent-src/.`);
 }
 
-function checkAll(outputs) {
+function checkAll(outputs, projectRoot) {
   const stale = [];
   for (const out of outputs) {
-    const abs = path.join(REPO_ROOT, out.path);
+    const abs = path.join(projectRoot, out.path);
     const onDisk = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : null;
     if (onDisk !== out.content) {
       stale.push({ path: out.path, missing: onDisk === null });
@@ -451,14 +486,15 @@ function checkAll(outputs) {
 
 function main() {
   const check = process.argv.includes('--check');
+  const projectRoot = resolveProjectRoot(process.argv);
   let outputs;
   try {
-    outputs = renderAll();
+    outputs = renderAll(projectRoot);
   } catch (err) {
     console.error(`Generation failed: ${err.message}`);
     process.exit(1);
   }
-  process.exit(check ? checkAll(outputs) : (writeAll(outputs), 0));
+  process.exit(check ? checkAll(outputs, projectRoot) : (writeAll(outputs, projectRoot), 0));
 }
 
 main();
