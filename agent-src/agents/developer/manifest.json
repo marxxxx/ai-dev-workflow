@@ -27,7 +27,7 @@
       "nickname_candidates": ["Builder", "Implementer"]
     },
     "opencode": {
-      "model": "openrouter/moonshotai/kimi-k2.6",
+      "model": "openrouter/moonshotai/kimi-k2.7-code",
       "temperature": 0,
       "mode": "subagent"
     }
