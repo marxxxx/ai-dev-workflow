@@ -1,0 +1,45 @@
+{
+  "name": "@strobl/ai-dev-workflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Single-source agent & skill definitions for Claude Code, Codex, and OpenCode, generated per project from a small config. Language-agnostic: usable in any repo (incl. C#/.NET) via npx; only requires Node to run the generator.",
+  "type": "module",
+  "bin": {
+    "ai-dev-workflow": "agent-src/generate.mjs"
+  },
+  "files": [
+    "agent-src/agents",
+    "agent-src/skills",
+    "agent-src/includes",
+    "agent-src/generate.mjs",
+    "agent-src/ai-workflow.json",
+    "agent-src/ai-project.template.json",
+    "agent-src/README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "generate": "node agent-src/generate.mjs generate",
+    "check": "node agent-src/generate.mjs check"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "opencode",
+    "agents",
+    "skills",
+    "ai-workflow"
+  ],
+  "license": "Apache-2.0",
+  "author": "Markus Strobl <markus@strobl.dev>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marxxxx/ai-dev-workflow.git"
+  },
+  "homepage": "https://github.com/marxxxx/ai-dev-workflow#readme",
+  "bugs": {
+    "url": "https://github.com/marxxxx/ai-dev-workflow/issues"
+  }
+}

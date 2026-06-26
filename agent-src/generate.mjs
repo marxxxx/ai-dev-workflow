@@ -4,9 +4,13 @@
 // Reads the canonical units under agent-src/{agents,skills}/<name>/ (body.md +
 // manifest.json, optional overlays/<platform>.md) and renders each platform's files.
 //
-//   node agent-src/generate.mjs                 write all platform files
-//   node agent-src/generate.mjs --check         render in-memory, diff against disk, exit 1 on drift
-//   node agent-src/generate.mjs --root <dir>    target a project root other than cwd
+// Invoke directly during in-repo dev, or via the `ai-dev-workflow` bin once installed:
+//   ai-dev-workflow generate            write all platform files (default command)
+//   ai-dev-workflow check               render in-memory, diff against disk, exit 1 on drift
+//   ai-dev-workflow init                scaffold ai-project.json from the template (never overwrites)
+//   ai-dev-workflow <cmd> --root <dir>  target a project root other than cwd
+//
+// `--check` is still accepted as a legacy alias for the `check` command.
 //
 // Config is split across two files:
 //   - ai-workflow.json  (package-owned, next to this script): workflow states/artifacts +
@@ -484,9 +488,50 @@ function checkAll(outputs, projectRoot) {
   return 1;
 }
 
+/** The first non-flag argument is the command; `--root <dir>` and its value are skipped. */
+function parseCommand(argv) {
+  const args = argv.slice(2);
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--root') { i++; continue; } // skip the value that follows --root
+    if (a.startsWith('-')) continue;
+    return a;
+  }
+  return args.includes('--check') ? 'check' : 'generate';
+}
+
+/** Scaffold ai-project.json at the project root from the shipped template; never overwrite. */
+function cmdInit(projectRoot) {
+  const template = path.join(SRC_DIR, 'ai-project.template.json');
+  if (!fs.existsSync(template)) throw new Error(`scaffold template missing at ${template}`);
+  const dest = path.join(projectRoot, 'ai-project.json');
+  if (fs.existsSync(dest)) {
+    console.log(`ai-project.json already exists at ${dest} — left untouched.`);
+    return 0;
+  }
+  fs.copyFileSync(template, dest);
+  console.log(`Created ${dest}.\nEdit project identity + ticketing.backend, then run \`ai-dev-workflow generate\`.`);
+  return 0;
+}
+
 function main() {
-  const check = process.argv.includes('--check');
+  const command = parseCommand(process.argv);
   const projectRoot = resolveProjectRoot(process.argv);
+
+  if (command === 'init') {
+    try {
+      process.exit(cmdInit(projectRoot));
+    } catch (err) {
+      console.error(`init failed: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
+  if (command !== 'generate' && command !== 'check') {
+    console.error(`Unknown command "${command}". Use: generate | check | init`);
+    process.exit(1);
+  }
+
   let outputs;
   try {
     outputs = renderAll(projectRoot);
@@ -494,7 +539,7 @@ function main() {
     console.error(`Generation failed: ${err.message}`);
     process.exit(1);
   }
-  process.exit(check ? checkAll(outputs, projectRoot) : (writeAll(outputs, projectRoot), 0));
+  process.exit(command === 'check' ? checkAll(outputs, projectRoot) : (writeAll(outputs, projectRoot), 0));
 }
 
 main();

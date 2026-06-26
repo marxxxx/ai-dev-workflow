@@ -1,0 +1,26 @@
+{
+  "project": {
+    "name": "ProjectName",
+    "slug": "ProjectSlug",
+    "serenaProject": "ProjectSlug",
+    "description": "Describe your Project in a few words."
+  },
+  "repository": {
+    "slug": "RepositoryName",
+    "defaultBranch": "main"
+  },
+  "ticketing": {
+    "backend": "file",
+    "itemNoun": "issue",
+    "github": {
+    },
+    "file": {
+      "dir": ".tickets/issues",
+      "metadataFile": ".tickets/metadata.json"
+    }
+  },
+  "git": {
+    "branchPattern": "feat/<issue-number>_<slug>",
+    "prTarget": "main"
+  }
+}
