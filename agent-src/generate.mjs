@@ -427,6 +427,9 @@ const RENDERERS = {
 
 function renderAll(projectRoot) {
   const config = loadConfig(projectRoot);
+  if (config.ticketing?.backend === 'azure-devops' && !config.ticketing?.azureDevOps?.organization) {
+    throw new Error('ticketing.azureDevOps.organization is required for the azure-devops backend');
+  }
   const globalTokens = buildGlobalTokens(config);
   const units = loadUnits();
   for (const unit of units) substituteManifestStrings(unit, globalTokens);
