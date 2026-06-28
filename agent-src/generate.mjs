@@ -30,6 +30,18 @@ import { fileURLToPath } from 'node:url';
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
 const KNOWN_PLATFORMS = ['claude', 'codex', 'opencode'];
 
+// Agents that perform ticketing operations and therefore need the azure-devops MCP tools
+// added to their Claude allowlist when that backend is selected.
+const TICKETING_AGENTS = ['developer', 'code-reviewer', 'qa-engineer'];
+const ADO_MCP_TOOLS = [
+  'mcp__ado__wit_query_by_wiql',
+  'mcp__ado__wit_get_work_item',
+  'mcp__ado__wit_list_work_item_comments',
+  'mcp__ado__wit_create_work_item',
+  'mcp__ado__wit_update_work_item',
+  'mcp__ado__wit_add_work_item_comment',
+];
+
 /** Resolve the project root: `--root <dir>` if given, else the current working directory. */
 function resolveProjectRoot(argv) {
   const i = argv.indexOf('--root');
@@ -452,6 +464,18 @@ function renderAll(projectRoot) {
   if (mcp) {
     seenPaths.add(mcp.path);
     outputs.push(mcp);
+  }
+
+  // azure-devops backend: give ticketing agents access to the `ado` MCP tools on Claude.
+  if (config.ticketing?.backend === 'azure-devops') {
+    for (const unit of units) {
+      if (unit.kind !== 'agent' || !TICKETING_AGENTS.includes(unit.name)) continue;
+      const claude = unit.manifest.platforms?.claude;
+      if (!claude || !Array.isArray(claude.tools)) continue;
+      for (const tool of ADO_MCP_TOOLS) {
+        if (!claude.tools.includes(tool)) claude.tools.push(tool);
+      }
+    }
   }
 
   for (const unit of units) {
