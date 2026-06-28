@@ -118,3 +118,25 @@ test('renderSetupDoc includes the ado section for azure-devops', () => {
   });
   assert.match(renderSetupDoc(cfg), /\.mcp\.json/);
 });
+
+import { cmdScaffold } from './generate.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+test('cmdScaffold copies the template into an empty project root', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-'));
+  const code = cmdScaffold(root);
+  assert.equal(code, 0);
+  const written = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+  assert.ok(written.project);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('cmdScaffold leaves an existing ai-project.json untouched', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-'));
+  fs.writeFileSync(path.join(root, 'ai-project.json'), '{"keep":true}');
+  cmdScaffold(root);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')), { keep: true });
+  fs.rmSync(root, { recursive: true, force: true });
+});

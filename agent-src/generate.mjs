@@ -23,6 +23,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import readline from 'node:readline';
 
 // SRC_DIR is where the package payload lives (this script + its sources). PROJECT_ROOT is the
 // consuming project: where ai-project.json is read from and where generated files are written.
@@ -723,8 +724,8 @@ function parseCommand(argv) {
   return args.includes('--check') ? 'check' : 'generate';
 }
 
-/** Scaffold ai-project.json at the project root from the shipped template; never overwrite. */
-function cmdInit(projectRoot) {
+/** Template-copy scaffold — the non-interactive fallback. Never overwrites. */
+function cmdScaffold(projectRoot) {
   const template = path.join(SRC_DIR, 'ai-project.template.json');
   if (!fs.existsSync(template)) throw new Error(`scaffold template missing at ${template}`);
   const dest = path.join(projectRoot, 'ai-project.json');
@@ -737,17 +738,92 @@ function cmdInit(projectRoot) {
   return 0;
 }
 
+/** Read the origin slug from <root>/.git/config; '' when absent. */
+function detectRepoSlug(projectRoot) {
+  const cfg = path.join(projectRoot, '.git', 'config');
+  if (!fs.existsSync(cfg)) return '';
+  try { return parseOriginSlug(fs.readFileSync(cfg, 'utf8')); } catch { return ''; }
+}
+
+/** Interactive onboarding. Falls back to cmdScaffold when stdin is not a TTY. */
+async function cmdInit(projectRoot) {
+  if (!process.stdin.isTTY) {
+    console.log('Non-interactive stdin — scaffolding ai-project.json from template instead.');
+    return cmdScaffold(projectRoot);
+  }
+
+  const dest = path.join(projectRoot, 'ai-project.json');
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q, def) => new Promise((res) => {
+    const hint = def ? ` [${def}]` : '';
+    rl.question(`${q}${hint}: `, (a) => res(a.trim() || def || ''));
+  });
+  const askRequired = async (q, def) => {
+    for (;;) { const v = await ask(q, def); if (v) return v; console.log('  (required)'); }
+  };
+  const askChoice = async (q, choices, def) => {
+    for (;;) {
+      const v = await ask(`${q} (${choices.join('/')})`, def);
+      if (choices.includes(v)) return v;
+      console.log(`  (choose one of: ${choices.join(', ')})`);
+    }
+  };
+
+  try {
+    if (fs.existsSync(dest)) {
+      const ow = await ask('ai-project.json exists — overwrite? (y/N)', 'N');
+      if (!/^y(es)?$/i.test(ow)) { console.log('Left untouched.'); return 0; }
+    }
+
+    const name = await askRequired('Project name');
+    const slug = await ask('Project slug', kebabCase(name));
+    const serena = await ask('Serena project name', slug);
+    const description = await ask('Description', '');
+    const repoSlug = await ask('Repository slug (owner/repo)', detectRepoSlug(projectRoot));
+    const defaultBranch = await ask('Default branch', 'main');
+    const backend = await askChoice('Ticketing backend', ['file', 'github', 'azure-devops'], 'file');
+    const itemNoun = await ask('Item noun', 'issue');
+
+    const answers = { name, slug, serena, description, repoSlug, defaultBranch, backend, itemNoun };
+    if (backend === 'file') {
+      answers.file = {
+        dir: await ask('Tickets dir', '.tickets/issues'),
+        metadataFile: await ask('Metadata file', '.tickets/metadata.json'),
+      };
+    } else if (backend === 'azure-devops') {
+      answers.azure = {
+        organization: await askRequired('Azure DevOps organization'),
+        project: await askRequired('Azure DevOps project'),
+        processTemplate: await askChoice('Process template', ['basic', 'scrum'], 'basic'),
+      };
+    }
+    answers.branchPattern = await ask('Branch pattern', 'feat/<issue-number>_<slug>');
+    answers.prTarget = await ask('PR target branch', defaultBranch);
+
+    const config = buildProjectConfig(answers);
+    fs.writeFileSync(dest, JSON.stringify(config, null, 2) + '\n');
+    const setupPath = path.join(projectRoot, 'docs', 'ai-workflow-setup.md');
+    fs.mkdirSync(path.dirname(setupPath), { recursive: true });
+    fs.writeFileSync(setupPath, renderSetupDoc(config));
+
+    console.log(`\nCreated ${dest}`);
+    console.log(`Created ${setupPath}`);
+    console.log('Next: run `ai-dev-workflow generate`, then commit ai-project.json and the generated dirs.');
+    return 0;
+  } finally {
+    rl.close();
+  }
+}
+
 function main() {
   const command = parseCommand(process.argv);
   const projectRoot = resolveProjectRoot(process.argv);
 
   if (command === 'init') {
-    try {
-      process.exit(cmdInit(projectRoot));
-    } catch (err) {
-      console.error(`init failed: ${err.message}`);
-      process.exit(1);
-    }
+    cmdInit(projectRoot)
+      .then((code) => process.exit(code))
+      .catch((err) => { console.error(`init failed: ${err.message}`); process.exit(1); });
+    return;
   }
 
   if (command !== 'generate' && command !== 'check') {
@@ -769,4 +845,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   main();
 }
 
-export { buildGlobalTokens, loadConfig, kebabCase, parseOriginSlug, azureMapping, buildProjectConfig, renderSetupDoc };
+export { buildGlobalTokens, loadConfig, kebabCase, parseOriginSlug, azureMapping, buildProjectConfig, renderSetupDoc, cmdScaffold };
