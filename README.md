@@ -14,6 +14,7 @@ dev box and CI). Pin to a Git tag (e.g. `#v0.1.0`) so devs and CI stay in sync.
 |---|---|---|
 | `ai-project.json` | **you** — project identity + ticketing backend choice | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
+| `.mcp.json` | merged (azure-devops backend only) — the `ado` server entry; other servers preserved | yes |
 
 Everything else (agent/skill sources, workflow state machine, the generator) lives in the package and
 updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the sources are authored.
@@ -26,7 +27,9 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 # 1. scaffold the project-owned config (never overwrites an existing one)
 npx github:marxxxx/ai-dev-workflow#v0.1.0 init
 
-# 2. edit ai-project.json — set project identity, repository, and ticketing.backend ("file" | "github")
+# 2. edit ai-project.json — set project identity, repository, and ticketing.backend ("file" | "github" | "azure-devops")
+#    For azure-devops, also set ticketing.azureDevOps.organization and .project (the generator
+#    merges an `ado` server into .mcp.json; the @azure-devops/mcp server handles its own auth).
 
 # 3. generate the platform files
 npx github:marxxxx/ai-dev-workflow#v0.1.0 generate
