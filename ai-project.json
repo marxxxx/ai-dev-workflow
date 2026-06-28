@@ -17,6 +17,12 @@
     "file": {
       "dir": ".tickets/issues",
       "metadataFile": ".tickets/metadata.json"
+    },
+    "azureDevOps": {
+      "organization": "YourAdoOrg",
+      "project": "YourAdoProject",
+      "featureType": "Issue",
+      "bugType": "Issue"
     }
   },
   "git": {

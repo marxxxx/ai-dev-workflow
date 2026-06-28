@@ -8,6 +8,7 @@
         "id": "new",
         "label": "status:new",
         "frontmatter": "new",
+        "azureState": "To Do",
         "meaning": "Ready to build",
         "next": "in-progress"
       },
@@ -15,6 +16,7 @@
         "id": "in-progress",
         "label": "status:in-progress",
         "frontmatter": "in-progress",
+        "azureState": "Doing",
         "meaning": "Implementation running or interrupted",
         "next": "review"
       },
@@ -22,6 +24,7 @@
         "id": "review",
         "label": "status:review",
         "frontmatter": "review",
+        "azureState": "Doing",
         "meaning": "Awaiting code review",
         "next": "test"
       },
@@ -29,6 +32,7 @@
         "id": "test",
         "label": "status:test",
         "frontmatter": "test",
+        "azureState": "Doing",
         "meaning": "Ready for acceptance QA",
         "next": "acceptance-test"
       },
@@ -36,6 +40,7 @@
         "id": "failed",
         "label": "status:failed",
         "frontmatter": "failed",
+        "azureState": "Doing",
         "meaning": "Review or QA failure",
         "next": "in-progress"
       },
@@ -43,6 +48,7 @@
         "id": "acceptance-test",
         "label": "status:acceptance-test",
         "frontmatter": "acceptance-test",
+        "azureState": "Doing",
         "meaning": "PR/human acceptance pending",
         "next": null
       }

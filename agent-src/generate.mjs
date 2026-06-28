@@ -30,6 +30,18 @@ import { fileURLToPath } from 'node:url';
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
 const KNOWN_PLATFORMS = ['claude', 'codex', 'opencode'];
 
+// Agents that perform ticketing operations and therefore need the azure-devops MCP tools
+// added to their Claude allowlist when that backend is selected.
+const TICKETING_AGENTS = ['developer', 'code-reviewer', 'qa-engineer'];
+const ADO_MCP_TOOLS = [
+  'mcp__ado__wit_query_by_wiql',
+  'mcp__ado__wit_get_work_item',
+  'mcp__ado__wit_list_work_item_comments',
+  'mcp__ado__wit_create_work_item',
+  'mcp__ado__wit_update_work_item',
+  'mcp__ado__wit_add_work_item_comment',
+];
+
 /** Resolve the project root: `--root <dir>` if given, else the current working directory. */
 function resolveProjectRoot(argv) {
   const i = argv.indexOf('--root');
@@ -160,13 +172,19 @@ function buildGlobalTokens(config) {
   put('ticketing.itemNoun', c.ticketing?.itemNoun || 'issue');
     put('ticketing.dir', c.ticketing?.file?.dir);
   put('ticketing.metadataFile', c.ticketing?.file?.metadataFile);
+  put('ticketing.azure.organization', c.ticketing?.azureDevOps?.organization);
+  put('ticketing.azure.project', c.ticketing?.azureDevOps?.project);
+  put('ticketing.azure.featureType', c.ticketing?.azureDevOps?.featureType || 'Issue');
+  put('ticketing.azure.bugType', c.ticketing?.azureDevOps?.bugType || 'Issue');
 
   put('git.branchPattern', c.git?.branchPattern);
   put('git.prTarget', c.git?.prTarget);
 
   for (const [k, v] of Object.entries(c.workflow?.artifacts || {})) put(`artifact.${k}`, v);
+  const usesTagLabels = backend === 'github' || backend === 'azure-devops';
   for (const s of c.workflow?.states || []) {
-    put(`status.${s.id}`, backend === 'github' ? s.label : s.frontmatter);
+    put(`status.${s.id}`, usesTagLabels ? s.label : s.frontmatter);
+    put(`azureState.${s.id}`, s.azureState);
   }
 
   // Free-form escape hatch: config.tokens overrides any derived token.
@@ -272,6 +290,36 @@ function renderTicketingInclude(config, globalTokens) {
   content = `<!-- DO NOT EDIT — generated from agent-src/includes/ticketing-${backend}.md; run \`node agent-src/generate.mjs\` -->\n\n` + content;
   if (!content.endsWith('\n')) content += '\n';
   return { path: includePath, content, plain: true };
+}
+
+/**
+ * For the azure-devops backend, merge the `ado` MCP server entry into the project's
+ * .mcp.json, preserving any other servers and `inputs`. Returns null for other backends.
+ * Reads current disk so `check` can re-merge and diff. Not banner-stamped — .mcp.json is
+ * partly user-owned; the merge is keyed on the `ado` server name only.
+ */
+function renderMcpJson(config, projectRoot) {
+  if (config.ticketing?.backend !== 'azure-devops') return null;
+  const org = config.ticketing?.azureDevOps?.organization;
+  if (!org) {
+    throw new Error('ticketing.azureDevOps.organization is required for the azure-devops backend');
+  }
+  const mcpPath = path.join(projectRoot, '.mcp.json');
+  let doc = { mcpServers: {}, inputs: [] };
+  if (fs.existsSync(mcpPath)) {
+    try {
+      doc = JSON.parse(fs.readFileSync(mcpPath, 'utf8'));
+    } catch (e) {
+      throw new Error(`.mcp.json is not valid JSON: ${e.message}`);
+    }
+    if (!doc.mcpServers || typeof doc.mcpServers !== 'object') doc.mcpServers = {};
+  }
+  doc.mcpServers.ado = {
+    type: 'stdio',
+    command: 'npx',
+    args: ['-y', '@azure-devops/mcp', org, '-d', 'core', 'work', 'work-items'],
+  };
+  return { path: '.mcp.json', content: JSON.stringify(doc, null, 2) + '\n' };
 }
 
 // ---------------------------------------------------------------------------
@@ -391,6 +439,9 @@ const RENDERERS = {
 
 function renderAll(projectRoot) {
   const config = loadConfig(projectRoot);
+  if (config.ticketing?.backend === 'azure-devops' && !config.ticketing?.azureDevOps?.organization) {
+    throw new Error('ticketing.azureDevOps.organization is required for the azure-devops backend');
+  }
   const globalTokens = buildGlobalTokens(config);
   const units = loadUnits();
   for (const unit of units) substituteManifestStrings(unit, globalTokens);
@@ -406,6 +457,25 @@ function renderAll(projectRoot) {
     }
     seenPaths.add(ticketing.path);
     outputs.push(ticketing);
+  }
+
+  // The azure-devops backend also owns the `ado` entry in .mcp.json (non-destructive merge).
+  const mcp = renderMcpJson(config, projectRoot);
+  if (mcp) {
+    seenPaths.add(mcp.path);
+    outputs.push(mcp);
+  }
+
+  // azure-devops backend: give ticketing agents access to the `ado` MCP tools on Claude.
+  if (config.ticketing?.backend === 'azure-devops') {
+    for (const unit of units) {
+      if (unit.kind !== 'agent' || !TICKETING_AGENTS.includes(unit.name)) continue;
+      const claude = unit.manifest.platforms?.claude;
+      if (!claude || !Array.isArray(claude.tools)) continue;
+      for (const tool of ADO_MCP_TOOLS) {
+        if (!claude.tools.includes(tool)) claude.tools.push(tool);
+      }
+    }
   }
 
   for (const unit of units) {
