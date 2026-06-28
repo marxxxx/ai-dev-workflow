@@ -95,6 +95,17 @@ test('buildProjectConfig (azure scrum) fills types + stateMapping', () => {
   assert.ok(!('file' in cfg.ticketing));
 });
 
+test('buildProjectConfig (github backend) omits both file and azureDevOps', () => {
+  const cfg = buildProjectConfig({
+    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
+    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'github', itemNoun: 'issue',
+    branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+  });
+  assert.equal(cfg.ticketing.backend, 'github');
+  assert.ok(!('file' in cfg.ticketing));
+  assert.ok(!('azureDevOps' in cfg.ticketing));
+});
+
 test('renderSetupDoc lists the three plugins and the banner', () => {
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',

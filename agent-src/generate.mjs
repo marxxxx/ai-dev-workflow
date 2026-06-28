@@ -18,7 +18,7 @@
 //   - ai-project.json   (project-owned, at the project root): project/repository/git identity
 //                        and the ticketing backend choice (file | github).
 //
-// Zero dependencies: node:fs + node:path only. Writes LF line endings on every platform.
+// Zero dependencies: node:fs, node:path, node:url, node:readline (all Node builtins). Writes LF line endings on every platform.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -134,7 +134,7 @@ const AZURE_TEMPLATES = {
 function azureMapping(template) {
   const m = AZURE_TEMPLATES[template];
   if (!m) throw new Error(`unknown Azure process template "${template}" (expected basic|scrum)`);
-  return m;
+  return structuredClone(m);
 }
 
 /** Assemble the project-owned ai-project.json object from flat interview answers. */
