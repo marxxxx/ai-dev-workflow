@@ -30,6 +30,7 @@ agent-src/
   includes/
     ticketing-github.md        # ticketing operations — GitHub (gh CLI) variant
     ticketing-file.md          # ticketing operations — file-based (.tickets/) variant
+    ticketing-azure-devops.md  # ticketing operations — Azure DevOps (@azure-devops/mcp) variant
   skills/<name>/
     body.md                    # shared SKILL body — uses {{token}}s; references the ticketing include
     manifest.json              # name, description, platforms{}, interface{} (Codex openai.yaml)
@@ -47,8 +48,8 @@ Config is split by ownership so the package can be updated without clobbering pr
 the project can't accidentally desync skill-coupled values:
 
 - **`ai-project.json`** lives at the **project root** and is project-owned: `project` identity,
-  `repository`, `git`, and the `ticketing` **backend choice** (`"github"` | `"file"`) plus
-  `itemNoun` and the `github`/`file` sub-configs. This file stays in the project across updates.
+  `repository`, `git`, and the `ticketing` **backend choice** (`"github"` | `"file"` | `"azure-devops"`) plus
+  `itemNoun` and the github/file/azureDevOps sub-configs. This file stays in the project across updates.
 - **`agent-src/ai-workflow.json`** ships **with the package** and is package-owned: the
   `workflow.states` / `workflow.artifacts` (coupled to the orchestrator skill) and
   `ticketing.includePath` (the fixed runtime convention). It updates with the package; projects
@@ -72,9 +73,14 @@ every body and to each manifest `description`/`interface` string:
 - `{{ticketing.include}}` (path agents read at runtime), `{{ticketing.itemNoun}}`, `{{ticketing.backend}}`
 - `{{git.branchPattern}}`, `{{git.prTarget}}`
 - `{{artifact.implementationNotes}}`, `{{artifact.reviewFeedback}}`, `{{artifact.testResults}}`
-- `{{status.<id>}}` — resolves to the GitHub label (`status:new`) or the file-frontmatter value
-  (`new`) depending on `ticketing.backend`. Used only inside the ticketing includes; bodies refer to
-  states logically (`new`, `review`, …) and defer their representation to the include.
+- `{{status.<id>}}` — resolves to the label (`status:new`) for github and azure-devops, or the
+  file-frontmatter value (`new`) for file, depending on `ticketing.backend`. Used only inside the
+  ticketing includes; bodies refer to states logically (`new`, `review`, …) and defer their
+  representation to the include.
+- `{{azureState.<id>}}` — the Azure DevOps native board State (e.g. `Doing`) the work item is
+  nudged to on each transition; azure-devops backend only.
+- `{{ticketing.azure.organization}}`, `{{ticketing.azure.project}}`, `{{ticketing.azure.featureType}}`,
+  `{{ticketing.azure.bugType}}` — azure-devops work item targeting + types.
 
 Per-unit `manifest.tokens` still work and override a global token of the same name.
 
@@ -83,7 +89,9 @@ Per-unit `manifest.tokens` still work and override a global token of the same na
 (default `.agents/includes/ticketing.md`) and **every** agent/skill body — across all three harnesses —
 instructs the agent to read that one file before any ticket operation. The includes are the single
 place that knows repository names, CLI commands, status encoding, comment mechanisms, and PR/handoff;
-the includes folder is where you add a new backend.
+the includes folder is where you add a new backend. The azure-devops backend additionally merges an
+`ado` server into the project's `.mcp.json` (non-destructively) and injects the `@azure-devops/mcp`
+work-item tools into the Claude allowlists of the ticketing agents.
 
 `AGENTS.md` (and `CLAUDE.md`) remain hand-maintained, project-specific docs — they are **not**
 generated. They still carry the tech-stack/ports/conventions prose.
