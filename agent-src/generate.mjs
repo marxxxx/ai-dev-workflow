@@ -74,6 +74,69 @@ function yamlScalar(value) {
 }
 
 // ---------------------------------------------------------------------------
+// Onboarding helpers (pure)
+// ---------------------------------------------------------------------------
+
+/** Lower-case, collapse non-alphanumerics to single dashes, trim dashes. */
+function kebabCase(name) {
+  return String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+/** Extract `owner/repo` (or the Azure repo name) from a git remote URL. */
+function slugFromRemoteUrl(url) {
+  const u = url.trim().replace(/\.git$/, '');
+  const ado = u.match(/dev\.azure\.com\/[^/]+\/[^/]+\/_git\/([^/]+)$/);
+  if (ado) return ado[1];
+  const ssh = u.match(/^[^@\s]+@[^:]+:(.+)$/); // git@host:owner/repo
+  if (ssh) return ssh[1];
+  const https = u.match(/^https?:\/\/[^/]+\/(.+)$/); // https://host/owner/repo
+  if (https) return https[1];
+  return '';
+}
+
+/** Parse the origin remote's slug from raw .git/config text. '' when absent/unparseable. */
+function parseOriginSlug(gitConfigText) {
+  if (!gitConfigText) return '';
+  let inOrigin = false;
+  for (const raw of gitConfigText.split('\n')) {
+    const line = raw.trim();
+    const sec = line.match(/^\[(.+?)\]$/);
+    if (sec) { inOrigin = /^remote\s+"origin"$/.test(sec[1]); continue; }
+    if (inOrigin) {
+      const m = line.match(/^url\s*=\s*(.+)$/);
+      if (m) return slugFromRemoteUrl(m[1]);
+    }
+  }
+  return '';
+}
+
+/** Azure DevOps process template → work-item types + workflow-state→board-state map. */
+const AZURE_TEMPLATES = {
+  basic: {
+    featureType: 'Issue',
+    bugType: 'Issue',
+    stateMapping: {
+      'new': 'To Do', 'in-progress': 'Doing', 'review': 'Doing',
+      'test': 'Doing', 'failed': 'Doing', 'acceptance-test': 'Doing',
+    },
+  },
+  scrum: {
+    featureType: 'Product Backlog Item',
+    bugType: 'Bug',
+    stateMapping: {
+      'new': 'New', 'in-progress': 'Committed', 'review': 'Committed',
+      'test': 'Committed', 'failed': 'Committed', 'acceptance-test': 'Committed',
+    },
+  },
+};
+
+function azureMapping(template) {
+  const m = AZURE_TEMPLATES[template];
+  if (!m) throw new Error(`unknown Azure process template "${template}" (expected basic|scrum)`);
+  return m;
+}
+
+// ---------------------------------------------------------------------------
 // Unit loading
 // ---------------------------------------------------------------------------
 
@@ -617,4 +680,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   main();
 }
 
-export { buildGlobalTokens, loadConfig };
+export { buildGlobalTokens, loadConfig, kebabCase, parseOriginSlug, azureMapping };
