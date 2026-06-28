@@ -280,6 +280,36 @@ function renderTicketingInclude(config, globalTokens) {
   return { path: includePath, content, plain: true };
 }
 
+/**
+ * For the azure-devops backend, merge the `ado` MCP server entry into the project's
+ * .mcp.json, preserving any other servers and `inputs`. Returns null for other backends.
+ * Reads current disk so `check` can re-merge and diff. Not banner-stamped — .mcp.json is
+ * partly user-owned; the merge is keyed on the `ado` server name only.
+ */
+function renderMcpJson(config, projectRoot) {
+  if (config.ticketing?.backend !== 'azure-devops') return null;
+  const org = config.ticketing?.azureDevOps?.organization;
+  if (!org) {
+    throw new Error('ticketing.azureDevOps.organization is required for the azure-devops backend');
+  }
+  const mcpPath = path.join(projectRoot, '.mcp.json');
+  let doc = { mcpServers: {}, inputs: [] };
+  if (fs.existsSync(mcpPath)) {
+    try {
+      doc = JSON.parse(fs.readFileSync(mcpPath, 'utf8'));
+    } catch (e) {
+      throw new Error(`.mcp.json is not valid JSON: ${e.message}`);
+    }
+    if (!doc.mcpServers || typeof doc.mcpServers !== 'object') doc.mcpServers = {};
+  }
+  doc.mcpServers.ado = {
+    type: 'stdio',
+    command: 'npx',
+    args: ['-y', '@azure-devops/mcp', org, '-d', 'core', 'work', 'work-items'],
+  };
+  return { path: '.mcp.json', content: JSON.stringify(doc, null, 2) + '\n' };
+}
+
 // ---------------------------------------------------------------------------
 // Renderers — return { path, content } per platform
 // ---------------------------------------------------------------------------
@@ -412,6 +442,13 @@ function renderAll(projectRoot) {
     }
     seenPaths.add(ticketing.path);
     outputs.push(ticketing);
+  }
+
+  // The azure-devops backend also owns the `ado` entry in .mcp.json (non-destructive merge).
+  const mcp = renderMcpJson(config, projectRoot);
+  if (mcp) {
+    seenPaths.add(mcp.path);
+    outputs.push(mcp);
   }
 
   for (const unit of units) {
