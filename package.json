@@ -19,7 +19,8 @@
   ],
   "scripts": {
     "generate": "node agent-src/generate.mjs generate",
-    "check": "node agent-src/generate.mjs check"
+    "check": "node agent-src/generate.mjs check",
+    "test": "node --test agent-src/*.test.mjs"
   },
   "engines": {
     "node": ">=18"
