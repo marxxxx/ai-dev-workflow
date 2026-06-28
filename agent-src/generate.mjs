@@ -160,13 +160,19 @@ function buildGlobalTokens(config) {
   put('ticketing.itemNoun', c.ticketing?.itemNoun || 'issue');
     put('ticketing.dir', c.ticketing?.file?.dir);
   put('ticketing.metadataFile', c.ticketing?.file?.metadataFile);
+  put('ticketing.azure.organization', c.ticketing?.azureDevOps?.organization);
+  put('ticketing.azure.project', c.ticketing?.azureDevOps?.project);
+  put('ticketing.azure.featureType', c.ticketing?.azureDevOps?.featureType || 'Issue');
+  put('ticketing.azure.bugType', c.ticketing?.azureDevOps?.bugType || 'Issue');
 
   put('git.branchPattern', c.git?.branchPattern);
   put('git.prTarget', c.git?.prTarget);
 
   for (const [k, v] of Object.entries(c.workflow?.artifacts || {})) put(`artifact.${k}`, v);
+  const usesTagLabels = backend === 'github' || backend === 'azure-devops';
   for (const s of c.workflow?.states || []) {
-    put(`status.${s.id}`, backend === 'github' ? s.label : s.frontmatter);
+    put(`status.${s.id}`, usesTagLabels ? s.label : s.frontmatter);
+    put(`azureState.${s.id}`, s.azureState);
   }
 
   // Free-form escape hatch: config.tokens overrides any derived token.
