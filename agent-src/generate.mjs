@@ -22,7 +22,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // SRC_DIR is where the package payload lives (this script + its sources). PROJECT_ROOT is the
 // consuming project: where ai-project.json is read from and where generated files are written.
@@ -182,9 +182,10 @@ function buildGlobalTokens(config) {
 
   for (const [k, v] of Object.entries(c.workflow?.artifacts || {})) put(`artifact.${k}`, v);
   const usesTagLabels = backend === 'github' || backend === 'azure-devops';
+  const azMap = c.ticketing?.azureDevOps?.stateMapping || {};
   for (const s of c.workflow?.states || []) {
     put(`status.${s.id}`, usesTagLabels ? s.label : s.frontmatter);
-    put(`azureState.${s.id}`, s.azureState);
+    put(`azureState.${s.id}`, azMap[s.id] || s.azureState);
   }
 
   // Free-form escape hatch: config.tokens overrides any derived token.
@@ -612,4 +613,8 @@ function main() {
   process.exit(command === 'check' ? checkAll(outputs, projectRoot) : (writeAll(outputs, projectRoot), 0));
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
+
+export { buildGlobalTokens, loadConfig };
