@@ -62,3 +62,59 @@ test('azureMapping returns the basic and scrum tables', () => {
 test('azureMapping throws on unknown template', () => {
   assert.throws(() => azureMapping('agile'), /unknown Azure process template/);
 });
+
+import { buildProjectConfig, renderSetupDoc } from './generate.mjs';
+
+test('buildProjectConfig (file backend) omits azureDevOps', () => {
+  const cfg = buildProjectConfig({
+    name: 'Demo', slug: 'demo', serena: 'demo', description: 'A demo',
+    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file', itemNoun: 'issue',
+    branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+    file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' },
+  });
+  assert.equal(cfg.project.name, 'Demo');
+  assert.equal(cfg.ticketing.backend, 'file');
+  assert.equal(cfg.ticketing.file.dir, '.tickets/issues');
+  assert.ok(!('azureDevOps' in cfg.ticketing));
+});
+
+test('buildProjectConfig (azure scrum) fills types + stateMapping', () => {
+  const cfg = buildProjectConfig({
+    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
+    repoSlug: 'demo', defaultBranch: 'main', backend: 'azure-devops', itemNoun: 'issue',
+    branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+    azure: { organization: 'myorg', project: 'myproj', processTemplate: 'scrum' },
+  });
+  const a = cfg.ticketing.azureDevOps;
+  assert.equal(a.organization, 'myorg');
+  assert.equal(a.project, 'myproj');
+  assert.equal(a.featureType, 'Product Backlog Item');
+  assert.equal(a.bugType, 'Bug');
+  assert.equal(a.processTemplate, 'scrum');
+  assert.equal(a.stateMapping['in-progress'], 'Committed');
+  assert.ok(!('file' in cfg.ticketing));
+});
+
+test('renderSetupDoc lists the three plugins and the banner', () => {
+  const cfg = buildProjectConfig({
+    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
+    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file', itemNoun: 'issue',
+    branchPattern: 'x', prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
+  });
+  const doc = renderSetupDoc(cfg);
+  assert.match(doc, /DO NOT EDIT/);
+  assert.match(doc, /superpowers@claude-plugins-official/);
+  assert.match(doc, /ctx7 setup/);
+  assert.match(doc, /serena start-mcp-server/);
+  assert.doesNotMatch(doc, /ado.*MCP server/i); // no azure section for file backend
+});
+
+test('renderSetupDoc includes the ado section for azure-devops', () => {
+  const cfg = buildProjectConfig({
+    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
+    repoSlug: 'demo', defaultBranch: 'main', backend: 'azure-devops', itemNoun: 'issue',
+    branchPattern: 'x', prTarget: 'main',
+    azure: { organization: 'myorg', project: 'myproj', processTemplate: 'basic' },
+  });
+  assert.match(renderSetupDoc(cfg), /\.mcp\.json/);
+});
