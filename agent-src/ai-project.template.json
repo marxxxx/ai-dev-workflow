@@ -22,7 +22,16 @@
       "organization": "YourAdoOrg",
       "project": "YourAdoProject",
       "featureType": "Issue",
-      "bugType": "Issue"
+      "bugType": "Issue",
+      "processTemplate": "basic",
+      "stateMapping": {
+        "new": "To Do",
+        "in-progress": "Doing",
+        "review": "Doing",
+        "test": "Doing",
+        "failed": "Doing",
+        "acceptance-test": "Doing"
+      }
     }
   },
   "git": {

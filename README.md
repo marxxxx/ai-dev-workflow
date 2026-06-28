@@ -24,12 +24,12 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 `npx` can run the bin straight from GitHub — nothing is installed into the repo:
 
 ```bash
-# 1. scaffold the project-owned config (never overwrites an existing one)
+# 1. run the guided onboarding — writes ai-project.json + docs/ai-workflow-setup.md
 npx github:marxxxx/ai-dev-workflow#v0.1.0 init
 
-# 2. edit ai-project.json — set project identity, repository, and ticketing.backend ("file" | "github" | "azure-devops")
-#    For azure-devops, also set ticketing.azureDevOps.organization and .project (the generator
-#    merges an `ado` server into .mcp.json; the @azure-devops/mcp server handles its own auth).
+# 2. (the interview sets project identity, repository, and ticketing.backend.
+#    For azure-devops it also captures org/project + process template and pre-fills
+#    the state mapping; generate then merges the `ado` server into .mcp.json.)
 
 # 3. generate the platform files
 npx github:marxxxx/ai-dev-workflow#v0.1.0 generate
@@ -45,7 +45,7 @@ Pin the tag (`#v0.1.0`) so devs and CI stay in sync — a C# repo has no lockfil
 |---|---|
 | `generate` (default) | Render all platform files to the project root |
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
-| `init` | Scaffold `ai-project.json` from the template; never overwrites |
+| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping), then writes `ai-project.json` and `docs/ai-workflow-setup.md`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
 
