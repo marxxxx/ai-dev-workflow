@@ -14,14 +14,14 @@
 // `--check` is still accepted as a legacy alias for the `check` command.
 //
 // Config is split across two files:
-//   - ai-workflow.json  (package-owned, next to this script): workflow states/artifacts +
-//                        ticketing.includePath. Travels and updates with the package.
-//   - ai-project.json   (project-owned, at the project root): project/repository/git identity
+//   - config/ai-workflow.json  (package-owned, under agent-src/config/): workflow states/artifacts
+//                        + ticketing.includePath. Travels and updates with the package.
+//   - ai-project.json          (project-owned, at the project root): project/repository/git identity
 //                        and the ticketing backend choice (file | github | azure-devops).
 //
 // This file is a thin orchestrator: it parses argv, dispatches to the pieces below, and
 // re-exports the public API for back-compat with in-process tests and external importers.
-// The implementation lives in sibling modules:
+// The implementation lives in the feature modules under agent-src/lib/:
 //   constants · serialize · identity · config · tokens · units · ticketing · renderers ·
 //   setup-doc · onboard · pipeline
 //
@@ -29,18 +29,18 @@
 
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { argValue } from './constants.mjs';
-import { cmdInit } from './onboard.mjs';
-import { renderAll, writeAll, checkAll } from './pipeline.mjs';
+import { argValue } from './lib/constants.mjs';
+import { cmdInit } from './lib/onboard.mjs';
+import { renderAll, writeAll, checkAll } from './lib/pipeline.mjs';
 
 // ---------------------------------------------------------------------------
 // Aggregated public API — re-exported so importers keep using `generate.mjs`.
 // ---------------------------------------------------------------------------
-export { buildGlobalTokens, loadConfig, azureMapping, buildProjectConfig } from './config.mjs';
-export { kebabCase, parseOriginSlug } from './identity.mjs';
-export { renderSetupDoc } from './setup-doc.mjs';
-export { cmdScaffold, cmdInit, createScriptedPrompter, runInterview } from './onboard.mjs';
-export { renderAll } from './pipeline.mjs';
+export { buildGlobalTokens, loadConfig, azureMapping, buildProjectConfig } from './lib/config.mjs';
+export { kebabCase, parseOriginSlug } from './lib/identity.mjs';
+export { renderSetupDoc } from './lib/setup-doc.mjs';
+export { cmdScaffold, cmdInit, createScriptedPrompter, runInterview } from './lib/onboard.mjs';
+export { renderAll } from './lib/pipeline.mjs';
 
 /** Resolve the project root: `--root <dir>` if given, else the current working directory. */
 function resolveProjectRoot(argv) {

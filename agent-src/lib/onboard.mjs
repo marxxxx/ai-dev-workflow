@@ -11,7 +11,7 @@ import { renderSetupDoc } from './setup-doc.mjs';
 
 /** Template-copy scaffold — the non-interactive fallback. Never overwrites. */
 export function cmdScaffold(projectRoot) {
-  const template = path.join(SRC_DIR, 'ai-project.template.json');
+  const template = path.join(SRC_DIR, 'config', 'ai-project.template.json');
   if (!fs.existsSync(template)) throw new Error(`scaffold template missing at ${template}`);
   const dest = path.join(projectRoot, 'ai-project.json');
   if (fs.existsSync(dest)) {

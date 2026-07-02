@@ -3,10 +3,10 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// SRC_DIR is where the package payload lives (these source modules + the units). Derived
-// relative to THIS module, which sits in agent-src/ — the same resolved path as under the
-// old single-file generate.mjs.
-export const SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
+// SRC_DIR is the package payload root (agent-src/): it holds the unit sources (agents/,
+// skills/, includes/) and the config/ dir. This module lives in agent-src/lib/, so resolve
+// one level up to reach the payload root.
+export const SRC_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export const KNOWN_PLATFORMS = ['claude', 'codex', 'opencode'];
 
 // Agents that perform ticketing operations and therefore need the azure-devops MCP tools

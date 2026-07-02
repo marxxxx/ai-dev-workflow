@@ -5,8 +5,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { cmdInit, createScriptedPrompter, buildProjectConfig, renderSetupDoc } from './generate.mjs';
-import { makeTmpRoot } from './test-helpers.mjs';
+import { cmdInit, createScriptedPrompter, buildProjectConfig, renderSetupDoc } from '../generate.mjs';
+import { makeTmpRoot } from '../test-helpers.mjs';
 
 const FILE_ANSWERS = {
   name: 'File Demo', slug: 'file-demo', serena: 'file-demo', description: 'A file project',

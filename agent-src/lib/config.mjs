@@ -28,7 +28,7 @@ export function readJson(absPath, label, required) {
  * fresh/unmigrated repo, in which case only the package-owned config is returned.
  */
 export function loadConfig(projectRoot) {
-  const pkg = readJson(path.join(SRC_DIR, 'ai-workflow.json'), 'agent-src/ai-workflow.json', true);
+  const pkg = readJson(path.join(SRC_DIR, 'config', 'ai-workflow.json'), 'agent-src/config/ai-workflow.json', true);
   const project = readJson(path.join(projectRoot, 'ai-project.json'), 'ai-project.json', false) || {};
   return {
     ...project,

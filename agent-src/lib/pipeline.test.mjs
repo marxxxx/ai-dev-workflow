@@ -5,8 +5,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { renderAll, loadConfig } from './generate.mjs';
-import { makeTmpRoot, tmpProject } from './test-helpers.mjs';
+import { renderAll, loadConfig } from '../generate.mjs';
+import { makeTmpRoot, tmpProject } from '../test-helpers.mjs';
 
 function writeProject(root, config) {
   fs.writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(config, null, 2) + '\n');
@@ -76,7 +76,7 @@ test('loadConfig merges package workflow + includePath over the project file', (
     // project-owned
     assert.equal(cfg.ticketing.backend, 'file');
     assert.equal(cfg.project.slug, 'test-project');
-    // package-owned (from agent-src/ai-workflow.json)
+    // package-owned (from agent-src/config/ai-workflow.json)
     assert.ok(cfg.workflow, 'workflow states/artifacts come from the package');
     assert.equal(cfg.ticketing.includePath, '.agents/includes/ticketing.md');
   } finally {
