@@ -12,15 +12,26 @@
     "agent-src/skills",
     "agent-src/includes",
     "agent-src/generate.mjs",
-    "agent-src/ai-workflow.json",
-    "agent-src/ai-project.template.json",
+    "agent-src/lib/constants.mjs",
+    "agent-src/lib/serialize.mjs",
+    "agent-src/lib/identity.mjs",
+    "agent-src/lib/config.mjs",
+    "agent-src/lib/tokens.mjs",
+    "agent-src/lib/units.mjs",
+    "agent-src/lib/ticketing.mjs",
+    "agent-src/lib/renderers.mjs",
+    "agent-src/lib/setup-doc.mjs",
+    "agent-src/lib/onboard.mjs",
+    "agent-src/lib/pipeline.mjs",
+    "agent-src/config/ai-workflow.json",
+    "agent-src/config/ai-project.template.json",
     "agent-src/README.md",
     "LICENSE"
   ],
   "scripts": {
     "generate": "node agent-src/generate.mjs generate",
     "check": "node agent-src/generate.mjs check",
-    "test": "node --test agent-src/*.test.mjs"
+    "test": "node --test agent-src/*.test.mjs agent-src/lib/*.test.mjs"
   },
   "engines": {
     "node": ">=18"

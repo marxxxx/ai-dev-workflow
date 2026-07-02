@@ -25,8 +25,13 @@ non-zero on drift — suitable for a pre-commit hook or CI gate).
 
 ```
 agent-src/
-  generate.mjs                 # zero-dependency Node renderer (node:fs + node:path); also --check
-  ai-workflow.json             # PACKAGE-owned config: workflow states/artifacts + ticketing.includePath
+  generate.mjs                 # entrypoint: zero-dependency Node CLI (parse argv + dispatch); also --check
+  lib/                         # feature modules the entrypoint composes:
+    constants.mjs serialize.mjs identity.mjs config.mjs tokens.mjs units.mjs
+    ticketing.mjs renderers.mjs setup-doc.mjs onboard.mjs pipeline.mjs
+  config/
+    ai-workflow.json           # PACKAGE-owned config: workflow states/artifacts + ticketing.includePath
+    ai-project.template.json   # scaffold template copied by `init` when non-interactive
   includes/
     ticketing-github.md        # ticketing operations — GitHub (gh CLI) variant
     ticketing-file.md          # ticketing operations — file-based (.tickets/) variant
@@ -50,7 +55,7 @@ the project can't accidentally desync skill-coupled values:
 - **`ai-project.json`** lives at the **project root** and is project-owned: `project` identity,
   `repository`, `git`, and the `ticketing` **backend choice** (`"github"` | `"file"` | `"azure-devops"`) plus
   `itemNoun` and the github/file/azureDevOps sub-configs. This file stays in the project across updates.
-- **`agent-src/ai-workflow.json`** ships **with the package** and is package-owned: the
+- **`agent-src/config/ai-workflow.json`** ships **with the package** and is package-owned: the
   `workflow.states` / `workflow.artifacts` (coupled to the orchestrator skill) and
   `ticketing.includePath` (the fixed runtime convention). It updates with the package; projects
   don't edit it.
