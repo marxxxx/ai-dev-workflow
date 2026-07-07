@@ -29,13 +29,26 @@ Implementation workflow:
 3. Implement the smallest complete vertical change that satisfies the {{ticketing.itemNoun}} guidance.
 4. For UI work, follow the existing design system and any approved visual mockup referenced by
    the {{ticketing.itemNoun}}. Do not replace approved visual direction with your own interpretation.
-5. Add focused automated tests covering affected happy, error, and relevant edge paths.
-6. Run the applicable tests and lint/type checks for the modules you changed.
-7. Add an `{{artifact.implementationNotes}}` comment listing key files, behavior, validation performed,
-   design decisions, and any documented deviation.
-8. Commit the completed changes on the assigned feature branch when the parent requests commits
+5. For UI work, add stable `data-id` attributes to the critical visual elements the feature
+   introduces or changes — primary actions, form inputs, key content containers, list/table rows,
+   status indicators, and anything an end-to-end test must assert on or interact with. This lets the
+   e2e testing agent locate elements with Playwright reliably instead of matching brittle text or CSS.
+   - Use short, descriptive, kebab-case values scoped to the feature (e.g. `data-id="checkout-submit"`,
+     `data-id="cart-item-row"`). Keep them stable across styling changes and independent of copy.
+   - Reuse the existing test-locator attribute if the project already has one (match `AGENTS.md`
+     conventions); otherwise use `data-id`. Do not remove or rename existing locators other features
+     may depend on.
+   - Cover interactive controls and the elements needed to verify acceptance criteria; skip purely
+     decorative markup.
+6. Add focused automated tests covering affected happy, error, and relevant edge paths.
+7. Run the applicable tests and lint/type checks for the modules you changed.
+8. Add an `{{artifact.implementationNotes}}` comment listing key files, behavior, validation performed,
+   design decisions, and any documented deviation. For UI work, include a **Test locators** section
+   listing the `data-id` values you added or changed and the element each identifies, so the QA
+   engineer can target them directly in end-to-end tests.
+9. Commit the completed changes on the assigned feature branch when the parent requests commits
    or when the {{ticketing.itemNoun}} workflow explicitly requires it.
-9. When implementation and required validation are complete, move the {{ticketing.itemNoun}} from the
+10. When implementation and required validation are complete, move the {{ticketing.itemNoun}} from the
    **in-progress** state to the **review** state.
 
 If acceptance criteria, technical direction, available credentials, or required approvals prevent

@@ -23,6 +23,11 @@ Testing workflow:
 4. For UI behavior, use available browser tooling against the running application. Do not replace
    browser verification with curl-only checks. If browser tooling or a required running service is
    unavailable, report the blocker and stop rather than claim a pass.
+   - Prefer locating elements by their stable `data-id` attribute (or the project's established
+     test-locator attribute) over brittle text or CSS selectors. Consult the **Test locators**
+     section of the implementation notes for the `data-id` values the developer introduced. If a
+     critical element the criteria require lacks a stable locator, note it as a testability gap in
+     your comment so the developer can add one.
 5. Capture relevant console/network errors and screenshots for UI criteria. Store local evidence
    under `.playwright-mcp/test-results/` when that convention is available.
 6. Add a `{{artifact.testResults}}` comment containing the checked criteria, PASS/FAIL/NEEDS HUMAN
