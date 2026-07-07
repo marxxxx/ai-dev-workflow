@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { runCli, tmpProject, makeTmpRoot, MINIMAL_PROJECT } from './test-helpers.mjs';
+import { runCli, runCliViaSymlink, tmpProject, makeTmpRoot, MINIMAL_PROJECT } from './test-helpers.mjs';
 
 // A representative sample of the files each backend/platform emits.
 const SPOT_CHECK = [
@@ -55,6 +55,18 @@ test('unknown command exits 1 with the usage message', () => {
     assert.equal(status, 1);
     assert.match(stderr, /Unknown command/);
     assert.match(stderr, /generate \| check \| init/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('init --answers works when invoked through a symlink, as npm-installed bins are', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'answers.json'), JSON.stringify({ name: 'Symlink Demo', backend: 'file' }));
+    const { status, stdout } = runCliViaSymlink(['init', '--answers', path.join(root, 'answers.json'), '--root', root]);
+    assert.equal(status, 0, stdout);
+    assert.ok(fs.existsSync(path.join(root, 'ai-project.json')), 'init produced no output/files when run through a symlink');
   } finally {
     cleanup();
   }
