@@ -6,7 +6,7 @@ A customizable AI development workflow — subagent and skill definitions for **
 The generator is a zero-dependency Node script. It's distributed **directly from this Git repo** (no
 npm registry) and the consuming project does **not** need to be a Node project. It works in any repo
 (C#/.NET, Go, Rust, …) — the only requirement is Node on the machine that runs the generator (your
-dev box and CI). Pin to a Git tag (e.g. `#v0.2.1`) so devs and CI stay in sync.
+dev box and CI). Pin to a Git tag (e.g. `#v0.3.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -25,19 +25,19 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json + docs/ai-workflow-setup.md
-npx github:marxxxx/ai-dev-workflow#v0.2.1 init
+npx github:marxxxx/ai-dev-workflow#v0.3.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
 #    the state mapping; generate then merges the `ado` server into .mcp.json.)
 
 # 3. generate the platform files
-npx github:marxxxx/ai-dev-workflow#v0.2.1 generate
+npx github:marxxxx/ai-dev-workflow#v0.3.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the tag (`#v0.2.1`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the tag (`#v0.3.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 ## Commands
 
@@ -55,7 +55,7 @@ Add it as a dev dependency pointing at the Git tag, and wire up scripts:
 
 ```jsonc
 "devDependencies": {
-  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.2.1"
+  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.3.0"
 },
 "scripts": {
   "agents:generate": "ai-dev-workflow generate",

@@ -115,6 +115,8 @@ test('renderSetupDoc lists the three plugins and the banner', () => {
   const doc = renderSetupDoc(cfg);
   assert.match(doc, /DO NOT EDIT/);
   assert.match(doc, /superpowers@claude-plugins-official/);
+  assert.match(doc, /ln -s ~\/.codex\/superpowers\/skills ~\/.agents\/skills\/superpowers/);
+  assert.match(doc, /\.opencode\/vendor\/superpowers/);
   assert.match(doc, /claude mcp add --scope local --transport http context7/);
   assert.match(doc, /\.codex\/config\.toml/);
   assert.match(doc, /opencode\.json/);
