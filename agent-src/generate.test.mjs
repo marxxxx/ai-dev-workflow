@@ -115,8 +115,12 @@ test('renderSetupDoc lists the three plugins and the banner', () => {
   const doc = renderSetupDoc(cfg);
   assert.match(doc, /DO NOT EDIT/);
   assert.match(doc, /superpowers@claude-plugins-official/);
-  assert.match(doc, /ctx7 setup/);
+  assert.match(doc, /claude mcp add --scope local --transport http context7/);
+  assert.match(doc, /\.codex\/config\.toml/);
+  assert.match(doc, /opencode\.json/);
   assert.match(doc, /serena start-mcp-server/);
+  assert.match(doc, /uv tool install -p 3\.13 serena-agent/);
+  assert.match(doc, /@playwright\/mcp/);
   assert.doesNotMatch(doc, /ado.*MCP server/i); // no azure section for file backend
 });
 
