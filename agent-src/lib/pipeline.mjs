@@ -7,6 +7,7 @@ import { loadConfig, buildGlobalTokens } from './config.mjs';
 import { loadUnits } from './units.mjs';
 import { substituteManifestStrings, resolveBody } from './tokens.mjs';
 import { renderTicketingInclude, renderMcpJson } from './ticketing.mjs';
+import { renderE2eInclude } from './app.mjs';
 import { RENDERERS, smokeCheck } from './renderers.mjs';
 
 export function renderAll(projectRoot) {
@@ -29,6 +30,16 @@ export function renderAll(projectRoot) {
     }
     seenPaths.add(ticketing.path);
     outputs.push(ticketing);
+  }
+
+  // The resolved e2e-runtime include — the qa-engineer's single source of truth for app startup.
+  const e2e = renderE2eInclude(config, globalTokens);
+  if (e2e) {
+    if (/\{\{.*?\}\}/.test(e2e.content)) {
+      throw new Error(`E2E include: unresolved placeholder in ${e2e.path}`);
+    }
+    seenPaths.add(e2e.path);
+    outputs.push(e2e);
   }
 
   // The azure-devops backend also owns the `ado` entry in .mcp.json (non-destructive merge).

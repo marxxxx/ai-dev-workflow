@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# e2e "up" — start the app (and any backing services) for end-to-end testing.
+#
+# Fill this in for your project. The qa-engineer relies on this contract:
+#   - start backing services + the app, and BLOCK until the app is reachable;
+#   - print one `BASE_URL=<url>` line per reachable app to stdout (required);
+#   - write logs under "$LOGS_DIR"; exit 0 when ready, non-zero on failure/timeout.
+set -euo pipefail
+
+LOGS_DIR="${LOGS_DIR:-.e2e/logs}"
+# The URL the app is reachable at once started. Adjust to your app's host/port.
+BASE_URL="${BASE_URL:-http://localhost:3000}"
+
+# --- TODO: implement startup, then delete this guard -----------------------
+# 1. start backing services (e.g. `docker compose up -d`, or a test database)
+# 2. apply migrations / seed data
+# 3. start the app in the background   (e.g. `npm start`, or `dotnet run --project <web>`)
+# 4. poll "$BASE_URL" until it responds (block until ready); fail on timeout
+# Until implemented, exit 0 WITHOUT printing BASE_URL so QA skips browser e2e
+# (runs the suite, defers UI criteria to human review) rather than reporting a blocker.
+echo "e2e-up is a stub — no app started; QA will skip browser e2e. Edit scripts/e2e-up to enable it." >&2
+exit 0
+# ---------------------------------------------------------------------------
+
+# Required (once implemented): announce the URL for the browser to drive.
+echo "BASE_URL=${BASE_URL}"

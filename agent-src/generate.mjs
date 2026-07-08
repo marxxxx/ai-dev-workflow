@@ -39,7 +39,7 @@ import { renderAll, writeAll, checkAll } from './lib/pipeline.mjs';
 export { buildGlobalTokens, loadConfig, azureMapping, buildProjectConfig } from './lib/config.mjs';
 export { kebabCase, parseOriginSlug } from './lib/identity.mjs';
 export { renderSetupDoc } from './lib/setup-doc.mjs';
-export { cmdScaffold, cmdInit, createScriptedPrompter, runInterview } from './lib/onboard.mjs';
+export { cmdScaffold, cmdInit, createScriptedPrompter, runInterview, scaffoldE2eScripts } from './lib/onboard.mjs';
 export { renderAll } from './lib/pipeline.mjs';
 
 /** Resolve the project root: `--root <dir>` if given, else the current working directory. */
