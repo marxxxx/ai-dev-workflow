@@ -31,12 +31,20 @@ Testing workflow:
    suite alone is not sufficient when an e2e runtime is configured. Drive the browser against the
    `BASE_URL` the runtime reports; do not replace browser verification with curl-only checks. Always
    run the runtime's teardown when finished, even on failure.
-4. Capture relevant console/network errors and screenshots for UI criteria. Store local evidence
+4. For UI behavior, use available browser tooling against the running application. Do not replace
+   browser verification with curl-only checks. If browser tooling or a required running service is
+   unavailable, report the blocker and stop rather than claim a pass.
+   - Prefer locating elements by their stable `data-id` attribute (or the project's established
+     test-locator attribute) over brittle text or CSS selectors. Consult the **Test locators**
+     section of the implementation notes for the `data-id` values the developer introduced. If a
+     critical element the criteria require lacks a stable locator, note it as a testability gap in
+     your comment so the developer can add one.
+5. Capture relevant console/network errors and screenshots for UI criteria. Store local evidence
    under `.playwright-mcp/test-results/` when that convention is available.
-5. Add a `{{artifact.testResults}}` comment containing the checked criteria, PASS/FAIL/NEEDS HUMAN
+6. Add a `{{artifact.testResults}}` comment containing the checked criteria, PASS/FAIL/NEEDS HUMAN
    REVIEW results, reproduction steps for failures, and evidence references.
-6. If any functional criterion fails, move the {{ticketing.itemNoun}} from **test** to the **failed** state.
-7. If all functional criteria pass, move the {{ticketing.itemNoun}} from **test** to the
+7. If any functional criterion fails, move the {{ticketing.itemNoun}} from **test** to the **failed** state.
+8. If all functional criteria pass, move the {{ticketing.itemNoun}} from **test** to the
    **acceptance-test** state.
 
 When no running app is available for e2e (per `{{app.include}}` — the runtime is unconfigured, or

@@ -27,6 +27,7 @@
 //
 // Zero dependencies: node builtins only. Writes LF line endings on every platform.
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { argValue } from './lib/constants.mjs';
@@ -85,6 +86,19 @@ function main() {
   process.exit(command === 'check' ? checkAll(outputs, projectRoot) : (writeAll(outputs, projectRoot), 0));
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Realpath argv[1] before comparing: when this file is invoked through a symlinked bin
+// (as npm creates for globally-installed or `npx`-run CLIs on Linux/macOS), Node resolves
+// import.meta.url to the symlink target, but process.argv[1] stays the unresolved symlink
+// path — an unqualified comparison would silently skip main() and exit 0 with no output.
+function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   main();
 }

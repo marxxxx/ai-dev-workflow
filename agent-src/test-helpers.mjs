@@ -37,6 +37,30 @@ export function runCli(args, { cwd } = {}) {
   return { status: res.status, stdout: res.stdout || '', stderr: res.stderr || '' };
 }
 
+/**
+ * Run the CLI through a symlink to generate.mjs, mirroring how npm exposes a `bin` entry on
+ * Linux/macOS (a symlink in node_modules/.bin or the global bin dir, not a copy of the file).
+ * Node resolves symlinks when computing import.meta.url for the entry module, so this is the
+ * scenario that catches a `process.argv[1] === import.meta.url` main-module check that forgot
+ * to realpath argv[1] first — that mismatch makes `main()` silently never run (exit 0, no output).
+ */
+export function runCliViaSymlink(args, { cwd } = {}) {
+  const linkDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-bin-'));
+  const link = path.join(linkDir, 'ai-dev-workflow');
+  fs.symlinkSync(GENERATE, link);
+  try {
+    const res = spawnSync(process.execPath, [link, ...args], {
+      cwd: cwd || process.cwd(),
+      input: '',
+      encoding: 'utf8',
+    });
+    if (res.error) throw res.error;
+    return { status: res.status, stdout: res.stdout || '', stderr: res.stderr || '' };
+  } finally {
+    fs.rmSync(linkDir, { recursive: true, force: true });
+  }
+}
+
 /** Create an empty throwaway project root. Returns { root, cleanup }. */
 export function makeTmpRoot() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-'));
