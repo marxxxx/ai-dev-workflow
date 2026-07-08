@@ -103,6 +103,26 @@ test('init --answers scaffolds a github-backend project', () => {
   }
 });
 
+test('init scaffolds the e2e stub scripts + block, and generate emits the configured include', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'answers.json'), JSON.stringify({ name: 'E2E Demo', backend: 'file' }));
+    assert.equal(runCli(['init', '--answers', path.join(root, 'answers.json'), '--root', root]).status, 0);
+
+    const cfg = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+    assert.deepEqual(cfg.e2e, { up: 'scripts/e2e-up', down: 'scripts/e2e-down', readinessTimeout: 120, logsDir: '.e2e/logs' });
+    assert.ok(fs.existsSync(path.join(root, 'scripts', 'e2e-up')), 'stub up script scaffolded');
+    assert.ok(fs.existsSync(path.join(root, 'scripts', 'e2e-down')), 'stub down script scaffolded');
+
+    assert.equal(runCli(['generate', '--root', root]).status, 0);
+    const include = fs.readFileSync(path.join(root, '.agents', 'includes', 'e2e-runtime.md'), 'utf8');
+    assert.match(include, /scripts\/e2e-up/);
+    assert.doesNotMatch(include, /\{\{.*?\}\}/, 'configured include fully resolves');
+  } finally {
+    cleanup();
+  }
+});
+
 test('init --answers scaffolds an azure-devops project, and a follow-up generate emits .mcp.json', () => {
   const { root, cleanup } = makeTmpRoot();
   try {

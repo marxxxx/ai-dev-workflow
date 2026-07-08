@@ -19,8 +19,34 @@ export function cmdScaffold(projectRoot) {
     return 0;
   }
   fs.copyFileSync(template, dest);
+  for (const rel of scaffoldE2eScripts(projectRoot)) console.log(`Created ${rel}`);
   console.log(`Created ${dest}.\nEdit project identity + ticketing.backend, then run \`ai-dev-workflow generate\`.`);
   return 0;
+}
+
+/**
+ * Copy the starter e2e up/down stub scripts into the project, preserving the template's relative
+ * layout (scripts/e2e-up, scripts/e2e-down). Never overwrites an existing file. Returns the list of
+ * paths written (relative to projectRoot).
+ */
+export function scaffoldE2eScripts(projectRoot) {
+  const srcRoot = path.join(SRC_DIR, 'config', 'e2e-scripts');
+  const written = [];
+  const walk = (relDir) => {
+    const absDir = path.join(srcRoot, relDir);
+    for (const entry of fs.readdirSync(absDir, { withFileTypes: true })) {
+      const rel = relDir ? path.join(relDir, entry.name) : entry.name;
+      if (entry.isDirectory()) { walk(rel); continue; }
+      const dest = path.join(projectRoot, rel);
+      if (fs.existsSync(dest)) { console.log(`  ${rel} exists — left untouched.`); continue; }
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(path.join(srcRoot, rel), dest);
+      try { fs.chmodSync(dest, 0o755); } catch { /* chmod is a no-op / unsupported on some platforms */ }
+      written.push(rel);
+    }
+  };
+  walk('');
+  return written;
 }
 
 /**
@@ -153,6 +179,8 @@ export async function cmdInit(projectRoot, { prompter } = {}) {
     const setupPath = path.join(projectRoot, 'docs', 'ai-workflow-setup.md');
     fs.mkdirSync(path.dirname(setupPath), { recursive: true });
     fs.writeFileSync(setupPath, renderSetupDoc(config));
+
+    for (const rel of scaffoldE2eScripts(projectRoot)) console.log(`Created ${rel}`);
 
     console.log(`\nCreated ${dest}`);
     console.log(`Created ${setupPath}`);

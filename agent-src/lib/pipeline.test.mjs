@@ -6,7 +6,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { renderAll, loadConfig } from '../generate.mjs';
-import { makeTmpRoot, tmpProject } from '../test-helpers.mjs';
+import { makeTmpRoot, tmpProject, MINIMAL_PROJECT } from '../test-helpers.mjs';
+
+// A valid file-backend project used as the base for the configured-e2e case.
+const MINIMAL_E2E_PROJECT = MINIMAL_PROJECT;
 
 function writeProject(root, config) {
   fs.writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(config, null, 2) + '\n');
@@ -69,6 +72,43 @@ test('renderAll throws when azure-devops lacks an organization', () => {
   }
 });
 
+test('renderAll emits the unconfigured e2e include when no e2e block is set', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const outputs = renderAll(root);
+    const e2e = outputs.find((o) => o.path === '.agents/includes/e2e-runtime.md');
+    assert.ok(e2e, 'e2e-runtime include should always be produced');
+    assert.match(e2e.content, /Not Configured/);
+    assert.match(e2e.content, /NEEDS HUMAN REVIEW/);
+    assert.doesNotMatch(e2e.content, /\{\{.*?\}\}/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('renderAll emits the configured e2e include carrying the up/down commands', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeProject(root, {
+      ...MINIMAL_E2E_PROJECT,
+      e2e: { up: 'scripts/e2e-up', down: 'scripts/e2e-down', readinessTimeout: 90, logsDir: '.e2e/logs' },
+    });
+    const outputs = renderAll(root);
+    const e2e = outputs.find((o) => o.path === '.agents/includes/e2e-runtime.md');
+    assert.ok(e2e, 'e2e-runtime include should be produced');
+    assert.match(e2e.content, /scripts\/e2e-up/);
+    assert.match(e2e.content, /scripts\/e2e-down/);
+    assert.match(e2e.content, /`90`/);
+    assert.doesNotMatch(e2e.content, /\{\{.*?\}\}/, 'configured include must fully resolve');
+    // The qa-engineer body points at the include and must resolve on every platform.
+    const qa = outputs.find((o) => o.path === path.join('.claude', 'agents', 'qa-engineer.md'));
+    assert.match(qa.content, /\.agents\/includes\/e2e-runtime\.md/);
+    assert.doesNotMatch(qa.content, /\{\{.*?\}\}/);
+  } finally {
+    cleanup();
+  }
+});
+
 test('loadConfig merges package workflow + includePath over the project file', () => {
   const { root, cleanup } = tmpProject();
   try {
@@ -79,6 +119,7 @@ test('loadConfig merges package workflow + includePath over the project file', (
     // package-owned (from agent-src/config/ai-workflow.json)
     assert.ok(cfg.workflow, 'workflow states/artifacts come from the package');
     assert.equal(cfg.ticketing.includePath, '.agents/includes/ticketing.md');
+    assert.equal(cfg.app.includePath, '.agents/includes/e2e-runtime.md');
   } finally {
     cleanup();
   }

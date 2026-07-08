@@ -107,7 +107,9 @@ For visual/UI work, require:
   changes;
 - subjective criteria reported as `NEEDS HUMAN REVIEW`, never automatically passed.
 - no PASS based solely on unit tests, direct component method calls, utility calls, mocked events, API calls, or DOM state injection;
-- `NEEDS HUMAN REVIEW` only for subjective visual claims, not for untested functional behavior.
+- `NEEDS HUMAN REVIEW` only for subjective visual claims, not for untested functional behavior —
+  except when no e2e runtime is configured (see `{{app.include}}`), where functional UI/interactive
+  criteria that need a running app may be deferred as `NEEDS HUMAN REVIEW` with a note.
 
 After QA returns, audit the `{{artifact.testResults}}` comment before accepting the handoff:
 
@@ -115,6 +117,10 @@ After QA returns, audit the `{{artifact.testResults}}` comment before accepting 
   - every UI criterion must name the route/control/action used;
   - evidence artifact paths must be present for browser-tested UI criteria;
   - any criterion marked untested, blocked, or verified only by internal calls means QA did not pass;
+  - exception: when e2e was skipped per `{{app.include}}` (the runtime is unconfigured, or `up`
+    intentionally started no app), UI/interactive criteria deferred as `NEEDS HUMAN REVIEW` (with a
+    note and a passing automated suite) are an acceptable handoff, not a QA failure — advance to PR
+    and carry the human-review items forward;
   - if the QA evidence is incomplete or invalid, do not advance to PR handoff. Move the
     {{ticketing.itemNoun}} to `failed` with a corrective comment, or return it to QA when the only issue
     is missing evidence and no functional failure was observed.

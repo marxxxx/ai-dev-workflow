@@ -2,6 +2,9 @@
   "ticketing": {
     "includePath": ".agents/includes/ticketing.md"
   },
+  "app": {
+    "includePath": ".agents/includes/e2e-runtime.md"
+  },
   "workflow": {
     "states": [
       {
