@@ -31,3 +31,12 @@ jobs:
 
       - name: Run full test suite
         run: npm test
+
+      - name: Verify generation is deterministic
+        # Generated files (.claude/.codex/.opencode) are gitignored, so a fresh
+        # checkout has none — bare `check` would report drift and fail. Generate
+        # first, then check: this proves the generator is idempotent (no
+        # non-deterministic output) rather than diffing against committed files.
+        run: |
+          npm run generate
+          npm run check
