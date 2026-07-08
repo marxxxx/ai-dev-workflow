@@ -64,6 +64,50 @@ test('cmdInit writes the default e2e block and scaffolds the stub scripts', asyn
   }
 });
 
+test('cmdInit scaffolds the baseline AGENTS.md and never spawns when scaffoldAgent is skip', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    let spawned = false;
+    const spawn = () => { spawned = true; return { status: 0 }; };
+    // FILE_ANSWERS omits scaffoldAgent → defaults to 'skip'.
+    const code = await cmdInit(root, { prompter: createScriptedPrompter(FILE_ANSWERS), spawn });
+    assert.equal(code, 0);
+    assert.equal(spawned, false, 'no coding agent spawned when skipped');
+    assert.ok(fs.existsSync(path.join(root, 'AGENTS.md')), 'AGENTS.md scaffolded');
+    assert.match(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8'), /Test-locator attribute/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('cmdInit leaves an existing AGENTS.md untouched', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'AGENTS.md'), 'MINE\n');
+    const code = await cmdInit(root, { prompter: createScriptedPrompter(FILE_ANSWERS) });
+    assert.equal(code, 0);
+    assert.equal(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8'), 'MINE\n');
+  } finally {
+    cleanup();
+  }
+});
+
+test('cmdInit spawns the chosen coding agent with the project root as cwd', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const calls = [];
+    const spawn = (bin, args, opts) => { calls.push({ bin, opts }); return { status: 0 }; };
+    const answers = { ...FILE_ANSWERS, scaffoldAgent: 'claude' };
+    const code = await cmdInit(root, { prompter: createScriptedPrompter(answers), spawn });
+    assert.equal(code, 0);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].bin, 'claude');
+    assert.equal(calls[0].opts.cwd, root);
+  } finally {
+    cleanup();
+  }
+});
+
 test('cmdInit leaves an existing ai-project.json untouched when overwrite is declined', async () => {
   const { root, cleanup } = makeTmpRoot();
   try {

@@ -30,7 +30,9 @@ npx github:marxxxx/ai-dev-workflow#v0.3.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
-#    the state mapping; generate then merges the `ado` server into .mcp.json.)
+#    the state mapping; generate then merges the `ado` server into .mcp.json.
+#    It also offers to hand off to an installed coding agent — claude/codex/opencode
+#    — to flesh out AGENTS.md and the e2e scripts, or skip and fill them in yourself.)
 
 # 3. generate the platform files
 npx github:marxxxx/ai-dev-workflow#v0.3.0 generate
@@ -46,7 +48,7 @@ Pin the tag (`#v0.3.0`) so devs and CI stay in sync — a C# repo has no lockfil
 |---|---|
 | `generate` (default) | Render all platform files to the project root |
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
-| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping), then writes `ai-project.json` and `docs/ai-workflow-setup.md`, and scaffolds the `scripts/e2e-up` / `scripts/e2e-down` stubs. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
+| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping), then writes `ai-project.json` and `docs/ai-workflow-setup.md`, scaffolds a baseline `AGENTS.md` plus the `scripts/e2e-up` / `scripts/e2e-down` stubs, and optionally hands off to a coding agent (claude/codex/opencode) to flesh those out. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
 
@@ -68,7 +70,9 @@ stub scripts you fill in:
 
 **The `up` contract** (what your `scripts/e2e-up` must do): start backing services + the app, block
 until it's reachable, print a `BASE_URL=<url>` line to stdout, and exit `0`. `down` idempotently
-tears everything back down. From that the QA agent decides:
+tears everything back down. `init` scaffolds these as stubs; if you pick a coding agent during
+onboarding it inspects your repo and fills them (and `AGENTS.md`) in as a starting point. From the
+`up` result the QA agent decides:
 
 | `up` result | QA behavior |
 |---|---|
