@@ -12,9 +12,10 @@ dev box and CI). Pin to a Git tag (e.g. `#v0.2.0`) so devs and CI stay in sync.
 
 | File / dir | Owner | Committed? |
 |---|---|---|
-| `ai-project.json` | **you** — project identity + ticketing backend choice | yes |
+| `ai-project.json` | **you** — project identity + ticketing backend choice + `e2e` block | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
 | `.mcp.json` | merged (azure-devops backend only) — the `ado` server entry; other servers preserved | yes |
+| `scripts/e2e-up`, `scripts/e2e-down` | scaffolded stubs — **you** implement (see [End-to-end testing](#end-to-end-testing-qa)) | yes |
 
 Everything else (agent/skill sources, workflow state machine, the generator) lives in the package and
 updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the sources are authored.
@@ -45,9 +46,39 @@ Pin the tag (`#v0.2.0`) so devs and CI stay in sync — a C# repo has no lockfil
 |---|---|
 | `generate` (default) | Render all platform files to the project root |
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
-| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping), then writes `ai-project.json` and `docs/ai-workflow-setup.md`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
+| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping), then writes `ai-project.json` and `docs/ai-workflow-setup.md`, and scaffolds the `scripts/e2e-up` / `scripts/e2e-down` stubs. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
+
+## End-to-end testing (QA)
+
+The `qa-engineer` needs to reliably start your app to test it with Playwright. Because "start the
+app" differs per stack (Node, .NET, …), the workflow relies on a **project-authored contract**
+rather than guessing commands. `init` writes an `e2e` block to `ai-project.json` and scaffolds two
+stub scripts you fill in:
+
+```jsonc
+"e2e": {
+  "up": "scripts/e2e-up",       // command the QA agent runs to start the app
+  "down": "scripts/e2e-down",   // idempotent teardown
+  "readinessTimeout": 120,       // seconds to wait for readiness
+  "logsDir": ".e2e/logs"
+}
+```
+
+**The `up` contract** (what your `scripts/e2e-up` must do): start backing services + the app, block
+until it's reachable, print a `BASE_URL=<url>` line to stdout, and exit `0`. `down` idempotently
+tears everything back down. From that the QA agent decides:
+
+| `up` result | QA behavior |
+|---|---|
+| exit `0` **with** `BASE_URL=` | drive the browser against that URL end-to-end |
+| exit `0` **without** `BASE_URL=` | **skip** browser e2e — run the suite, defer UI criteria to human review (the scaffolded stubs do this until you implement them) |
+| **non-zero** exit / readiness timeout | report a **blocker** (real startup failure) |
+
+The contract is regenerated into `.agents/includes/e2e-runtime.md` (the single source of truth the
+QA agent reads); the `up`/`down` scripts are yours to own and edit. A project with no app can delete
+the `e2e` block entirely — QA then runs the suite only and defers UI criteria to a human.
 
 ## In a Node project
 
