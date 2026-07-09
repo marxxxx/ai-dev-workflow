@@ -96,6 +96,37 @@ wit_add_work_item_comment(id: <id>, project: "{{ticketing.azure.project}}",
 
 Never set `System.State` to `Done` and never remove a work item — human acceptance only.
 
+### Linking an Upstream Work Item
+
+A work item may originate from an **upstream ticket** — typically an Azure DevOps Product Backlog Item
+where the initial requirement was described. When the product-architect records one, link the
+implementation work item to it as **Related** by adding a relation via `wit_update_work_item`. Read the
+implementation work item's existing relations first (`wit_get_work_item(id, expand: "all")`), then:
+
+```text
+# Upstream is an Azure DevOps work item (natural case): native "Related" relation.
+wit_update_work_item(id: <impl-id>, project: "{{ticketing.azure.project}}", updates: [
+  { "op": "add", "path": "/relations/-", "value": {
+      "rel": "System.LinkTypes.Related",
+      "url": "https://dev.azure.com/{{ticketing.azure.organization}}/_apis/wit/workItems/<upstream-id>",
+      "attributes": { "comment": "Upstream requirement" }
+  } }
+])
+
+# Upstream lives outside Azure DevOps: attach a Hyperlink relation to its URL instead.
+wit_update_work_item(id: <impl-id>, project: "{{ticketing.azure.project}}", updates: [
+  { "op": "add", "path": "/relations/-", "value": {
+      "rel": "Hyperlink",
+      "url": "<upstream-url>",
+      "attributes": { "comment": "Upstream requirement" }
+  } }
+])
+```
+
+Linking is optional — skip it when there is no upstream ticket; the implementation work item is then the
+single source of truth. The upstream work-item id also drives the feature-branch name (see Git Branching
+Convention); a later agent reads it back via `wit_get_work_item(id, expand: "all")`.
+
 ### Pull Requests
 
 ```bash
@@ -186,5 +217,9 @@ The workflow hands context between agents through named work-item comments (via
 ## Git Branching Convention
 
 - Branch name: `{{git.branchPattern}}` (for example `feat/42_user-login`).
+- When the work item is linked to an upstream ticket (a `System.LinkTypes.Related` relation, or a
+  `Hyperlink` to an external requirement), the branch's first segment is the **upstream ticket number**
+  instead of the implementation work-item id — for example an upstream PBI `12345` uses
+  `feat/12345_user-login`. With no upstream ticket, use the implementation work-item id as before.
 - All implementation work happens on the feature branch.
 - Merged into `{{git.prTarget}}` only after human acceptance.

@@ -37,6 +37,16 @@ Statuses are stored as a `status:` field in the issue file's YAML frontmatter.
 | `{{status.failed}}` | Code review or QA testing found issues | Orchestrator (on review/test failure) |
 | `closed` | Human has verified and accepted | **Human only — NEVER closed by automation** |
 
+## Upstream Ticket
+
+An issue may originate from an **upstream ticket** in another backend (for example an Azure DevOps
+Product Backlog Item). When the product-architect records one, store it in the `upstream:` frontmatter
+field as the originating ticket number or URL (for example `upstream: "AB#12345"` or
+`upstream: "https://dev.azure.com/org/project/_workitems/edit/12345"`). This links the implementation
+issue back to the requirement's source and drives the feature-branch name (see Git Branching
+Convention). The field is optional: leave it empty (`upstream: ""`) when there is no upstream ticket —
+the issue itself is then the single source of truth.
+
 ## Commands Reference
 
 ### Setup (run once)
@@ -72,6 +82,7 @@ title: "[Issue Title]"
 status: {{status.new}}
 labels: []
 depends_on: []
+upstream: ""
 ---
 
 ## Overview
@@ -126,6 +137,7 @@ title: "[Feature Name]"
 status: {{status.new}}
 labels: [feature]
 depends_on: []
+upstream: ""
 ---
 
 ## Overview
@@ -166,6 +178,7 @@ title: "[Bug Description]"
 status: {{status.new}}
 labels: [bug]
 depends_on: []
+upstream: ""
 ---
 
 ## Overview
@@ -199,5 +212,9 @@ depends_on: []
 ## Git Branching Convention
 
 - Branch name: `{{git.branchPattern}}` (for example `feat/42_user-login`).
+- When the issue's `upstream:` frontmatter records an upstream ticket, the branch's first segment is
+  the **upstream ticket number** instead of the implementation issue number — for example an issue with
+  `upstream: "AB#12345"` uses `feat/12345_user-login`. With no upstream ticket (`upstream: ""`), use the
+  implementation issue number as before.
 - All implementation work happens on the feature branch.
 - Merged into `{{git.prTarget}}` only after human acceptance.

@@ -24,17 +24,28 @@ state using the representation and commands that file defines.
 
 1. Explore relevant repository code, documentation, and current application behavior where
    feasible.
-2. For bug reports involving observable UI behavior, attempt browser reproduction and capture
+2. Ask the **mandatory upstream-ticket question** for every {{ticketing.itemNoun}}: does the
+   requirement already exist as an upstream ticket in a ticketing backend (for example an Azure DevOps
+   Product Backlog Item where the initial requirement was described)? If the initial prompt already
+   names or implies one, do not re-ask openly — ask the user to confirm the exact upstream ticket
+   number/URL you recorded. Providing an upstream ticket is optional; the user may answer "none".
+   Record the answer as an upstream reference or an explicit "None". This question is always asked, even
+   when the rest of the specification is already clear.
+3. For bug reports involving observable UI behavior, attempt browser reproduction and capture
    steps/evidence. If blocked, record what was attempted and ask for the missing information.
-3. Ask as many questions necessary to come up with an unambigous and clear specification of the user's requirements before {{ticketing.itemNoun}} creation. 
+4. Ask as many questions necessary to come up with an unambigous and clear specification of the user's requirements before {{ticketing.itemNoun}} creation. 
    Ask one necessary question at a time until scope, edge cases, priorities, and exclusions are unambiguous.
-4. For non-trivial work, propose an architecture direction grounded in existing repository
+5. For non-trivial work, propose an architecture direction grounded in existing repository
    patterns and obtain explicit user approval before {{ticketing.itemNoun}} creation.
-5. For frontend work, inspect existing UI behavior and conventions before proposing changes.
-6. If the request includes subjective visual outcomes such as redesign, theme, mood, style,
+6. For frontend work, inspect existing UI behavior and conventions before proposing changes.
+7. If the request includes subjective visual outcomes such as redesign, theme, mood, style,
    polished, modern, or celebration, complete the visual approval workflow below.
-7. Create one or more vertical, independently testable {{ticketing.itemNoun}}s in the `new` state.
-8. Report {{ticketing.itemNoun}} links and dependencies, then stop. Implementation and QA are
+8. Create one or more vertical, independently testable {{ticketing.itemNoun}}s in the `new` state.
+   When an upstream ticket was recorded, link the {{ticketing.itemNoun}} to it as related using the
+   mechanism defined in `{{ticketing.include}}`, and note that its feature branch's first segment will
+   be the upstream ticket number. When no upstream ticket was given, the {{ticketing.itemNoun}} is the
+   single source of truth and its own number flows into branch naming as usual.
+9. Report {{ticketing.itemNoun}} links and dependencies, then stop. Implementation and QA are
    downstream work.
 
 ## Visual Approval
@@ -55,6 +66,7 @@ variants solely because it changes visible content.
 
 Every {{ticketing.itemNoun}} must include:
 
+- Upstream ticket reference (the originating backend ticket), or an explicit `None`
 - Overview and user value
 - Requirements and explicit exclusions
 - Architecture & Implementation Guidance, including affected layers, approved approach,
@@ -70,6 +82,8 @@ across frontend and backend layers. Do not create horizontal infrastructure-only
 
 Before creating a {{ticketing.itemNoun}}, verify that:
 
+- the mandatory upstream-ticket question was asked and its answer (an upstream reference or an explicit
+  "None") is recorded on the {{ticketing.itemNoun}};
 - at least one user clarification was received;
 - the technical direction was approved when the change was non-trivial;
 - required visual-direction approval was completed;

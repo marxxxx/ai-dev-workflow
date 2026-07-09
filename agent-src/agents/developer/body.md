@@ -19,6 +19,11 @@ names, provider-specific commands, status encoding, or comment mechanisms here.
 
 Branch workflow:
 - Work on the {{ticketing.itemNoun}} feature branch named `{{git.branchPattern}}`.
+- When the {{ticketing.itemNoun}} records an upstream ticket reference, the branch's first segment is
+  the upstream ticket number (`feat/<upstream-number>_<slug>`) instead of the implementation
+  {{ticketing.itemNoun}} number. Read the upstream reference from the {{ticketing.itemNoun}} as
+  described in `{{ticketing.include}}`. With no upstream ticket, use the implementation
+  {{ticketing.itemNoun}} number.
 - If the parent agent created or assigned a branch/worktree, work there and do not switch away
   from it. Otherwise, ask the parent before changing branches or synchronizing with remote state.
 - Do not discard or revert other people's changes. You are not alone in the worktree.

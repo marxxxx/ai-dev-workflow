@@ -28,6 +28,8 @@ logical; use the exact representation the include defines.
 
   - repository root and current branch/worktree path;
   - issue number, title, current logical state, and issue file/path or ticket lookup command;
+  - the upstream ticket reference if the {{ticketing.itemNoun}} records one — it determines the branch's
+    first segment (`feat/<upstream-number>_<slug>`);
   - required ticketing include path: `{{ticketing.include}}`;
   - relevant prior artifact names: `{{artifact.implementationNotes}}`,
     `{{artifact.reviewFeedback}}`, `{{artifact.testResults}}`;
@@ -68,7 +70,9 @@ number, title, current state, branch/worktree context, and instruction to read a
 The developer owns:
 
 - moving the {{ticketing.itemNoun}} to the `in-progress` state before edits;
-- working on `{{git.branchPattern}}`;
+- working on `{{git.branchPattern}}` — when the {{ticketing.itemNoun}} records an upstream ticket, its
+  number is the branch's first segment instead of the implementation {{ticketing.itemNoun}} number (see
+  `{{ticketing.include}}`);
 - implementing and validating the {{ticketing.itemNoun}};
 - posting `{{artifact.implementationNotes}}`;
 - moving the {{ticketing.itemNoun}} to the `review` state only after completion.

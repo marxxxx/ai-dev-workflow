@@ -27,6 +27,16 @@ Statuses are stored as GitHub labels on the issue.
 | `{{status.failed}}` | Code review or QA testing found issues | Orchestrator (on review/test failure) |
 | **Closed** | Human has verified and accepted | **Human only — NEVER closed by automation** |
 
+## Upstream Ticket
+
+An issue may originate from an **upstream ticket** in another backend (for example an Azure DevOps
+Product Backlog Item). GitHub issues have no formal relation type, so when the product-architect records
+one, reference it as the first line of the issue body: `**Upstream:** <url-or-number>` (for example
+`**Upstream:** https://dev.azure.com/org/project/_workitems/edit/12345` or `**Upstream:** AB#12345`).
+This links the implementation issue back to the requirement's source and drives the feature-branch name
+(see Git Branching Convention). It is optional: use `**Upstream:** None` when there is no upstream ticket
+— the GitHub issue itself is then the single source of truth.
+
 ## Commands Reference
 
 ### Reading Issues
@@ -92,6 +102,8 @@ The workflow hands context between agents through named issue comments:
 ### Feature Issue Template
 
 ```markdown
+**Upstream:** [upstream ticket URL/number, or None]
+
 ## Overview
 [Brief description of the feature and its value to the user]
 
@@ -125,6 +137,8 @@ The workflow hands context between agents through named issue comments:
 ### Bug Issue Template
 
 ```markdown
+**Upstream:** [upstream ticket URL/number, or None]
+
 ## Overview
 [Brief description of the bug]
 
@@ -156,5 +170,9 @@ The workflow hands context between agents through named issue comments:
 ## Git Branching Convention
 
 - Branch name: `{{git.branchPattern}}` (for example `feat/42_user-login`).
+- When the issue body records an upstream ticket (`**Upstream:**` line), the branch's first segment is
+  the **upstream ticket number** instead of the implementation issue number — for example an
+  `**Upstream:** AB#12345` issue uses `feat/12345_user-login`. With no upstream ticket
+  (`**Upstream:** None`), use the implementation issue number as before.
 - All implementation work happens on the feature branch.
 - Merged into `{{git.prTarget}}` only after human acceptance.
