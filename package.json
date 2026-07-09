@@ -1,6 +1,6 @@
 {
   "name": "@strobl/ai-dev-workflow",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "description": "Single-source agent & skill definitions for Claude Code, Codex, and OpenCode, generated per project from a small config. Language-agnostic: usable in any repo (incl. C#/.NET) via npx; only requires Node to run the generator.",
   "type": "module",
@@ -27,6 +27,7 @@
     "agent-src/lib/pipeline.mjs",
     "agent-src/config/ai-workflow.json",
     "agent-src/config/ai-project.template.json",
+    "agent-src/config/AGENTS.template.md",
     "agent-src/config/e2e-scripts",
     "agent-src/README.md",
     "LICENSE"
