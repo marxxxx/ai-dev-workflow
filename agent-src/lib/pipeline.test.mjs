@@ -57,6 +57,82 @@ test('azure-devops backend injects ADO tools into ticketing agents and emits .mc
   }
 });
 
+test('azure-devops backend emits Codex project-local ADO MCP config', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeProject(root, {
+      project: { name: 'ADO', slug: 'ado', serenaProject: 'ado', description: '' },
+      repository: { slug: 'ado', defaultBranch: 'main' },
+      ticketing: {
+        backend: 'azure-devops', itemNoun: 'work item',
+        azureDevOps: {
+          organization: 'acme', project: 'widgets', featureType: 'Issue', bugType: 'Issue',
+          processTemplate: 'basic', stateMapping: {},
+        },
+      },
+      git: { branchPattern: 'x', prTarget: 'main' },
+    });
+
+    const outputs = renderAll(root);
+    const codexConfig = outputs.find((o) => o.path === path.join('.codex', 'config.toml'));
+    assert.ok(codexConfig, '.codex/config.toml should be produced for azure-devops');
+    assert.match(codexConfig.content, /# BEGIN ai-dev-workflow managed mcp_servers\.ado/);
+    assert.match(codexConfig.content, /\[mcp_servers\.ado\]/);
+    assert.match(codexConfig.content, /command = "npx"/);
+    assert.match(codexConfig.content, /args = \["-y", "@azure-devops\/mcp", "acme", "-d", "core", "work", "work-items"\]/);
+    assert.match(codexConfig.content, /# END ai-dev-workflow managed mcp_servers\.ado/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('azure-devops Codex MCP config preserves unrelated TOML and replaces ado only', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeProject(root, {
+      project: { name: 'ADO', slug: 'ado', serenaProject: 'ado', description: '' },
+      repository: { slug: 'ado', defaultBranch: 'main' },
+      ticketing: {
+        backend: 'azure-devops', itemNoun: 'work item',
+        azureDevOps: {
+          organization: 'new-org', project: 'widgets', featureType: 'Issue', bugType: 'Issue',
+          processTemplate: 'basic', stateMapping: {},
+        },
+      },
+      git: { branchPattern: 'x', prTarget: 'main' },
+    });
+
+    const codexDir = path.join(root, '.codex');
+    fs.mkdirSync(codexDir, { recursive: true });
+    fs.writeFileSync(path.join(codexDir, 'config.toml'), [
+      'model = "gpt-5-codex"',
+      '',
+      '[mcp_servers.context7]',
+      'url = "https://mcp.context7.com/mcp"',
+      '',
+      '[mcp_servers.ado]',
+      'command = "old-command"',
+      'args = ["old-org"]',
+      '',
+      '[profiles.default]',
+      'approval_policy = "on-request"',
+      '',
+    ].join('\n'));
+
+    const outputs = renderAll(root);
+    const codexConfig = outputs.find((o) => o.path === path.join('.codex', 'config.toml'));
+    assert.ok(codexConfig);
+    assert.match(codexConfig.content, /model = "gpt-5-codex"/);
+    assert.match(codexConfig.content, /\[mcp_servers\.context7\]\nurl = "https:\/\/mcp\.context7\.com\/mcp"/);
+    assert.match(codexConfig.content, /\[profiles\.default\]\napproval_policy = "on-request"/);
+    assert.doesNotMatch(codexConfig.content, /old-command/);
+    assert.doesNotMatch(codexConfig.content, /old-org/);
+    assert.match(codexConfig.content, /"new-org"/);
+  } finally {
+    cleanup();
+  }
+});
+
 test('renderAll throws when azure-devops lacks an organization', () => {
   const { root, cleanup } = makeTmpRoot();
   try {

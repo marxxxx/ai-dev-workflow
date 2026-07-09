@@ -6,7 +6,7 @@ import { KNOWN_PLATFORMS, TICKETING_AGENTS, ADO_MCP_TOOLS } from './constants.mj
 import { loadConfig, buildGlobalTokens } from './config.mjs';
 import { loadUnits } from './units.mjs';
 import { substituteManifestStrings, resolveBody } from './tokens.mjs';
-import { renderTicketingInclude, renderMcpJson } from './ticketing.mjs';
+import { renderTicketingInclude, renderMcpJson, renderCodexAdoMcpToml } from './ticketing.mjs';
 import { renderE2eInclude } from './app.mjs';
 import { RENDERERS, smokeCheck } from './renderers.mjs';
 
@@ -47,6 +47,16 @@ export function renderAll(projectRoot) {
   if (mcp) {
     seenPaths.add(mcp.path);
     outputs.push(mcp);
+  }
+
+  // The azure-devops backend also owns the Codex project-local `ado` MCP server config.
+  const codexAdoMcp = renderCodexAdoMcpToml(config, projectRoot);
+  if (codexAdoMcp) {
+    if (seenPaths.has(codexAdoMcp.path)) {
+      throw new Error(`Duplicate output path declared: ${codexAdoMcp.path}`);
+    }
+    seenPaths.add(codexAdoMcp.path);
+    outputs.push(codexAdoMcp);
   }
 
   // azure-devops backend: give ticketing agents access to the `ado` MCP tools on Claude.

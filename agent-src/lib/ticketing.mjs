@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { SRC_DIR } from './constants.mjs';
-import { normalizeLF } from './serialize.mjs';
+import { normalizeLF, dq } from './serialize.mjs';
 import { substituteTokens } from './tokens.mjs';
 
 /**
@@ -54,4 +54,64 @@ export function renderMcpJson(config, projectRoot) {
     args: ['-y', '@azure-devops/mcp', org, '-d', 'core', 'work', 'work-items'],
   };
   return { path: '.mcp.json', content: JSON.stringify(doc, null, 2) + '\n' };
+}
+
+const CODEX_ADO_BEGIN = '# BEGIN ai-dev-workflow managed mcp_servers.ado';
+const CODEX_ADO_END = '# END ai-dev-workflow managed mcp_servers.ado';
+
+export function renderCodexAdoMcpBlock(org) {
+  return [
+    CODEX_ADO_BEGIN,
+    '[mcp_servers.ado]',
+    'command = "npx"',
+    `args = [${['-y', '@azure-devops/mcp', org, '-d', 'core', 'work', 'work-items'].map(dq).join(', ')}]`,
+    CODEX_ADO_END,
+  ].join('\n');
+}
+
+export function mergeCodexAdoMcpBlock(existingContent, org) {
+  const lines = normalizeLF(existingContent || '').split('\n');
+  const kept = [];
+  let skippingManaged = false;
+  let skippingAdoTable = false;
+
+  for (const line of lines) {
+    if (line.trim() === CODEX_ADO_BEGIN) {
+      skippingManaged = true;
+      skippingAdoTable = false;
+      continue;
+    }
+    if (skippingManaged) {
+      if (line.trim() === CODEX_ADO_END) skippingManaged = false;
+      continue;
+    }
+    if (/^\s*\[mcp_servers\.ado\]\s*(?:#.*)?$/.test(line)) {
+      skippingAdoTable = true;
+      continue;
+    }
+    if (skippingAdoTable && /^\s*\[/.test(line)) {
+      skippingAdoTable = false;
+    }
+    if (skippingAdoTable) continue;
+    kept.push(line);
+  }
+
+  let prefix = kept.join('\n').replace(/\s+$/u, '');
+  const block = renderCodexAdoMcpBlock(org);
+  if (prefix.length > 0) prefix += '\n\n';
+  return `${prefix}${block}\n`;
+}
+
+export function renderCodexAdoMcpToml(config, projectRoot) {
+  if (config.ticketing?.backend !== 'azure-devops') return null;
+  const org = config.ticketing?.azureDevOps?.organization;
+  if (!org) {
+    throw new Error('ticketing.azureDevOps.organization is required for the azure-devops backend');
+  }
+  const configPath = path.join(projectRoot, '.codex', 'config.toml');
+  const existing = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
+  return {
+    path: path.join('.codex', 'config.toml'),
+    content: mergeCodexAdoMcpBlock(existing, org),
+  };
 }
