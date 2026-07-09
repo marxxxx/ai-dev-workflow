@@ -123,7 +123,7 @@ test('init scaffolds the e2e stub scripts + block, and generate emits the config
   }
 });
 
-test('init --answers scaffolds an azure-devops project, and a follow-up generate emits .mcp.json', () => {
+test('init --answers scaffolds an azure-devops project, and generate emits MCP config for shared and Codex consumers', () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     fs.writeFileSync(path.join(root, 'answers.json'), JSON.stringify({
@@ -139,6 +139,11 @@ test('init --answers scaffolds an azure-devops project, and a follow-up generate
     const mcp = JSON.parse(fs.readFileSync(path.join(root, '.mcp.json'), 'utf8'));
     assert.ok(mcp.mcpServers.ado, '.mcp.json should carry the ado server entry');
     assert.ok(mcp.mcpServers.ado.args.includes('acme'));
+    const codexConfig = fs.readFileSync(path.join(root, '.codex', 'config.toml'), 'utf8');
+    assert.match(codexConfig, /\[mcp_servers\.ado\]/);
+    assert.match(codexConfig, /command = "npx"/);
+    assert.match(codexConfig, /@azure-devops\/mcp/);
+    assert.match(codexConfig, /"acme"/);
   } finally {
     cleanup();
   }
