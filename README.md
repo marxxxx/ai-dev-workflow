@@ -15,7 +15,8 @@ dev box and CI). Pin to a Git tag (e.g. `#v0.6.0`) so devs and CI stay in sync.
 | `ai-project.json` | **you** — project identity + ticketing backend choice + `e2e` block | yes |
 | `agent-custom/` | **you** (optional) — per-project tweaks to agent/skill bodies (see [Customizing agents](#customizing-agents)) | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
-| `.mcp.json` | merged (azure-devops backend only) — the `ado` server entry; other servers preserved | yes |
+| `.mcp.json` | merged (azure-devops backend only) — the shared `ado` server entry; other servers preserved | yes |
+| `.codex/config.toml` | merged (azure-devops backend only) — the Codex project-local `ado` MCP server entry; other Codex settings preserved | yes |
 | `scripts/e2e-up`, `scripts/e2e-down` | scaffolded stubs — **you** implement (see [End-to-end testing](#end-to-end-testing-qa)) | yes |
 
 Everything else (agent/skill sources, workflow state machine, the generator) lives in the package and
@@ -31,7 +32,8 @@ npx github:marxxxx/ai-dev-workflow#v0.6.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
-#    the state mapping; generate then merges the `ado` server into .mcp.json.
+#    the state mapping; generate then merges the `ado` server into .mcp.json
+#    and .codex/config.toml.
 #    It also offers to hand off to an installed coding agent — claude/codex/opencode
 #    — to flesh out AGENTS.md and the e2e scripts, or skip and fill them in yourself.)
 

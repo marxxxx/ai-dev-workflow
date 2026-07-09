@@ -178,6 +178,7 @@ test('renderSetupDoc includes the ado section for azure-devops', () => {
     azure: { organization: 'myorg', project: 'myproj', processTemplate: 'basic' },
   });
   assert.match(renderSetupDoc(cfg), /\.mcp\.json/);
+  assert.match(renderSetupDoc(cfg), /\.codex\/config\.toml/);
 });
 
 import { cmdScaffold } from './generate.mjs';

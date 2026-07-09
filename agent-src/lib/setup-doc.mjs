@@ -218,7 +218,8 @@ export function renderSetupDoc(config) {
       '## Azure DevOps `ado` MCP server',
       '',
       'For the `azure-devops` ticketing backend, `ai-dev-workflow generate` automatically merges an',
-      '`ado` server entry into `.mcp.json` (the `@azure-devops/mcp` server handles its own auth).',
+      '`ado` server entry into `.mcp.json` and the Codex project-local `.codex/config.toml`',
+      '(`@azure-devops/mcp` handles its own auth).',
       'Nothing to install by hand — just run `generate` and reload your MCP servers.',
       '',
     );
