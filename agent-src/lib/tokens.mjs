@@ -71,6 +71,12 @@ export function resolveBody(unit, platform, globalTokens) {
       unit.overlays[platform], tokens, platform, `${unit.kind}/${unit.name} overlay:${platform}`);
     body = body.replace(/\n+$/, '\n') + '\n' + ov;
   }
+  // Append the project customization fragment last, so it wins by "later instruction" precedence.
+  if (unit.append) {
+    const frag = substituteTokens(
+      unit.append, tokens, platform, `${unit.kind}/${unit.name} append (agent-custom)`);
+    body = body.replace(/\n+$/, '\n') + '\n' + frag;
+  }
   if (!body.endsWith('\n')) body += '\n';
   return body;
 }

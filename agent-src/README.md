@@ -45,6 +45,7 @@ agent-src/
 
 <project-root>/
   ai-project.json              # PROJECT-owned config: project/repository/git identity + ticketing backend choice
+  agent-custom/<agents|skills>/<name>/   # PROJECT-owned, optional: body.md (override) / append.md (extend)
 ```
 
 ## Portability: two config files + the ticketing include
@@ -107,6 +108,15 @@ A unit *may* also contain `overlays/<platform>.md`; the generator appends it to 
 rendered body. This is the structural guarantee that platform-specific guidance does **not leak**
 between tools. None exist today — Serena, Playwright, and superpowers are available on all three
 platforms, so that guidance lives in the shared `body.md`.
+
+**Project overrides (`agent-custom/`).** A consuming project can tailor any shipped unit without
+forking the package by adding a committed `agent-custom/{agents,skills}/<name>/` dir at its root
+(read via `--root`). Per unit: `body.md` **replaces** the package body (escape hatch), and
+`append.md` is **appended** after the platform overlay (safe, upstream-tracking default). Both get
+the same `{{token}}` treatment; an unresolved token throws. Resolution order is **package body (or the
+project override) → platform overlay → project append**. These files are generation *inputs*, so
+`check` stays meaningful; a customized unit's `DO NOT EDIT` banner names both sources. See the root
+[README](../README.md#customizing-agents) for the consumer-facing guide.
 
 ## Manifest schema
 

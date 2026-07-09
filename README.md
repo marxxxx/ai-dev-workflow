@@ -13,6 +13,7 @@ dev box and CI). Pin to a Git tag (e.g. `#v0.4.1`) so devs and CI stay in sync.
 | File / dir | Owner | Committed? |
 |---|---|---|
 | `ai-project.json` | **you** — project identity + ticketing backend choice + `e2e` block | yes |
+| `agent-custom/` | **you** (optional) — per-project tweaks to agent/skill bodies (see [Customizing agents](#customizing-agents)) | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
 | `.mcp.json` | merged (azure-devops backend only) — the `ado` server entry; other servers preserved | yes |
 | `scripts/e2e-up`, `scripts/e2e-down` | scaffolded stubs — **you** implement (see [End-to-end testing](#end-to-end-testing-qa)) | yes |
@@ -51,6 +52,35 @@ Pin the tag (`#v0.4.1`) so devs and CI stay in sync — a C# repo has no lockfil
 | `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping), then writes `ai-project.json` and `docs/ai-workflow-setup.md`, scaffolds a baseline `AGENTS.md` plus the `scripts/e2e-up` / `scripts/e2e-down` stubs, and optionally hands off to a coding agent (claude/codex/opencode) to flesh those out. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
+
+## Customizing agents
+
+`ai-project.json` and per-unit `tokens` cover most tuning. When a project needs to change the actual
+instructions of a shipped agent or skill, add a committed **`agent-custom/`** directory that mirrors
+the source layout (`agent-custom/{agents,skills}/<name>/`). Two knobs per unit:
+
+| File | Effect |
+|---|---|
+| `agent-custom/<agents\|skills>/<name>/append.md` | **Appended** to the package body (after any platform overlay). The safe default — core instructions stay intact and upstream improvements to that agent keep flowing on update. |
+| `agent-custom/<agents\|skills>/<name>/body.md` | **Full override** — replaces the package body for that unit. Escape hatch for a wholesale rewrite; you then own that body (it no longer tracks upstream). |
+
+Both files support the same `{{tokens}}` as package bodies (`{{project.name}}`, `{{ticketing.itemNoun}}`, …);
+an unresolved token fails the generator with a clear error. `<name>` must match a unit that ships in
+the package. Resolution order is **package body (or your override) → platform overlay → your append**.
+
+Example — add a house rule to the developer without forking its body:
+
+```
+agent-custom/agents/developer/append.md
+```
+```md
+## House rules
+Always run `npm run lint` before moving a {{ticketing.itemNoun}} to review.
+```
+
+Then `generate` and commit. Because `agent-custom/` files are **inputs** to generation (not edits to
+the generated output), `check` still passes and still catches hand-edits to the generated files — a
+customized unit's `DO NOT EDIT` banner names both sources so you know where to edit.
 
 ## End-to-end testing (QA)
 

@@ -136,3 +136,86 @@ test('loadConfig returns package-only config when ai-project.json is absent', ()
     cleanup();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Project-level customization via agent-custom/{agents,skills}/<name>/.
+// ---------------------------------------------------------------------------
+
+/** Write a file under agent-custom/<rel>, creating parent dirs. */
+function writeCustom(root, rel, content) {
+  const abs = path.join(root, 'agent-custom', rel);
+  fs.mkdirSync(path.dirname(abs), { recursive: true });
+  fs.writeFileSync(abs, content);
+}
+
+const DEVELOPER = path.join('.claude', 'agents', 'developer.md');
+
+test('agent-custom append.md is appended after the package body with tokens resolved', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    writeCustom(root, 'agents/developer/append.md', '## House rules\nAlways lint for {{project.name}}.\n');
+    const dev = renderAll(root).find((o) => o.path === DEVELOPER);
+    // Package prose still present…
+    assert.match(dev.content, /Own implementation only\./);
+    // …and the fragment is appended, with {{project.name}} resolved from MINIMAL_PROJECT.
+    assert.match(dev.content, /## House rules\nAlways lint for Test Project\./);
+    assert.doesNotMatch(dev.content, /\{\{.*?\}\}/);
+    // Banner now points at both sources.
+    assert.match(dev.content, /agent-src\/agents\/developer \+ agent-custom\/agents\/developer/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('agent-custom body.md fully overrides the package body', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    writeCustom(root, 'agents/developer/body.md', 'Custom developer for {{project.name}} only.\n');
+    const dev = renderAll(root).find((o) => o.path === DEVELOPER);
+    assert.match(dev.content, /Custom developer for Test Project only\./);
+    assert.doesNotMatch(dev.content, /Own implementation only\./, 'package body must be gone');
+    assert.doesNotMatch(dev.content, /\{\{.*?\}\}/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('agent-custom override and append combine (override is the base, append follows)', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    writeCustom(root, 'agents/developer/body.md', 'BASE override.\n');
+    writeCustom(root, 'agents/developer/append.md', 'EXTRA appended.\n');
+    const dev = renderAll(root).find((o) => o.path === DEVELOPER);
+    // A blank-line separator sits between base and fragment (same as the overlay append).
+    assert.match(dev.content, /BASE override\.\n\nEXTRA appended\./);
+    assert.doesNotMatch(dev.content, /Own implementation only\./);
+  } finally {
+    cleanup();
+  }
+});
+
+test('an unresolved token in an agent-custom file throws through the pipeline guard', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    writeCustom(root, 'agents/developer/append.md', 'Uses {{nope}}.\n');
+    assert.throws(() => renderAll(root), /no matching token/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('no agent-custom dir is a no-op: output identical to package-only render', () => {
+  const a = tmpProject();
+  const b = tmpProject();
+  try {
+    const bare = renderAll(a.root).find((o) => o.path === DEVELOPER).content;
+    writeCustom(b.root, 'agents/developer/append.md', 'x\n');
+    fs.rmSync(path.join(b.root, 'agent-custom'), { recursive: true, force: true });
+    const removed = renderAll(b.root).find((o) => o.path === DEVELOPER).content;
+    assert.equal(removed, bare, 'removing agent-custom returns to package defaults');
+    assert.doesNotMatch(bare, /agent-custom/);
+  } finally {
+    a.cleanup();
+    b.cleanup();
+  }
+});

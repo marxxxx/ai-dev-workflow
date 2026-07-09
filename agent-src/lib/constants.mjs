@@ -9,6 +9,10 @@ import { fileURLToPath } from 'node:url';
 export const SRC_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export const KNOWN_PLATFORMS = ['claude', 'codex', 'opencode'];
 
+// Project-owned, committed dir (at the project root) that mirrors the agent-src/{agents,skills}/<name>/
+// layout and lets a project override or extend the body of any shipped unit. See lib/units.mjs.
+export const CUSTOM_DIR = 'agent-custom';
+
 // Agents that perform ticketing operations and therefore need the azure-devops MCP tools
 // added to their Claude allowlist when that backend is selected.
 export const TICKETING_AGENTS = ['developer', 'code-reviewer', 'qa-engineer'];

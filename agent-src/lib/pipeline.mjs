@@ -16,7 +16,7 @@ export function renderAll(projectRoot) {
     throw new Error('ticketing.azureDevOps.organization is required for the azure-devops backend');
   }
   const globalTokens = buildGlobalTokens(config);
-  const units = loadUnits();
+  const units = loadUnits(projectRoot);
   for (const unit of units) substituteManifestStrings(unit, globalTokens);
 
   const outputs = []; // { path, content }
