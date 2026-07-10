@@ -6,6 +6,7 @@
       "model": "opus",
       "tools": [
         "AskUserQuestion",
+        "Skill",
         "Read",
         "Write",
         "Glob",

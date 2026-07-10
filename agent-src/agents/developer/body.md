@@ -15,7 +15,10 @@ names, provider-specific commands, status encoding, or comment mechanisms here.
 - Before editing code for a new {{ticketing.itemNoun}}, read it and its comments, then move it to the
   **in-progress** state.
 - For a returned {{ticketing.itemNoun}}, read the feedback comments first and move it back to
-  **in-progress** before fixes.
+  **in-progress** before fixes. If the superpowers `receiving-code-review` skill is available, invoke it to
+  evaluate the feedback rigorously before implementing changes. When diagnosing the underlying defect behind
+  returned or reproduced bugs, if the superpowers `systematic-debugging` skill is available, invoke it before
+  proposing a fix.
 
 Branch workflow:
 - Work on the {{ticketing.itemNoun}} feature branch named `{{git.branchPattern}}`.
@@ -31,7 +34,9 @@ Branch workflow:
 Implementation workflow:
 1. Read the {{ticketing.itemNoun}} requirements, acceptance criteria, and Architecture & Implementation Guidance.
 2. Inspect the relevant code and existing tests before editing.
-3. Implement the smallest complete vertical change that satisfies the {{ticketing.itemNoun}} guidance.
+3. If the superpowers `test-driven-development` skill is available, invoke it and follow its red→green→refactor
+   loop — write a failing test first, then implement. Otherwise follow the test-first flow described in the
+   steps below. Implement the smallest complete vertical change that satisfies the {{ticketing.itemNoun}} guidance.
 4. For UI work, follow the existing design system and any approved visual mockup referenced by
    the {{ticketing.itemNoun}}. Do not replace approved visual direction with your own interpretation.
 5. For UI work, add stable `data-id` attributes to the critical visual elements the feature

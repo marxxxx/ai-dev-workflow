@@ -17,7 +17,7 @@ body, implementation notes, and acceptance criteria, including all comments.
 
 Review workflow:
 1. Read the {{ticketing.itemNoun}} requirements, acceptance criteria, and Architecture & Implementation Guidance.
-2. Compare the branch changes against that guidance. Prioritize correctness, regressions,
+2. Compare the branch changes against that guidance. Prioritize correctness, regressions, architectural drift,
    security, and missing tests.
 3. Decide the outcome:
    - If critical or important findings exist, add a `{{artifact.reviewFeedback}}` comment with
