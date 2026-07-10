@@ -100,9 +100,10 @@ the includes folder is where you add a new backend. The azure-devops backend add
 work-item tools into the Claude allowlists of the ticketing agents.
 
 `AGENTS.md` (and `CLAUDE.md`) remain hand-owned, project-specific docs carrying the
-tech-stack/ports/conventions prose. `init` scaffolds a baseline `AGENTS.md` starter (and can hand
-off to a coding agent to flesh it out), but it is never regenerated or overwritten thereafter —
-unlike the platform files, which `generate` owns.
+tech-stack/ports/conventions prose — including the **End-to-end testing** section the qa-engineer
+reads to bring the app up. `init` does not scaffold or own them; you create `AGENTS.md` with your
+coding agent's native `/init` (see `docs/ai-workflow-setup.md`). They are never regenerated or
+overwritten — unlike the platform files, which `generate` owns.
 
 A unit *may* also contain `overlays/<platform>.md`; the generator appends it to that platform's
 rendered body. This is the structural guarantee that platform-specific guidance does **not leak**

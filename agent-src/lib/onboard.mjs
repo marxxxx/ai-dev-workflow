@@ -4,11 +4,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
-import { SRC_DIR, argValue, KNOWN_PLATFORMS } from './constants.mjs';
+import { SRC_DIR, argValue } from './constants.mjs';
 import { kebabCase, detectRepoSlug } from './identity.mjs';
 import { readJson, buildProjectConfig } from './config.mjs';
 import { renderSetupDoc } from './setup-doc.mjs';
-import { runScaffoldAgent } from './scaffold-agent.mjs';
+
+/**
+ * The next-step guidance printed after onboarding: create AGENTS.md with the coding agent's native
+ * `/init`, then describe the e2e-infra setup there (see the setup doc). Shared by both entry points.
+ */
+const AGENTS_MD_GUIDANCE =
+  'Create AGENTS.md with your coding agent\'s native `/init` command, then add an "End-to-end\n' +
+  'testing" section describing how to start the app + backing services (see docs/ai-workflow-setup.md).\n' +
+  'Without it, the qa-engineer leaves end-to-end testing to the human.';
 
 /** Template-copy scaffold — the non-interactive fallback. Never overwrites. */
 export function cmdScaffold(projectRoot) {
@@ -20,47 +28,9 @@ export function cmdScaffold(projectRoot) {
     return 0;
   }
   fs.copyFileSync(template, dest);
-  for (const rel of scaffoldE2eScripts(projectRoot)) console.log(`Created ${rel}`);
-  for (const rel of scaffoldAgentsDoc(projectRoot)) console.log(`Created ${rel}`);
   console.log(`Created ${dest}.\nEdit project identity + ticketing.backend, then run \`ai-dev-workflow generate\`.`);
+  console.log(`\n${AGENTS_MD_GUIDANCE}`);
   return 0;
-}
-
-/**
- * Copy the starter e2e up/down stub scripts into the project, preserving the template's relative
- * layout (scripts/e2e-up, scripts/e2e-down). Never overwrites an existing file. Returns the list of
- * paths written (relative to projectRoot).
- */
-export function scaffoldE2eScripts(projectRoot) {
-  const srcRoot = path.join(SRC_DIR, 'config', 'e2e-scripts');
-  const written = [];
-  const walk = (relDir) => {
-    const absDir = path.join(srcRoot, relDir);
-    for (const entry of fs.readdirSync(absDir, { withFileTypes: true })) {
-      const rel = relDir ? path.join(relDir, entry.name) : entry.name;
-      if (entry.isDirectory()) { walk(rel); continue; }
-      const dest = path.join(projectRoot, rel);
-      if (fs.existsSync(dest)) { console.log(`  ${rel} exists — left untouched.`); continue; }
-      fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.copyFileSync(path.join(srcRoot, rel), dest);
-      try { fs.chmodSync(dest, 0o755); } catch { /* chmod is a no-op / unsupported on some platforms */ }
-      written.push(rel);
-    }
-  };
-  walk('');
-  return written;
-}
-
-/**
- * Copy the baseline AGENTS.md starter into the project root. Never overwrites an existing file
- * (AGENTS.md is hand-owned). Returns the list of paths written (relative to projectRoot).
- */
-export function scaffoldAgentsDoc(projectRoot) {
-  const src = path.join(SRC_DIR, 'config', 'AGENTS.template.md');
-  const dest = path.join(projectRoot, 'AGENTS.md');
-  if (fs.existsSync(dest)) { console.log('  AGENTS.md exists — left untouched.'); return []; }
-  fs.copyFileSync(src, dest);
-  return ['AGENTS.md'];
 }
 
 /**
@@ -154,11 +124,6 @@ export async function runInterview(prompter, { detectRepoSlug, projectRoot }) {
   }
   answers.branchPattern = await prompter.ask('Branch pattern', 'branchPattern', 'feat/<issue-number>_<slug>');
   answers.prTarget = await prompter.ask('PR target branch', 'prTarget', defaultBranch);
-  // One-time onboarding action (not persisted to ai-project.json): optionally hand off to an
-  // installed coding-agent CLI to flesh out the baseline AGENTS.md and e2e scripts.
-  answers.scaffoldAgent = await prompter.askChoice(
-    'Scaffold AGENTS.md + e2e scripts with a coding agent', 'scaffoldAgent',
-    ['skip', ...KNOWN_PLATFORMS], 'skip');
   return answers;
 }
 
@@ -171,7 +136,7 @@ export async function runInterview(prompter, { detectRepoSlug, projectRoot }) {
  * The `--answers` path is a scripted prompter, so interactive and non-interactive init share
  * exactly one interview code path.
  */
-export async function cmdInit(projectRoot, { prompter, spawn } = {}) {
+export async function cmdInit(projectRoot, { prompter } = {}) {
   const dest = path.join(projectRoot, 'ai-project.json');
   let active = prompter;
   if (!active) {
@@ -199,16 +164,10 @@ export async function cmdInit(projectRoot, { prompter, spawn } = {}) {
     fs.mkdirSync(path.dirname(setupPath), { recursive: true });
     fs.writeFileSync(setupPath, renderSetupDoc(config));
 
-    for (const rel of scaffoldE2eScripts(projectRoot)) console.log(`Created ${rel}`);
-    for (const rel of scaffoldAgentsDoc(projectRoot)) console.log(`Created ${rel}`);
-
     console.log(`\nCreated ${dest}`);
     console.log(`Created ${setupPath}`);
 
-    if (answers.scaffoldAgent && answers.scaffoldAgent !== 'skip') {
-      runScaffoldAgent(answers.scaffoldAgent, { projectRoot, config, spawn });
-    }
-
+    console.log(`\n${AGENTS_MD_GUIDANCE}`);
     console.log('Next: run `ai-dev-workflow generate`, then commit ai-project.json and the generated dirs.');
     return 0;
   } finally {

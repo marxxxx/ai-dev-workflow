@@ -47,62 +47,21 @@ for (const answers of [FILE_ANSWERS, GITHUB_ANSWERS, AZURE_ANSWERS]) {
   });
 }
 
-test('cmdInit writes the default e2e block and scaffolds the stub scripts', async () => {
-  const { root, cleanup } = makeTmpRoot();
-  try {
-    const code = await cmdInit(root, { prompter: createScriptedPrompter(FILE_ANSWERS) });
-    assert.equal(code, 0);
-
-    const written = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
-    assert.deepEqual(written.e2e, { up: 'scripts/e2e-up', down: 'scripts/e2e-down', readinessTimeout: 120, logsDir: '.e2e/logs' });
-
-    assert.ok(fs.existsSync(path.join(root, 'scripts', 'e2e-up')), 'e2e-up scaffolded');
-    assert.ok(fs.existsSync(path.join(root, 'scripts', 'e2e-down')), 'e2e-down scaffolded');
-    assert.match(fs.readFileSync(path.join(root, 'scripts', 'e2e-up'), 'utf8'), /BASE_URL=/, 'up stub carries the required BASE_URL contract');
-  } finally {
-    cleanup();
-  }
-});
-
-test('cmdInit scaffolds the baseline AGENTS.md and never spawns when scaffoldAgent is skip', async () => {
+test('cmdInit writes no e2e block, no scripts, and no AGENTS.md, and never spawns', async () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     let spawned = false;
     const spawn = () => { spawned = true; return { status: 0 }; };
-    // FILE_ANSWERS omits scaffoldAgent → defaults to 'skip'.
     const code = await cmdInit(root, { prompter: createScriptedPrompter(FILE_ANSWERS), spawn });
     assert.equal(code, 0);
-    assert.equal(spawned, false, 'no coding agent spawned when skipped');
-    assert.ok(fs.existsSync(path.join(root, 'AGENTS.md')), 'AGENTS.md scaffolded');
-    assert.match(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8'), /Test-locator attribute/);
-  } finally {
-    cleanup();
-  }
-});
+    assert.equal(spawned, false, 'onboarding no longer hands off to a coding agent');
 
-test('cmdInit leaves an existing AGENTS.md untouched', async () => {
-  const { root, cleanup } = makeTmpRoot();
-  try {
-    fs.writeFileSync(path.join(root, 'AGENTS.md'), 'MINE\n');
-    const code = await cmdInit(root, { prompter: createScriptedPrompter(FILE_ANSWERS) });
-    assert.equal(code, 0);
-    assert.equal(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8'), 'MINE\n');
-  } finally {
-    cleanup();
-  }
-});
+    const written = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+    assert.ok(!('e2e' in written), 'no e2e block is written');
 
-test('cmdInit spawns the chosen coding agent with the project root as cwd', async () => {
-  const { root, cleanup } = makeTmpRoot();
-  try {
-    const calls = [];
-    const spawn = (bin, args, opts) => { calls.push({ bin, opts }); return { status: 0 }; };
-    const answers = { ...FILE_ANSWERS, scaffoldAgent: 'claude' };
-    const code = await cmdInit(root, { prompter: createScriptedPrompter(answers), spawn });
-    assert.equal(code, 0);
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].bin, 'claude');
-    assert.equal(calls[0].opts.cwd, root);
+    assert.equal(fs.existsSync(path.join(root, 'scripts', 'e2e-up')), false, 'no e2e-up scaffolded');
+    assert.equal(fs.existsSync(path.join(root, 'scripts', 'e2e-down')), false, 'no e2e-down scaffolded');
+    assert.equal(fs.existsSync(path.join(root, 'AGENTS.md')), false, 'AGENTS.md is user-owned via native /init');
   } finally {
     cleanup();
   }

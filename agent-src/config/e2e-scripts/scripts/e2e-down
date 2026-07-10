@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-# e2e "down" — idempotently tear down everything e2e-up started (app process, services).
-# Fill this in to match e2e-up. Must be safe to run even if e2e-up failed partway.
-set -uo pipefail
-
-# TODO: stop the app process and tear down backing services
-#   (e.g. kill the app PID, `docker compose down -v`).
-echo "e2e-down is a stub — edit scripts/e2e-down to tear down your app." >&2
-exit 0

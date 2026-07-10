@@ -6,18 +6,18 @@ A customizable AI development workflow — subagent and skill definitions for **
 The generator is a zero-dependency Node script. It's distributed **directly from this Git repo** (no
 npm registry) and the consuming project does **not** need to be a Node project. It works in any repo
 (C#/.NET, Go, Rust, …) — the only requirement is Node on the machine that runs the generator (your
-dev box and CI). Pin to a Git tag (e.g. `#v0.6.2`) so devs and CI stay in sync.
+dev box and CI). Pin to a Git tag (e.g. `#v0.7.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
 | File / dir | Owner | Committed? |
 |---|---|---|
-| `ai-project.json` | **you** — project identity + ticketing backend choice + `e2e` block | yes |
+| `ai-project.json` | **you** — project identity + ticketing backend choice | yes |
+| `AGENTS.md` | **you** — create with your coding agent's native `/init`; describe e2e setup here (see [End-to-end testing](#end-to-end-testing-qa)) | yes |
 | `agent-custom/` | **you** (optional) — per-project tweaks to agent/skill bodies (see [Customizing agents](#customizing-agents)) | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
 | `.mcp.json` | merged (azure-devops backend only) — the shared `ado` server entry; other servers preserved | yes |
 | `.codex/config.toml` | merged (azure-devops backend only) — the Codex project-local `ado` MCP server entry; other Codex settings preserved | yes |
-| `scripts/e2e-up`, `scripts/e2e-down` | scaffolded stubs — **you** implement (see [End-to-end testing](#end-to-end-testing-qa)) | yes |
 
 Everything else (agent/skill sources, workflow state machine, the generator) lives in the package and
 updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the sources are authored.
@@ -28,22 +28,22 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json + docs/ai-workflow-setup.md
-npx github:marxxxx/ai-dev-workflow#v0.6.2 init
+npx github:marxxxx/ai-dev-workflow#v0.7.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
 #    the state mapping; generate then merges the `ado` server into .mcp.json
 #    and .codex/config.toml.
-#    It also offers to hand off to an installed coding agent — claude/codex/opencode
-#    — to flesh out AGENTS.md and the e2e scripts, or skip and fill them in yourself.)
+#    Then create AGENTS.md with your coding agent's native /init and describe your
+#    e2e setup there — see docs/ai-workflow-setup.md.)
 
 # 3. generate the platform files
-npx github:marxxxx/ai-dev-workflow#v0.6.2 generate
+npx github:marxxxx/ai-dev-workflow#v0.7.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the tag (`#v0.6.2`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the tag (`#v0.7.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 ## Commands
 
@@ -51,7 +51,7 @@ Pin the tag (`#v0.6.2`) so devs and CI stay in sync — a C# repo has no lockfil
 |---|---|
 | `generate` (default) | Render all platform files to the project root |
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
-| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping), then writes `ai-project.json` and `docs/ai-workflow-setup.md`, scaffolds a baseline `AGENTS.md` plus the `scripts/e2e-up` / `scripts/e2e-down` stubs, and optionally hands off to a coding agent (claude/codex/opencode) to flesh those out. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
+| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping), then writes `ai-project.json` and `docs/ai-workflow-setup.md`. It does not write `AGENTS.md` or any e2e scripts — instead it points you to create `AGENTS.md` with your coding agent's native `/init` and describe your e2e setup there. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
 
@@ -87,34 +87,25 @@ customized unit's `DO NOT EDIT` banner names both sources so you know where to e
 ## End-to-end testing (QA)
 
 The `qa-engineer` needs to reliably start your app to test it with Playwright. Because "start the
-app" differs per stack (Node, .NET, …), the workflow relies on a **project-authored contract**
-rather than guessing commands. `init` writes an `e2e` block to `ai-project.json` and scaffolds two
-stub scripts you fill in:
+app" differs per stack (Node, .NET, …) **and per OS** (Windows, Linux), the workflow does **not**
+ship start/stop scripts. Instead you describe **what** it takes to bring the app up, in prose, in the
+**End-to-end testing** section of your `AGENTS.md`; the QA agent translates that into the concrete
+commands for whatever OS it runs on. Cover: which backing services to start (db/cache/broker), any
+migrate/seed steps, how to start the app, how to know it's reachable, and the base URL (your **Ports
+& URLs**).
 
-```jsonc
-"e2e": {
-  "up": "scripts/e2e-up",       // command the QA agent runs to start the app
-  "down": "scripts/e2e-down",   // idempotent teardown
-  "readinessTimeout": 120,       // seconds to wait for readiness
-  "logsDir": ".e2e/logs"
-}
-```
+From that section the QA agent decides:
 
-**The `up` contract** (what your `scripts/e2e-up` must do): start backing services + the app, block
-until it's reachable, print a `BASE_URL=<url>` line to stdout, and exit `0`. `down` idempotently
-tears everything back down. `init` scaffolds these as stubs; if you pick a coding agent during
-onboarding it inspects your repo and fills them (and `AGENTS.md`) in as a starting point. From the
-`up` result the QA agent decides:
-
-| `up` result | QA behavior |
+| `AGENTS.md` e2e section | QA behavior |
 |---|---|
-| exit `0` **with** `BASE_URL=` | drive the browser against that URL end-to-end |
-| exit `0` **without** `BASE_URL=` | **skip** browser e2e — run the suite, defer UI criteria to human review (the scaffolded stubs do this until you implement them) |
-| **non-zero** exit / readiness timeout | report a **blocker** (real startup failure) |
+| describes how to start the app | bring it up, drive the browser against its URL end-to-end, then tear down |
+| absent (or no `AGENTS.md`) | **skip** browser e2e — run the suite, mark UI criteria `NEEDS HUMAN REVIEW`, **leave e2e to the human** (not a failure) |
+| described, but startup genuinely fails | report a **blocker** |
 
-The contract is regenerated into `.agents/includes/e2e-runtime.md` (the single source of truth the
-QA agent reads); the `up`/`down` scripts are yours to own and edit. A project with no app can delete
-the `e2e` block entirely — QA then runs the suite only and defers UI criteria to a human.
+The QA agent reads this via `.agents/includes/e2e-runtime.md` (generated — the single source of truth
+that points it at your `AGENTS.md`). Create `AGENTS.md` with your coding agent's native `/init`
+(Claude `/init` → `CLAUDE.md`; Codex / OpenCode `/init` → `AGENTS.md`); `docs/ai-workflow-setup.md`
+lists exactly what to put in it.
 
 ## In a Node project
 
@@ -122,7 +113,7 @@ Add it as a dev dependency pointing at the Git tag, and wire up scripts:
 
 ```jsonc
 "devDependencies": {
-  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.6.2"
+  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.7.0"
 },
 "scripts": {
   "agents:generate": "ai-dev-workflow generate",

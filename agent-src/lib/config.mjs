@@ -80,21 +80,12 @@ export function buildProjectConfig(a) {
       stateMapping: m.stateMapping,
     };
   }
-  const config = {
+  return {
     project: { name: a.name, slug: a.slug, serenaProject: a.serena, description: a.description },
     repository: { slug: a.repoSlug, defaultBranch: a.defaultBranch },
     ticketing,
     git: { branchPattern: a.branchPattern, prTarget: a.prTarget },
   };
-  // The e2e runtime contract (up/down commands + readiness/logs). Always present with defaults
-  // pointing at the scaffolded stub scripts; any provided value overrides its default.
-  config.e2e = {
-    up: a.e2e?.up || 'scripts/e2e-up',
-    down: a.e2e?.down || 'scripts/e2e-down',
-    readinessTimeout: Number(a.e2e?.readinessTimeout) || 120,
-    logsDir: a.e2e?.logsDir || '.e2e/logs',
-  };
-  return config;
 }
 
 /**
@@ -129,16 +120,9 @@ export function buildGlobalTokens(config) {
   put('git.branchPattern', c.git?.branchPattern);
   put('git.prTarget', c.git?.prTarget);
 
-  // E2E runtime: the include path is package-owned (always present); the up/down command
-  // tokens exist only when the project configured an e2e block — and are referenced only by
-  // the "configured" include variant, which is selected only in that same case.
+  // E2E runtime: the include path is package-owned (always present). The include itself points the
+  // qa-engineer at the project's AGENTS.md e2e-setup section — no per-project command tokens.
   put('app.include', c.app?.includePath);
-  if (c.e2e) {
-    put('app.up', c.e2e.up);
-    put('app.down', c.e2e.down);
-    put('app.readinessTimeout', c.e2e.readinessTimeout ?? 120);
-    put('app.logsDir', c.e2e.logsDir || '.e2e/logs');
-  }
 
   for (const [k, v] of Object.entries(c.workflow?.artifacts || {})) put(`artifact.${k}`, v);
   const usesTagLabels = backend === 'github' || backend === 'azure-devops';

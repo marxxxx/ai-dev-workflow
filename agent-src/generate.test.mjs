@@ -126,48 +126,35 @@ test('renderSetupDoc lists the three plugins and the banner', () => {
   assert.doesNotMatch(doc, /ado.*MCP server/i); // no azure section for file backend
 });
 
-test('buildProjectConfig always includes an e2e block with defaults, overridable', () => {
+test('buildProjectConfig writes no e2e block', () => {
   const base = {
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
     repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file', itemNoun: 'issue',
     branchPattern: 'x', prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
   };
-  assert.deepEqual(buildProjectConfig(base).e2e,
-    { up: 'scripts/e2e-up', down: 'scripts/e2e-down', readinessTimeout: 120, logsDir: '.e2e/logs' });
-
-  const custom = buildProjectConfig({ ...base, e2e: { up: 'make e2e-up', readinessTimeout: '30' } });
-  assert.equal(custom.e2e.up, 'make e2e-up');
-  assert.equal(custom.e2e.readinessTimeout, 30);
-  assert.equal(custom.e2e.down, 'scripts/e2e-down', 'unspecified fields fall back to defaults');
+  assert.ok(!('e2e' in buildProjectConfig(base)), 'no e2e block — e2e setup lives in AGENTS.md prose');
 });
 
-test('buildGlobalTokens always sets app.include and adds up/down only when e2e is configured', () => {
+test('buildGlobalTokens sets app.include and never emits app.up/down tokens', () => {
   const appCfg = { app: { includePath: '.agents/includes/e2e-runtime.md' }, workflow: WORKFLOW };
-  const noE2e = buildGlobalTokens(appCfg);
-  assert.equal(noE2e['app.include'], '.agents/includes/e2e-runtime.md');
-  assert.ok(!('app.up' in noE2e));
-
-  const withE2e = buildGlobalTokens({ ...appCfg, e2e: { up: 'scripts/e2e-up', down: 'scripts/e2e-down' } });
-  assert.equal(withE2e['app.up'], 'scripts/e2e-up');
-  assert.equal(withE2e['app.down'], 'scripts/e2e-down');
-  assert.equal(withE2e['app.readinessTimeout'], '120'); // default applied
-  assert.equal(withE2e['app.logsDir'], '.e2e/logs');
+  const tokens = buildGlobalTokens(appCfg);
+  assert.equal(tokens['app.include'], '.agents/includes/e2e-runtime.md');
+  assert.ok(!('app.up' in tokens));
+  assert.ok(!('app.down' in tokens));
+  assert.ok(!('app.logsDir' in tokens));
 });
 
-test('renderSetupDoc includes the e2e section only when e2e is configured', () => {
-  // Configs from buildProjectConfig always carry an e2e block, so the section shows.
+test('renderSetupDoc always includes the AGENTS.md / native-init guidance', () => {
   const base = {
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
     repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file', itemNoun: 'issue',
     branchPattern: 'x', prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
   };
   const doc = renderSetupDoc(buildProjectConfig(base));
-  assert.match(doc, /End-to-end environment/);
-  assert.match(doc, /scripts\/e2e-up/);
-
-  // A project that has removed its e2e block (unconfigured) gets no section.
-  const noE2e = { project: { name: 'Demo' }, ticketing: { backend: 'file' } };
-  assert.doesNotMatch(renderSetupDoc(noE2e), /End-to-end environment/);
+  assert.match(doc, /AGENTS\.md & end-to-end testing/);
+  assert.match(doc, /`\/init`/, 'points the user at their native /init');
+  assert.match(doc, /End-to-end testing/);
+  assert.doesNotMatch(doc, /scripts\/e2e-up/, 'no start/stop scripts');
 });
 
 test('renderSetupDoc includes the ado section for azure-devops', () => {
