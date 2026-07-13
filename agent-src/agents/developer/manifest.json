@@ -23,12 +23,12 @@
       ]
     },
     "codex": {
-      "model": "gpt-5.5",
+      "model": "gpt-5.6-terra",
       "model_reasoning_effort": "high",
       "nickname_candidates": ["Builder", "Implementer"]
     },
     "opencode": {
-      "model": "openrouter/moonshotai/kimi-k2.7-code",
+      "model": "openai/gpt-5.6-terra",
       "temperature": 0,
       "mode": "subagent"
     }

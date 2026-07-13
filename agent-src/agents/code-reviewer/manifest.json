@@ -16,12 +16,12 @@
       ]
     },
     "codex": {
-      "model": "gpt-5.5",
+      "model": "gpt-5.6-terra",
       "model_reasoning_effort": "medium",
       "nickname_candidates": ["Reviewer", "Auditor"]
     },
     "opencode": {
-      "model": "openrouter/qwen/qwen3.7-plus",
+      "model": "openai/gpt-5.6-terra",
       "temperature": 0,
       "mode": "subagent"
     }
