@@ -1,6 +1,6 @@
 {
   "name": "code-reviewer",
-  "description": "Read-only code-review agent for an implemented {{project.name}} {{ticketing.itemNoun}} in the review state. Compares branch changes against acceptance criteria and reports findings without changing application code.",
+  "description": "Read-only code-review agent for an implemented {{project.name}} ticket in the review state. Compares branch changes against acceptance criteria and reports findings without changing application code.",
   "platforms": {
     "claude": {
       "model": "opus",

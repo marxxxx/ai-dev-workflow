@@ -55,7 +55,7 @@ the project can't accidentally desync skill-coupled values:
 
 - **`ai-project.json`** lives at the **project root** and is project-owned: `project` identity,
   `repository`, `git`, and the `ticketing` **backend choice** (`"github"` | `"file"` | `"azure-devops"`) plus
-  `itemNoun` and the github/file/azureDevOps sub-configs. This file stays in the project across updates.
+  the github/file/azureDevOps sub-configs. This file stays in the project across updates.
 - **`agent-src/config/ai-workflow.json`** ships **with the package** and is package-owned: the
   `workflow.states` / `workflow.artifacts` (coupled to the orchestrator skill) and
   `ticketing.includePath` (the fixed runtime convention). It updates with the package; projects
@@ -76,7 +76,7 @@ every body and to each manifest `description`/`interface` string:
 
 - `{{project.name}}`, `{{project.slug}}`, `{{project.serena}}`, `{{project.description}}`
 - `{{repo.slug}}`, `{{repo.defaultBranch}}`
-- `{{ticketing.include}}` (path agents read at runtime), `{{ticketing.itemNoun}}`, `{{ticketing.backend}}`
+- `{{ticketing.include}}` (path agents read at runtime), `{{ticketing.backend}}`
 - `{{git.branchPattern}}`, `{{git.prTarget}}`
 - `{{artifact.implementationNotes}}`, `{{artifact.reviewFeedback}}`, `{{artifact.testResults}}`
 - `{{status.<id>}}` — resolves to the label (`status:new`) for github and azure-devops, or the

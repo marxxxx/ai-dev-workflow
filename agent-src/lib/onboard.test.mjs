@@ -10,20 +10,20 @@ import { makeTmpRoot } from '../test-helpers.mjs';
 
 const FILE_ANSWERS = {
   name: 'File Demo', slug: 'file-demo', serena: 'file-demo', description: 'A file project',
-  repoSlug: 'me/file-demo', defaultBranch: 'main', backend: 'file', itemNoun: 'issue',
+  repoSlug: 'me/file-demo', defaultBranch: 'main', backend: 'file',
   file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' },
   branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
 };
 
 const GITHUB_ANSWERS = {
   name: 'GH Demo', slug: 'gh-demo', serena: 'gh-demo', description: '',
-  repoSlug: 'me/gh-demo', defaultBranch: 'main', backend: 'github', itemNoun: 'issue',
+  repoSlug: 'me/gh-demo', defaultBranch: 'main', backend: 'github',
   branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
 };
 
 const AZURE_ANSWERS = {
   name: 'ADO Demo', slug: 'ado-demo', serena: 'ado-demo', description: '',
-  repoSlug: 'ado-demo', defaultBranch: 'main', backend: 'azure-devops', itemNoun: 'work item',
+  repoSlug: 'ado-demo', defaultBranch: 'main', backend: 'azure-devops',
   azure: { organization: 'acme', project: 'widgets', processTemplate: 'scrum' },
   branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
 };

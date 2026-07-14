@@ -24,7 +24,7 @@ export function readJson(absPath, label, required) {
  *   - project/repository/git identity and the ticketing backend choice come from the
  *     project (ai-project.json).
  * The package wins on `workflow` and on `ticketing.includePath`; the project owns the rest of
- * `ticketing` (backend, itemNoun, github/file sub-configs). ai-project.json may be absent on a
+ * `ticketing` (backend, github/file sub-configs). ai-project.json may be absent on a
  * fresh/unmigrated repo, in which case only the package-owned config is returned.
  */
 export function loadConfig(projectRoot) {
@@ -66,7 +66,7 @@ export function azureMapping(template) {
 
 /** Assemble the project-owned ai-project.json object from flat interview answers. */
 export function buildProjectConfig(a) {
-  const ticketing = { backend: a.backend, itemNoun: a.itemNoun || 'issue' };
+  const ticketing = { backend: a.backend };
   if (a.backend === 'file') {
     ticketing.file = { dir: a.file.dir, metadataFile: a.file.metadataFile };
   } else if (a.backend === 'azure-devops') {
@@ -109,8 +109,7 @@ export function buildGlobalTokens(config) {
   const backend = c.ticketing?.backend || 'github';
   put('ticketing.backend', backend);
   put('ticketing.include', c.ticketing?.includePath);
-  put('ticketing.itemNoun', c.ticketing?.itemNoun || 'issue');
-    put('ticketing.dir', c.ticketing?.file?.dir);
+  put('ticketing.dir', c.ticketing?.file?.dir);
   put('ticketing.metadataFile', c.ticketing?.file?.metadataFile);
   put('ticketing.azure.organization', c.ticketing?.azureDevOps?.organization);
   put('ticketing.azure.project', c.ticketing?.azureDevOps?.project);

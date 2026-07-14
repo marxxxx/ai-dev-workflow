@@ -68,7 +68,7 @@ import { buildProjectConfig, renderSetupDoc } from './generate.mjs';
 test('buildProjectConfig (file backend) omits azureDevOps', () => {
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: 'A demo',
-    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file', itemNoun: 'issue',
+    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file',
     branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
     file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' },
   });
@@ -81,7 +81,7 @@ test('buildProjectConfig (file backend) omits azureDevOps', () => {
 test('buildProjectConfig (azure scrum) fills types + stateMapping', () => {
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'demo', defaultBranch: 'main', backend: 'azure-devops', itemNoun: 'issue',
+    repoSlug: 'demo', defaultBranch: 'main', backend: 'azure-devops',
     branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
     azure: { organization: 'myorg', project: 'myproj', processTemplate: 'scrum' },
   });
@@ -98,7 +98,7 @@ test('buildProjectConfig (azure scrum) fills types + stateMapping', () => {
 test('buildProjectConfig (github backend) omits both file and azureDevOps', () => {
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'github', itemNoun: 'issue',
+    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'github',
     branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
   });
   assert.equal(cfg.ticketing.backend, 'github');
@@ -109,7 +109,7 @@ test('buildProjectConfig (github backend) omits both file and azureDevOps', () =
 test('renderSetupDoc lists the three plugins and the banner', () => {
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file', itemNoun: 'issue',
+    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file',
     branchPattern: 'x', prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
   });
   const doc = renderSetupDoc(cfg);
@@ -129,7 +129,7 @@ test('renderSetupDoc lists the three plugins and the banner', () => {
 test('buildProjectConfig writes no e2e block', () => {
   const base = {
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file', itemNoun: 'issue',
+    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file',
     branchPattern: 'x', prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
   };
   assert.ok(!('e2e' in buildProjectConfig(base)), 'no e2e block — e2e setup lives in AGENTS.md prose');
@@ -147,7 +147,7 @@ test('buildGlobalTokens sets app.include and never emits app.up/down tokens', ()
 test('renderSetupDoc always includes the AGENTS.md / native-init guidance', () => {
   const base = {
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file', itemNoun: 'issue',
+    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file',
     branchPattern: 'x', prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
   };
   const doc = renderSetupDoc(buildProjectConfig(base));
@@ -160,7 +160,7 @@ test('renderSetupDoc always includes the AGENTS.md / native-init guidance', () =
 test('renderSetupDoc includes the ado section for azure-devops', () => {
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'demo', defaultBranch: 'main', backend: 'azure-devops', itemNoun: 'issue',
+    repoSlug: 'demo', defaultBranch: 'main', backend: 'azure-devops',
     branchPattern: 'x', prTarget: 'main',
     azure: { organization: 'myorg', project: 'myproj', processTemplate: 'basic' },
   });

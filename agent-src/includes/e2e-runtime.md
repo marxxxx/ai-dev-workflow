@@ -17,7 +17,7 @@ describe an e2e setup, end-to-end testing is left to the human.
    - **It has no e2e-setup instructions (or no `AGENTS.md`)** → **skip** browser e2e: run the
      automated suite only, mark UI/interactive criteria `NEEDS HUMAN REVIEW` with a note that
      **end-to-end testing is left to the human** because the project describes no e2e setup, and do
-     **not** fail the {{ticketing.itemNoun}} for it. Stop here.
+     **not** fail the ticket for it. Stop here.
 2. Follow the `AGENTS.md` steps to bring the environment up, translating each into concrete commands
    for the current OS: start backing services (db/cache/broker), apply any migrations/seed, then
    start the app. **Block until the app is actually reachable** — poll it; do not proceed early.

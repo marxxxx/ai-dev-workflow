@@ -1,13 +1,13 @@
 # {{project.name}} Development Cycle
 
-Coordinate work for {{ticketing.itemNoun}}s in the {{project.name}} repository.
-The workflow finishes at human acceptance; never automatically close a {{ticketing.itemNoun}}.
+Coordinate work for tickets in the {{project.name}} repository.
+The workflow finishes at human acceptance; never automatically close a ticket.
 
 This skill is explicit authorization to use the project's implementation, review, and QA subagents
 for the workflow requested by the user. Spawn project custom agents named `developer`,
-`code-reviewer`, and `qa-engineer` where indicated. It consumes approved {{ticketing.itemNoun}}s created
-through `$product-architect`; it does not gather requirements or create product {{ticketing.itemNoun}}s.
-Keep one {{ticketing.itemNoun}}'s implementation, review, QA, and PR sequence complete before
+`code-reviewer`, and `qa-engineer` where indicated. It consumes approved tickets created
+through `$product-architect`; it does not gather requirements or create product tickets.
+Keep one ticket's implementation, review, QA, and PR sequence complete before
 processing another.
 
 ## Ticketing System
@@ -28,7 +28,7 @@ logical; use the exact representation the include defines.
 
   - repository root and current branch/worktree path;
   - issue number, title, current logical state, and issue file/path or ticket lookup command;
-  - the upstream ticket reference if the {{ticketing.itemNoun}} records one — it determines the branch's
+  - the upstream ticket reference if the ticket records one — it determines the branch's
     first segment (`feat/<upstream-number>_<slug>`);
   - required ticketing include path: `{{ticketing.include}}`;
   - relevant prior artifact names: `{{artifact.implementationNotes}}`,
@@ -49,40 +49,40 @@ logical; use the exact representation the include defines.
 | `review` | Awaiting code review | Spawn `code-reviewer` |
 | `test` | Ready for acceptance QA | Spawn `qa-engineer` |
 | `failed` | Review or QA failure | Spawn `developer` with recorded feedback |
-| `acceptance-test` | PR/human acceptance pending | Create missing PR if needed, then stop automation for that {{ticketing.itemNoun}} |
+| `acceptance-test` | PR/human acceptance pending | Create missing PR if needed, then stop automation for that ticket |
 
 ## Start
 
 1. Read `AGENTS.md`.
-2. Determine whether the request names a {{ticketing.itemNoun}}; otherwise list the open
-   {{ticketing.itemNoun}}s and their states using the commands in `{{ticketing.include}}`.
-3. Select only {{ticketing.itemNoun}}s not already in the `acceptance-test` state and whose documented
-   dependencies are complete. Process independent {{ticketing.itemNoun}}s in number order unless the
+2. Determine whether the request names a ticket; otherwise list the open
+   tickets and their states using the commands in `{{ticketing.include}}`.
+3. Select only tickets not already in the `acceptance-test` state and whose documented
+   dependencies are complete. Process independent tickets in number order unless the
    user chose one.
-4. Track a maximum of three implementation-review iterations per {{ticketing.itemNoun}} unless the user
+4. Track a maximum of three implementation-review iterations per ticket unless the user
    explicitly chooses another limit.
 
 ## Implement Or Fix
 
-For the `new` or `failed` state, spawn the custom `developer` subagent with the {{ticketing.itemNoun}}
+For the `new` or `failed` state, spawn the custom `developer` subagent with the ticket
 number, title, current state, branch/worktree context, and instruction to read all comments.
 
 The developer owns:
 
-- moving the {{ticketing.itemNoun}} to the `in-progress` state before edits;
-- working on `{{git.branchPattern}}` — when the {{ticketing.itemNoun}} records an upstream ticket, its
-  number is the branch's first segment instead of the implementation {{ticketing.itemNoun}} number (see
+- moving the ticket to the `in-progress` state before edits;
+- working on `{{git.branchPattern}}` — when the ticket records an upstream ticket, its
+  number is the branch's first segment instead of the implementation ticket number (see
   `{{ticketing.include}}`);
-- implementing and validating the {{ticketing.itemNoun}};
+- implementing and validating the ticket;
 - posting `{{artifact.implementationNotes}}`;
-- moving the {{ticketing.itemNoun}} to the `review` state only after completion.
+- moving the ticket to the `review` state only after completion.
 
-After it returns, inspect its reported changes and re-read the {{ticketing.itemNoun}} state/comments.
+After it returns, inspect its reported changes and re-read the ticket state/comments.
 Do not accept a claimed handoff if the state, branch, or validation evidence is missing.
 
 ## Review
 
-For the `review` state, spawn the custom `code-reviewer` subagent with the {{ticketing.itemNoun}}
+For the `review` state, spawn the custom `code-reviewer` subagent with the ticket
 number, title, branch/worktree context, and instruction to read the acceptance criteria and
 implementation notes. The reviewer compares branch changes to the acceptance criteria and
 implementation guidance, prioritizing correctness, regressions, security, and missing tests.
@@ -90,19 +90,19 @@ implementation guidance, prioritizing correctness, regressions, security, and mi
 The code-reviewer owns:
 
 - adding a `{{artifact.reviewFeedback}}` comment with actionable findings when critical or important
-  findings exist, then moving the {{ticketing.itemNoun}} from `review` to `failed` so it returns to
+  findings exist, then moving the ticket from `review` to `failed` so it returns to
   `developer`;
-- moving the {{ticketing.itemNoun}} from `review` to `test` when review passes or has only minor
+- moving the ticket from `review` to `test` when review passes or has only minor
   non-blocking observations.
 
 After it returns, verify the posted comment (if any) and the status transition before continuing.
 Count each return to development as an iteration. At the iteration limit, report the
-{{ticketing.itemNoun}} as blocked for human attention and do not continue cycling.
+ticket as blocked for human attention and do not continue cycling.
 
 ## QA
 
-For the `test` state, spawn the custom `qa-engineer` subagent with the {{ticketing.itemNoun}} number,
-branch/worktree context, and whether the {{ticketing.itemNoun}} includes visual/UI work.
+For the `test` state, spawn the custom `qa-engineer` subagent with the ticket number,
+branch/worktree context, and whether the ticket includes visual/UI work.
 
 For visual/UI work, require:
 
@@ -126,22 +126,22 @@ After QA returns, audit the `{{artifact.testResults}}` comment before accepting 
     note and a passing automated suite) are an acceptable handoff, not a QA failure — advance to PR
     and carry the human-review items forward;
   - if the QA evidence is incomplete or invalid, do not advance to PR handoff. Move the
-    {{ticketing.itemNoun}} to `failed` with a corrective comment, or return it to QA when the only issue
+    ticket to `failed` with a corrective comment, or return it to QA when the only issue
     is missing evidence and no functional failure was observed.
 
-For handoff move the {{ticketing.itemNoun}} to `acceptance-test`. If failed, return to implementation.
+For handoff move the ticket to `acceptance-test`. If failed, return to implementation.
 
 ## Pull Request And Handoff
 
-Once a {{ticketing.itemNoun}} reaches `acceptance-test`, create a PR from its feature branch to
+Once a ticket reaches `acceptance-test`, create a PR from its feature branch to
 `{{git.prTarget}}` if one does not already exist (see `{{ticketing.include}}`). The PR body must include:
 
-- the related {{ticketing.itemNoun}} number and implementation summary;
+- the related ticket number and implementation summary;
 - code review and QA results;
 - explicit human acceptance steps;
 - every `NEEDS HUMAN REVIEW` criterion and its available screenshot references.
 
-Report the PR URL and leave the {{ticketing.itemNoun}} open at `acceptance-test`. A human reviews,
+Report the PR URL and leave the ticket open at `acceptance-test`. A human reviews,
 merges, and closes it.
 
 ## Guardrails
@@ -150,4 +150,4 @@ merges, and closes it.
 - Do not let an agent overwrite or revert unrelated changes in a shared worktree.
 - Do not proceed past a missing approval, missing tool, unavailable browser verification, or
   unverified status transition; report the blocker.
-- Capture review and test feedback in {{ticketing.itemNoun}} comments so a later agent has durable context.
+- Capture review and test feedback in ticket comments so a later agent has durable context.

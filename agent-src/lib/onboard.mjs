@@ -107,9 +107,8 @@ export async function runInterview(prompter, { detectRepoSlug, projectRoot }) {
   const repoSlug = await prompter.ask('Repository slug (owner/repo)', 'repoSlug', detectRepoSlug(projectRoot));
   const defaultBranch = await prompter.ask('Default branch', 'defaultBranch', 'main');
   const backend = await prompter.askChoice('Ticketing backend', 'backend', ['file', 'github', 'azure-devops'], 'file');
-  const itemNoun = await prompter.ask('Item noun', 'itemNoun', 'issue');
 
-  const answers = { name, slug, serena, description, repoSlug, defaultBranch, backend, itemNoun };
+  const answers = { name, slug, serena, description, repoSlug, defaultBranch, backend };
   if (backend === 'file') {
     answers.file = {
       dir: await prompter.ask('Tickets dir', 'file.dir', '.tickets/issues'),

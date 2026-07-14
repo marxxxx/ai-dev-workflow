@@ -66,7 +66,7 @@ the source layout (`agent-custom/{agents,skills}/<name>/`). Two knobs per unit:
 | `agent-custom/<agents\|skills>/<name>/append.md` | **Appended** to the package body (after any platform overlay). The safe default — core instructions stay intact and upstream improvements to that agent keep flowing on update. |
 | `agent-custom/<agents\|skills>/<name>/body.md` | **Full override** — replaces the package body for that unit. Escape hatch for a wholesale rewrite; you then own that body (it no longer tracks upstream). |
 
-Both files support the same `{{tokens}}` as package bodies (`{{project.name}}`, `{{ticketing.itemNoun}}`, …);
+Both files support the same `{{tokens}}` as package bodies (`{{project.name}}`, `{{repo.slug}}`, …);
 an unresolved token fails the generator with a clear error. `<name>` must match a unit that ships in
 the package. Resolution order is **package body (or your override) → platform overlay → your append**.
 
@@ -77,7 +77,7 @@ agent-custom/agents/developer/append.md
 ```
 ```md
 ## House rules
-Always run `npm run lint` before moving a {{ticketing.itemNoun}} to review.
+Always run `npm run lint` before moving a ticket to review.
 ```
 
 Then `generate` and commit. Because `agent-custom/` files are **inputs** to generation (not edits to

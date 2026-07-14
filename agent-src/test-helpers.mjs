@@ -19,7 +19,7 @@ const GENERATE = path.join(SRC_DIR, 'generate.mjs');
 export const MINIMAL_PROJECT = {
   project: { name: 'Test Project', slug: 'test-project', serenaProject: 'test-project', description: 'A test' },
   repository: { slug: 'me/test-project', defaultBranch: 'main' },
-  ticketing: { backend: 'file', itemNoun: 'issue', file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' } },
+  ticketing: { backend: 'file', file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' } },
   git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
 };
 

@@ -33,7 +33,7 @@ test('azure-devops backend injects ADO tools into ticketing agents and emits .mc
       project: { name: 'ADO', slug: 'ado', serenaProject: 'ado', description: '' },
       repository: { slug: 'ado', defaultBranch: 'main' },
       ticketing: {
-        backend: 'azure-devops', itemNoun: 'issue',
+        backend: 'azure-devops',
         azureDevOps: {
           organization: 'acme', project: 'widgets', featureType: 'Issue', bugType: 'Issue',
           processTemplate: 'basic', stateMapping: {},
@@ -61,7 +61,7 @@ test('azure-devops backend emits Codex project-local ADO MCP config', () => {
       project: { name: 'ADO', slug: 'ado', serenaProject: 'ado', description: '' },
       repository: { slug: 'ado', defaultBranch: 'main' },
       ticketing: {
-        backend: 'azure-devops', itemNoun: 'work item',
+        backend: 'azure-devops',
         azureDevOps: {
           organization: 'acme', project: 'widgets', featureType: 'Issue', bugType: 'Issue',
           processTemplate: 'basic', stateMapping: {},
@@ -90,7 +90,7 @@ test('azure-devops Codex MCP config preserves unrelated TOML and replaces ado on
       project: { name: 'ADO', slug: 'ado', serenaProject: 'ado', description: '' },
       repository: { slug: 'ado', defaultBranch: 'main' },
       ticketing: {
-        backend: 'azure-devops', itemNoun: 'work item',
+        backend: 'azure-devops',
         azureDevOps: {
           organization: 'new-org', project: 'widgets', featureType: 'Issue', bugType: 'Issue',
           processTemplate: 'basic', stateMapping: {},
@@ -136,7 +136,7 @@ test('renderAll throws when azure-devops lacks an organization', () => {
     writeProject(root, {
       project: { name: 'ADO', slug: 'ado', serenaProject: 'ado', description: '' },
       repository: { slug: 'ado', defaultBranch: 'main' },
-      ticketing: { backend: 'azure-devops', itemNoun: 'issue', azureDevOps: { project: 'widgets' } },
+      ticketing: { backend: 'azure-devops', azureDevOps: { project: 'widgets' } },
       git: { branchPattern: 'x', prTarget: 'main' },
     });
     assert.throws(() => renderAll(root), /organization is required/);

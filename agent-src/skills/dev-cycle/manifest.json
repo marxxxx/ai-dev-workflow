@@ -1,6 +1,6 @@
 {
   "name": "dev-cycle",
-  "description": "Run {{project.name}}'s {{ticketing.itemNoun}} development cycle with project subagents. Use when the user requests /dev-cycle, implementation/review/QA processing of workflow-state {{ticketing.itemNoun}}s, or the automated {{ticketing.itemNoun}}-to-PR workflow.",
+  "description": "Run {{project.name}}'s ticket development cycle with project subagents. Use when the user requests /dev-cycle, implementation/review/QA processing of workflow-state tickets, or the automated ticket-to-PR workflow.",
   "platforms": {
     "claude": {},
     "codex": {},
@@ -8,8 +8,8 @@
   },
   "interface": {
     "display_name": "{{project.name}} Dev Cycle",
-    "short_description": "Run {{ticketing.itemNoun}} implementation, review, and QA handoffs",
-    "default_prompt": "Use $dev-cycle to process ready {{project.name}} {{ticketing.itemNoun}}s through implementation, review, QA, and PR handoff."
+    "short_description": "Run ticket implementation, review, and QA handoffs",
+    "default_prompt": "Use $dev-cycle to process ready {{project.name}} tickets through implementation, review, QA, and PR handoff."
   },
   "tokens": {}
 }

@@ -1,6 +1,6 @@
 {
   "name": "qa-engineer",
-  "description": "Acceptance-test agent for an implemented {{project.name}} {{ticketing.itemNoun}} in the test state. Verifies behavior and reports evidence without changing application code.",
+  "description": "Acceptance-test agent for an implemented {{project.name}} ticket in the test state. Verifies behavior and reports evidence without changing application code.",
   "platforms": {
     "claude": {
       "model": "opus",

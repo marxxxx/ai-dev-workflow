@@ -1,6 +1,6 @@
 {
   "name": "developer",
-  "description": "Implementation agent for a scoped {{project.name}} {{ticketing.itemNoun}}. Use after requirements are documented and the {{ticketing.itemNoun}} is ready for code changes.",
+  "description": "Implementation agent for a scoped {{project.name}} ticket. Use after requirements are documented and the ticket is ready for code changes.",
   "platforms": {
     "claude": {
       "model": "opus",
