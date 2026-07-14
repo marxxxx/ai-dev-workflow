@@ -1,10 +1,9 @@
 # E2E Runtime: How to Start the App for Acceptance Testing
 
-This file is the single source of truth for how the QA agent starts the application (and its backing
-services) for end-to-end testing. It is generated from `agent-src/includes/e2e-runtime.md`. Do not
+This file provides guidance on how the QA agent starts the application (and its backing services) for end-to-end testing. It is generated from `agent-src/includes/e2e-runtime.md`. Do not
 edit it here — edit the source and regenerate.
 
-The workflow does **not** ship start/stop scripts. Instead, the project's `AGENTS.md` describes, in
+The project's `AGENTS.md` describes, in
 prose, **what** it takes to bring the e2e environment up; you translate that into the concrete
 commands appropriate for the machine you are running on (Windows or Linux). If `AGENTS.md` does not
 describe an e2e setup, end-to-end testing is left to the human.
@@ -19,7 +18,7 @@ describe an e2e setup, end-to-end testing is left to the human.
      **end-to-end testing is left to the human** because the project describes no e2e setup, and do
      **not** fail the ticket for it. Stop here.
 2. Follow the `AGENTS.md` steps to bring the environment up, translating each into concrete commands
-   for the current OS: start backing services (db/cache/broker), apply any migrations/seed, then
+   for the current OS: **Ensure no previous instance of the app is running**, then start backing services (db/cache/broker), apply any migrations/seed, then
    start the app. **Block until the app is actually reachable** — poll it; do not proceed early.
    Determine the base URL the app serves from (as `AGENTS.md` describes, e.g. its **Ports & URLs**).
 3. Drive the running app with the Playwright MCP browser tools against that base URL: exercise each
