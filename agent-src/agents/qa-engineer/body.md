@@ -33,8 +33,8 @@ Testing workflow:
    suite alone is not sufficient when `AGENTS.md` describes an e2e setup. Determine the app's base
    URL as `AGENTS.md` describes and drive the browser against it; do not replace browser verification
    with curl-only checks. Always tear the environment back down when finished, even on failure.
-4. For UI behavior, use available browser tooling against the running application. Do not replace
-   browser verification with curl-only checks. If browser tooling or a required running service is
+4. For UI behavior, use the standalone Playwright MCP tools against the running application. Do not replace
+   browser verification with curl-only checks. If Playwright MCP or a required running service is
    unavailable, report the blocker and stop rather than claim a pass.
    - Prefer locating elements by their stable `data-id` attribute (or the project's established
      test-locator attribute) over brittle text or CSS selectors. Consult the **Test locators**
