@@ -82,7 +82,29 @@ test('init --answers scaffolds a file-backend project non-interactively', () => 
     assert.equal(cfg.project.name, 'File Demo');
     assert.equal(cfg.ticketing.backend, 'file');
     assert.equal(cfg.ticketing.file.dir, '.tickets/issues'); // default applied
-    assert.ok(fs.existsSync(path.join(root, 'docs', 'ai-workflow-setup.md')));
+    assert.equal(fs.existsSync(path.join(root, 'docs')), false, 'init generates no docs — dependencies are printed');
+  } finally {
+    cleanup();
+  }
+});
+
+test('init prints the dependencies with links and no install instructions', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'answers.json'), JSON.stringify({ name: 'File Demo', backend: 'file' }));
+    const { status, stdout } = runCli(['init', '--answers', path.join(root, 'answers.json'), '--root', root]);
+    assert.equal(status, 0, stdout);
+
+    assert.match(stdout, /https:\/\/github\.com\/obra\/superpowers/);
+    assert.match(stdout, /https:\/\/github\.com\/oraios\/serena/);
+    assert.match(stdout, /https:\/\/github\.com\/microsoft\/playwright-mcp/);
+    assert.match(stdout, /https:\/\/github\.com\/upstash\/context7/);
+
+    // Installing is the user's job — the old setup doc's per-harness recipes must not come back.
+    assert.doesNotMatch(stdout, /claude mcp add/, 'no install instructions');
+    assert.doesNotMatch(stdout, /uv tool install/, 'no install instructions');
+    assert.doesNotMatch(stdout, /plugin install/, 'no install instructions');
+    assert.doesNotMatch(stdout, /ai-workflow-setup\.md/, 'the setup doc is gone');
   } finally {
     cleanup();
   }

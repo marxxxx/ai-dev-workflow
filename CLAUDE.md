@@ -85,8 +85,10 @@ hand-edit to a generated file. Run it before committing.
   tools into the ticketing agents' Claude allowlists (`lib/constants.mjs` → `ADO_MCP_TOOLS`,
   `TICKETING_AGENTS`).
 - **`lib/app.mjs`** — renders the e2e-runtime include the `qa-engineer` reads to bring the app up.
-- **`lib/onboard.mjs` + `lib/setup-doc.mjs`** — the `init` interview and the `docs/ai-workflow-setup.md`
-  it writes.
+- **`lib/onboard.mjs`** — the `init` interview. It writes `ai-project.json` and nothing else: the
+  tooling the agents expect (superpowers, serena, playwright, context7) is *printed* — name, purpose,
+  link — and installing it is the user's job. Don't add install instructions or generate a doc for
+  them; per-harness install steps differ and go stale, and each project's own docs are the authority.
 
 The units themselves are three agents (`developer`, `code-reviewer`, `qa-engineer`) and two skills
 (`dev-cycle`, `product-architect`). See `agent-src/README.md` for the output map and manifest schema.

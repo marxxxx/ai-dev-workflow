@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { cmdInit, createScriptedPrompter, buildProjectConfig, renderSetupDoc } from '../generate.mjs';
+import { cmdInit, createScriptedPrompter, buildProjectConfig } from '../generate.mjs';
 import { makeTmpRoot } from '../test-helpers.mjs';
 
 const FILE_ANSWERS = {
@@ -29,7 +29,7 @@ const AZURE_ANSWERS = {
 };
 
 for (const answers of [FILE_ANSWERS, GITHUB_ANSWERS, AZURE_ANSWERS]) {
-  test(`cmdInit (${answers.backend}) writes buildProjectConfig(answers) + setup doc`, async () => {
+  test(`cmdInit (${answers.backend}) writes buildProjectConfig(answers) and nothing else`, async () => {
     const { root, cleanup } = makeTmpRoot();
     try {
       const code = await cmdInit(root, { prompter: createScriptedPrompter(answers) });
@@ -38,9 +38,7 @@ for (const answers of [FILE_ANSWERS, GITHUB_ANSWERS, AZURE_ANSWERS]) {
       const written = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
       assert.deepEqual(written, buildProjectConfig(answers));
 
-      const setupPath = path.join(root, 'docs', 'ai-workflow-setup.md');
-      assert.ok(fs.existsSync(setupPath));
-      assert.equal(fs.readFileSync(setupPath, 'utf8'), renderSetupDoc(written));
+      assert.deepEqual(fs.readdirSync(root), ['ai-project.json'], 'init wrote files beyond ai-project.json');
     } finally {
       cleanup();
     }

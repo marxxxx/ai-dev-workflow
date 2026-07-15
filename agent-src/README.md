@@ -28,7 +28,7 @@ agent-src/
   generate.mjs                 # entrypoint: zero-dependency Node CLI (parse argv + dispatch); also --check
   lib/                         # feature modules the entrypoint composes:
     constants.mjs serialize.mjs identity.mjs config.mjs tokens.mjs units.mjs
-    ticketing.mjs renderers.mjs setup-doc.mjs onboard.mjs pipeline.mjs
+    ticketing.mjs renderers.mjs onboard.mjs pipeline.mjs
   config/
     ai-workflow.json           # PACKAGE-owned config: workflow states/artifacts + ticketing.includePath
     ai-project.template.json   # scaffold template copied by `init` when non-interactive
@@ -102,8 +102,8 @@ work-item tools into the Claude allowlists of the ticketing agents.
 `AGENTS.md` (and `CLAUDE.md`) remain hand-owned, project-specific docs carrying the
 tech-stack/ports/conventions prose — including the **End-to-end testing** section the qa-engineer
 reads to bring the app up. `init` does not scaffold or own them; you create `AGENTS.md` with your
-coding agent's native `/init` (see `docs/ai-workflow-setup.md`). They are never regenerated or
-overwritten — unlike the platform files, which `generate` owns.
+coding agent's native `/init` (see the repo README's **End-to-end testing** section for what to put
+in it). They are never regenerated or overwritten — unlike the platform files, which `generate` owns.
 
 A unit *may* also contain `overlays/<platform>.md`; the generator appends it to that platform's
 rendered body. This is the structural guarantee that platform-specific guidance does **not leak**

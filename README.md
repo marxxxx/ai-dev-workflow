@@ -27,15 +27,16 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 `npx` can run the bin straight from GitHub — nothing is installed into the repo:
 
 ```bash
-# 1. run the guided onboarding — writes ai-project.json + docs/ai-workflow-setup.md
+# 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
 npx github:marxxxx/ai-dev-workflow#v0.9.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
 #    the state mapping; generate then merges the `ado` server into .mcp.json
 #    and .codex/config.toml.
+#    Install the tooling it lists — see Recommended tooling below.
 #    Then create AGENTS.md with your coding agent's native /init and describe your
-#    e2e setup there — see docs/ai-workflow-setup.md.)
+#    e2e setup there — see End-to-end testing below.)
 
 # 3. generate the platform files
 npx github:marxxxx/ai-dev-workflow#v0.9.0 generate
@@ -45,13 +46,34 @@ npx github:marxxxx/ai-dev-workflow#v0.9.0 generate
 
 Pin the tag (`#v0.9.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
+## Recommended tooling
+
+The agents are written to take advantage of the tools below, and `init` prints this list. **You
+install them** — for whichever of Claude Code / Codex / OpenCode you run. This workflow deliberately
+does not carry install instructions: they differ per harness and go stale. Follow each project's own
+docs, which are the authority on installing it.
+
+| Tool | What the agents use it for |
+|---|---|
+| [superpowers](https://github.com/obra/superpowers) | Skill library driving the brainstorm → plan → implement workflow (`developer`) |
+| [serena](https://github.com/oraios/serena) | MCP server: semantic, symbol-level code navigation and editing (`developer`, `code-reviewer`) |
+| [playwright](https://github.com/microsoft/playwright-mcp) | MCP server: drives a real browser for end-to-end testing (`qa-engineer`) |
+| [context7](https://github.com/upstash/context7) | MCP server: up-to-date library and framework documentation |
+
+None are hard requirements — an agent degrades to what is available (the `qa-engineer`, for example,
+reports a blocker rather than claiming a pass if Playwright is missing). Scope MCP servers to the
+project rather than installing them globally, so other projects on the machine don't inherit them.
+
+The `ado` MCP server is the exception: for the `azure-devops` backend, `generate` merges it into
+`.mcp.json` and `.codex/config.toml` for you — nothing to install by hand.
+
 ## Commands
 
 | Command | Effect |
 |---|---|
 | `generate` (default) | Render all platform files to the project root |
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
-| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping), then writes `ai-project.json` and `docs/ai-workflow-setup.md`. It does not write `AGENTS.md` or any e2e scripts — instead it points you to create `AGENTS.md` with your coding agent's native `/init` and describe your e2e setup there. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
+| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping), then writes `ai-project.json` — the only file it creates. It prints the [recommended tooling](#recommended-tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init` and describe your e2e setup there. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
 
@@ -94,6 +116,10 @@ commands for whatever OS it runs on. Cover: which backing services to start (db/
 migrate/seed steps, how to start the app, how to know it's reachable, and the base URL (your **Ports
 & URLs**).
 
+Also name your **test-locator attribute** in `AGENTS.md` — the attribute the QA agent uses to select
+elements in Playwright tests (e.g. `data-testid`, or whatever convention the codebase already uses).
+Being explicit keeps browser tests reliable.
+
 From that section the QA agent decides:
 
 | `AGENTS.md` e2e section | QA behavior |
@@ -104,8 +130,8 @@ From that section the QA agent decides:
 
 The QA agent reads this via `.agents/includes/e2e-runtime.md` (generated — the single source of truth
 that points it at your `AGENTS.md`). Create `AGENTS.md` with your coding agent's native `/init`
-(Claude `/init` → `CLAUDE.md`; Codex / OpenCode `/init` → `AGENTS.md`); `docs/ai-workflow-setup.md`
-lists exactly what to put in it.
+(Claude `/init` → `CLAUDE.md`; Codex / OpenCode `/init` → `AGENTS.md`), then make sure it covers the
+tech stack, the install / build / run / test commands, and the points above.
 
 ## In a Node project
 

@@ -63,7 +63,7 @@ test('azureMapping throws on unknown template', () => {
   assert.throws(() => azureMapping('agile'), /unknown Azure process template/);
 });
 
-import { buildProjectConfig, renderSetupDoc } from './generate.mjs';
+import { buildProjectConfig } from './generate.mjs';
 
 test('buildProjectConfig (file backend) omits azureDevOps', () => {
   const cfg = buildProjectConfig({
@@ -106,26 +106,6 @@ test('buildProjectConfig (github backend) omits both file and azureDevOps', () =
   assert.ok(!('azureDevOps' in cfg.ticketing));
 });
 
-test('renderSetupDoc lists the three plugins and the banner', () => {
-  const cfg = buildProjectConfig({
-    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file',
-    branchPattern: 'x', prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
-  });
-  const doc = renderSetupDoc(cfg);
-  assert.match(doc, /DO NOT EDIT/);
-  assert.match(doc, /superpowers@claude-plugins-official/);
-  assert.match(doc, /ln -s ~\/.codex\/superpowers\/skills ~\/.agents\/skills\/superpowers/);
-  assert.match(doc, /\.opencode\/vendor\/superpowers/);
-  assert.match(doc, /claude mcp add --scope local --transport http context7/);
-  assert.match(doc, /\.codex\/config\.toml/);
-  assert.match(doc, /opencode\.json/);
-  assert.match(doc, /serena start-mcp-server/);
-  assert.match(doc, /uv tool install -p 3\.13 serena-agent/);
-  assert.match(doc, /@playwright\/mcp/);
-  assert.doesNotMatch(doc, /ado.*MCP server/i); // no azure section for file backend
-});
-
 test('buildProjectConfig writes no e2e block', () => {
   const base = {
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
@@ -142,30 +122,6 @@ test('buildGlobalTokens sets app.include and never emits app.up/down tokens', ()
   assert.ok(!('app.up' in tokens));
   assert.ok(!('app.down' in tokens));
   assert.ok(!('app.logsDir' in tokens));
-});
-
-test('renderSetupDoc always includes the AGENTS.md / native-init guidance', () => {
-  const base = {
-    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file',
-    branchPattern: 'x', prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
-  };
-  const doc = renderSetupDoc(buildProjectConfig(base));
-  assert.match(doc, /AGENTS\.md & end-to-end testing/);
-  assert.match(doc, /`\/init`/, 'points the user at their native /init');
-  assert.match(doc, /End-to-end testing/);
-  assert.doesNotMatch(doc, /scripts\/e2e-up/, 'no start/stop scripts');
-});
-
-test('renderSetupDoc includes the ado section for azure-devops', () => {
-  const cfg = buildProjectConfig({
-    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'demo', defaultBranch: 'main', backend: 'azure-devops',
-    branchPattern: 'x', prTarget: 'main',
-    azure: { organization: 'myorg', project: 'myproj', processTemplate: 'basic' },
-  });
-  assert.match(renderSetupDoc(cfg), /\.mcp\.json/);
-  assert.match(renderSetupDoc(cfg), /\.codex\/config\.toml/);
 });
 
 import { cmdScaffold } from './generate.mjs';

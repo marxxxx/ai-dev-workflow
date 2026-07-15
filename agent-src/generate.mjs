@@ -23,7 +23,7 @@
 // re-exports the public API for back-compat with in-process tests and external importers.
 // The implementation lives in the feature modules under agent-src/lib/:
 //   constants · serialize · identity · config · tokens · units · ticketing · renderers ·
-//   setup-doc · onboard · pipeline
+//   onboard · pipeline
 //
 // Zero dependencies: node builtins only. Writes LF line endings on every platform.
 
@@ -39,7 +39,6 @@ import { renderAll, writeAll, checkAll } from './lib/pipeline.mjs';
 // ---------------------------------------------------------------------------
 export { buildGlobalTokens, loadConfig, azureMapping, buildProjectConfig } from './lib/config.mjs';
 export { kebabCase, parseOriginSlug } from './lib/identity.mjs';
-export { renderSetupDoc } from './lib/setup-doc.mjs';
 export { cmdScaffold, cmdInit, createScriptedPrompter, runInterview } from './lib/onboard.mjs';
 export { renderAll } from './lib/pipeline.mjs';
 

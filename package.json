@@ -21,7 +21,6 @@
     "agent-src/lib/ticketing.mjs",
     "agent-src/lib/app.mjs",
     "agent-src/lib/renderers.mjs",
-    "agent-src/lib/setup-doc.mjs",
     "agent-src/lib/onboard.mjs",
     "agent-src/lib/pipeline.mjs",
     "agent-src/config/ai-workflow.json",
