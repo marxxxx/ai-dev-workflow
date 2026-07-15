@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { runCli, runCliViaSymlink, tmpProject, makeTmpRoot, MINIMAL_PROJECT } from './test-helpers.mjs';
+import { runCli, runCliViaSymlink, canSymlink, tmpProject, makeTmpRoot, MINIMAL_PROJECT } from './test-helpers.mjs';
 
 // A representative sample of the files each backend/platform emits.
 const SPOT_CHECK = [
@@ -60,7 +60,11 @@ test('unknown command exits 1 with the usage message', () => {
   }
 });
 
-test('init --answers works when invoked through a symlink, as npm-installed bins are', () => {
+// Skipped where the process lacks symlink privilege — Windows grants it only under Developer Mode
+// or an elevated shell.
+test('init --answers works when invoked through a symlink, as npm-installed bins are', {
+  skip: canSymlink ? false : 'no symlink privilege on this platform',
+}, () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     fs.writeFileSync(path.join(root, 'answers.json'), JSON.stringify({ name: 'Symlink Demo', backend: 'file' }));

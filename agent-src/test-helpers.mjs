@@ -38,6 +38,22 @@ export function runCli(args, { cwd } = {}) {
 }
 
 /**
+ * Whether this process can create symlinks. Windows only permits it with Developer Mode or an
+ * elevated shell, so symlink-dependent tests must skip rather than fail there. Probed once.
+ */
+export const canSymlink = (() => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-symlink-probe-'));
+  try {
+    fs.symlinkSync(GENERATE, path.join(dir, 'probe'));
+    return true;
+  } catch {
+    return false;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+})();
+
+/**
  * Run the CLI through a symlink to generate.mjs, mirroring how npm exposes a `bin` entry on
  * Linux/macOS (a symlink in node_modules/.bin or the global bin dir, not a copy of the file).
  * Node resolves symlinks when computing import.meta.url for the entry module, so this is the
