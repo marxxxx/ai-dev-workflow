@@ -164,6 +164,20 @@ test('renderAll emits the single AGENTS-driven e2e include and the qa-engineer p
   }
 });
 
+test('Codex dev-cycle skill gives subagents isolated self-contained spawn guidance', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const outputs = renderAll(root);
+    const devCycle = outputs.find((o) => o.path === path.join('.agents', 'skills', 'dev-cycle', 'SKILL.md'));
+    assert.ok(devCycle, 'Codex dev-cycle skill should be rendered');
+    assert.match(devCycle.content, /fork_turns = "none"/);
+    assert.match(devCycle.content, /task_name/);
+    assert.doesNotMatch(devCycle.content, /fork_context/);
+  } finally {
+    cleanup();
+  }
+});
+
 test('loadConfig merges package workflow + includePath over the project file', () => {
   const { root, cleanup } = tmpProject();
   try {
