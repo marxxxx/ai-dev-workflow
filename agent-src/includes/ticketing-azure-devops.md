@@ -130,10 +130,12 @@ Convention); a later agent reads it back via `wit_get_work_item(id, expand: "all
 ### Pull Requests
 
 ```bash
-gh pr create --repo {{repo.slug}} \
-  --base {{git.prTarget}} --head {{git.branchPattern}} \
+az repos pr create --repository "{{repo.slug}}" \
+  --project "{{ticketing.azure.project}}" \
+  --organization "https://dev.azure.com/{{ticketing.azure.organization}}" \
+  --target-branch "{{git.prTarget}}" --source-branch "{{git.branchPattern}}" \
   --title "feat: [work item title] #[id]" \
-  --body "..."
+  --description "..."
 ```
 
 A human reviews, merges, and accepts. Automation leaves the work item at
