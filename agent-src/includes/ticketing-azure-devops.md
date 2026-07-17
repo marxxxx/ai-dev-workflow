@@ -134,11 +134,12 @@ az repos pr create --repository "{{repo.slug}}" \
   --project "{{ticketing.azure.project}}" \
   --organization "https://dev.azure.com/{{ticketing.azure.organization}}" \
   --target-branch "{{git.prTarget}}" --source-branch "{{git.branchPattern}}" \
+  --draft true \
   --title "feat: [work item title] #[id]" \
   --description "..."
 ```
 
-A human reviews, merges, and accepts. Automation leaves the work item at
+Automation creates pull requests only in draft mode. After personally reviewing the changes, the developer controlling the agent publishes the pull request for further review and testing. Automation leaves the work item at
 `{{status.acceptance-test}}` (board State `{{azureState.acceptance-test}}`) and never sets `Done`.
 
 ## Work Item Comment Artifacts
