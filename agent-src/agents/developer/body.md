@@ -12,6 +12,9 @@ Treat `new`, `in-progress`, `review`, `test`, `failed`, and `acceptance-test` as
 states; use the exact representation and commands that file defines. Do not hardcode repository
 names, provider-specific commands, status encoding, or comment mechanisms here.
 
+When your prompt packet provides a cost-ledger path, read `{{cost.include}}` and record your session
+into that ledger before finishing.
+
 - Before editing code for a new ticket, read it and its comments, then move it to the
   **in-progress** state.
 - For a returned ticket, read the feedback comments first and move it back to

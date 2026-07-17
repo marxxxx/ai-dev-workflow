@@ -124,6 +124,20 @@ test('buildGlobalTokens sets app.include and never emits app.up/down tokens', ()
   assert.ok(!('app.logsDir' in tokens));
 });
 
+test('buildGlobalTokens sets cost.include and the cost artifact tokens', () => {
+  const costCfg = {
+    cost: { includePath: '.agents/includes/cost.md' },
+    workflow: {
+      states: WORKFLOW.states,
+      artifacts: { ...WORKFLOW.artifacts, costOrigin: 'Cost Origin', costSummary: 'Cost Summary' },
+    },
+  };
+  const tokens = buildGlobalTokens(costCfg);
+  assert.equal(tokens['cost.include'], '.agents/includes/cost.md');
+  assert.equal(tokens['artifact.costOrigin'], 'Cost Origin');
+  assert.equal(tokens['artifact.costSummary'], 'Cost Summary');
+});
+
 import { cmdScaffold } from './generate.mjs';
 import fs from 'node:fs';
 import os from 'node:os';

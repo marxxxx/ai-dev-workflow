@@ -37,7 +37,10 @@ const DEPENDENCIES =
   '               https://github.com/microsoft/playwright-mcp\n' +
   '\n' +
   '  context7     MCP server: up-to-date library and framework documentation\n' +
-  '               https://github.com/upstash/context7';
+  '               https://github.com/upstash/context7\n' +
+  '\n' +
+  '  ccusage      CLI: per-session token/cost reporting used for the per-ticket cost summary\n' +
+  '               https://ccusage.com';
 
 /** Template-copy scaffold — the non-interactive fallback. Never overwrites. */
 export function cmdScaffold(projectRoot) {

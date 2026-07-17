@@ -5,6 +5,9 @@
   "app": {
     "includePath": ".agents/includes/e2e-runtime.md"
   },
+  "cost": {
+    "includePath": ".agents/includes/cost.md"
+  },
   "workflow": {
     "states": [
       {
@@ -59,7 +62,9 @@
     "artifacts": {
       "implementationNotes": "Implementation Notes",
       "reviewFeedback": "Code Review Feedback",
-      "testResults": "Test Results"
+      "testResults": "Test Results",
+      "costOrigin": "Cost Origin",
+      "costSummary": "Cost Summary"
     }
   }
 }

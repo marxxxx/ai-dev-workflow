@@ -19,6 +19,13 @@ comment mechanisms, or PR commands in this skill — if the ticketing backend ch
 changes. The states below (`new`, `in-progress`, `review`, `test`, `failed`, `acceptance-test`) are
 logical; use the exact representation the include defines.
 
+## Cost Accounting
+
+Before any cost operation, read `{{cost.include}}`. It is the single source of truth for recording
+each participant's `ccusage` session into a per-run ledger and for posting the token/cost breakdown as
+the `{{artifact.costSummary}}` comment when the ticket reaches `acceptance-test`. Do not hardcode
+`ccusage` commands, ledger paths, or session-detection logic in this skill.
+
  ## Subagent Context Policy
 
   When spawning `developer`, `code-reviewer`, or `qa-engineer`, do not fork or share the full
@@ -31,6 +38,8 @@ logical; use the exact representation the include defines.
   - the upstream ticket reference if the ticket records one — it determines the branch's
     first segment (`feat/<upstream-number>_<slug>`);
   - required ticketing include path: `{{ticketing.include}}`;
+  - the cost include path `{{cost.include}}` and this run's cost-ledger path, so the subagent records
+    its `ccusage` session (see `{{cost.include}}`);
   - relevant prior artifact names: `{{artifact.implementationNotes}}`,
     `{{artifact.reviewFeedback}}`, `{{artifact.testResults}}`;
   - exact expected status transition and return format;
@@ -61,6 +70,9 @@ logical; use the exact representation the include defines.
    user chose one.
 4. Track a maximum of three implementation-review iterations per ticket unless the user
    explicitly chooses another limit.
+5. For each ticket, start its cost ledger before spawning any subagent: follow `{{cost.include}}` to
+   create this run's ledger (a unique per-run path) and record your own orchestrator session. Pass the
+   ledger path in every subagent prompt packet.
 
 ## Implement Or Fix
 
@@ -131,6 +143,11 @@ After QA returns, audit the `{{artifact.testResults}}` comment before accepting 
 
 For handoff move the ticket to `acceptance-test`. If failed, return to implementation.
 
+On the move to `acceptance-test`, follow `{{cost.include}}` to aggregate this run's ledger sessions
+(and the `{{artifact.costOrigin}}` marker product-architect left on the ticket) and post the
+`{{artifact.costSummary}}` comment, then clean up the ledger. Cost reporting never blocks the
+handoff — if `ccusage` or a session is unavailable, post the summary noting the gap.
+
 ## Pull Request And Handoff
 
 Once a ticket reaches `acceptance-test`, create a PR from its feature branch to
@@ -143,6 +160,10 @@ Once a ticket reaches `acceptance-test`, create a PR from its feature branch to
 
 Report the PR URL and leave the ticket open at `acceptance-test`. A human reviews,
 merges, and closes it.
+
+If a ticket was already at `acceptance-test` when this run started (for example only a missing PR had
+to be created), ensure the `{{artifact.costSummary}}` comment exists: post it per `{{cost.include}}`
+if absent, and never post a duplicate if one is already present.
 
 ## Guardrails
 

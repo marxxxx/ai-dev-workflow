@@ -36,6 +36,8 @@ agent-src/
     ticketing-github.md        # ticketing operations — GitHub (gh CLI) variant
     ticketing-file.md          # ticketing operations — file-based (.tickets/) variant
     ticketing-azure-devops.md  # ticketing operations — Azure DevOps (@azure-devops/mcp) variant
+    e2e-runtime.md             # how the qa-engineer brings the app up (points at AGENTS.md)
+    cost.md                    # how the workflow records ccusage session cost + posts the summary
   skills/<name>/
     body.md                    # shared SKILL body — uses {{token}}s; references the ticketing include
     manifest.json              # name, description, platforms{}, interface{} (Codex openai.yaml)
@@ -136,7 +138,11 @@ project override) → platform overlay → project append**. These files are gen
 ## Output map
 
 The selected ticketing variant is also emitted once, to `ticketing.includePath`
-(default `.agents/includes/ticketing.md`); all three harnesses read that same file at runtime.
+(default `.agents/includes/ticketing.md`); all three harnesses read that same file at runtime. The
+`e2e-runtime` include (`.agents/includes/e2e-runtime.md`) and the `cost` include
+(`.agents/includes/cost.md`) are emitted the same way — one shared file each. The cost include is the
+single source of truth for recording each participant's `ccusage` session into a per-run ledger and
+posting the `Cost Summary` comment when a ticket reaches `acceptance-test`.
 
 | Source unit | → Claude | → Codex | → OpenCode |
 |---|---|---|---|

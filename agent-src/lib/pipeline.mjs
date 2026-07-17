@@ -8,6 +8,7 @@ import { loadUnits } from './units.mjs';
 import { substituteManifestStrings, resolveBody } from './tokens.mjs';
 import { renderTicketingInclude, renderMcpJson, renderCodexAdoMcpToml } from './ticketing.mjs';
 import { renderE2eInclude } from './app.mjs';
+import { renderCostInclude } from './cost.mjs';
 import { RENDERERS, smokeCheck } from './renderers.mjs';
 
 export function renderAll(projectRoot) {
@@ -40,6 +41,16 @@ export function renderAll(projectRoot) {
     }
     seenPaths.add(e2e.path);
     outputs.push(e2e);
+  }
+
+  // The resolved cost include — the workflow's single source of truth for ccusage cost accounting.
+  const cost = renderCostInclude(config, globalTokens);
+  if (cost) {
+    if (/\{\{.*?\}\}/.test(cost.content)) {
+      throw new Error(`Cost include: unresolved placeholder in ${cost.path}`);
+    }
+    seenPaths.add(cost.path);
+    outputs.push(cost);
   }
 
   // The azure-devops backend also owns the `ado` entry in .mcp.json (non-destructive merge).

@@ -12,6 +12,12 @@ the ticket body templates. Do not hardcode repository names, provider-specific
 commands, status encoding, or templates in this skill. Create tickets in the `new`
 state using the representation and commands that file defines.
 
+## Cost Accounting
+
+After creating each ticket, follow `{{cost.include}}` to stamp your `{{artifact.costOrigin}}` marker
+(this session's harness and `ccusage` session id) onto the ticket, so `dev-cycle` can attribute the
+design cost when it posts the ticket's cost summary.
+
 ## Boundaries
 
 - Do not implement application code or fixes.

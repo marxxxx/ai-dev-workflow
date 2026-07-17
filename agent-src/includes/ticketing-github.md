@@ -96,6 +96,10 @@ The workflow hands context between agents through named issue comments:
 - `{{artifact.implementationNotes}}` — posted by the developer after implementation.
 - `{{artifact.reviewFeedback}}` — posted by the code reviewer when findings exist.
 - `{{artifact.testResults}}` — posted by the QA engineer after acceptance testing.
+- `{{artifact.costOrigin}}` — posted by the product-architect at creation, recording its session so
+  the design cost can be attributed later (see the cost accounting include).
+- `{{artifact.costSummary}}` — posted by the orchestrator when the ticket reaches
+  `{{status.acceptance-test}}`: the token/cost breakdown for the ticket.
 
 ## Issue Body Templates
 

@@ -164,6 +164,24 @@ test('renderAll emits the single AGENTS-driven e2e include and the qa-engineer p
   }
 });
 
+test('renderAll emits the cost include and dev-cycle points at it', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const outputs = renderAll(root);
+    const cost = outputs.find((o) => o.path === '.agents/includes/cost.md');
+    assert.ok(cost, 'cost include should always be produced');
+    assert.match(cost.content, /ccusage/, 'cost include invokes ccusage');
+    assert.match(cost.content, /Cost Summary/, 'cost include names the summary artifact');
+    assert.doesNotMatch(cost.content, /\{\{.*?\}\}/, 'include must fully resolve');
+    // The dev-cycle orchestrator points at the cost include and must resolve on every platform.
+    const devcycle = outputs.find((o) => o.path === path.join('.claude', 'skills', 'dev-cycle', 'SKILL.md'));
+    assert.match(devcycle.content, /\.agents\/includes\/cost\.md/);
+    assert.doesNotMatch(devcycle.content, /\{\{.*?\}\}/);
+  } finally {
+    cleanup();
+  }
+});
+
 test('loadConfig merges package workflow + includePath over the project file', () => {
   const { root, cleanup } = tmpProject();
   try {
@@ -175,6 +193,7 @@ test('loadConfig merges package workflow + includePath over the project file', (
     assert.ok(cfg.workflow, 'workflow states/artifacts come from the package');
     assert.equal(cfg.ticketing.includePath, '.agents/includes/ticketing.md');
     assert.equal(cfg.app.includePath, '.agents/includes/e2e-runtime.md');
+    assert.equal(cfg.cost.includePath, '.agents/includes/cost.md');
   } finally {
     cleanup();
   }

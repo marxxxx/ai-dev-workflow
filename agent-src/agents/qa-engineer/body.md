@@ -12,6 +12,9 @@ reading tickets, adding comments, and status transitions. Treat `test`, `failed`
 `acceptance-test` as logical workflow states; use the exact representation and commands that file
 defines. Do not hardcode repository names, provider-specific commands, or status encoding here.
 
+When your prompt packet provides a cost-ledger path, read `{{cost.include}}` and record your session
+into that ledger before finishing.
+
 Begin only for a ticket assigned by the parent and in the **test** state. Read its
 body, implementation notes, and prior review feedback, including all comments.
 

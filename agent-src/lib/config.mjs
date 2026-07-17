@@ -35,6 +35,7 @@ export function loadConfig(projectRoot) {
     workflow: pkg.workflow,
     ticketing: { ...(project.ticketing || {}), includePath: pkg.ticketing?.includePath },
     app: { ...(project.app || {}), includePath: pkg.app?.includePath },
+    cost: { ...(project.cost || {}), includePath: pkg.cost?.includePath },
   };
 }
 
@@ -122,6 +123,10 @@ export function buildGlobalTokens(config) {
   // E2E runtime: the include path is package-owned (always present). The include itself points the
   // qa-engineer at the project's AGENTS.md e2e-setup section — no per-project command tokens.
   put('app.include', c.app?.includePath);
+
+  // Cost accounting: the include path is package-owned (always present). The include tells the
+  // workflow how to record ccusage session cost and post the per-ticket summary at acceptance-test.
+  put('cost.include', c.cost?.includePath);
 
   for (const [k, v] of Object.entries(c.workflow?.artifacts || {})) put(`artifact.${k}`, v);
   const usesTagLabels = backend === 'github' || backend === 'azure-devops';
