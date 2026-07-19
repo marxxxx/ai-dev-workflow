@@ -1,16 +1,16 @@
 {
   "project": {
-    "name": "ProjectName",
-    "slug": "ProjectSlug",
-    "serenaProject": "ProjectSlug",
-    "description": "Describe your Project in a few words."
+    "name": "ai-dev-workflow",
+    "slug": "ai-dev-workflow",
+    "serenaProject": "ai-dev-workflow",
+    "description": "Generator that renders subagent & skill definitions for Claude Code, Codex, and OpenCode from one canonical source."
   },
   "repository": {
-    "slug": "RepositoryName",
+    "slug": "marxxxx/ai-dev-workflow",
     "defaultBranch": "main"
   },
   "ticketing": {
-    "backend": "file",
+    "backend": "github",
     "github": {
     },
     "file": {
