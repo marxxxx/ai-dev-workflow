@@ -176,6 +176,24 @@ Review the diff in `.claude/`/`.codex/`/etc. and commit. `ai-project.json` is ne
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
 
+## Run in a container
+
+Prefer not to install the agents and MCP tooling on your host? The workflow ships a **container
+runtime** — a base image with all three agents (Claude Code, Codex, OpenCode) and the recommended MCP
+tooling (serena, playwright + chromium, context7), plus superpowers, ccusage, and the generator,
+**already installed and configured**. Mount your repo at `/workspace`, bind-mount your existing agent
+logins so there is zero re-auth, and run an agent:
+
+```bash
+HOST_UID=$(id -u) HOST_GID=$(id -g) \
+  docker compose -f docker/docker-compose.yml run --rm ai-dev-workflow claude   # or codex | opencode
+```
+
+Two derived images add app-facing runtimes (`ai-dev-workflow-node`, `ai-dev-workflow-dotnet`). The
+container assets live under `docker/` and are **hand-maintained, not generated**. See
+[`docker/README.md`](docker/README.md) for the run model, mounts, auth/persistence, UID/GID mapping,
+and how a consuming project extends the base.
+
 ## License
 
 Apache-2.0
