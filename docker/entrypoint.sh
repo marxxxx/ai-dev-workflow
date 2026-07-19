@@ -51,6 +51,18 @@ if [ "$(id -u)" = "0" ]; then
     chown "${HOST_UID}:${HOST_GID}" "${APP_HOME}/${d}" || true
   done
 
+  # --- 3b. Make the uv cache/python tree writable by the runtime user ------
+  # The build primed serena's Python + package into /opt/uv AS ROOT, then made
+  # it world-readable (a+rX). Readable is not enough: `uvx ...serena` must WRITE
+  # its cache on first run, and root-owned 755 dirs make that abort with
+  # "Failed to initialize cache ... Permission denied (os error 13)". Rechown the
+  # whole tree to the remapped UID/GID so the primed cache stays reusable AND
+  # writable -- this holds for the default `node`/`dev` uid and any remapped host
+  # uid alike, and keeps serena offline on first run (no network fetch).
+  if [ -d /opt/uv ]; then
+    chown -R "${HOST_UID}:${HOST_GID}" /opt/uv || true
+  fi
+
   gosu "${APP_USER}" env HOME="${APP_HOME}" \
     git config --global --add safe.directory /workspace || true
 
