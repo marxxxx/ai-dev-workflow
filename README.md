@@ -59,6 +59,7 @@ docs, which are the authority on installing it.
 | [serena](https://github.com/oraios/serena) | MCP server: semantic, symbol-level code navigation and editing (`developer`, `code-reviewer`) |
 | [playwright](https://github.com/microsoft/playwright-mcp) | MCP server: drives a real browser for end-to-end testing (`qa-engineer`) |
 | [context7](https://github.com/upstash/context7) | MCP server: up-to-date library and framework documentation |
+| [ccusage](https://ccusage.com) | CLI: per-session token/cost reporting behind the [per-ticket cost summary](#per-ticket-cost-summary) |
 
 None are hard requirements — an agent degrades to what is available (the `qa-engineer`, for example,
 reports a blocker rather than claiming a pass if Playwright is missing). Scope MCP servers to the
@@ -132,6 +133,24 @@ The QA agent reads this via `.agents/includes/e2e-runtime.md` (generated — the
 that points it at your `AGENTS.md`). Create `AGENTS.md` with your coding agent's native `/init`
 (Claude `/init` → `CLAUDE.md`; Codex / OpenCode `/init` → `AGENTS.md`), then make sure it covers the
 tech stack, the install / build / run / test commands, and the points above.
+
+## Per-ticket cost summary
+
+The workflow records what each ticket cost to build and posts a **Cost Summary** comment when
+`dev-cycle` moves the ticket to `acceptance-test` — a per-phase token/USD breakdown (design,
+implement, review, QA) plus a grand total. Cost data comes from [`ccusage`](https://ccusage.com), a
+standalone CLI that reads each coding agent's local session logs; it reads the logs of **all three
+harnesses**, so a ticket whose design ran in one harness and whose implementation ran in another
+still aggregates correctly — as long as both ran on the same machine and user account. The
+`product-architect` skill stamps a **Cost Origin** marker on the ticket so design cost is attributed
+back to the right run.
+
+The mechanics live in one generated file, `.agents/includes/cost.md` (the single source of truth for
+the ccusage ledger and aggregation), which every agent and skill reads at runtime. It **degrades
+gracefully**: if `ccusage` isn't installed the summary is skipped rather than failing the handoff,
+and re-runs are idempotent. The summary is posted through the same ticketing mechanism as every other
+comment, so it lands wherever your `ticketing.backend` puts ticket comments (GitHub / file / Azure
+DevOps).
 
 ## In a Node project
 
