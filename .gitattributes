@@ -1,0 +1,14 @@
+# This repo's convention is LF line endings on every platform (see CLAUDE.md).
+# Force LF so a Windows checkout with core.autocrlf=true cannot rewrite these to
+# CRLF — CRLF shebangs break shell scripts copied into the Docker images.
+* text=auto eol=lf
+
+# Belt-and-suspenders for the files that must never be CRLF.
+*.sh        text eol=lf
+Dockerfile* text eol=lf
+*.mjs       text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.toml      text eol=lf
