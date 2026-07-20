@@ -24,7 +24,7 @@
 
 # Pinned Node LTS on Debian slim. Bumping the tag is the supported way to move
 # the base Node version.
-FROM node:22-bookworm-slim
+FROM node:24-bookworm-slim
 
 # --- Tunable tool versions (pin for reproducibility) -----------------------
 # Left as floating tags by default so a fresh build picks up upstream fixes;

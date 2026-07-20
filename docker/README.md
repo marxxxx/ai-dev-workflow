@@ -45,6 +45,10 @@ the `qa-engineer`.
 
 ## Run
 
+> **On a Windows host?** The commands in this section and the next are written
+> for Linux/macOS shells. Read **[Windows hosts](#windows-hosts)** first — one
+> compose gotcha (`${HOME}`) silently mounts to the wrong place if you skip it.
+
 `docker run` with your repo mounted at `/workspace` and the run arg selecting the
 agent:
 
@@ -79,6 +83,71 @@ docker compose -f docker/docker-compose.yml run --rm ai-dev-workflow ai-dev-work
 
 The default command is an interactive shell; **override the command** to launch
 a specific agent, as shown.
+
+## Windows hosts
+
+The setup runs on Windows with **Docker Desktop** (WSL2 backend) — the container
+is Linux either way. Only the **host-side commands** differ. The blocks below are
+**PowerShell** (the native Windows shell); a Git Bash note follows at the end.
+
+### 1. Export `HOME` so compose can find your profile (the one that bites)
+
+`docker-compose.yml` mounts your agent configs from `${HOME}/.claude` etc.
+`HOME` is **not** a process environment variable on Windows — PowerShell's
+`$HOME` is an automatic variable that is *not* exported — so compose interpolates
+`${HOME}` to **empty** and silently bind-mounts to `C:\.claude`, `C:\.codex`, …
+instead of your user profile. Fix it once per shell session, before any compose
+command:
+
+```powershell
+$env:HOME = $HOME    # export PowerShell's $HOME so compose reads ${HOME}
+```
+
+### 2. Skip `HOST_UID` / `HOST_GID`
+
+`id -u` / `id -g` don't exist on Windows, and UID/GID remapping is a **no-op** on
+Docker Desktop — bind-mounted files are owned by your host user through the VM's
+file-sharing layer regardless. Just **omit** those vars; the compose defaults
+(`1000:1000`) are correct. There is no Windows equivalent of the
+`export HOST_UID=…` line — you don't need one.
+
+### 3. Create the host config dirs, then run compose
+
+```powershell
+# create the host config dirs once so they resolve to your profile:
+New-Item -ItemType Directory -Force $HOME\.claude, $HOME\.codex, `
+  $HOME\.config\opencode, $HOME\.serena | Out-Null
+
+$env:HOME = $HOME    # (see step 1) — required before every fresh shell session
+
+docker compose -f docker/docker-compose.yml build
+docker compose -f docker/docker-compose.yml run --rm ai-dev-workflow            # shell
+docker compose -f docker/docker-compose.yml run --rm ai-dev-workflow claude     # agent
+```
+
+### Plain `docker run` on PowerShell
+
+The `docker run` form (no compose) rewritten for PowerShell — note `${PWD}` /
+`$HOME`, backtick line-continuations, and no `HOST_UID/GID`:
+
+```powershell
+docker run --rm -it `
+  -v "${PWD}:/workspace" `
+  -v "$HOME\.claude:/home/dev/.claude" `
+  -v "$HOME\.codex:/home/dev/.codex" `
+  -v "$HOME\.config\opencode:/home/dev/.config/opencode" `
+  -v "$HOME\.serena:/home/dev/.serena" `
+  ai-dev-workflow claude        # or: codex | opencode | bash
+```
+
+### Git Bash fallback
+
+If you run from **Git Bash** instead of PowerShell, the Linux/macOS commands in
+[Run](#run) work **as-written** — Git Bash provides `id`, `$HOME`, `~`, `$(pwd)`,
+and `mkdir -p`, and it exports `HOME`, so no changes are needed.
+
+Verify the MCP registration inside the container the same way on any host:
+`claude mcp list` (and the equivalent for the other agents).
 
 ## Mounts
 
@@ -162,7 +231,7 @@ separate CI/publishing setup.
 
 ## Version pinning
 
-The base pins Node via its `FROM node:22-bookworm-slim` tag. The agent CLIs, MCP
+The base pins Node via its `FROM node:24-bookworm-slim` tag. The agent CLIs, MCP
 servers, and .NET channel are exposed as build `ARG`s (`CLAUDE_CODE_PKG`,
 `CODEX_PKG`, `OPENCODE_PKG`, `DOTNET_CHANNEL`, …) — pass `--build-arg` to pin any
 of them to an exact version for a reproducible image.
