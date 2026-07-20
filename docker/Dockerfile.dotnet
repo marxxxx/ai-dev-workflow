@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1
+# ---------------------------------------------------------------------------
+# ai-dev-workflow-dotnet — DERIVED image (hand-maintained, NOT generated)
+#
+# Base + the .NET SDK, for building/testing .NET projects under the workflow.
+# Installed via Microsoft's dotnet-install script so the channel is easy to pin
+# and no extra apt repo is required.
+#
+# Build (after the base is built and tagged `ai-dev-workflow`):
+#   docker build -f docker/Dockerfile.dotnet -t ai-dev-workflow-dotnet .
+# ---------------------------------------------------------------------------
+FROM ai-dev-workflow
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    DOTNET_ROOT=/usr/share/dotnet \
+    DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
+    PATH=/usr/share/dotnet:${PATH}
+
+# Pin the LTS channel here (e.g. 10.0). Bump to move the SDK version.
+ARG DOTNET_CHANNEL="10.0"
+
+# libicu / libssl are the .NET runtime's native dependencies on Debian.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends libicu72 libssl3; \
+    rm -rf /var/lib/apt/lists/*; \
+    curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh; \
+    chmod +x /tmp/dotnet-install.sh; \
+    /tmp/dotnet-install.sh --channel "${DOTNET_CHANNEL}" --install-dir "${DOTNET_ROOT}"; \
+    rm -f /tmp/dotnet-install.sh; \
+    chmod -R a+rX "${DOTNET_ROOT}"; \
+    # Symlink into /usr/local/bin so `dotnet` is on PATH even under a login
+    # shell (which re-derives PATH and would drop the ENV-provided entry).
+    ln -sf "${DOTNET_ROOT}/dotnet" /usr/local/bin/dotnet; \
+    dotnet --info
+
+WORKDIR /workspace
