@@ -17,8 +17,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
     PATH=/usr/share/dotnet:${PATH}
 
-# Pin the LTS channel here (e.g. 8.0). Bump to move the SDK version.
-ARG DOTNET_CHANNEL="8.0"
+# Pin the LTS channel here (e.g. 10.0). Bump to move the SDK version.
+ARG DOTNET_CHANNEL="10.0"
 
 # libicu / libssl are the .NET runtime's native dependencies on Debian.
 RUN set -eux; \
