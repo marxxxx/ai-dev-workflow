@@ -1,6 +1,6 @@
 {
   "name": "@strobl/ai-dev-workflow",
-  "version": "0.12.1",
+  "version": "0.12.2",
   "private": true,
   "description": "Single-source agent & skill definitions for Claude Code, Codex, and OpenCode, generated per project from a small config. Language-agnostic: usable in any repo (incl. C#/.NET) via npx; only requires Node to run the generator.",
   "type": "module",
