@@ -96,9 +96,18 @@ When the orchestrator moves a ticket to `{{status.acceptance-test}}`:
    ```bash
    ccusage <harness> session --id <sessionId> --json
    ```
-   Parse `session[0]`: `inputTokens`, `outputTokens`, `cacheCreationTokens`, `cacheReadTokens`,
-   `totalTokens`, `totalCost`, and `modelsUsed`. Prefer an installed `ccusage`; otherwise use
-   `npx ccusage@latest` (or `bunx ccusage`). Add `--offline` if the machine has no network (uses
+   Mind the response shape — it is **not** the same as unfiltered `ccusage session --json`. A
+   `--id`-filtered response is a single object:
+   ```json
+   { "sessionId": "<id>", "totalCost": 0.0, "totalTokens": 0, "entries": [ /* per-message rows */ ] }
+   ```
+   There is **no `session[]` array** here (that only exists in the *unfiltered* output, where each
+   row's session id is the `period` field — there is no `sessionId` key on those rows). So read
+   `totalCost` and `totalTokens` from the **top level** of the filtered object, and derive the rest by
+   aggregating `entries[]`: sum `inputTokens`, `outputTokens`, `cacheCreationTokens`, and
+   `cacheReadTokens` across the entries, and collect `modelsUsed` from the distinct `entries[].model`
+   values (each entry also carries a per-message `costUSD`). Prefer an installed `ccusage`; otherwise
+   use `npx ccusage@latest` (or `bunx ccusage`). Add `--offline` if the machine has no network (uses
    cached pricing).
 4. Build the breakdown grouped by phase:
 
