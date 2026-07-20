@@ -49,6 +49,28 @@ through a symlink" case) fails with `EPERM` — this is an environmental limitat
 `npm run check` renders in memory and diffs against disk — it catches both a stale regen and any
 hand-edit to a generated file. Run it before committing.
 
+## The second rule: keep the published `files` allowlist in sync with `agent-src/lib/`
+
+`package.json` `files` enumerates each runtime `agent-src/lib/*.mjs` module **individually** (test
+files are intentionally excluded). This is an allowlist, not a glob — so **adding a new `lib/*.mjs`
+module, or a new `import` of one, silently omits it from the npm package**. Everything works locally
+and in CI (the files are on disk), but `npx @strobl/ai-dev-workflow` installs a package missing the
+module and dies at import time:
+
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '…/agent-src/lib/<name>.mjs'
+    imported from …/agent-src/lib/pipeline.mjs
+```
+
+We have hit this repeatedly (`cost.mjs` was the latest). **Whenever you add, rename, or delete a
+non-test file under `agent-src/lib/` (or add a new `import` from anywhere in `agent-src/`), update
+the `files` list in `package.json` in the same commit.** Same applies to any new `agent-src/config/*`
+or `includes/*` asset read at runtime.
+
+Verify before publishing — `npm pack --dry-run` lists exactly what ships; confirm every runtime
+`lib/*.mjs` (and no `.test.mjs`) is present. A local `node agent-src/generate.mjs generate` never
+catches this because it resolves against the working tree, not the packaged subset.
+
 ## Architecture
 
 `agent-src/generate.mjs` is a thin CLI orchestrator (parse argv → dispatch). The real work lives in
