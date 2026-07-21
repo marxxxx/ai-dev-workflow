@@ -62,8 +62,7 @@ docs, which are the authority on installing it.
 | [ccusage](https://ccusage.com) | CLI: per-session token/cost reporting behind the [per-ticket cost summary](#per-ticket-cost-summary) |
 
 None are hard requirements — an agent degrades to what is available (the `qa-engineer`, for example,
-reports a blocker rather than claiming a pass if Playwright is missing). Scope MCP servers to the
-project rather than installing them globally, so other projects on the machine don't inherit them.
+offloads end-to-end-testing to the Human if Playwright is missing). 
 
 The `ado` MCP server is the exception: for the `azure-devops` backend, `generate` merges it into
 `.mcp.json` and `.codex/config.toml` for you — nothing to install by hand.
