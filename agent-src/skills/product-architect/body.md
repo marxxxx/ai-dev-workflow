@@ -46,13 +46,16 @@ design cost when it posts the ticket's cost summary.
 6. For frontend work, inspect existing UI behavior and conventions before proposing changes.
 7. If the request includes subjective visual outcomes such as redesign, theme, mood, style,
    polished, modern, or celebration, complete the visual approval workflow below.
-8. Create one or more vertical, independently testable tickets in the `new` state.
+8. Watch scope as the specification takes shape. When it outgrows one ticket, propose a split
+   following `Ticket Splitting` below and get the user's agreement on the resulting tickets before
+   creating them.
+9. Create one or more vertical, independently testable tickets in the `new` state.
    When an upstream ticket was recorded, link the ticket to it as related using the
    mechanism defined in `{{ticketing.include}}`, and note that its feature branch's first segment will
    be the upstream ticket number. When no upstream ticket was given, the ticket is the
    single source of truth and its own number flows into branch naming as usual.
-9. Report ticket links and dependencies, then stop. Implementation and QA are
-   downstream work.
+10. Report ticket links and dependencies, then stop. Implementation and QA are
+    downstream work.
 
 ## Visual Approval
 
@@ -81,8 +84,33 @@ Every ticket must include:
 - Acceptance Criteria, separated into functional and visual/human-review criteria when relevant
 - For bugs, reproduction steps, expected/actual behavior, and captured evidence
 
-Prefer a single vertical ticket when it delivers one complete, testable user outcome
-across frontend and backend layers. Do not create horizontal infrastructure-only tickets.
+## Ticket Splitting
+
+Suggest a split when a ticket covers more than one independent user outcome, is too large for one
+focused implement–review–test pass, or carries acceptance criteria that could ship and be validated
+separately. Propose the split with concrete ticket titles and get the user's agreement.
+
+Split **vertically, never horizontally**. Every ticket must deliver a complete, independently
+testable outcome for the end user across whatever layers it touches — UI, API, persistence, and its
+tests all belong inside the ticket that needs them.
+
+Ways to slice vertically:
+
+- **By scenario or rule** — happy path first, then each additional case, variant, or edge condition.
+- **By data or entity subset** — the same capability applied to one kind of input at a time.
+- **By depth** — a minimal usable version first, then refinements (validation, bulk handling,
+  extended options, performance) as follow-ups.
+
+Keep the first slice thin but real: usable and demonstrable on its own.
+
+Do not create layer-shaped tickets — "create the data model", "build the backend", "build the
+frontend", "write the tests", "set up infrastructure". Only when no vertical slice is possible, for
+example a shared foundation with no user-visible behavior of its own, create a technical ticket;
+state in it why a vertical split was not possible, keep it minimal, and record it as a dependency of
+the vertical ticket it enables.
+
+Record ordering between split tickets under `Dependencies`, and keep each ticket's acceptance
+criteria self-contained.
 
 ## Creation Gate
 
