@@ -123,6 +123,15 @@ rejections. States are represented differently per backend (GitHub/ADO labels vs
 which is exactly why bodies refer to states *logically* and defer their concrete encoding to the
 ticketing include.
 
+## Releasing a new version
+
+This package is distributed from Git, not npm — the version tag *is* the release. To cut one:
+
+1. Update the version references in `README.md` (install commands, `package.json` example, any
+   `#vX.Y.Z` tag references) to the new version.
+2. Create a git tag for the new version (e.g. `git tag vX.Y.Z`).
+3. Push the tag and merge the change to `main`.
+
 ## Conventions
 
 - **Zero runtime dependencies** — Node builtins only. Don't add packages.
