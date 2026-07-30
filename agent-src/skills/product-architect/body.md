@@ -109,8 +109,15 @@ example a shared foundation with no user-visible behavior of its own, create a t
 state in it why a vertical split was not possible, keep it minimal, and record it as a dependency of
 the vertical ticket it enables.
 
-Record ordering between split tickets under `Dependencies`, and keep each ticket's acceptance
-criteria self-contained.
+After agreeing the split, rewrite each ticket as a standalone scope and assign every behavior to
+exactly one ticket. Requirements, affected layers, approved approach, and acceptance criteria must
+contain only work owned by that ticket. Mention follow-up behavior only under `Explicit Exclusions`
+and `Dependencies`, naming the ticket that owns it. For a foundation ticket, state the interim
+runtime behavior until its successor is delivered.
+
+Before creation, cross-check all split tickets: no behavior may be required by more than one ticket,
+and no ticket may require behavior implemented only by a successor. Review and QA evaluate only the
+current ticket’s owned requirements and acceptance criteria.
 
 ## Creation Gate
 
