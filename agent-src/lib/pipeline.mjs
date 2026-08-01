@@ -9,6 +9,7 @@ import { substituteManifestStrings, resolveBody } from './tokens.mjs';
 import { renderTicketingInclude, renderMcpJson, renderCodexAdoMcpToml } from './ticketing.mjs';
 import { renderE2eInclude } from './app.mjs';
 import { renderCostInclude } from './cost.mjs';
+import { renderHandoffInclude } from './handoff.mjs';
 import { RENDERERS, smokeCheck } from './renderers.mjs';
 
 export function renderAll(projectRoot) {
@@ -51,6 +52,17 @@ export function renderAll(projectRoot) {
     }
     seenPaths.add(cost.path);
     outputs.push(cost);
+  }
+
+  // The resolved handoff include — how a developer stops at a criterion boundary and hands the rest
+  // of an oversized ticket to a fresh developer.
+  const handoff = renderHandoffInclude(config, globalTokens);
+  if (handoff) {
+    if (/\{\{.*?\}\}/.test(handoff.content)) {
+      throw new Error(`Handoff include: unresolved placeholder in ${handoff.path}`);
+    }
+    seenPaths.add(handoff.path);
+    outputs.push(handoff);
   }
 
   // The azure-devops backend also owns the `ado` entry in .mcp.json (non-destructive merge).

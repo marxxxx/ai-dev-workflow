@@ -36,6 +36,7 @@ export function loadConfig(projectRoot) {
     ticketing: { ...(project.ticketing || {}), includePath: pkg.ticketing?.includePath },
     app: { ...(project.app || {}), includePath: pkg.app?.includePath },
     cost: { ...(project.cost || {}), includePath: pkg.cost?.includePath },
+    handoff: { ...(project.handoff || {}), includePath: pkg.handoff?.includePath },
   };
 }
 
@@ -127,6 +128,11 @@ export function buildGlobalTokens(config) {
   // Cost accounting: the include path is package-owned (always present). The include tells the
   // workflow how to record ccusage session cost and post the per-ticket summary at acceptance-test.
   put('cost.include', c.cost?.includePath);
+
+  // Developer handoff: the include path is package-owned (always present). The include tells the
+  // developer how to stop at a criterion boundary and hand off, and the orchestrator how to seed the
+  // journal, audit the handoff, and count continuations.
+  put('handoff.include', c.handoff?.includePath);
 
   for (const [k, v] of Object.entries(c.workflow?.artifacts || {})) put(`artifact.${k}`, v);
   const usesTagLabels = backend === 'github' || backend === 'azure-devops';

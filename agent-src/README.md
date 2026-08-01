@@ -80,7 +80,11 @@ every body and to each manifest `description`/`interface` string:
 - `{{repo.slug}}`, `{{repo.defaultBranch}}`
 - `{{ticketing.include}}` (path agents read at runtime), `{{ticketing.backend}}`
 - `{{git.branchPattern}}`, `{{git.prTarget}}`
-- `{{artifact.implementationNotes}}`, `{{artifact.reviewFeedback}}`, `{{artifact.testResults}}`
+- `{{artifact.implementationNotes}}`, `{{artifact.reviewFeedback}}`, `{{artifact.testResults}}`,
+  `{{artifact.handoff}}`, `{{artifact.costOrigin}}`, `{{artifact.costSummary}}` — one per key of
+  `workflow.artifacts`; each is the title of a named ticket comment
+- `{{app.include}}`, `{{cost.include}}`, `{{handoff.include}}` — the other runtime include paths
+  (e2e runtime, cost accounting, developer handoff), package-owned like `{{ticketing.include}}`
 - `{{status.<id>}}` — resolves to the label (`status:new`) for github and azure-devops, or the
   file-frontmatter value (`new`) for file, depending on `ticketing.backend`. Used only inside the
   ticketing includes; bodies refer to states logically (`new`, `review`, …) and defer their
@@ -109,8 +113,10 @@ in it). They are never regenerated or overwritten — unlike the platform files,
 
 A unit *may* also contain `overlays/<platform>.md`; the generator appends it to that platform's
 rendered body. This is the structural guarantee that platform-specific guidance does **not leak**
-between tools. None exist today — Serena, Playwright, and superpowers are available on all three
-platforms, so that guidance lives in the shared `body.md`.
+between tools. Only one exists today: `skills/dev-cycle/overlays/codex.md`, which carries the Codex
+`spawn_agent` / `fork_turns` rules for spawning fresh developers and handoff continuations. Guidance
+that is not genuinely platform-specific belongs in the shared `body.md` — Serena, Playwright, and
+superpowers are available on all three platforms, so none of that is overlaid.
 
 **Project overrides (`agent-custom/`).** A consuming project can tailor any shipped unit without
 forking the package by adding a committed `agent-custom/{agents,skills}/<name>/` dir at its root
@@ -139,10 +145,14 @@ project override) → platform overlay → project append**. These files are gen
 
 The selected ticketing variant is also emitted once, to `ticketing.includePath`
 (default `.agents/includes/ticketing.md`); all three harnesses read that same file at runtime. The
-`e2e-runtime` include (`.agents/includes/e2e-runtime.md`) and the `cost` include
-(`.agents/includes/cost.md`) are emitted the same way — one shared file each. The cost include is the
-single source of truth for recording each participant's `ccusage` session into a per-run ledger and
-posting the `Cost Summary` comment when a ticket reaches `acceptance-test`.
+`e2e-runtime` include (`.agents/includes/e2e-runtime.md`), the `cost` include
+(`.agents/includes/cost.md`), and the `handoff` include (`.agents/includes/handoff.md`) are emitted
+the same way — one shared file each. The cost include is the single source of truth for recording
+each participant's `ccusage` session into a per-run ledger and posting the `Cost Summary` comment
+when a ticket reaches `acceptance-test`. The handoff include is the single source of truth for what a
+`developer` does when a ticket turns out to be larger than one context window: stop at an
+acceptance-criterion boundary, post a `Developer Handoff` comment, and let the orchestrator spawn a
+fresh developer scoped to the remaining criteria.
 
 | Source unit | → Claude | → Codex | → OpenCode |
 |---|---|---|---|

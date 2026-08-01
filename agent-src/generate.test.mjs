@@ -138,6 +138,19 @@ test('buildGlobalTokens sets cost.include and the cost artifact tokens', () => {
   assert.equal(tokens['artifact.costSummary'], 'Cost Summary');
 });
 
+test('buildGlobalTokens sets handoff.include and the handoff artifact token', () => {
+  const handoffCfg = {
+    handoff: { includePath: '.agents/includes/handoff.md' },
+    workflow: {
+      states: WORKFLOW.states,
+      artifacts: { ...WORKFLOW.artifacts, handoff: 'Developer Handoff' },
+    },
+  };
+  const tokens = buildGlobalTokens(handoffCfg);
+  assert.equal(tokens['handoff.include'], '.agents/includes/handoff.md');
+  assert.equal(tokens['artifact.handoff'], 'Developer Handoff');
+});
+
 import { cmdScaffold } from './generate.mjs';
 import fs from 'node:fs';
 import os from 'node:os';

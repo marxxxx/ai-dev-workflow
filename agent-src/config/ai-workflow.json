@@ -8,6 +8,9 @@
   "cost": {
     "includePath": ".agents/includes/cost.md"
   },
+  "handoff": {
+    "includePath": ".agents/includes/handoff.md"
+  },
   "workflow": {
     "states": [
       {
@@ -63,6 +66,7 @@
       "implementationNotes": "Implementation Notes",
       "reviewFeedback": "Code Review Feedback",
       "testResults": "Test Results",
+      "handoff": "Developer Handoff",
       "costOrigin": "Cost Origin",
       "costSummary": "Cost Summary"
     }

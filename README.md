@@ -6,7 +6,7 @@ A customizable AI development workflow — subagent and skill definitions for **
 The generator is a zero-dependency Node script. It's distributed **directly from this Git repo** (no
 npm registry) and the consuming project does **not** need to be a Node project. It works in any repo
 (C#/.NET, Go, Rust, …) — the only requirement is Node on the machine that runs the generator (your
-dev box and CI). Pin to a Git tag (e.g. `#v0.14.0`) so devs and CI stay in sync.
+dev box and CI). Pin to a Git tag (e.g. `#v0.15.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -28,7 +28,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
-npx github:marxxxx/ai-dev-workflow#v0.14.0 init
+npx github:marxxxx/ai-dev-workflow#v0.15.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -39,12 +39,12 @@ npx github:marxxxx/ai-dev-workflow#v0.14.0 init
 #    e2e setup there — see End-to-end testing below.)
 
 # 3. generate the platform files
-npx github:marxxxx/ai-dev-workflow#v0.14.0 generate
+npx github:marxxxx/ai-dev-workflow#v0.15.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the tag (`#v0.14.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the tag (`#v0.15.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 ## Recommended tooling
 
@@ -133,6 +133,36 @@ that points it at your `AGENTS.md`). Create `AGENTS.md` with your coding agent's
 (Claude `/init` → `CLAUDE.md`; Codex / OpenCode `/init` → `AGENTS.md`), then make sure it covers the
 tech stack, the install / build / run / test commands, and the points above.
 
+## Oversized tickets: developer handoff
+
+Sometimes a ticket turns out to be bigger than one context window — planning was too coarse, or the
+work grew once the code was open. Without a protocol the `developer` keeps pushing until it degrades
+or dies mid-edit, and its replacement re-explores the codebase from nothing. That failure mode is
+most visible in long Codex sessions.
+
+Instead, a developer under context pressure **stops at an acceptance-criterion boundary**, commits
+what it has, and posts a **Developer Handoff** comment. `dev-cycle` then spawns a *fresh* developer
+scoped to the remaining criteria. The handoff carries the map — files, symbols, conventions,
+decisions already made, dead ends already hit, and the exact next step — so the new window is spent
+implementing rather than rediscovering.
+
+Two things keep this from becoming a treadmill:
+
+- **The developer never plans or sizes a ticket.** That stays with `product-architect`. `dev-cycle`
+  seeds a journal with one row per acceptance criterion (it already holds the ticket, so this costs
+  the developer no context) and the developer only ticks rows. Its single judgment is local: *can I
+  finish the criterion in front of me?*
+- **Repeated handoffs are treated as a scoping signal, not a load to absorb.** Continuations are
+  counted separately from implement→review iterations — a handoff isn't a review rejection — and
+  capped. A continuation that shows no measurable progress stops the loop, and on exhaustion
+  `dev-cycle` stops automation for that ticket and tells you it should be split via
+  `product-architect` rather than cycling silently.
+
+The mechanics live in one generated file, `.agents/includes/handoff.md`, read at runtime by both
+sides of the protocol. The handoff itself is an ordinary ticket comment, so it lands wherever your
+`ticketing.backend` puts comments (GitHub / file / Azure DevOps) and stays readable by humans; the
+journal is a scratch file kept outside the repo so it never reaches a pull request.
+
 ## Per-ticket cost summary
 
 The workflow records what each ticket cost to build and posts a **Cost Summary** comment when
@@ -157,7 +187,7 @@ Add it as a dev dependency pointing at the Git tag, and wire up scripts:
 
 ```jsonc
 "devDependencies": {
-  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.14.0"
+  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.15.0"
 },
 "scripts": {
   "agents:generate": "ai-dev-workflow generate",

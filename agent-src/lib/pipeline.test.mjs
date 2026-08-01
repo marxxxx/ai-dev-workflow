@@ -182,6 +182,25 @@ test('renderAll emits the cost include and dev-cycle points at it', () => {
   }
 });
 
+test('renderAll emits the handoff include and developer + dev-cycle point at it', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const outputs = renderAll(root);
+    const handoff = outputs.find((o) => o.path === '.agents/includes/handoff.md');
+    assert.ok(handoff, 'handoff include should always be produced');
+    assert.match(handoff.content, /Developer Handoff/, 'handoff include names the handoff artifact');
+    assert.doesNotMatch(handoff.content, /\{\{.*?\}\}/, 'include must fully resolve');
+    // Both sides of the protocol must point at the same include on every platform.
+    const dev = outputs.find((o) => o.path === path.join('.claude', 'agents', 'developer.md'));
+    assert.match(dev.content, /\.agents\/includes\/handoff\.md/);
+    assert.doesNotMatch(dev.content, /\{\{.*?\}\}/);
+    const devcycle = outputs.find((o) => o.path === path.join('.claude', 'skills', 'dev-cycle', 'SKILL.md'));
+    assert.match(devcycle.content, /\.agents\/includes\/handoff\.md/);
+  } finally {
+    cleanup();
+  }
+});
+
 test('loadConfig merges package workflow + includePath over the project file', () => {
   const { root, cleanup } = tmpProject();
   try {
@@ -194,6 +213,7 @@ test('loadConfig merges package workflow + includePath over the project file', (
     assert.equal(cfg.ticketing.includePath, '.agents/includes/ticketing.md');
     assert.equal(cfg.app.includePath, '.agents/includes/e2e-runtime.md');
     assert.equal(cfg.cost.includePath, '.agents/includes/cost.md');
+    assert.equal(cfg.handoff.includePath, '.agents/includes/handoff.md');
   } finally {
     cleanup();
   }

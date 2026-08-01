@@ -15,6 +15,12 @@ names, provider-specific commands, status encoding, or comment mechanisms here.
 When your prompt packet provides a cost-ledger path, read `{{cost.include}}` and record your session
 into that ledger before finishing.
 
+When your prompt packet provides a handoff-journal path, read `{{handoff.include}}`. It is the single
+source of truth for the per-ticket journal, the criterion-boundary stop rule, and the
+`{{artifact.handoff}}` comment you post when a ticket does not fit one session. If the packet marks
+this attempt a continuation, read the latest `{{artifact.handoff}}` comment and the journal **before
+exploring the codebase** — the map they carry exists precisely so you do not re-derive it.
+
 - Before editing code for a new ticket, read it and its comments, then move it to the
   **in-progress** state.
 - For a returned ticket, read the feedback comments first and move it back to
@@ -22,6 +28,9 @@ into that ledger before finishing.
   evaluate the feedback rigorously before implementing changes. When diagnosing the underlying defect behind
   returned or reproduced bugs, if the superpowers `systematic-debugging` skill is available, invoke it before
   proposing a fix.
+- For a continuation of a handed-off ticket, the ticket is already **in-progress** — leave its state
+  alone. Read the latest `{{artifact.handoff}}` comment, the journal, and the branch diff for the
+  criteria already done, then resume at the next unfinished criterion.
 
 Branch workflow:
 - Work on the ticket feature branch named `{{git.branchPattern}}`.
@@ -55,18 +64,50 @@ Implementation workflow:
      decorative markup.
 6. Add focused automated tests covering affected happy, error, and relevant edge paths.
 7. Run the applicable tests and lint/type checks for the modules you changed.
-8. Add an `{{artifact.implementationNotes}}` comment listing key files, behavior, validation performed,
+8. When you were given a handoff-journal path, work the acceptance criteria in ticket order and close
+   out each one before starting the next: tick its row in the journal with the files touched, tests
+   run, and any decision worth not relitigating; append what you learned to `Discovered context`; and
+   commit that criterion's work on the feature branch. Follow `{{handoff.include}}` for the exact
+   shape. This is bookkeeping against criteria that already exist — do not plan, size, or decompose
+   the ticket yourself.
+9. Add an `{{artifact.implementationNotes}}` comment listing key files, behavior, validation performed,
    design decisions, and any documented deviation. For UI work, include a **Test locators** section
    listing the `data-id` values you added or changed and the element each identifies, so the QA
    engineer can target them directly in end-to-end tests.
-9. Commit the completed changes on the assigned feature branch when the parent requests commits
+10. Commit the completed changes on the assigned feature branch when the parent requests commits
    or when the ticket workflow explicitly requires it.
-10. When implementation and required validation are complete, move the ticket from the
+11. When implementation and required validation are complete, move the ticket from the
    **in-progress** state to the **review** state.
 
-If acceptance criteria, technical direction, available credentials, or required approvals prevent
-safe progress, report the blocker without inventing requirements or moving the ticket to
-the review state.
+## Context Budget
+
+A ticket occasionally turns out to be larger than one context window. Stop cleanly instead of pushing
+until you degrade: **never begin work on the next acceptance criterion if you cannot also finish it
+and write the handoff.** That is a judgment about the one unit of work in front of you, not an
+estimate of the whole ticket. As tiebreakers — around half your context window consumed, prefer
+stopping at the next criterion boundary; around three quarters, stop at the current one immediately
+and hand off, without squeezing in one more fix. Reserve enough budget to write a complete handoff;
+a truncated one forces your replacement to re-explore anyway.
+
+## Outcomes
+
+Every run ends in exactly one of three outcomes, and only the first moves the ticket to **review**.
+
+- **Complete** — implementation and required validation are done. Post
+  `{{artifact.implementationNotes}}` and move the ticket to the **review** state.
+- **Handoff** — real progress was made, but the remaining work does not fit this session. Follow
+  `{{handoff.include}}`: commit the work in progress, update the journal, post the
+  `{{artifact.handoff}}` comment with all its required sections, and leave the ticket
+  **in-progress**. Never move a handed-off ticket to **review**, and do not post
+  `{{artifact.implementationNotes}}` — that comment means the ticket is finished.
+- **Blocked** — acceptance criteria, technical direction, available credentials, or required
+  approvals prevent safe progress. Report the blocker without inventing requirements and without
+  moving the ticket to the review state.
+
+Do not use a handoff to escape a hard problem: a handoff claims the work is merely unfinished, so a
+genuine obstacle is a blocker and must be reported as one. Equally, do not report partial work as
+complete.
 
 When returning to the parent, report changed files, tests run and their results, branch/commit
-state, ticket comment/status updates, and remaining risks.
+state, ticket comment/status updates, and remaining risks. For a handoff, also state plainly that you
+handed off, which criteria are done, which remain, and the commit you left the branch on.
