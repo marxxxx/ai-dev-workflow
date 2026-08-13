@@ -17,6 +17,9 @@ export function renderAll(projectRoot) {
   if (config.ticketing?.backend === 'azure-devops' && !config.ticketing?.azureDevOps?.organization) {
     throw new Error('ticketing.azureDevOps.organization is required for the azure-devops backend');
   }
+  if (config.ticketing?.backend === 'gitea' && !config.ticketing?.gitea?.login) {
+    throw new Error('ticketing.gitea.login is required for the gitea backend (the `tea login add` profile name)');
+  }
   const globalTokens = buildGlobalTokens(config);
   const units = loadUnits(projectRoot);
   for (const unit of units) substituteManifestStrings(unit, globalTokens);

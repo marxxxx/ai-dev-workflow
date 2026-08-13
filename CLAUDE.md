@@ -99,7 +99,7 @@ catches this because it resolves against the working tree, not the packaged subs
   Markdown **plus** an `agents/openai.yaml` interface descriptor. `smokeCheck` asserts each emitted
   file has its required fields.
 - **`lib/ticketing.mjs` + `includes/`** — ticketing is **read at runtime, never inlined**. The
-  selected `includes/ticketing-<backend>.md` (github | file | azure-devops) is rendered once to
+  selected `includes/ticketing-<backend>.md` (github | gitea | file | azure-devops) is rendered once to
   `ticketing.includePath` (`.agents/includes/ticketing.md`); every agent/skill body across all three
   platforms is instructed to read that one file before any ticket operation. The `includes/` folder
   is where you add a new backend. The **azure-devops** backend additionally merges an `ado` MCP

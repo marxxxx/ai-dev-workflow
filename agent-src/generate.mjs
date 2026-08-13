@@ -17,7 +17,7 @@
 //   - config/ai-workflow.json  (package-owned, under agent-src/config/): workflow states/artifacts
 //                        + ticketing.includePath. Travels and updates with the package.
 //   - ai-project.json          (project-owned, at the project root): project/repository/git identity
-//                        and the ticketing backend choice (file | github | azure-devops).
+//                        and the ticketing backend choice (file | github | gitea | azure-devops).
 //
 // This file is a thin orchestrator: it parses argv, dispatches to the pieces below, and
 // re-exports the public API for back-compat with in-process tests and external importers.

@@ -13,6 +13,9 @@
     "backend": "file",
     "github": {
     },
+    "gitea": {
+      "login": "YourTeaLoginName"
+    },
     "file": {
       "dir": ".tickets/issues",
       "metadataFile": ".tickets/metadata.json"

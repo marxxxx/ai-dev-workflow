@@ -71,6 +71,8 @@ export function buildProjectConfig(a) {
   const ticketing = { backend: a.backend };
   if (a.backend === 'file') {
     ticketing.file = { dir: a.file.dir, metadataFile: a.file.metadataFile };
+  } else if (a.backend === 'gitea') {
+    ticketing.gitea = { login: a.gitea.login };
   } else if (a.backend === 'azure-devops') {
     const m = azureMapping(a.azure.processTemplate);
     ticketing.azureDevOps = {
@@ -113,6 +115,7 @@ export function buildGlobalTokens(config) {
   put('ticketing.include', c.ticketing?.includePath);
   put('ticketing.dir', c.ticketing?.file?.dir);
   put('ticketing.metadataFile', c.ticketing?.file?.metadataFile);
+  put('ticketing.gitea.login', c.ticketing?.gitea?.login);
   put('ticketing.azure.organization', c.ticketing?.azureDevOps?.organization);
   put('ticketing.azure.project', c.ticketing?.azureDevOps?.project);
   put('ticketing.azure.featureType', c.ticketing?.azureDevOps?.featureType || 'Issue');
@@ -135,7 +138,7 @@ export function buildGlobalTokens(config) {
   put('handoff.include', c.handoff?.includePath);
 
   for (const [k, v] of Object.entries(c.workflow?.artifacts || {})) put(`artifact.${k}`, v);
-  const usesTagLabels = backend === 'github' || backend === 'azure-devops';
+  const usesTagLabels = backend === 'github' || backend === 'gitea' || backend === 'azure-devops';
   const azMap = c.ticketing?.azureDevOps?.stateMapping || {};
   for (const s of c.workflow?.states || []) {
     put(`status.${s.id}`, usesTagLabels ? s.label : s.frontmatter);

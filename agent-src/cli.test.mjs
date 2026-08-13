@@ -176,3 +176,37 @@ test('init --answers scaffolds an azure-devops project, and generate emits MCP c
     cleanup();
   }
 });
+
+test('init --answers scaffolds a gitea project, and generate emits the tea-driven ticketing include', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'answers.json'), JSON.stringify({
+      name: 'Gitea Demo', repoSlug: 'me/gitea-demo', backend: 'gitea', gitea: { login: 'myserver' },
+    }));
+    assert.equal(runCli(['init', '--answers', path.join(root, 'answers.json'), '--root', root]).status, 0);
+    const cfg = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+    assert.equal(cfg.ticketing.backend, 'gitea');
+    assert.equal(cfg.ticketing.gitea.login, 'myserver');
+
+    assert.equal(runCli(['generate', '--root', root]).status, 0);
+    const include = fs.readFileSync(path.join(root, '.agents', 'includes', 'ticketing.md'), 'utf8');
+    assert.match(include, /tea issues list --login "myserver" --repo me\/gitea-demo/);
+    assert.doesNotMatch(include, /\{\{.*?\}\}/, 'include fully resolves');
+  } finally {
+    cleanup();
+  }
+});
+
+test('init --answers rejects a gitea project without a tea login', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'answers.json'),
+      JSON.stringify({ name: 'Gitea Demo', repoSlug: 'me/gitea-demo', backend: 'gitea' }));
+    const { status, stderr } = runCli(['init', '--answers', path.join(root, 'answers.json'), '--root', root]);
+    assert.notEqual(status, 0, 'init should fail rather than write a config the generator will reject');
+    assert.match(stderr, /gitea\.login/);
+    assert.equal(fs.existsSync(path.join(root, 'ai-project.json')), false);
+  } finally {
+    cleanup();
+  }
+});

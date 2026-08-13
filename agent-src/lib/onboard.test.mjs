@@ -28,7 +28,14 @@ const AZURE_ANSWERS = {
   branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
 };
 
-for (const answers of [FILE_ANSWERS, GITHUB_ANSWERS, AZURE_ANSWERS]) {
+const GITEA_ANSWERS = {
+  name: 'Gitea Demo', slug: 'gitea-demo', serena: 'gitea-demo', description: '',
+  repoSlug: 'me/gitea-demo', defaultBranch: 'main', backend: 'gitea',
+  gitea: { login: 'myserver' },
+  branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+};
+
+for (const answers of [FILE_ANSWERS, GITHUB_ANSWERS, AZURE_ANSWERS, GITEA_ANSWERS]) {
   test(`cmdInit (${answers.backend}) writes buildProjectConfig(answers) and nothing else`, async () => {
     const { root, cleanup } = makeTmpRoot();
     try {
