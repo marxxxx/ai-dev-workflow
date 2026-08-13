@@ -10,9 +10,14 @@ plus a small per-project config. It is zero-dependency Node (builtins only, `>=1
 directly from Git (no npm registry), and language-agnostic — consuming projects need not be Node
 projects.
 
-This repo **dogfoods itself**: the committed `.claude/`, `.codex/`, `.opencode/`, and `.agents/`
-directories at the root are the generator's *output*, rendered against the placeholder
-`ai-project.json` (`ProjectName` / `ProjectSlug`). They are generated artifacts — see below.
+This repo **dogfoods itself**: `npm run generate` at the root renders `.claude/`, `.codex/`,
+`.opencode/`, and `.agents/` from `agent-src/`, against the root `ai-project.json` — which describes
+this project for real (`ai-dev-workflow`, `github` backend), not a placeholder. The placeholder
+identity (`ProjectName` / `ProjectSlug`) lives in `agent-src/config/ai-project.template.json`, the
+scaffold `init` copies into a consuming project.
+
+Those four directories are **gitignored here** — unlike a consuming project, this repo does not commit
+its own output. Generate them locally when you want to see what a change produces; see below.
 
 ## Commands
 
@@ -44,10 +49,13 @@ through a symlink" case) fails with `EPERM` — this is an environmental limitat
 1. Edit the canonical source under `agent-src/` (a unit's `body.md`, `manifest.json`, an
    `overlays/<platform>.md`, or an `includes/ticketing-*.md`).
 2. Run `npm run generate`.
-3. Commit the `agent-src/` change **and** the regenerated platform files **together**.
+3. Commit the `agent-src/` change. The regenerated output is gitignored in *this* repo, so there is
+   nothing else to stage — in a consuming project you would commit it alongside.
 
 `npm run check` renders in memory and diffs against disk — it catches both a stale regen and any
-hand-edit to a generated file. Run it before committing.
+hand-edit to a generated file. It needs the generated dirs to exist, so on a fresh checkout run
+`npm run generate` first; that pairing is exactly what CI does, and there it doubles as a proof that
+generation is deterministic.
 
 ## The second rule: keep the published `files` allowlist in sync with `agent-src/lib/`
 
