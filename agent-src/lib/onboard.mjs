@@ -131,13 +131,17 @@ export async function runInterview(prompter, { detectRepoSlug, projectRoot }) {
   const description = await prompter.ask('Description', 'description', '');
   const repoSlug = await prompter.ask('Repository slug (owner/repo)', 'repoSlug', detectRepoSlug(projectRoot));
   const defaultBranch = await prompter.ask('Default branch', 'defaultBranch', 'main');
-  const backend = await prompter.askChoice('Ticketing backend', 'backend', ['file', 'github', 'azure-devops'], 'file');
+  const backend = await prompter.askChoice('Ticketing backend', 'backend', ['file', 'github', 'gitea', 'azure-devops'], 'file');
 
   const answers = { name, slug, serena, description, repoSlug, defaultBranch, backend };
   if (backend === 'file') {
     answers.file = {
       dir: await prompter.ask('Tickets dir', 'file.dir', '.tickets/issues'),
       metadataFile: await prompter.ask('Metadata file', 'file.metadataFile', '.tickets/metadata.json'),
+    };
+  } else if (backend === 'gitea') {
+    answers.gitea = {
+      login: await prompter.askRequired('Gitea login profile (from `tea login add`)', 'gitea.login'),
     };
   } else if (backend === 'azure-devops') {
     answers.azure = {

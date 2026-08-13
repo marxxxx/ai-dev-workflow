@@ -172,3 +172,27 @@ test('cmdScaffold leaves an existing ai-project.json untouched', () => {
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')), { keep: true });
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('buildProjectConfig (gitea backend) records the tea login and omits file + azureDevOps', () => {
+  const cfg = buildProjectConfig({
+    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
+    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'gitea',
+    branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+    gitea: { login: 'myserver' },
+  });
+  assert.equal(cfg.ticketing.backend, 'gitea');
+  assert.equal(cfg.ticketing.gitea.login, 'myserver');
+  assert.ok(!('file' in cfg.ticketing));
+  assert.ok(!('azureDevOps' in cfg.ticketing));
+});
+
+test('buildGlobalTokens exposes the gitea login and renders statuses as labels', () => {
+  const tokens = buildGlobalTokens({
+    ticketing: { backend: 'gitea', gitea: { login: 'myserver' } },
+    workflow: WORKFLOW,
+  });
+  assert.equal(tokens['ticketing.backend'], 'gitea');
+  assert.equal(tokens['ticketing.gitea.login'], 'myserver');
+  assert.equal(tokens['status.new'], 'status:new');
+  assert.equal(tokens['status.in-progress'], 'status:in-progress');
+});

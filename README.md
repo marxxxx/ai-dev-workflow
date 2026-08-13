@@ -67,13 +67,17 @@ offloads end-to-end-testing to the Human if Playwright is missing).
 The `ado` MCP server is the exception: for the `azure-devops` backend, `generate` merges it into
 `.mcp.json` and `.codex/config.toml` for you — nothing to install by hand.
 
+The `gitea` backend is the one case with a hard requirement: the agents drive
+[`tea`](https://gitea.com/gitea/tea), Gitea's official CLI, so it must be installed and logged in
+before the workflow runs — see [Gitea backend setup](docs/gitea-backend-setup.md).
+
 ## Commands
 
 | Command | Effect |
 |---|---|
 | `generate` (default) | Render all platform files to the project root |
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
-| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping), then writes `ai-project.json` — the only file it creates. It prints the [recommended tooling](#recommended-tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init` and describe your e2e setup there. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
+| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), then writes `ai-project.json` — the only file it creates. It prints the [recommended tooling](#recommended-tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init` and describe your e2e setup there. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
 
@@ -160,7 +164,7 @@ Two things keep this from becoming a treadmill:
 
 The mechanics live in one generated file, `.agents/includes/handoff.md`, read at runtime by both
 sides of the protocol. The handoff itself is an ordinary ticket comment, so it lands wherever your
-`ticketing.backend` puts comments (GitHub / file / Azure DevOps) and stays readable by humans; the
+`ticketing.backend` puts comments (GitHub / Gitea / file / Azure DevOps) and stays readable by humans; the
 journal is a scratch file kept outside the repo so it never reaches a pull request.
 
 ## Per-ticket cost summary
@@ -178,8 +182,8 @@ The mechanics live in one generated file, `.agents/includes/cost.md` (the single
 the ccusage ledger and aggregation), which every agent and skill reads at runtime. It **degrades
 gracefully**: if `ccusage` isn't installed the summary is skipped rather than failing the handoff,
 and re-runs are idempotent. The summary is posted through the same ticketing mechanism as every other
-comment, so it lands wherever your `ticketing.backend` puts ticket comments (GitHub / file / Azure
-DevOps).
+comment, so it lands wherever your `ticketing.backend` puts ticket comments (GitHub / Gitea / file /
+Azure DevOps).
 
 ## In a Node project
 

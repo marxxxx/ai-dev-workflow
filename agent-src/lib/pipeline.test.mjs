@@ -313,3 +313,58 @@ test('no agent-custom dir is a no-op: output identical to package-only render', 
     b.cleanup();
   }
 });
+
+test('gitea backend renders the tea-driven ticketing include with the login substituted', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeProject(root, {
+      project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
+      repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
+      ticketing: { backend: 'gitea', gitea: { login: 'myserver' } },
+      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
+    });
+    const outputs = renderAll(root);
+    const include = outputs.find((o) => o.path === '.agents/includes/ticketing.md');
+    assert.ok(include, 'the ticketing include should be produced for gitea');
+    assert.match(include.content, /tea issues list/, 'commands should be driven by the tea CLI');
+    assert.match(include.content, /--login "myserver"/, 'the configured tea login should be substituted');
+    assert.match(include.content, /status:new/, 'gitea statuses are labels, like GitHub');
+    assert.doesNotMatch(include.content, /\bgh issue\b/, 'no leftover gh commands from the GitHub include');
+  } finally {
+    cleanup();
+  }
+});
+
+test('renderAll throws when gitea lacks a login', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeProject(root, {
+      project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
+      repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
+      ticketing: { backend: 'gitea' },
+      git: { branchPattern: 'x', prTarget: 'main' },
+    });
+    assert.throws(() => renderAll(root), /ticketing\.gitea\.login is required/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a gitea login containing a space stays one shell argument in the rendered commands', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeProject(root, {
+      project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
+      repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
+      // `tea login add` happily accepts spaces in a profile name, and real installs have them.
+      ticketing: { backend: 'gitea', gitea: { login: 'gitea ki' } },
+      git: { branchPattern: 'x', prTarget: 'main' },
+    });
+    const include = renderAll(root).find((o) => o.path === '.agents/includes/ticketing.md');
+    const bare = include.content.match(/--login (?!")\S*/g) || [];
+    assert.deepEqual(bare, [], `every --login value must be quoted, found: ${bare.join(', ')}`);
+    assert.match(include.content, /--login "gitea ki"/);
+  } finally {
+    cleanup();
+  }
+});

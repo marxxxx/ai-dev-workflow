@@ -34,6 +34,7 @@ agent-src/
     ai-project.template.json   # scaffold template copied by `init` when non-interactive
   includes/
     ticketing-github.md        # ticketing operations — GitHub (gh CLI) variant
+    ticketing-gitea.md         # ticketing operations — Gitea (tea CLI, verified vs. 0.15.1) variant
     ticketing-file.md          # ticketing operations — file-based (.tickets/) variant
     ticketing-azure-devops.md  # ticketing operations — Azure DevOps (@azure-devops/mcp) variant
     e2e-runtime.md             # how the qa-engineer brings the app up (points at AGENTS.md)
@@ -56,8 +57,8 @@ Config is split by ownership so the package can be updated without clobbering pr
 the project can't accidentally desync skill-coupled values:
 
 - **`ai-project.json`** lives at the **project root** and is project-owned: `project` identity,
-  `repository`, `git`, and the `ticketing` **backend choice** (`"github"` | `"file"` | `"azure-devops"`) plus
-  the github/file/azureDevOps sub-configs. This file stays in the project across updates.
+  `repository`, `git`, and the `ticketing` **backend choice** (`"github"` | `"file"` | `"gitea"` |
+  `"azure-devops"`) plus the github/file/gitea/azureDevOps sub-configs. This file stays in the project across updates.
 - **`agent-src/config/ai-workflow.json`** ships **with the package** and is package-owned: the
   `workflow.states` / `workflow.artifacts` (coupled to the orchestrator skill) and
   `ticketing.includePath` (the fixed runtime convention). It updates with the package; projects
@@ -85,7 +86,7 @@ every body and to each manifest `description`/`interface` string:
   `workflow.artifacts`; each is the title of a named ticket comment
 - `{{app.include}}`, `{{cost.include}}`, `{{handoff.include}}` — the other runtime include paths
   (e2e runtime, cost accounting, developer handoff), package-owned like `{{ticketing.include}}`
-- `{{status.<id>}}` — resolves to the label (`status:new`) for github and azure-devops, or the
+- `{{status.<id>}}` — resolves to the label (`status:new`) for github, gitea and azure-devops, or the
   file-frontmatter value (`new`) for file, depending on `ticketing.backend`. Used only inside the
   ticketing includes; bodies refer to states logically (`new`, `review`, …) and defer their
   representation to the include.
@@ -93,6 +94,8 @@ every body and to each manifest `description`/`interface` string:
   nudged to on each transition; azure-devops backend only.
 - `{{ticketing.azure.organization}}`, `{{ticketing.azure.project}}`, `{{ticketing.azure.featureType}}`,
   `{{ticketing.azure.bugType}}` — azure-devops work item targeting + types.
+- `{{ticketing.gitea.login}}` — the `tea login add` profile naming the Gitea instance; passed as
+  `--login` on every `tea` command. Required for the gitea backend (rendering fails without it).
 
 Per-unit `manifest.tokens` still work and override a global token of the same name.
 
