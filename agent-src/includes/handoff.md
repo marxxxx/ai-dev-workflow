@@ -45,6 +45,12 @@ Journal shape — Markdown, so a human can read it directly:
 
 Branch: <branch>   Upstream: <ref or none>
 
+## Sizing
+
+- Item count: <positive integer>
+- Sizing decision: <automatic | pending | proceed | split>
+- Continuation limit: <positive integer | pending>
+
 ## Criteria
 
 - [ ] 1. <acceptance criterion, quoted from the ticket>
@@ -59,13 +65,33 @@ Branch: <branch>   Upstream: <ref or none>
 <!-- one entry per developer attempt: attempt number, criteria completed, outcome -->
 ```
 
+### Sizing metadata
+
+The `## Sizing` values are owned by the orchestrator (`dev-cycle`), not the developer. They make a
+large-ticket decision durable across restarts:
+
+- **Item count** is the number of numbered acceptance-criterion rows in `## Criteria` only. Count
+  both checked and unchecked rows; do not count notes, attempts, or other Markdown lists.
+- **Sizing decision** is `automatic` for five or fewer items, `pending` while an oversized journal
+  awaits the human, `proceed` after the human approves development as scoped, or `split` after the
+  human sends it back to `$product-architect`.
+- **Continuation limit** is `3` for `automatic` journals. For a `proceed` decision it is
+  `ceil(item count / 3) + 1`; for example, 6 items allow 3 continuations and 7, 8, or 9 items allow
+  4. It remains `pending` while the decision is pending or split.
+
+The orchestrator writes all three values immediately after it seeds a journal. A legacy journal that
+lacks sizing metadata, or one with missing, non-positive, or inconsistent values, is never allowed
+to dispatch a developer on an assumed unlimited allowance. Recount its criterion rows, run the
+sizing decision procedure once, and persist valid replacement metadata before dispatching.
+
 ## Who does what
 
 **The orchestrator (`dev-cycle`) seeds the journal.** Before spawning `developer` for a ticket it
 reads the ticket — which it already holds — and writes one **unchecked** row per acceptance criterion,
-numbered, quoted from the ticket, plus the empty `Discovered context` and `Attempts` sections. The
-developer therefore receives a checklist it did not have to author. If the journal already exists
-(a continuation), the orchestrator leaves it alone.
+numbered, quoted from the ticket, plus the sizing metadata and empty `Discovered context` and
+`Attempts` sections. The developer therefore receives a checklist it did not have to author. If the
+journal already exists (a continuation), the orchestrator reuses valid sizing metadata rather than
+asking the human again.
 
 **The developer ticks rows.** For each criterion, in ticket order:
 
@@ -144,7 +170,10 @@ Work the remaining criteria under the same rules. A continuation may itself hand
 
 - Handoff **continuations are counted separately** from implementation-review iterations and do not
   consume one — a handoff is not a review rejection, and the work was not defective.
-- Allow at most **three continuations per ticket** unless the user chooses another limit.
+- The journal's persisted **Continuation limit** controls the maximum number of continuations. Five
+  or fewer items retain the existing limit of three; an approved oversized journal uses
+  `ceil(item count / 3) + 1`. This changes neither the progress guard nor the implementation-review
+  iteration limit.
 - **Progress guard** — a continuation must show measurable progress: at least one newly ticked
   criterion, or a materially larger branch diff. If two consecutive continuations show neither, stop:
   the ticket is stuck, not large, and continuing will only repeat the failure.
@@ -154,8 +183,8 @@ Work the remaining criteria under the same rules. A continuation may itself hand
   not silently keep cycling.
 
 Repeated handoffs on one ticket are a **signal about the ticket, not about the developer**. Surface
-it — a ticket that needed three continuations was scoped too coarsely, and that is information the
-human needs for the next round of planning.
+it — a ticket that reaches its persisted continuation limit was scoped too coarsely, and that is
+information the human needs for the next round of planning.
 
 ## Cleanup
 

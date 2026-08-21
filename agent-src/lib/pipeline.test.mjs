@@ -201,6 +201,60 @@ test('renderAll emits the handoff include and developer + dev-cycle point at it'
   }
 });
 
+test('renderAll documents the persisted oversized-journal gate before developer dispatch', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const outputs = renderAll(root);
+    const handoff = outputs.find((o) => o.path === '.agents/includes/handoff.md');
+    const devcycle = outputs.find((o) => o.path === path.join('.claude', 'skills', 'dev-cycle', 'SKILL.md'));
+
+    assert.match(handoff.content, /Item count: <positive integer>/,
+      'new journals must persist their acceptance-criterion count');
+    assert.match(handoff.content, /Sizing decision: <automatic \| pending \| proceed \| split>/,
+      'new journals must persist whether the human approved development or requested a split');
+    assert.match(handoff.content, /Continuation limit: <positive integer \| pending>/,
+      'new journals must persist the effective continuation limit');
+
+    assert.match(devcycle.content, /five or fewer items.*continuation limit of 3/is,
+      'five-item journals must skip the oversized gate and keep the default limit');
+    assert.match(devcycle.content, /more than five items.*before creating a cost\s+ledger or spawning a developer/is,
+      'oversized journals must block implementation setup until a decision exists');
+    assert.match(devcycle.content, /ceil\(item count \/ 3\) \+ 1/,
+      'a proceed decision must use ceiling division for its continuation limit');
+    assert.match(devcycle.content, /6 items.*3 continuations/is,
+      'the lower oversized boundary must retain three continuations');
+    assert.match(devcycle.content, /7, 8, or 9 items.*4\s+continuations/is,
+      'ceiling-division examples must cover the four-continuation range');
+    assert.match(devcycle.content, /recorded proceed decision.*without\s+asking again/is,
+      'restart behavior must reuse a persisted proceed decision');
+    assert.match(devcycle.content, /legacy journal.*lacks sizing metadata.*record.*before developer\s+dispatch/is,
+      'legacy journals must be migrated through the gate exactly once');
+  } finally {
+    cleanup();
+  }
+});
+
+test('renderAll documents the split path without developer dispatch or a cost ledger', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const devcycle = renderAll(root)
+      .find((o) => o.path === path.join('.claude', 'skills', 'dev-cycle', 'SKILL.md'));
+
+    assert.match(devcycle.content, /On \*\*split\*\*.*do not spawn a developer.*do not create a cost ledger/is,
+      'split must stop before any implementation-only setup');
+    assert.match(devcycle.content, /end this dev-cycle path.*start `\$product-architect` interactively in the same conversation/is,
+      'split must transfer to the foreground product-architect workflow');
+    assert.match(devcycle.content, /do not close.*or accept the original ticket/is,
+      'ticket acceptance remains a human workflow after a split decision');
+    assert.match(devcycle.content, /three implementation-review iterations.*unchanged/is,
+      'the sizing policy must not alter implementation-review iteration limits');
+    assert.match(devcycle.content, /progress guard \(unchanged\).*two consecutive continuations/is,
+      'the sizing policy must not alter the existing continuation progress guard');
+  } finally {
+    cleanup();
+  }
+});
+
 test('loadConfig merges package workflow + includePath over the project file', () => {
   const { root, cleanup } = tmpProject();
   try {
