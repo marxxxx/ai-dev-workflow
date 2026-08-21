@@ -28,11 +28,11 @@ the `{{artifact.costSummary}}` comment when the ticket reaches `acceptance-test`
 
 ## Developer Handoff
 
-Before seeding a journal, auditing a handoff, or spawning a continuation, read
+Before seeding or sizing a journal, auditing a handoff, or spawning a continuation, read
 `{{handoff.include}}`. It is the single source of truth for the per-ticket handoff journal, the
 `{{artifact.handoff}}` comment a developer posts when a ticket does not fit one context window, and
 how continuations are counted. Do not hardcode journal paths, the handoff comment's required
-sections, or continuation limits in this skill.
+sections, sizing metadata, or continuation limits in this skill.
 
 The division of labour matters: **you seed the journal, the developer only ticks it.** The developer
 must never plan, size, or decompose a ticket — that belongs to `$product-architect`, and a ticket
@@ -88,16 +88,37 @@ that repeatedly fails to fit is a signal to send back there rather than a load t
    user chose one.
 4. Track a maximum of three implementation-review iterations per ticket unless the user
    explicitly chooses another limit.
-5. Track handoff continuations **separately**, at a maximum of three per ticket. A handoff is not a
-   review rejection and the work was not defective, so a continuation never consumes an
-   implementation-review iteration (see `{{handoff.include}}`).
-6. For each ticket, start its cost ledger before spawning any subagent: follow `{{cost.include}}` to
-   create this run's ledger (a unique per-run path) and record your own orchestrator session. Pass the
-   ledger path in every subagent prompt packet.
-7. For each ticket, seed its handoff journal before spawning `developer`: follow `{{handoff.include}}`
-   to write one unchecked row per acceptance criterion, quoted from the ticket. You hold the ticket
-   already, so this costs the developer no context. If the journal already exists, leave it alone.
-   Pass its path in every `developer` prompt packet.
+5. Track handoff continuations **separately**. A handoff is not a review rejection and the work was
+   not defective, so a continuation never consumes an implementation-review iteration. The journal's
+   persisted continuation limit controls the maximum (see `{{handoff.include}}`).
+6. Before creating a cost ledger or spawning a developer for a ticket in `new`, `failed`, or
+   resumable `in-progress`, seed or load its handoff journal and resolve its sizing metadata:
+   - For a new journal, write one unchecked, numbered row per acceptance criterion, then count those
+     rows only and persist the item count. Five or fewer items record an `automatic` decision and a
+     continuation limit of 3; dispatch the developer without an oversized-ticket question. A new
+     journal with more than five items records a `pending` decision and a `pending` continuation limit
+     before asking the human.
+   - A journal with more than five items and a `pending` decision is already sized but unresolved:
+     pause before creating a cost ledger or spawning a developer. Ask the human whether to **proceed**
+     with development as scoped or **split** the ticket with `$product-architect`. On restart, reuse
+     its item count and ask this unresolved question; do not treat valid `pending` metadata as legacy
+     or malformed.
+   - On **proceed**, record the decision and the continuation limit `ceil(item count / 3) + 1` before
+     dispatch. The approved examples are: 6 items use 3 continuations; 7, 8, or 9 items use 4
+     continuations.
+   - On **split**, record the decision, do not spawn a developer, and do not create a cost ledger.
+     End this dev-cycle path, then start `$product-architect` interactively in the same conversation.
+     Do not close or accept the original ticket; ticket acceptance and closure remain the human
+     workflow.
+   - On restart, reuse a valid item count, recorded proceed decision, and continuation limit without
+     asking again. When a legacy journal lacks sizing metadata, or any sizing value is malformed,
+     recount its criteria, perform this sizing check once, and record valid `automatic` or `pending`
+     metadata before developer dispatch. A missing or malformed value must fail safely rather than
+     grant an unlimited limit.
+7. After the sizing step permits developer work — or immediately for a ticket that will only enter
+   review or QA — start its cost ledger before spawning any subagent: follow `{{cost.include}}` to
+   create this run's ledger (a unique per-run path) and record your own orchestrator session. Pass
+   the ledger path in every subagent prompt packet. Never create a ledger for the split path.
 
 ## Implement Or Fix
 
@@ -138,7 +159,7 @@ one of three outcomes — decide which from the ticket, not from the returned pr
 
 Two limits apply to continuations:
 
-- **Progress guard** — each continuation must show measurable progress: at least one newly completed
+- **Progress guard (unchanged)** — each continuation must show measurable progress: at least one newly completed
   criterion, or a materially larger branch diff. If two consecutive continuations show neither, stop.
   The ticket is stuck, not large, and another attempt will repeat the failure.
 - **Exhaustion** — at the continuation limit, stop automation for that ticket. Leave it at
@@ -163,7 +184,8 @@ The code-reviewer owns:
 
 After it returns, verify the posted comment (if any) and the status transition before continuing.
 Count each return to development as an iteration. At the iteration limit, report the
-ticket as blocked for human attention and do not continue cycling.
+ticket as blocked for human attention and do not continue cycling. The maximum of three
+implementation-review iterations is unchanged by journal sizing.
 
 ## QA
 

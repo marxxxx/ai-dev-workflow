@@ -156,6 +156,13 @@ Two things keep this from becoming a treadmill:
   seeds a journal with one row per acceptance criterion (it already holds the ticket, so this costs
   the developer no context) and the developer only ticks rows. Its single judgment is local: *can I
   finish the criterion in front of me?*
+- **The human decides whether an oversized ticket proceeds.** A journal with five or fewer criteria
+  starts development normally and keeps the three-continuation allowance. Before spending a developer
+  context or creating a cost ledger for more than five criteria, `dev-cycle` asks whether to proceed
+  as scoped or return to `product-architect` to split it. A recorded proceed decision sets the durable
+  allowance to `ceil(criteria / 3) + 1` (6 items = 3; 7–9 = 4), so a restart does not ask again. A
+  split ends that dev-cycle path without dispatching a developer and leaves ticket acceptance to the
+  human workflow.
 - **Repeated handoffs are treated as a scoping signal, not a load to absorb.** Continuations are
   counted separately from implement→review iterations — a handoff isn't a review rejection — and
   capped. A continuation that shows no measurable progress stops the loop, and on exhaustion
