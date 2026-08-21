@@ -95,10 +95,14 @@ that repeatedly fails to fit is a signal to send back there rather than a load t
    resumable `in-progress`, seed or load its handoff journal and resolve its sizing metadata:
    - For a new journal, write one unchecked, numbered row per acceptance criterion, then count those
      rows only and persist the item count. Five or fewer items record an `automatic` decision and a
-     continuation limit of 3; dispatch the developer without an oversized-ticket question.
-   - For a journal with more than five items and no recorded decision, pause before creating a cost
-     ledger or spawning a developer. Ask the human whether to **proceed** with development as scoped
-     or **split** the ticket with `$product-architect`.
+     continuation limit of 3; dispatch the developer without an oversized-ticket question. A new
+     journal with more than five items records a `pending` decision and a `pending` continuation limit
+     before asking the human.
+   - A journal with more than five items and a `pending` decision is already sized but unresolved:
+     pause before creating a cost ledger or spawning a developer. Ask the human whether to **proceed**
+     with development as scoped or **split** the ticket with `$product-architect`. On restart, reuse
+     its item count and ask this unresolved question; do not treat valid `pending` metadata as legacy
+     or malformed.
    - On **proceed**, record the decision and the continuation limit `ceil(item count / 3) + 1` before
      dispatch. The approved examples are: 6 items use 3 continuations; 7, 8, or 9 items use 4
      continuations.
@@ -108,8 +112,9 @@ that repeatedly fails to fit is a signal to send back there rather than a load t
      workflow.
    - On restart, reuse a valid item count, recorded proceed decision, and continuation limit without
      asking again. When a legacy journal lacks sizing metadata, or any sizing value is malformed,
-     recount its criteria, perform this sizing check once, and record valid metadata before developer
-     dispatch. A missing or malformed value must fail safely rather than grant an unlimited limit.
+     recount its criteria, perform this sizing check once, and record valid `automatic` or `pending`
+     metadata before developer dispatch. A missing or malformed value must fail safely rather than
+     grant an unlimited limit.
 7. After the sizing step permits developer work — or immediately for a ticket that will only enter
    review or QA — start its cost ledger before spawning any subagent: follow `{{cost.include}}` to
    create this run's ledger (a unique per-run path) and record your own orchestrator session. Pass

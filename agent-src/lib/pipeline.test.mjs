@@ -219,6 +219,8 @@ test('renderAll documents the persisted oversized-journal gate before developer 
       'five-item journals must skip the oversized gate and keep the default limit');
     assert.match(devcycle.content, /more than five items.*before creating a cost\s+ledger or spawning a developer/is,
       'oversized journals must block implementation setup until a decision exists');
+    assert.match(devcycle.content, /new journal.*more than five items.*`pending` decision.*`pending` continuation limit.*before asking/is,
+      'new oversized journals must persist their pending state before prompting the human');
     assert.match(devcycle.content, /ceil\(item count \/ 3\) \+ 1/,
       'a proceed decision must use ceiling division for its continuation limit');
     assert.match(devcycle.content, /6 items.*3 continuations/is,
