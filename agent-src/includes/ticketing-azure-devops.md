@@ -135,7 +135,7 @@ az repos pr create --repository "{{repo.slug}}" \
   --organization "https://dev.azure.com/{{ticketing.azure.organization}}" \
   --target-branch "{{git.prTarget}}" --source-branch "{{git.branchPattern}}" \
   --draft true \
-  --title "feat: [work item title] #[id]" \
+  --title "[id]: [work item title]" \
   --description "..."
 ```
 
