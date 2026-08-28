@@ -195,7 +195,7 @@ test('renderAll emits the handoff include and developer + dev-cycle point at it'
     const outputs = renderAll(root);
     const handoff = outputs.find((o) => o.path === '.agents/includes/handoff.md');
     assert.ok(handoff, 'handoff include should always be produced');
-    assert.match(handoff.content, /Developer Handoff/, 'handoff include names the handoff artifact');
+    assert.match(handoff.content, /Developer Journal/, 'handoff include names the journal artifact');
     assert.doesNotMatch(handoff.content, /\{\{.*?\}\}/, 'include must fully resolve');
     // Both sides of the protocol must point at the same include on every platform.
     const dev = outputs.find((o) => o.path === path.join('.claude', 'agents', 'developer.md'));
@@ -207,6 +207,90 @@ test('renderAll emits the handoff include and developer + dev-cycle point at it'
     cleanup();
   }
 });
+
+// The journal is the workflow's only progress state, and it lives on the ticket as one comment that
+// is created once and then edited in place. That only works if every backend's include actually
+// documents an address-a-single-comment-by-id update — which is exactly what these assert.
+const JOURNAL_OPS = {
+  file: {
+    project: {
+      project: { name: 'File Demo', slug: 'file-demo', serenaProject: 'file-demo', description: '' },
+      repository: { slug: 'me/file-demo', defaultBranch: 'main' },
+      ticketing: { backend: 'file', file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' } },
+      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
+    },
+    // No comment objects here: the journal stays a local file the ticket points at.
+    create: /ai-dev-workflow-handoff\/file-demo-<number>\.md/,
+    discover: /## Developer Journal/,
+    update: /cat > "\$JOURNAL"/,
+  },
+  github: {
+    project: {
+      project: { name: 'GH Demo', slug: 'gh-demo', serenaProject: 'gh-demo', description: '' },
+      repository: { slug: 'me/gh-demo', defaultBranch: 'main' },
+      ticketing: { backend: 'github' },
+      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
+    },
+    create: /gh api -X POST repos\/me\/gh-demo\/issues\/<number>\/comments/,
+    discover: /startswith\("## Developer Journal"\)/,
+    update: /gh api -X PATCH repos\/me\/gh-demo\/issues\/comments\/<comment-id>/,
+  },
+  gitea: {
+    project: {
+      project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
+      repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
+      ticketing: { backend: 'gitea', gitea: { login: 'myserver' } },
+      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
+    },
+    create: /tea comments add .*<number> "\$BODY"/,
+    discover: /tea comments list .*--output json/,
+    update: /tea comments edit .*<comment-id> "\$BODY"/,
+  },
+  'azure-devops': {
+    project: {
+      project: { name: 'ADO Demo', slug: 'ado-demo', serenaProject: 'ado-demo', description: '' },
+      repository: { slug: 'ado-repo', defaultBranch: 'main' },
+      ticketing: { backend: 'azure-devops', azureDevOps: { organization: 'contoso', project: 'widgets' } },
+      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
+    },
+    create: /wit_work_item_comment_write\(action: "add", workItemId: <id>/,
+    discover: /wit_work_item\(action: "list_comments", workItemId: <id>/,
+    update: /wit_work_item_comment_write\(action: "update", workItemId: <id>, commentId: <comment-id>/,
+  },
+};
+
+for (const [backend, spec] of Object.entries(JOURNAL_OPS)) {
+  test(`${backend} ticketing include documents create/discover/update for the journal comment`, () => {
+    const { root, cleanup } = makeTmpRoot();
+    try {
+      writeProject(root, spec.project);
+      const include = renderAll(root).find((o) => o.path === '.agents/includes/ticketing.md');
+      assert.ok(include, `the ticketing include should be produced for ${backend}`);
+      assert.match(include.content, /## The Journal Comment/,
+        'every backend must document how the journal comment is addressed');
+      assert.match(include.content, spec.create, 'the include must show how the journal is created');
+      assert.match(include.content, spec.discover, 'the include must show how the journal is found/read');
+      assert.match(include.content, spec.update, 'the include must show an in-place update, not a re-post');
+      assert.doesNotMatch(include.content, /\{\{.*?\}\}/, 'include must fully resolve');
+    } finally {
+      cleanup();
+    }
+  });
+
+  test(`${backend} ticketing include lists the journal artifact and not the retired handoff one`, () => {
+    const { root, cleanup } = makeTmpRoot();
+    try {
+      writeProject(root, spec.project);
+      const include = renderAll(root).find((o) => o.path === '.agents/includes/ticketing.md');
+      assert.match(include.content, /`Developer Journal` — the workflow's progress record/,
+        'the journal must be listed among the ticket artifacts');
+      assert.doesNotMatch(include.content, /Developer Handoff/,
+        'the append-only handoff artifact was merged into the journal comment');
+    } finally {
+      cleanup();
+    }
+  });
+}
 
 test('renderAll documents the persisted oversized-journal gate before developer dispatch', () => {
   const { root, cleanup } = tmpProject();
@@ -222,18 +306,22 @@ test('renderAll documents the persisted oversized-journal gate before developer 
     assert.match(handoff.content, /Continuation limit: <positive integer \| pending>/,
       'new journals must persist the effective continuation limit');
 
-    assert.match(devcycle.content, /five or fewer items.*continuation limit of 3/is,
-      'five-item journals must skip the oversized gate and keep the default limit');
-    assert.match(devcycle.content, /more than five items.*before creating a cost\s+ledger or spawning a developer/is,
+    assert.match(devcycle.content, /fifteen or fewer items record an `automatic`\s+decision/is,
+      'journals of fifteen or fewer items must skip the oversized gate');
+    assert.match(devcycle.content, /more than fifteen items.*before creating a cost\s+ledger or spawning a developer/is,
       'oversized journals must block implementation setup until a decision exists');
-    assert.match(devcycle.content, /new journal.*more than five items.*`pending` decision.*`pending` continuation limit.*before asking/is,
+    assert.match(devcycle.content, /new journal.*more than fifteen items.*`pending` decision.*`pending` continuation\s+limit.*before asking/is,
       'new oversized journals must persist their pending state before prompting the human');
-    assert.match(devcycle.content, /ceil\(item count \/ 3\) \+ 1/,
-      'a proceed decision must use ceiling division for its continuation limit');
-    assert.match(devcycle.content, /6 items.*3 continuations/is,
-      'the lower oversized boundary must retain three continuations');
-    assert.match(devcycle.content, /7, 8, or 9 items.*4\s+continuations/is,
-      'ceiling-division examples must cover the four-continuation range');
+    assert.match(devcycle.content, /max\(3, ceil\(item count \/ 3\) \+ 1\)/,
+      'a proceed decision must use the floored ceiling-division continuation limit');
+    assert.match(devcycle.content, /derive the continuation limit\s+`max\(3, ceil\(item count \/ 3\) \+ 1\)`/is,
+      'automatic journals must derive the same size-scaled limit, not a flat three');
+    assert.match(devcycle.content, /formula is identical for\s+`automatic` journals/is,
+      'approval must gate whether work starts, not the size of the continuation budget');
+    assert.match(devcycle.content, /16, 17, or 18\s+items use 7 continuations/is,
+      'the lower oversized boundary must document its ceiling-division limit');
+    assert.match(devcycle.content, /19, 20, or 21\s+items use 8 continuations/is,
+      'ceiling-division examples must cover the next continuation range');
     assert.match(devcycle.content, /recorded proceed decision.*without\s+asking again/is,
       'restart behavior must reuse a persisted proceed decision');
     assert.match(devcycle.content, /legacy journal.*lacks sizing metadata.*record.*before developer\s+dispatch/is,

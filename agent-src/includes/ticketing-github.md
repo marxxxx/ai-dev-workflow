@@ -96,13 +96,54 @@ The workflow hands context between agents through named issue comments:
 - `{{artifact.implementationNotes}}` — posted by the developer after implementation.
 - `{{artifact.reviewFeedback}}` — posted by the code reviewer when findings exist.
 - `{{artifact.testResults}}` — posted by the QA engineer after acceptance testing.
-- `{{artifact.handoff}}` — posted by the developer when a ticket does not fit one context window:
-  everything a fresh developer needs to resume without re-exploring (see the handoff include). The
-  most recent one wins; earlier ones are history.
+- `{{artifact.journal}}` — the workflow's progress record for the ticket. Unlike every other artifact
+  here it is **created once and edited in place**, never re-posted (see the handoff include and
+  "The Journal Comment" below).
 - `{{artifact.costOrigin}}` — posted by the product-architect at creation, recording its session so
   the design cost can be attributed later (see the cost accounting include).
 - `{{artifact.costSummary}}` — posted by the orchestrator when the ticket reaches
   `{{status.acceptance-test}}`: the token/cost breakdown for the ticket.
+
+## The Journal Comment
+
+The `{{artifact.journal}}` comment is one mutable comment per issue, addressed by its numeric
+**comment id** and rewritten in place on every update. Its content and protocol are defined in the
+handoff include; the four operations below are the GitHub mechanics.
+
+Use `gh api`, not `gh issue comment`. `gh issue comment --edit-last` targets "the last comment of the
+current user" rather than an id you chose — a different actor's comment, or a second comment from the
+workflow, silently changes what it edits. Never use it for the journal.
+
+Note the endpoint asymmetry: **create** is nested under the issue (`issues/<number>/comments`), while
+**get / update** address the comment directly (`issues/comments/<comment-id>` — no issue number).
+
+```bash
+# Create the journal comment and capture its id (do this once per issue)
+CID=$(cat <<'JOURNAL_EOF' | gh api -X POST repos/{{repo.slug}}/issues/<number>/comments \
+        -F 'body=@-' --jq '.id'
+## {{artifact.journal}}
+...the full journal, per the handoff include...
+JOURNAL_EOF
+)
+
+# Discover the id of an existing journal comment (once per ticket; newest match wins)
+gh api repos/{{repo.slug}}/issues/<number>/comments \
+  --jq '[.[] | select(.body | startswith("## {{artifact.journal}}"))] | last | .id'
+
+# Read the journal by id — no issue listing, no full ticket read
+gh api repos/{{repo.slug}}/issues/comments/<comment-id> --jq '.body'
+
+# Update the journal in place by id (replaces the whole body, and keeps the same id)
+cat <<'JOURNAL_EOF' | gh api -X PATCH repos/{{repo.slug}}/issues/comments/<comment-id> -F 'body=@-'
+## {{artifact.journal}}
+...the updated journal...
+JOURNAL_EOF
+```
+
+Pass the body as `-F 'body=@-'` (read from stdin) as shown, never as `-f body="..."`. Journal bodies
+are multi-line Markdown full of backticks, quotes, and `$`; inline shell quoting corrupts them, and
+`@-` needs no `jq` on the machine. `--jq` above is different — that is `gh`'s own built-in filter and
+is always available.
 
 ## Issue Body Templates
 

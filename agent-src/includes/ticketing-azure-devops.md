@@ -23,7 +23,7 @@ several operations; the `action` parameter selects which one. The relevant tools
 | `wit_work_item` | `list_comments` | Read a work item's comments |
 | `wit_work_item_write` | `create` | Create a work item of a given type with fields |
 | `wit_work_item_write` | `update` | Change fields (tags, State) via JSON Patch operations |
-| `wit_work_item_comment_write` | `add` | Append a Markdown comment |
+| `wit_work_item_comment_write` | `add`, `update` | Append a Markdown comment, or rewrite one by `commentId` |
 | `wit_work_item_link_write` | `link` | Relate one work item to another |
 | `wit_work_item_attachment` | — | Download an attachment (bug screenshots and other evidence) |
 
@@ -62,7 +62,7 @@ wit_query(action: "wiql", project: "{{ticketing.azure.project}}",
 # Read one work item with all fields and relations ("All" is capitalized)
 wit_work_item(action: "get", id: <id>, project: "{{ticketing.azure.project}}", expand: "All")
 
-# Read its comments (artifact handoffs live here) — note: workItemId, not id
+# Read its comments (the journal and the other artifacts live here) — note: workItemId, not id
 wit_work_item(action: "list_comments", workItemId: <id>, project: "{{ticketing.azure.project}}")
 
 # Open an attachment (bug screenshots, logs). Attachments appear in the "get" response above as
@@ -153,18 +153,50 @@ Automation creates pull requests only in draft mode. After personally reviewing 
 ## Work Item Comment Artifacts
 
 The workflow hands context between agents through named work-item comments (via
-`wit_work_item_comment_write`, action `add`):
+`wit_work_item_comment_write`, action `add` — or action `update` for the journal):
 
 - `{{artifact.implementationNotes}}` — posted by the developer after implementation.
 - `{{artifact.reviewFeedback}}` — posted by the code reviewer when findings exist.
 - `{{artifact.testResults}}` — posted by the QA engineer after acceptance testing.
-- `{{artifact.handoff}}` — posted by the developer when a ticket does not fit one context window:
-  everything a fresh developer needs to resume without re-exploring (see the handoff include). The
-  most recent one wins; earlier ones are history.
+- `{{artifact.journal}}` — the workflow's progress record for the work item. Unlike every other
+  artifact here it is **created once and edited in place** with action `update`, never re-posted (see
+  the handoff include and "The Journal Comment" below).
 - `{{artifact.costOrigin}}` — posted by the product-architect at creation, recording its session so
   the design cost can be attributed later (see the cost accounting include).
 - `{{artifact.costSummary}}` — posted by the orchestrator when the ticket reaches
   `{{status.acceptance-test}}`: the token/cost breakdown for the ticket.
+
+## The Journal Comment
+
+The `{{artifact.journal}}` comment is one mutable comment per work item, addressed by its numeric
+**comment id** and rewritten in place on every update. Its content and protocol are defined in the
+handoff include; the operations below are the Azure DevOps mechanics.
+
+`wit_work_item_comment_write` takes `action: "update"` alongside `add` — that is what makes the
+in-place journal possible here. It requires **both** `workItemId` and `commentId`: comment ids are
+scoped per work item, not global, so a `commentId` alone is not addressable.
+
+There is no "get one comment" tool. Discover the id — and read the body — from a single
+`list_comments` call, **once per ticket**; every write afterwards is a direct `update` that needs no
+listing. In the `list_comments` response the comment's identifier is the `id` field.
+
+```text
+# Create the journal comment (once per work item). Keep the comment id from the response.
+wit_work_item_comment_write(action: "add", workItemId: <id>,
+  project: "{{ticketing.azure.project}}", format: "Markdown",
+  text: "## {{artifact.journal}}\n...the full journal, per the handoff include...")
+
+# Discover the id — and read the body — of an existing journal comment (once per ticket).
+# Take the newest entry whose text starts with "## {{artifact.journal}}"; its `id` is the comment id.
+wit_work_item(action: "list_comments", workItemId: <id>, project: "{{ticketing.azure.project}}")
+
+# Update the journal in place by id (replaces the whole text)
+wit_work_item_comment_write(action: "update", workItemId: <id>, commentId: <comment-id>,
+  project: "{{ticketing.azure.project}}", format: "Markdown",
+  text: "## {{artifact.journal}}\n...the full journal...")
+```
+
+The MCP server exposes no comment delete — correct for the journal, which is edited, never replaced.
 
 ## Work Item Body Templates
 

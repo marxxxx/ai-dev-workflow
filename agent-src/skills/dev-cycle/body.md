@@ -29,10 +29,16 @@ the `{{artifact.costSummary}}` comment when the ticket reaches `acceptance-test`
 ## Developer Handoff
 
 Before seeding or sizing a journal, auditing a handoff, or spawning a continuation, read
-`{{handoff.include}}`. It is the single source of truth for the per-ticket handoff journal, the
-`{{artifact.handoff}}` comment a developer posts when a ticket does not fit one context window, and
-how continuations are counted. Do not hardcode journal paths, the handoff comment's required
-sections, sizing metadata, or continuation limits in this skill.
+`{{handoff.include}}`. It is the single source of truth for the per-ticket `{{artifact.journal}}`
+comment — the living record a developer edits in place as it works, and rewrites its handoff into when
+a ticket does not fit one context window — and for how continuations are counted. Do not hardcode the
+journal's structure, the handoff's required sections, sizing metadata, or continuation limits in this
+skill, and do not hardcode how a comment is created, read, or updated — that belongs to
+`{{ticketing.include}}`.
+
+Before dispatch, obtain the ticket's journal comment id: discover it with one listing call, or create
+the comment and keep the returned id. Pass that id in the prompt packet so the developer never has to
+re-read the ticket to find it.
 
 The division of labour matters: **you seed the journal, the developer only ticks it.** The developer
 must never plan, size, or decompose a ticket — that belongs to `$product-architect`, and a ticket
@@ -52,14 +58,14 @@ that repeatedly fails to fit is a signal to send back there rather than a load t
   - required ticketing include path: `{{ticketing.include}}`;
   - the cost include path `{{cost.include}}` and this run's cost-ledger path, so the subagent records
     its `ccusage` session (see `{{cost.include}}`);
-  - for `developer`: the handoff include path `{{handoff.include}}` and this ticket's handoff-journal
-    path, so the developer can tick criteria and hand off if the ticket does not fit its context
-    window (see `{{handoff.include}}`);
+  - for `developer`: the handoff include path `{{handoff.include}}` and this ticket's
+    `{{artifact.journal}}` comment id, so the developer can tick criteria and hand off if the ticket
+    does not fit its context window (see `{{handoff.include}}`);
   - for a `developer` continuation: that this attempt **is** a continuation, the continuation number,
     and the criteria that remain — scope the attempt explicitly to those rather than restating the
     whole ticket;
   - relevant prior artifact names: `{{artifact.implementationNotes}}`,
-    `{{artifact.reviewFeedback}}`, `{{artifact.testResults}}`, `{{artifact.handoff}}`;
+    `{{artifact.reviewFeedback}}`, `{{artifact.testResults}}`, `{{artifact.journal}}`;
   - exact expected status transition and return format;
   - known blockers, iteration count, and user constraints that materially affect this issue.
 
@@ -72,7 +78,7 @@ that repeatedly fails to fit is a signal to send back there rather than a load t
 | State | Meaning | Next action |
 | --- | --- | --- |
 | `new` | Ready to build | Spawn `developer` |
-| `in-progress` | Implementation running or interrupted | A `{{artifact.handoff}}` comment means resume: spawn a fresh `developer` continuation scoped to the remaining criteria. No handoff comment means the attempt was interrupted without one: inspect the branch and ticket, and restart `developer` only when needed |
+| `in-progress` | Implementation running or interrupted | A filled `Latest handoff` section in the `{{artifact.journal}}` comment means resume: spawn a fresh `developer` continuation scoped to the remaining criteria. An empty one means the attempt was interrupted without handing off: inspect the branch and ticket, and restart `developer` only when needed |
 | `review` | Awaiting code review | Spawn `code-reviewer` |
 | `test` | Ready for acceptance QA | Spawn `qa-engineer` |
 | `failed` | Review or QA failure | Spawn `developer` with recorded feedback |
@@ -92,26 +98,31 @@ that repeatedly fails to fit is a signal to send back there rather than a load t
    not defective, so a continuation never consumes an implementation-review iteration. The journal's
    persisted continuation limit controls the maximum (see `{{handoff.include}}`).
 6. Before creating a cost ledger or spawning a developer for a ticket in `new`, `failed`, or
-   resumable `in-progress`, seed or load its handoff journal and resolve its sizing metadata:
-   - For a new journal, write one unchecked, numbered row per acceptance criterion, then count those
-     rows only and persist the item count. Five or fewer items record an `automatic` decision and a
-     continuation limit of 3; dispatch the developer without an oversized-ticket question. A new
-     journal with more than five items records a `pending` decision and a `pending` continuation limit
-     before asking the human.
-   - A journal with more than five items and a `pending` decision is already sized but unresolved:
+   resumable `in-progress`, seed or load its `{{artifact.journal}}` comment (creating it, or
+   discovering its id with one listing call) and resolve its sizing metadata:
+   - For a new journal, write one unchecked, numbered row per acceptance criterion, count those rows
+     only, persist the item count, and derive the continuation limit
+     `max(3, ceil(item count / 3) + 1)` from it. Fifteen or fewer items record an `automatic`
+     decision and that limit; dispatch the developer without an oversized-ticket question. A new
+     journal with more than fifteen items records a `pending` decision and a `pending` continuation
+     limit before asking the human.
+   - A journal with more than fifteen items and a `pending` decision is already sized but unresolved:
      pause before creating a cost ledger or spawning a developer. Ask the human whether to **proceed**
      with development as scoped or **split** the ticket with `$product-architect`. On restart, reuse
      its item count and ask this unresolved question; do not treat valid `pending` metadata as legacy
      or malformed.
-   - On **proceed**, record the decision and the continuation limit `ceil(item count / 3) + 1` before
-     dispatch. The approved examples are: 6 items use 3 continuations; 7, 8, or 9 items use 4
-     continuations.
+   - On **proceed**, record the decision and the same derived continuation limit
+     `max(3, ceil(item count / 3) + 1)` before dispatch. The approved examples are: 16, 17, or 18
+     items use 7 continuations; 19, 20, or 21 items use 8 continuations. The formula is identical for
+     `automatic` journals — approval decides whether work starts, not how large the budget is.
    - On **split**, record the decision, do not spawn a developer, and do not create a cost ledger.
      End this dev-cycle path, then start `$product-architect` interactively in the same conversation.
      Do not close or accept the original ticket; ticket acceptance and closure remain the human
      workflow.
    - On restart, reuse a valid item count, recorded proceed decision, and continuation limit without
-     asking again. When a legacy journal lacks sizing metadata, or any sizing value is malformed,
+     asking again. A ticket carrying only legacy append-only `Developer Handoff` comments and no
+     journal comment is seeded from the most recent one per `{{handoff.include}}`, then sized as a
+     new journal. When a legacy journal lacks sizing metadata, or any sizing value is malformed,
      recount its criteria, perform this sizing check once, and record valid `automatic` or `pending`
      metadata before developer dispatch. A missing or malformed value must fail safely rather than
      grant an unlimited limit.
@@ -134,8 +145,9 @@ The developer owns:
 - implementing and validating the ticket;
 - posting `{{artifact.implementationNotes}}`;
 - moving the ticket to the `review` state only after completion;
-- stopping at an acceptance-criterion boundary and posting `{{artifact.handoff}}` instead, when the
-  remaining work does not fit its context window (see `{{handoff.include}}`).
+- stopping at an acceptance-criterion boundary and rewriting the `Latest handoff` section of the
+  `{{artifact.journal}}` comment instead, when the remaining work does not fit its context window
+  (see `{{handoff.include}}`).
 
 After it returns, inspect its reported changes and re-read the ticket state/comments. Do not accept a
 claimed completion if the state, branch, or validation evidence is missing. Its run ended in exactly
@@ -143,8 +155,9 @@ one of three outcomes — decide which from the ticket, not from the returned pr
 
 - **Complete** — ticket at `review` with `{{artifact.implementationNotes}}` posted. Continue to
   review.
-- **Handoff** — ticket still at `in-progress` with a new `{{artifact.handoff}}` comment. Audit it
-  before spawning a continuation:
+- **Handoff** — ticket still at `in-progress`, with the `{{artifact.journal}}` comment's `Latest
+  handoff` section rewritten for this attempt. Read the journal by its id — one read, no ticket
+  re-listing — and audit it before spawning a continuation:
     - all seven required sections from `{{handoff.include}}` are present;
     - the criteria status covers every acceptance criterion, each marked done or remaining;
     - the map names concrete files and symbols, not areas — a vague map means the next developer
@@ -154,7 +167,8 @@ one of three outcomes — decide which from the ticket, not from the returned pr
       branch diff and the ticket, and state the gap in the continuation's prompt packet.
   Then increment the continuation count and spawn a **fresh** developer scoped to the remaining
   criteria. A continuation does not consume an implementation-review iteration.
-- **Blocked** — ticket still at `in-progress` with a reported blocker and no handoff comment. Report
+- **Blocked** — ticket still at `in-progress` with a reported blocker and no new handoff written into
+  the journal. Report
   it for human attention; do not spawn a continuation to work around it.
 
 Two limits apply to continuations:
@@ -163,7 +177,7 @@ Two limits apply to continuations:
   criterion, or a materially larger branch diff. If two consecutive continuations show neither, stop.
   The ticket is stuck, not large, and another attempt will repeat the failure.
 - **Exhaustion** — at the continuation limit, stop automation for that ticket. Leave it at
-  `in-progress` with its `{{artifact.handoff}}` comment intact and report that the ticket is too
+  `in-progress` with its `{{artifact.journal}}` comment intact and report that the ticket is too
   large to implement as scoped and should be split via `$product-architect`. Do not split it
   yourself, and do not keep cycling.
 
@@ -224,8 +238,9 @@ On the move to `acceptance-test`, follow `{{cost.include}}` to aggregate this ru
 `{{artifact.costSummary}}` comment, then clean up the ledger. Cost reporting never blocks the
 handoff — if `ccusage` or a session is unavailable, post the summary noting the gap.
 
-Also delete the ticket's handoff journal at this point, per `{{handoff.include}}`. The
-`{{artifact.handoff}}` comments stay on the ticket as the durable record of how the work progressed.
+The `{{artifact.journal}}` comment stays on the ticket as the durable record of how the work
+progressed — there is nothing to clean up, except under file-based ticketing, whose local journal file
+is deleted at this point (see `{{handoff.include}}` and `{{ticketing.include}}`).
 
 ## Pull Request And Handoff
 

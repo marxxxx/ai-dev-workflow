@@ -136,13 +136,45 @@ The workflow hands context between agents through named issue comments:
 - `{{artifact.implementationNotes}}` — posted by the developer after implementation.
 - `{{artifact.reviewFeedback}}` — posted by the code reviewer when findings exist.
 - `{{artifact.testResults}}` — posted by the QA engineer after acceptance testing.
-- `{{artifact.handoff}}` — posted by the developer when a ticket does not fit one context window:
-  everything a fresh developer needs to resume without re-exploring (see the handoff include). The
-  most recent one wins; earlier ones are history.
+- `{{artifact.journal}}` — the workflow's progress record for the ticket. Unlike every other artifact
+  here it is **created once and edited in place**, never re-posted (see the handoff include and
+  "The Journal Comment" below).
 - `{{artifact.costOrigin}}` — posted by the product-architect at creation, recording its session so
   the design cost can be attributed later (see the cost accounting include).
 - `{{artifact.costSummary}}` — posted by the orchestrator when the ticket reaches
   `{{status.acceptance-test}}`: the token/cost breakdown for the ticket.
+
+## The Journal Comment
+
+The `{{artifact.journal}}` comment is one mutable comment per issue, addressed by its numeric
+**comment id** and rewritten in place on every update. Its content and protocol are defined in the
+handoff include; the four operations below are the Gitea mechanics.
+
+`tea` has no "show one comment" command, so the id is discovered — and the body read — from a single
+`tea comments list` with `--output json`. Do that **once per ticket**; every write afterwards goes
+straight to `tea comments edit <comment-id>`, which needs no listing at all.
+
+```bash
+# Build the body once, in-shell. The quoted delimiter keeps Markdown literal.
+BODY=$(cat <<'JOURNAL_EOF'
+## {{artifact.journal}}
+...the full journal, per the handoff include...
+JOURNAL_EOF
+)
+
+# Create the journal comment (do this once per issue)
+tea comments add --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} <number> "$BODY"
+
+# Discover the id — and read the body — of an existing journal comment (once per ticket;
+# newest match wins). `tea comments add` does not print a usable id, so create then discover.
+tea comments list --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} <number> --output json
+
+# Update the journal in place by id (replaces the whole body)
+tea comments edit --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} <comment-id> "$BODY"
+```
+
+Filter the JSON for the entry whose body starts with `## {{artifact.journal}}` and take its `id`.
+`tea comments delete` exists — never use it on the journal; the journal is edited, not replaced.
 
 ## Issue Body Templates
 

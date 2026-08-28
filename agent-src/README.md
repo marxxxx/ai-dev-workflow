@@ -82,7 +82,7 @@ every body and to each manifest `description`/`interface` string:
 - `{{ticketing.include}}` (path agents read at runtime), `{{ticketing.backend}}`
 - `{{git.branchPattern}}`, `{{git.prTarget}}`
 - `{{artifact.implementationNotes}}`, `{{artifact.reviewFeedback}}`, `{{artifact.testResults}}`,
-  `{{artifact.handoff}}`, `{{artifact.costOrigin}}`, `{{artifact.costSummary}}` — one per key of
+  `{{artifact.journal}}`, `{{artifact.costOrigin}}`, `{{artifact.costSummary}}` — one per key of
   `workflow.artifacts`; each is the title of a named ticket comment
 - `{{app.include}}`, `{{cost.include}}`, `{{handoff.include}}` — the other runtime include paths
   (e2e runtime, cost accounting, developer handoff), package-owned like `{{ticketing.include}}`
@@ -154,8 +154,10 @@ the same way — one shared file each. The cost include is the single source of 
 each participant's `ccusage` session into a per-run ledger and posting the `Cost Summary` comment
 when a ticket reaches `acceptance-test`. The handoff include is the single source of truth for what a
 `developer` does when a ticket turns out to be larger than one context window: stop at an
-acceptance-criterion boundary, post a `Developer Handoff` comment, and let the orchestrator spawn a
-fresh developer scoped to the remaining criteria.
+acceptance-criterion boundary, write the handoff into the ticket's single living `Developer Journal`
+comment, and let the orchestrator spawn a fresh developer scoped to the remaining criteria. That
+comment is the workflow's only progress state — created once, then edited in place by comment id
+using the per-backend commands in the ticketing include.
 
 | Source unit | → Claude | → Codex | → OpenCode |
 |---|---|---|---|

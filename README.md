@@ -6,7 +6,7 @@ A customizable AI development workflow — subagent and skill definitions for **
 The generator is a zero-dependency Node script. It's distributed **directly from this Git repo** (no
 npm registry) and the consuming project does **not** need to be a Node project. It works in any repo
 (C#/.NET, Go, Rust, …) — the only requirement is Node on the machine that runs the generator (your
-dev box and CI). Pin to a Git tag (e.g. `#v0.18.0`) so devs and CI stay in sync.
+dev box and CI). Pin to a Git tag (e.g. `#v0.19.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -28,7 +28,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
-npx github:marxxxx/ai-dev-workflow#v0.18.0 init
+npx github:marxxxx/ai-dev-workflow#v0.19.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -39,12 +39,12 @@ npx github:marxxxx/ai-dev-workflow#v0.18.0 init
 #    e2e setup there — see End-to-end testing below.)
 
 # 3. generate the platform files
-npx github:marxxxx/ai-dev-workflow#v0.18.0 generate
+npx github:marxxxx/ai-dev-workflow#v0.19.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the tag (`#v0.18.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the tag (`#v0.19.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 ## Recommended tooling
 
@@ -147,16 +147,16 @@ or dies mid-edit, and its replacement re-explores the codebase from nothing. Tha
 most visible in long Codex sessions.
 
 Instead, a developer under context pressure **stops at an acceptance-criterion boundary**, commits
-what it has, and posts a **Developer Handoff** comment. `dev-cycle` then spawns a *fresh* developer
-scoped to the remaining criteria. The handoff carries the map — files, symbols, conventions,
-decisions already made, dead ends already hit, and the exact next step — so the new window is spent
-implementing rather than rediscovering.
+what it has, and writes its handoff into the ticket's **Developer Journal** comment. `dev-cycle` then
+spawns a *fresh* developer scoped to the remaining criteria. The handoff carries the map — files,
+symbols, conventions, decisions already made, dead ends already hit, and the exact next step — so the
+new window is spent implementing rather than rediscovering.
 
 Two things keep this from becoming a treadmill:
 
 - **The developer never plans or sizes a ticket.** That stays with `product-architect`. `dev-cycle`
-  seeds a journal with one row per acceptance criterion (it already holds the ticket, so this costs
-  the developer no context) and the developer only ticks rows. Its single judgment is local: *can I
+  seeds the journal comment with one row per acceptance criterion (it already holds the ticket, so
+  this costs the developer no context) and the developer only ticks rows. Its single judgment is local: *can I
   finish the criterion in front of me?*
 - **The human decides whether an oversized ticket proceeds.** A journal with five or fewer criteria
   starts development normally and keeps the three-continuation allowance. Before spending a developer
@@ -172,9 +172,14 @@ Two things keep this from becoming a treadmill:
   `product-architect` rather than cycling silently.
 
 The mechanics live in one generated file, `.agents/includes/handoff.md`, read at runtime by both
-sides of the protocol. The handoff itself is an ordinary ticket comment, so it lands wherever your
-`ticketing.backend` puts comments (GitHub / Gitea / file / Azure DevOps) and stays readable by humans; the
-journal is a scratch file kept outside the repo so it never reaches a pull request.
+sides of the protocol. **All of the progress state lives on the ticket**, in one `Developer Journal`
+comment: criteria checklist, sizing decision, discovered context, attempt log, and the latest handoff.
+It is created once and then edited in place by comment id — `gh api ... PATCH` on GitHub,
+`tea comments edit` on Gitea, `wit_work_item_comment_write(action: "update")` on Azure DevOps — so
+updating it never costs a re-read of the ticket. Nothing is hidden in a temp directory, so a run can
+resume on another machine and a human supervising the run can read the whole state in the ticket. The
+one exception is file-based ticketing, which has no comment objects: there the journal stays a local
+file and the ticket records its path.
 
 ## Per-ticket cost summary
 
@@ -200,7 +205,7 @@ Add it as a dev dependency pointing at the Git tag, and wire up scripts:
 
 ```jsonc
 "devDependencies": {
-  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.18.0"
+  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.19.0"
 },
 "scripts": {
   "agents:generate": "ai-dev-workflow generate",
@@ -217,6 +222,13 @@ npx github:marxxxx/ai-dev-workflow#<new-tag> generate   # or bump the pinned tag
 Review the diff in `.claude/`/`.codex/`/etc. and commit. `ai-project.json` is never touched. Run
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
+
+**Upgrading to v0.19.0.** The append-only `Developer Handoff` comment was merged into the single
+living `Developer Journal` comment, so the `{{artifact.handoff}}` token no longer exists — use
+`{{artifact.journal}}`. This only affects you if one of your `agent-custom/` files references it, in
+which case `generate` fails closed on the unresolved token rather than emitting a broken body. Tickets
+already carrying `Developer Handoff` comments need no migration: `dev-cycle` seeds a journal comment
+from the most recent one and leaves the old comments in place as history.
 
 ## Run in a container
 

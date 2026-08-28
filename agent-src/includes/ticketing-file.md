@@ -126,13 +126,66 @@ The workflow hands context between agents through named appended comment section
 - `{{artifact.implementationNotes}}` — posted by the developer after implementation.
 - `{{artifact.reviewFeedback}}` — posted by the code reviewer when findings exist.
 - `{{artifact.testResults}}` — posted by the QA engineer after acceptance testing.
-- `{{artifact.handoff}}` — posted by the developer when a ticket does not fit one context window:
-  everything a fresh developer needs to resume without re-exploring (see the handoff include). The
-  most recent one wins; earlier ones are history.
+- `{{artifact.journal}}` — the workflow's progress record for the ticket. Unlike every other artifact
+  here it is **written once and edited in place** (see the handoff include and "The Journal Comment"
+  below).
 - `{{artifact.costOrigin}}` — posted by the product-architect at creation, recording its session so
   the design cost can be attributed later (see the cost accounting include).
 - `{{artifact.costSummary}}` — posted by the orchestrator when the ticket reaches
   `{{status.acceptance-test}}`: the token/cost breakdown for the ticket.
+
+## The Journal Comment
+
+This backend has no comment objects — comments are appended sections in the issue file, with no id to
+address. So the `{{artifact.journal}}` **content stays in a local Markdown file**, and the issue file
+carries one `## {{artifact.journal}}` section pointing at it. The journal's content and protocol are
+defined in the handoff include; the mechanics are below.
+
+The journal file lives outside the repository, at a path that is **stable per ticket**, not per run,
+so every attempt at the same ticket writes the same file:
+
+```
+<os-temp-dir>/ai-dev-workflow-handoff/{{project.slug}}-<number>.md
+```
+
+`<os-temp-dir>` is the machine's temp directory (`$TMPDIR` / `/tmp` on Unix, `%TEMP%` on Windows).
+It is outside the repo on purpose: issue files under `{{ticketing.dir}}` are committed, and an in-repo
+journal would pollute the pull request.
+
+The journal is therefore **machine-local with this backend**. A run resumed on another machine finds
+the ticket's pointer section but not the file; that is not a blocker — rebuild the journal from the
+ticket and the branch diff and carry on, and say so in the pointer section.
+
+```bash
+# Create the journal file and its pointer section (once per issue)
+JOURNAL="${TMPDIR:-/tmp}/ai-dev-workflow-handoff/{{project.slug}}-<number>.md"
+mkdir -p "$(dirname "$JOURNAL")"
+cat > "$JOURNAL" << 'JOURNAL_EOF'
+...the full journal, per the handoff include...
+JOURNAL_EOF
+
+cat >> "{{ticketing.dir}}/<number>_<slug>.md" << POINTER_EOF
+
+---
+## {{artifact.journal}}
+
+Local journal file (machine-local, not committed): \`$JOURNAL\`
+POINTER_EOF
+
+# Read the journal
+cat "$JOURNAL"
+
+# Update the journal in place (rewrite the whole file; the pointer section does not change)
+cat > "$JOURNAL" << 'JOURNAL_EOF'
+...the updated journal...
+JOURNAL_EOF
+```
+
+Write the pointer section **once**. If the issue file already has a `## {{artifact.journal}}` section,
+reuse the path it names instead of appending a second one.
+
+When the ticket reaches `{{status.acceptance-test}}`, delete the journal file and rewrite the pointer
+section to record that it was cleaned up, so the ticket does not name a path that no longer exists.
 
 ## Issue Body Templates
 
