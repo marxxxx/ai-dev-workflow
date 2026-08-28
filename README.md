@@ -230,6 +230,13 @@ which case `generate` fails closed on the unresolved token rather than emitting 
 already carrying `Developer Handoff` comments need no migration: `dev-cycle` seeds a journal comment
 from the most recent one and leaves the old comments in place as history.
 
+The journal also carries **sizing metadata**, which decides when a ticket is too large to implement in
+one cycle. A ticket is sized automatically up to fifteen acceptance criteria — above that, `dev-cycle`
+pauses and asks whether to proceed as scoped or split via `$product-architect`. Within that budget it
+allows a limited number of **continuations** (fresh `developer` attempts after the first, spawned when
+one runs out of context), scaled to the criterion count. `.agents/includes/handoff.md` is the single
+source of truth for both; no other file restates the thresholds.
+
 ## Run in a container
 
 Prefer not to install the agents and MCP tooling on your host? The workflow ships a **container
