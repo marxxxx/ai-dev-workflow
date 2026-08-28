@@ -306,24 +306,69 @@ test('renderAll documents the persisted oversized-journal gate before developer 
     assert.match(handoff.content, /Continuation limit: <positive integer \| pending>/,
       'new journals must persist the effective continuation limit');
 
-    assert.match(devcycle.content, /fifteen or fewer\s+items record an `automatic`\s+decision/is,
-      'journals of fifteen or fewer items must skip the oversized gate');
-    assert.match(devcycle.content, /more than fifteen items.*before creating a cost\s+ledger or spawning a developer/is,
-      'oversized journals must block implementation setup until a decision exists');
-    assert.match(devcycle.content, /new journal.*more than fifteen items.*`pending`\s+decision.*`pending` continuation\s+limit.*before asking/is,
-      'new oversized journals must persist their pending state before prompting the human');
-    assert.match(devcycle.content, /1 continuation for 1-6 items, 2 for 7-9, 3 for 10-15/,
-      'automatic journals must derive their continuation limit from the item-count bands');
-    assert.match(devcycle.content, /continuation limit `ceil\(item count \/ 5\)`/,
-      'an approved oversized ticket must scale at one attempt per five criteria');
-    assert.match(devcycle.content, /16 to 20 items use 4 continuations; 21 to 25 items use 5/,
-      'the oversized examples must document the scaled limits');
-    assert.match(devcycle.content, /additional developer attempt after the first/i,
-      'a continuation must be defined as an attempt beyond the initial developer');
+    // The include owns every threshold and limit; the numbers live here and nowhere else.
+    assert.match(handoff.content, /`automatic` for fifteen or fewer items/,
+      'the include must own the threshold above which a human decides');
+    assert.match(handoff.content, /number of \*additional\* developer attempts allowed after the first/,
+      'the include must define a continuation as an attempt beyond the initial developer');
+    assert.match(handoff.content, /\| 1-6 \| 1 \|\s+\| 7-9 \| 2 \|\s+\| 10-15 \| 3 \|/,
+      'the include must own the item-count bands as a single table');
+    assert.match(handoff.content, /`ceil\(item count \/ 5\)`/,
+      'the include must own the scaled limit for an approved oversized ticket');
+    assert.match(handoff.content, /derived once, when the orchestrator seeds the journal/,
+      'loop control must point at the sizing table rather than restating the bands');
+
+    // The orchestrator carries the procedure and defers the values.
+    assert.match(devcycle.content, /persist the item count, sizing decision, and continuation limit exactly as\s+`[^`]*handoff\.md`/is,
+      'the orchestrator must persist metadata the include derives, not values of its own');
+    assert.match(devcycle.content, /thresholds and limits are authoritative;\s+do not restate or recompute them here/is,
+      'the orchestrator must be told explicitly not to duplicate the include');
+    assert.match(devcycle.content, /`pending` decision is already sized but unresolved: pause before creating a\s+cost ledger or spawning a developer/is,
+      'an unresolved sizing decision must block implementation setup');
+    assert.match(devcycle.content, /size the count as `automatic`, dispatch\s+the developer without an oversized-ticket question/is,
+      'an automatic decision must dispatch without prompting the human');
+    assert.match(devcycle.content, /otherwise record a `pending` decision and a\s+`pending` continuation limit before asking the human/is,
+      'a new oversized journal must persist its pending state before prompting the human');
     assert.match(devcycle.content, /recorded proceed decision.*without\s+asking again/is,
       'restart behavior must reuse a persisted proceed decision');
     assert.match(devcycle.content, /legacy journal.*lacks sizing metadata.*record.*before developer\s+dispatch/is,
       'legacy journals must be migrated through the gate exactly once');
+  } finally {
+    cleanup();
+  }
+});
+
+// The include is the single source of truth for sizing thresholds and continuation limits
+// (dev-cycle's own "Developer Handoff" section says so). Restating a number in a body that already
+// reads the include at runtime is how the two drift apart, so assert the numbers are absent.
+test('only the handoff include states the sizing thresholds and continuation limits', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const outputs = renderAll(root);
+    const handoff = outputs.find((o) => o.path === '.agents/includes/handoff.md');
+
+    // Every rendered body that defers to the include, across all three platforms.
+    const readers = outputs.filter((o) => o.path !== handoff.path && o.content.includes('handoff.md'));
+    assert.ok(readers.length >= 3, 'developer and dev-cycle must be rendered for every platform');
+
+    const forbidden = [
+      [/fifteen or fewer|more than fifteen/i, 'the automatic sizing threshold'],
+      [/ceil\(item count \/ \d\)/, 'the continuation-limit formula'],
+      [/\b(1-6|7-9|10-15|16 to 20|21 to 25)\b/, 'an item-count band'],
+      [/\d+ continuations?\b/, 'a concrete continuation count'],
+    ];
+
+    for (const reader of readers) {
+      for (const [pattern, what] of forbidden) {
+        assert.doesNotMatch(reader.content, pattern,
+          `${reader.path} restates ${what}; it must defer to the handoff include instead`);
+      }
+    }
+
+    // …and the include itself still carries them, so the rule is not vacuously satisfied.
+    for (const [pattern, what] of forbidden.slice(0, 3)) {
+      assert.match(handoff.content, pattern, `the handoff include must own ${what}`);
+    }
   } finally {
     cleanup();
   }

@@ -96,7 +96,7 @@ large-ticket decision durable across restarts:
   | 1-6 | 1 |
   | 7-9 | 2 |
   | 10-15 | 3 |
-  | 16 or more (`proceed` only) | `ceil(item count / 5)` — 4 for 16-20, 5 for 21-25 |
+  | above the `automatic` threshold (`proceed` only) | `ceil(item count / 5)` — 4 for 16-20, 5 for 21-25 |
 
   It remains `pending` only while the decision is `pending` or `split`.
 
@@ -204,10 +204,9 @@ them again.
 
 - Handoff **continuations are counted separately** from implementation-review iterations and do not
   consume one — a handoff is not a review rejection, and the work was not defective.
-- The journal's persisted **Continuation limit** controls the maximum number of continuations —
-  developer attempts *beyond* the first, so the first attempt never consumes one. It scales with the
-  criterion count per the table in [Sizing metadata](#sizing-metadata): 1 continuation up to six
-  items, 2 up to nine, 3 up to fifteen, and `ceil(item count / 5)` for an approved oversized ticket.
+- The journal's persisted **Continuation limit** controls the maximum number of continuations. It is
+  derived once, when the orchestrator seeds the journal, from the item count under
+  [Sizing metadata](#sizing-metadata) — read the persisted value rather than recomputing it here.
   This changes neither the progress guard nor the implementation-review iteration limit.
 - **Progress guard** — a continuation must show measurable progress: at least one newly ticked
   criterion, or a materially larger branch diff. If two consecutive continuations show neither, stop:
