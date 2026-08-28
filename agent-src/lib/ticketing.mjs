@@ -2,7 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { SRC_DIR } from './constants.mjs';
+import { ADO_MCP_PACKAGE, SRC_DIR } from './constants.mjs';
 import { normalizeLF, dq } from './serialize.mjs';
 import { substituteTokens } from './tokens.mjs';
 
@@ -51,7 +51,7 @@ export function renderMcpJson(config, projectRoot) {
   doc.mcpServers.ado = {
     type: 'stdio',
     command: 'npx',
-    args: ['-y', '@azure-devops/mcp', org, '-d', 'core', 'work', 'work-items'],
+    args: ['-y', ADO_MCP_PACKAGE, org, '-d', 'core', 'work', 'work-items'],
   };
   return { path: '.mcp.json', content: JSON.stringify(doc, null, 2) + '\n' };
 }
@@ -64,7 +64,7 @@ export function renderCodexAdoMcpBlock(org) {
     CODEX_ADO_BEGIN,
     '[mcp_servers.ado]',
     'command = "npx"',
-    `args = [${['-y', '@azure-devops/mcp', org, '-d', 'core', 'work', 'work-items'].map(dq).join(', ')}]`,
+    `args = [${['-y', ADO_MCP_PACKAGE, org, '-d', 'core', 'work', 'work-items'].map(dq).join(', ')}]`,
     CODEX_ADO_END,
   ].join('\n');
 }

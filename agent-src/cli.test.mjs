@@ -167,10 +167,11 @@ test('init --answers scaffolds an azure-devops project, and generate emits MCP c
     const mcp = JSON.parse(fs.readFileSync(path.join(root, '.mcp.json'), 'utf8'));
     assert.ok(mcp.mcpServers.ado, '.mcp.json should carry the ado server entry');
     assert.ok(mcp.mcpServers.ado.args.includes('acme'));
+    assert.ok(mcp.mcpServers.ado.args.includes('@azure-devops/mcp@2'), 'the ADO MCP server must be pinned to a major');
     const codexConfig = fs.readFileSync(path.join(root, '.codex', 'config.toml'), 'utf8');
     assert.match(codexConfig, /\[mcp_servers\.ado\]/);
     assert.match(codexConfig, /command = "npx"/);
-    assert.match(codexConfig, /@azure-devops\/mcp/);
+    assert.match(codexConfig, /@azure-devops\/mcp@2/);
     assert.match(codexConfig, /"acme"/);
   } finally {
     cleanup();

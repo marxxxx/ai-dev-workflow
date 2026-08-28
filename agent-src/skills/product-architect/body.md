@@ -50,7 +50,7 @@ design cost when it posts the ticket's cost summary.
    following `Ticket Splitting` below and get the user's agreement on the resulting tickets before
    creating them.
 9. Create one or more vertical, independently testable tickets in the `new` state.
-   When an upstream ticket was recorded, link the ticket to it as related using the
+   When an upstream ticket was recorded, record the reference on the ticket using the
    mechanism defined in `{{ticketing.include}}`, and note that its feature branch's first segment will
    be the upstream ticket number. When no upstream ticket was given, the ticket is the
    single source of truth and its own number flows into branch naming as usual.

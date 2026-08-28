@@ -44,11 +44,18 @@ test('azure-devops backend injects ADO tools into ticketing agents and emits .mc
     const outputs = renderAll(root);
     const mcp = outputs.find((o) => o.path === '.mcp.json');
     assert.ok(mcp, '.mcp.json should be produced for azure-devops');
-    assert.match(mcp.content, /@azure-devops\/mcp/);
+    assert.match(mcp.content, /@azure-devops\/mcp@2/, 'the ADO MCP server must be pinned to a major');
 
     const developer = outputs.find((o) => o.path === path.join('.claude', 'agents', 'developer.md'));
     assert.ok(developer, 'developer agent should be rendered');
-    assert.match(developer.content, /mcp__ado__wit_query_by_wiql/, 'ADO MCP tool should be added to the allowlist');
+    assert.match(developer.content, /mcp__ado__wit_query/, 'ADO MCP tool should be added to the allowlist');
+    // The v1 tool surface was renamed wholesale in @azure-devops/mcp v2. An allowlist naming tools
+    // the pinned server no longer registers leaves the subagent with no ADO tools at all.
+    assert.doesNotMatch(
+      developer.content,
+      /mcp__ado__wit_(query_by_wiql|get_work_item|create_work_item|update_work_item|add_work_item_comment|list_work_item_comments)\b/,
+      'retired v1 ADO tool names must not appear in the allowlist',
+    );
   } finally {
     cleanup();
   }
@@ -76,7 +83,7 @@ test('azure-devops backend emits Codex project-local ADO MCP config', () => {
     assert.match(codexConfig.content, /# BEGIN ai-dev-workflow managed mcp_servers\.ado/);
     assert.match(codexConfig.content, /\[mcp_servers\.ado\]/);
     assert.match(codexConfig.content, /command = "npx"/);
-    assert.match(codexConfig.content, /args = \["-y", "@azure-devops\/mcp", "acme", "-d", "core", "work", "work-items"\]/);
+    assert.match(codexConfig.content, /args = \["-y", "@azure-devops\/mcp@2", "acme", "-d", "core", "work", "work-items"\]/);
     assert.match(codexConfig.content, /# END ai-dev-workflow managed mcp_servers\.ado/);
   } finally {
     cleanup();

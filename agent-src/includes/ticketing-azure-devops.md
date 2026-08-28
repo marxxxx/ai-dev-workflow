@@ -12,19 +12,23 @@ Azure DevOps organization. Git branches and pull requests target the `{{repo.slu
 
 ## Tooling
 
-**Use the `ado` MCP server tools for ALL ticketing operations — never a CLI.** The relevant tools
-(domains `core`, `work`, `work-items`) are:
+**Use the `ado` MCP server tools for ALL ticketing operations — never a CLI.** Each tool covers
+several operations; the `action` parameter selects which one. The relevant tools (domains `core`,
+`work`, `work-items`) are:
 
-| Tool | Use |
-|------|-----|
-| `wit_query_by_wiql` | List/find work items (filter by tag or state via WIQL) |
-| `wit_get_work_item` | Read a single work item (pass `expand: "all"` for fields + relations) |
-| `wit_list_work_item_comments` | Read a work item's comments |
-| `wit_create_work_item` | Create a work item of a given type with fields |
-| `wit_update_work_item` | Change fields (tags, State) via JSON Patch operations |
-| `wit_add_work_item_comment` | Append a Markdown comment |
+| Tool | `action` | Use |
+|------|----------|-----|
+| `wit_query` | `wiql` | List/find work items (filter by tag or state via WIQL) |
+| `wit_work_item` | `get` | Read a single work item (pass `expand: "All"` for fields + relations) |
+| `wit_work_item` | `list_comments` | Read a work item's comments |
+| `wit_work_item_write` | `create` | Create a work item of a given type with fields |
+| `wit_work_item_write` | `update` | Change fields (tags, State) via JSON Patch operations |
+| `wit_work_item_comment_write` | `add` | Append a Markdown comment |
+| `wit_work_item_link_write` | `link` | Relate one work item to another |
+| `wit_work_item_attachment` | — | Download an attachment (bug screenshots and other evidence) |
 
-Always pass `project: "{{ticketing.azure.project}}"` to these tools.
+**Always pass `project: "{{ticketing.azure.project}}"` to these tools.** When `project` is omitted
+the server raises an interactive project-selection prompt, which stalls an autonomous agent.
 
 ## Status Encoding
 
@@ -50,48 +54,58 @@ Tags are a single semicolon-separated string in the `System.Tags` field. A statu
 
 ```text
 # Find all work items at a given status (WIQL filters on the tag)
-wit_query_by_wiql(project: "{{ticketing.azure.project}}",
+wit_query(action: "wiql", project: "{{ticketing.azure.project}}",
   wiql: "SELECT [System.Id], [System.Title], [System.State], [System.Tags] FROM WorkItems
          WHERE [System.TeamProject] = '{{ticketing.azure.project}}'
            AND [System.Tags] CONTAINS '{{status.new}}' ORDER BY [System.Id]")
 
-# Read one work item with all fields
-wit_get_work_item(id: <id>, project: "{{ticketing.azure.project}}", expand: "all")
+# Read one work item with all fields and relations ("All" is capitalized)
+wit_work_item(action: "get", id: <id>, project: "{{ticketing.azure.project}}", expand: "All")
 
-# Read its comments (artifact handoffs live here)
-wit_list_work_item_comments(id: <id>, project: "{{ticketing.azure.project}}")
+# Read its comments (artifact handoffs live here) — note: workItemId, not id
+wit_work_item(action: "list_comments", workItemId: <id>, project: "{{ticketing.azure.project}}")
+
+# Open an attachment (bug screenshots, logs). Attachments appear in the "get" response above as
+# AttachedFile relations; the attachmentId is the last URL segment. Omit savePath to get the
+# content inline (images come back viewable), or pass a relative dir to save it instead.
+wit_work_item_attachment(attachmentId: "<guid>", project: "{{ticketing.azure.project}}",
+  fileName: "screenshot.png")
 ```
 
 ### Creating Work Items
 
 Use `{{ticketing.azure.featureType}}` for features and `{{ticketing.azure.bugType}}` for bugs.
-Set the title, the body (Description), and the initial status tag.
+Set the title, the body (Description), and the initial status tag. `fields` is an **array** of
+`{ name, value }` entries — not an object map — and large Markdown bodies need `format: "Markdown"`
+or they are stored as HTML and render mangled.
 
 ```text
-wit_create_work_item(
+wit_work_item_write(
+  action: "create",
   project: "{{ticketing.azure.project}}",
   workItemType: "{{ticketing.azure.featureType}}",
-  fields: {
-    "System.Title": "[Work item title]",
-    "System.Description": "<rendered body from the template below>",
-    "System.Tags": "{{status.new}}",
-    "System.State": "{{azureState.new}}"
-  })
+  fields: [
+    { name: "System.Title", value: "[Work item title]" },
+    { name: "System.Description", value: "<rendered body from the template below>", format: "Markdown" },
+    { name: "System.Tags", value: "{{status.new}}" },
+    { name: "System.State", value: "{{azureState.new}}" }
+  ])
 ```
 
 ### Updating Work Items
 
 ```text
 # Transition status: swap the status tag and set the board State.
-# Read System.Tags first (wit_get_work_item), recompute the tag string, then:
-wit_update_work_item(id: <id>, project: "{{ticketing.azure.project}}", updates: [
+# Read System.Tags first (wit_work_item action "get"), recompute the tag string, then:
+# (every patch `value` must be a string — object payloads are rejected)
+wit_work_item_write(action: "update", id: <id>, project: "{{ticketing.azure.project}}", updates: [
   { "op": "replace", "path": "/fields/System.Tags", "value": "<other tags>;{{status.test}}" },
   { "op": "replace", "path": "/fields/System.State", "value": "{{azureState.test}}" }
 ])
 
-# Add a comment
-wit_add_work_item_comment(id: <id>, project: "{{ticketing.azure.project}}",
-  comment: "...")
+# Add a comment — note: workItemId and text (not id and comment)
+wit_work_item_comment_write(action: "add", workItemId: <id>,
+  project: "{{ticketing.azure.project}}", text: "...", format: "Markdown")
 ```
 
 Never set `System.State` to `Done` and never remove a work item — human acceptance only.
@@ -99,33 +113,27 @@ Never set `System.State` to `Done` and never remove a work item — human accept
 ### Linking an Upstream Work Item
 
 A work item may originate from an **upstream ticket** — typically an Azure DevOps Product Backlog Item
-where the initial requirement was described. When the product-architect records one, link the
-implementation work item to it as **Related** by adding a relation via `wit_update_work_item`. Read the
-implementation work item's existing relations first (`wit_get_work_item(id, expand: "all")`), then:
+where the initial requirement was described. How the product-architect records one depends on where the
+upstream ticket lives.
 
 ```text
-# Upstream is an Azure DevOps work item (natural case): native "Related" relation.
-wit_update_work_item(id: <impl-id>, project: "{{ticketing.azure.project}}", updates: [
-  { "op": "add", "path": "/relations/-", "value": {
-      "rel": "System.LinkTypes.Related",
-      "url": "https://dev.azure.com/{{ticketing.azure.organization}}/_apis/wit/workItems/<upstream-id>",
-      "attributes": { "comment": "Upstream requirement" }
-  } }
+# Upstream is an Azure DevOps work item (natural case): native "related" link.
+wit_work_item_link_write(action: "link", project: "{{ticketing.azure.project}}", updates: [
+  { id: <impl-id>, linkToId: <upstream-id>, type: "related", comment: "Upstream requirement" }
 ])
 
-# Upstream lives outside Azure DevOps: attach a Hyperlink relation to its URL instead.
-wit_update_work_item(id: <impl-id>, project: "{{ticketing.azure.project}}", updates: [
-  { "op": "add", "path": "/relations/-", "value": {
-      "rel": "Hyperlink",
-      "url": "<upstream-url>",
-      "attributes": { "comment": "Upstream requirement" }
-  } }
-])
+# Upstream lives outside Azure DevOps: record it as a comment on the implementation work item.
+# The MCP server offers no arbitrary hyperlink relation, so the comment is the record.
+wit_work_item_comment_write(action: "add", workItemId: <impl-id>,
+  project: "{{ticketing.azure.project}}", format: "Markdown",
+  text: "**Upstream:** <upstream-url>")
 ```
 
-Linking is optional — skip it when there is no upstream ticket; the implementation work item is then the
-single source of truth. The upstream work-item id also drives the feature-branch name (see Git Branching
-Convention); a later agent reads it back via `wit_get_work_item(id, expand: "all")`.
+Recording an upstream ticket is optional — skip it when there is none; the implementation work item is
+then the single source of truth. The upstream ticket number also drives the feature-branch name (see Git
+Branching Convention). A later agent reads it back from whichever record was used: relations via
+`wit_work_item(action: "get", id, expand: "All")`, or the `**Upstream:**` comment via
+`wit_work_item(action: "list_comments", workItemId)`.
 
 ### Pull Requests
 
@@ -145,7 +153,7 @@ Automation creates pull requests only in draft mode. After personally reviewing 
 ## Work Item Comment Artifacts
 
 The workflow hands context between agents through named work-item comments (via
-`wit_add_work_item_comment`):
+`wit_work_item_comment_write`, action `add`):
 
 - `{{artifact.implementationNotes}}` — posted by the developer after implementation.
 - `{{artifact.reviewFeedback}}` — posted by the code reviewer when findings exist.
