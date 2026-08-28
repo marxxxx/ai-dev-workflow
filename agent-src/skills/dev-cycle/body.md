@@ -101,20 +101,20 @@ that repeatedly fails to fit is a signal to send back there rather than a load t
    resumable `in-progress`, seed or load its `{{artifact.journal}}` comment (creating it, or
    discovering its id with one listing call) and resolve its sizing metadata:
    - For a new journal, write one unchecked, numbered row per acceptance criterion, count those rows
-     only, persist the item count, and derive the continuation limit
-     `max(3, ceil(item count / 3) + 1)` from it. Fifteen or fewer items record an `automatic`
-     decision and that limit; dispatch the developer without an oversized-ticket question. A new
-     journal with more than fifteen items records a `pending` decision and a `pending` continuation
-     limit before asking the human.
+     only, persist the item count, and derive the continuation limit from it per the table in
+     `{{handoff.include}}` — 1 continuation for 1-6 items, 2 for 7-9, 3 for 10-15. Fifteen or fewer
+     items record an `automatic` decision and that limit; dispatch the developer without an
+     oversized-ticket question. A new journal with more than fifteen items records a `pending`
+     decision and a `pending` continuation limit before asking the human.
    - A journal with more than fifteen items and a `pending` decision is already sized but unresolved:
      pause before creating a cost ledger or spawning a developer. Ask the human whether to **proceed**
      with development as scoped or **split** the ticket with `$product-architect`. On restart, reuse
      its item count and ask this unresolved question; do not treat valid `pending` metadata as legacy
      or malformed.
-   - On **proceed**, record the decision and the same derived continuation limit
-     `max(3, ceil(item count / 3) + 1)` before dispatch. The approved examples are: 16, 17, or 18
-     items use 7 continuations; 19, 20, or 21 items use 8 continuations. The formula is identical for
-     `automatic` journals — approval decides whether work starts, not how large the budget is.
+   - On **proceed**, record the decision and the continuation limit `ceil(item count / 5)` before
+     dispatch — one attempt per five criteria, with the initial attempt as the buffer. The approved
+     examples are: 16 to 20 items use 4 continuations; 21 to 25 items use 5. A continuation is an
+     additional developer attempt after the first, so a limit of 4 permits five developers in total.
    - On **split**, record the decision, do not spawn a developer, and do not create a cost ledger.
      End this dev-cycle path, then start `$product-architect` interactively in the same conversation.
      Do not close or accept the original ticket; ticket acceptance and closure remain the human

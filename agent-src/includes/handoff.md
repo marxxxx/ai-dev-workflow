@@ -87,10 +87,18 @@ large-ticket decision durable across restarts:
 - **Sizing decision** is `automatic` for fifteen or fewer items, `pending` while an oversized journal
   awaits the human, `proceed` after the human approves development as scoped, or `split` after the
   human sends it back to `$product-architect`.
-- **Continuation limit** scales with the item count for every journal that may dispatch a
-  developer — `automatic` and `proceed` alike: `max(3, ceil(item count / 3) + 1)`. Six or fewer items
-  allow 3 continuations; 7, 8, or 9 allow 4; 16, 17, or 18 allow 7. It remains `pending` only while
-  the decision is `pending` or `split`.
+- **Continuation limit** is the number of *additional* developer attempts allowed after the first
+  one — a ticket with a limit of 1 may run two developers in total. It scales with the item count on
+  the estimate that one attempt covers about five criteria, with the initial attempt as the buffer:
+
+  | Item count | Continuation limit |
+  | --- | --- |
+  | 1-6 | 1 |
+  | 7-9 | 2 |
+  | 10-15 | 3 |
+  | 16 or more (`proceed` only) | `ceil(item count / 5)` — 4 for 16-20, 5 for 21-25 |
+
+  It remains `pending` only while the decision is `pending` or `split`.
 
 The orchestrator writes all three values immediately after it seeds a journal. A legacy journal that
 lacks sizing metadata, or one with missing, non-positive, or inconsistent values, is never allowed
@@ -196,10 +204,11 @@ them again.
 
 - Handoff **continuations are counted separately** from implementation-review iterations and do not
   consume one — a handoff is not a review rejection, and the work was not defective.
-- The journal's persisted **Continuation limit** controls the maximum number of continuations. It is
-  `max(3, ceil(item count / 3) + 1)` — three for a small ticket, growing with the criterion count,
-  and derived the same way whether the sizing decision was `automatic` or `proceed`. This changes
-  neither the progress guard nor the implementation-review iteration limit.
+- The journal's persisted **Continuation limit** controls the maximum number of continuations —
+  developer attempts *beyond* the first, so the first attempt never consumes one. It scales with the
+  criterion count per the table in [Sizing metadata](#sizing-metadata): 1 continuation up to six
+  items, 2 up to nine, 3 up to fifteen, and `ceil(item count / 5)` for an approved oversized ticket.
+  This changes neither the progress guard nor the implementation-review iteration limit.
 - **Progress guard** — a continuation must show measurable progress: at least one newly ticked
   criterion, or a materially larger branch diff. If two consecutive continuations show neither, stop:
   the ticket is stuck, not large, and continuing will only repeat the failure.

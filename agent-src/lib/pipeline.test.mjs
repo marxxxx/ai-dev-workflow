@@ -306,22 +306,20 @@ test('renderAll documents the persisted oversized-journal gate before developer 
     assert.match(handoff.content, /Continuation limit: <positive integer \| pending>/,
       'new journals must persist the effective continuation limit');
 
-    assert.match(devcycle.content, /fifteen or fewer items record an `automatic`\s+decision/is,
+    assert.match(devcycle.content, /fifteen or fewer\s+items record an `automatic`\s+decision/is,
       'journals of fifteen or fewer items must skip the oversized gate');
     assert.match(devcycle.content, /more than fifteen items.*before creating a cost\s+ledger or spawning a developer/is,
       'oversized journals must block implementation setup until a decision exists');
-    assert.match(devcycle.content, /new journal.*more than fifteen items.*`pending` decision.*`pending` continuation\s+limit.*before asking/is,
+    assert.match(devcycle.content, /new journal.*more than fifteen items.*`pending`\s+decision.*`pending` continuation\s+limit.*before asking/is,
       'new oversized journals must persist their pending state before prompting the human');
-    assert.match(devcycle.content, /max\(3, ceil\(item count \/ 3\) \+ 1\)/,
-      'a proceed decision must use the floored ceiling-division continuation limit');
-    assert.match(devcycle.content, /derive the continuation limit\s+`max\(3, ceil\(item count \/ 3\) \+ 1\)`/is,
-      'automatic journals must derive the same size-scaled limit, not a flat three');
-    assert.match(devcycle.content, /formula is identical for\s+`automatic` journals/is,
-      'approval must gate whether work starts, not the size of the continuation budget');
-    assert.match(devcycle.content, /16, 17, or 18\s+items use 7 continuations/is,
-      'the lower oversized boundary must document its ceiling-division limit');
-    assert.match(devcycle.content, /19, 20, or 21\s+items use 8 continuations/is,
-      'ceiling-division examples must cover the next continuation range');
+    assert.match(devcycle.content, /1 continuation for 1-6 items, 2 for 7-9, 3 for 10-15/,
+      'automatic journals must derive their continuation limit from the item-count bands');
+    assert.match(devcycle.content, /continuation limit `ceil\(item count \/ 5\)`/,
+      'an approved oversized ticket must scale at one attempt per five criteria');
+    assert.match(devcycle.content, /16 to 20 items use 4 continuations; 21 to 25 items use 5/,
+      'the oversized examples must document the scaled limits');
+    assert.match(devcycle.content, /additional developer attempt after the first/i,
+      'a continuation must be defined as an attempt beyond the initial developer');
     assert.match(devcycle.content, /recorded proceed decision.*without\s+asking again/is,
       'restart behavior must reuse a persisted proceed decision');
     assert.match(devcycle.content, /legacy journal.*lacks sizing metadata.*record.*before developer\s+dispatch/is,
