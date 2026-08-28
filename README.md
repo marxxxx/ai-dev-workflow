@@ -6,7 +6,7 @@ A customizable AI development workflow — subagent and skill definitions for **
 The generator is a zero-dependency Node script. It's distributed **directly from this Git repo** (no
 npm registry) and the consuming project does **not** need to be a Node project. It works in any repo
 (C#/.NET, Go, Rust, …) — the only requirement is Node on the machine that runs the generator (your
-dev box and CI). Pin to a Git tag (e.g. `#v0.17.0`) so devs and CI stay in sync.
+dev box and CI). Pin to a Git tag (e.g. `#v0.18.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -28,7 +28,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
-npx github:marxxxx/ai-dev-workflow#v0.17.0 init
+npx github:marxxxx/ai-dev-workflow#v0.18.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -39,12 +39,12 @@ npx github:marxxxx/ai-dev-workflow#v0.17.0 init
 #    e2e setup there — see End-to-end testing below.)
 
 # 3. generate the platform files
-npx github:marxxxx/ai-dev-workflow#v0.17.0 generate
+npx github:marxxxx/ai-dev-workflow#v0.18.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the tag (`#v0.17.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the tag (`#v0.18.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 ## Recommended tooling
 
@@ -65,7 +65,9 @@ None are hard requirements — an agent degrades to what is available (the `qa-e
 offloads end-to-end-testing to the Human if Playwright is missing). 
 
 The `ado` MCP server is the exception: for the `azure-devops` backend, `generate` merges it into
-`.mcp.json` and `.codex/config.toml` for you — nothing to install by hand.
+`.mcp.json` and `.codex/config.toml` for you — nothing to install by hand. It is pinned to
+`@azure-devops/mcp@2`, whose tool names the ticketing agents' allowlists and the Azure DevOps
+ticketing include are written against.
 
 The `gitea` backend is the one case with a hard requirement: the agents drive
 [`tea`](https://gitea.com/gitea/tea), Gitea's official CLI, so it must be installed and logged in
@@ -198,7 +200,7 @@ Add it as a dev dependency pointing at the Git tag, and wire up scripts:
 
 ```jsonc
 "devDependencies": {
-  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.17.0"
+  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.18.0"
 },
 "scripts": {
   "agents:generate": "ai-dev-workflow generate",
