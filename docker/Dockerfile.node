@@ -1,26 +1,18 @@
 # syntax=docker/dockerfile:1
-# ---------------------------------------------------------------------------
-# ai-dev-workflow-node — DERIVED image (hand-maintained, NOT generated)
-#
-# Base + an app-facing Node toolchain for building/testing Node projects under
-# the workflow. The base already carries a pinned Node LTS (the agent CLIs need
-# it); this image is where that same LTS is declared the *app-facing* runtime
-# and the native build toolchain (build-essential) + package managers are added.
-#
-# Build (after the base is built and tagged `ai-dev-workflow`):
-#   docker build -f docker/Dockerfile.node -t ai-dev-workflow-node .
-# ---------------------------------------------------------------------------
+# Build after the base image: docker build -f docker/Dockerfile.node -t ai-dev-workflow-node docker
 FROM ai-dev-workflow
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    IMAGE_VARIANT=node
 
-# build-essential + python3 cover native addon compilation (node-gyp);
-# corepack enables the pinned yarn/pnpm shims that ship with Node.
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends build-essential python3 make g++; \
+    apt-get install -y --no-install-recommends build-essential g++ make python3; \
     rm -rf /var/lib/apt/lists/*; \
-    corepack enable || true; \
-    node --version
+    gcc --version; \
+    pnpm --version | grep -Fx '12.3.4'; \
+    yarn --version | grep -Fx '1.22.22'; \
+    tsc --version | grep -F '7.0.2'; \
+    typescript-language-server --version | grep -F '6.0.0'
 
 WORKDIR /workspace

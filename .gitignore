@@ -5,3 +5,4 @@
 .codex/
 .opencode/
 .worktrees/
+docker/tools/node_modules/

@@ -40,3 +40,24 @@ jobs:
         run: |
           npm run generate
           npm run check
+
+  container:
+    name: Container runtime (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+      - name: Install container test dependencies
+        run: npm ci --prefix docker/tools --ignore-scripts
+      - name: Build reusable tool images
+        run: |
+          docker build -f docker/Dockerfile -t ai-dev-workflow docker
+          docker build -f docker/Dockerfile.node -t ai-dev-workflow-node docker
+          docker build -f docker/Dockerfile.dotnet -t ai-dev-workflow-dotnet docker
+      - name: Verify offline tools and isolated runtime
+        run: bash docker/verify-runtime.sh
