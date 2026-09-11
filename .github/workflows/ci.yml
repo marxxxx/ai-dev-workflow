@@ -8,6 +8,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -45,6 +46,14 @@ jobs:
     name: Container runtime (Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # Builds and verifies on every run; publishes to Docker Hub only from main.
+    # Needs the DOCKERHUB_TOKEN secret (Read & Write access token); the username
+    # and repository can be overridden with repository variables.
+    concurrency:
+      group: container-${{ github.ref }}
+    env:
+      DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME || 'marxx' }}
+      DOCKERHUB_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY || 'marxx/ai-dev-workflow' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,7 +65,18 @@ jobs:
         run: npm ci --prefix docker/tools --ignore-scripts
       - name: Check tool pins against the inventory
         run: node docker/tools/inventory.mjs check
+      - name: Select image tag
+        run: echo "IMAGE_TAG=$(date -u +%Y.%m.%d)" >> "$GITHUB_ENV"
       - name: Build reusable tool images
-        run: node docker/build.mjs --tag ci
+        run: node docker/build.mjs --tag "$IMAGE_TAG"
       - name: Verify offline tools and isolated runtime
         run: bash docker/verify-runtime.sh
+      - name: Log in to Docker Hub
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Push images to Docker Hub
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: node docker/build.mjs push --tag "$IMAGE_TAG" --repository "$DOCKERHUB_REPOSITORY"

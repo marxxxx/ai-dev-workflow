@@ -146,7 +146,8 @@ This package is distributed from Git, not npm — the version tag *is* the relea
 `docker/tools/package.json`, its lockfile and the Dockerfile `FROM`/`ARG` pins are derived from it —
 the same "never hand-edit derived files" rule applies. `node docker/tools/inventory.mjs update` pulls
 the latest versions within its `updatePolicy`, `sync` re-derives after a hand edit, `check` is the drift
-gate, and `node docker/build.mjs` builds all three images with a dated tag. See `docker/README.md`.
+gate, and `node docker/build.mjs` builds all three images with a dated tag. CI pushes verified builds
+from `main` to Docker Hub (`marxx/ai-dev-workflow`, variant as tag prefix). See `docker/README.md`.
 
 ## Conventions
 

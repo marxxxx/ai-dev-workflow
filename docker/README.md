@@ -28,6 +28,30 @@ native compilation tools, package managers and TypeScript semantic tooling; the
 .NET variant adds an exact SDK version. Project dependency installation remains
 the consuming project's responsibility.
 
+### Published images (Docker Hub)
+
+CI builds all images for every pull request and push to `main`. On `main` (push or
+manual *Run workflow*) it pushes them, after `verify-runtime.sh` passes, into one
+repository, `marxx/ai-dev-workflow` by default:
+
+| Image | Versioned tag | Moving tag |
+|---|---|---|
+| base | `2026.09.11` | `latest` |
+| Node | `node-2026.09.11` | `node-latest` |
+| .NET | `dotnet-2026.09.11` | `dotnet-latest` |
+
+The version is the UTC build date; a second build on the same day replaces that tag.
+Configure under *Settings → Secrets and variables → Actions*:
+
+- secret `DOCKERHUB_TOKEN`: Docker Hub personal access token with *Read & Write* scope
+- optional variables `DOCKERHUB_USERNAME` (default `marxx`) and `DOCKERHUB_REPOSITORY`
+  (default `marxx/ai-dev-workflow`)
+
+To publish a local build instead: `docker login`, then
+`node docker/build.mjs push --tag 2026.09.11 --repository marxx/ai-dev-workflow`.
+Consuming projects can use `AGENT_IMAGE=marxx/ai-dev-workflow:node-latest` without a
+local build, or pin `marxx/ai-dev-workflow:node-2026.09.11`.
+
 Copy `docker/docker-compose.yml` into the consuming project as `compose.ai-dev.yml`.
 It is a run-only template: no checkout/build path back to this repository is needed.
 Select a locally built image or an image you have published separately.
@@ -228,7 +252,8 @@ Update workflow:
 
 Consuming projects pick up `:latest` on their next `docker compose run`; logins
 survive in the `agent-home` volume. To stay on a known build, or to roll back, set
-`AGENT_IMAGE` to a dated tag such as `ai-dev-workflow-node:2026.09.11`. Old tags remain
+`AGENT_IMAGE` to a dated tag such as `ai-dev-workflow-node:2026.09.11` (published:
+`marxx/ai-dev-workflow:node-2026.09.11`). Old tags remain
 until removed with `docker image rm`. Do not add these dependencies to the
 zero-dependency generator or run the generator in the image.
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildPlan, defaultTag } from '../build.mjs';
+import { buildPlan, defaultTag, pushPlan } from '../build.mjs';
 
 const dockerDir = fileURLToPath(new URL('..', import.meta.url));
 
@@ -34,6 +34,31 @@ test('rejects tags Docker would not accept', () => {
   for (const tag of ['', 'bad tag', '-leading', 'x'.repeat(129)]) {
     assert.throws(() => buildPlan({ tag, revision: 'r' }), /tag/);
   }
+});
+
+test('tags every variant into one repository before pushing anything', () => {
+  const repo = 'marxx/ai-dev-workflow';
+  assert.deepEqual(pushPlan({ tag: '2026.09.11', repository: repo }), [
+    ['tag', 'ai-dev-workflow:2026.09.11', `${repo}:2026.09.11`],
+    ['tag', 'ai-dev-workflow:2026.09.11', `${repo}:latest`],
+    ['tag', 'ai-dev-workflow-node:2026.09.11', `${repo}:node-2026.09.11`],
+    ['tag', 'ai-dev-workflow-node:2026.09.11', `${repo}:node-latest`],
+    ['tag', 'ai-dev-workflow-dotnet:2026.09.11', `${repo}:dotnet-2026.09.11`],
+    ['tag', 'ai-dev-workflow-dotnet:2026.09.11', `${repo}:dotnet-latest`],
+    ['push', `${repo}:2026.09.11`],
+    ['push', `${repo}:latest`],
+    ['push', `${repo}:node-2026.09.11`],
+    ['push', `${repo}:node-latest`],
+    ['push', `${repo}:dotnet-2026.09.11`],
+    ['push', `${repo}:dotnet-latest`],
+  ]);
+});
+
+test('rejects invalid push repositories and tags', () => {
+  for (const repository of ['', 'ai-dev-workflow', 'Marxx/ai-dev-workflow', 'marxx/ai dev']) {
+    assert.throws(() => pushPlan({ tag: '2026.09.11', repository }), /repository/);
+  }
+  assert.throws(() => pushPlan({ tag: 'bad tag', repository: 'marxx/ai-dev-workflow' }), /tag/);
 });
 
 test('defaults the tag to the local build date', () => {
