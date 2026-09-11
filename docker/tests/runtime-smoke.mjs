@@ -52,7 +52,8 @@ try {
   const bind = service.volumes.find(mount => mount.type === 'bind');
   assert.equal(bind.target, '/workspace');
   assert.equal(path.resolve(bind.source), project);
-  assert.equal(bind.bind.create_host_path, false);
+  // Compose v2 omits false; v5 emits it. Either way the host path must not be auto-created.
+  assert.notEqual(bind.bind?.create_host_path, true);
   assert.equal(service.volumes.find(mount => mount.type === 'volume').target, '/home/dev');
   const copied = path.join(project, 'compose.ai-dev.yml'); copyFileSync(template, copied);
   const copiedConfig = JSON.parse(ok(compose(['config', '--format', 'json'], { file: copied })));
