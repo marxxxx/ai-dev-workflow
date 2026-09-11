@@ -27,6 +27,7 @@ const DOCKERFILE_ARGS = {
     SERENA_REVISION: inventory => inventory.sourceRevisions.serena,
     SUPERPOWERS_REVISION: inventory => inventory.sourceRevisions.superpowers,
     AZURE_CLI_VERSION: inventory => inventory.systemTools.azureCliDebianPackage,
+    AZURE_DEVOPS_EXTENSION_VERSION: inventory => inventory.systemTools.azureDevOpsCliExtension,
   },
   'Dockerfile.dotnet': {
     DOTNET_SDK_VERSION: inventory => inventory.derivedImages.dotnetSdk,
@@ -213,6 +214,8 @@ export async function resolveUpdates(inventory, sources) {
   const suffix = /~[^~]+$/.exec(azureCli)?.[0] ?? '';
   propose('azureCliDebianPackage', ['systemTools', 'azureCliDebianPackage'], azureCli,
     latestDebianVersion(await sources.debianPackages(suffix.slice(1)), 'azure-cli', suffix));
+  propose('azureDevOpsCliExtension', ['systemTools', 'azureDevOpsCliExtension'], inventory.systemTools.azureDevOpsCliExtension,
+    latestVersion(await sources.azureCliExtensionVersions('azure-devops')));
   for (const [name, url] of Object.entries(SOURCE_REPOSITORIES)) {
     propose(name, ['sourceRevisions', name], inventory.sourceRevisions[name], await sources.gitHead(url));
   }
@@ -286,6 +289,10 @@ export function createSources(fetchImpl = globalThis.fetch) {
     async debianPackages(distribution) {
       const url = `https://packages.microsoft.com/repos/azure-cli/dists/${distribution}/main/binary-amd64/Packages.gz`;
       return gunzipSync(Buffer.from(await (await get(url)).arrayBuffer())).toString('utf8');
+    },
+    async azureCliExtensionVersions(name) {
+      const index = await getJson('https://azcliextensionsync.blob.core.windows.net/index1/index.json');
+      return (index.extensions?.[name] ?? []).map(entry => entry.metadata?.version).filter(Boolean);
     },
     async dotnetLatestSdk(channel) {
       const url = `https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/${channel}/releases.json`;

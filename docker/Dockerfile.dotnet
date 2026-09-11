@@ -8,12 +8,15 @@ ENV DEBIAN_FRONTEND=noninteractive \
     DOTNET_ROOT=/usr/share/dotnet \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
+    DOTNET_NOLOGO=1 \
     IMAGE_VARIANT=dotnet \
+    SSL_CERT_DIR=/home/dev/.aspnet/dev-certs/trust:/etc/ssl/certs \
     PATH=/usr/share/dotnet:/usr/local/bin:/opt/uv/bin:/opt/agent-tools/node_modules/.bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+# libnss3-tools (certutil) and openssl let dotnet dev-certs trust its certificate on Linux.
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends libicu72 libssl3; \
+    apt-get install -y --no-install-recommends libicu72 libnss3-tools libssl3 openssl; \
     rm -rf /var/lib/apt/lists/*; \
     curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh; \
     chmod +x /tmp/dotnet-install.sh; \
@@ -22,5 +25,11 @@ RUN set -eux; \
     chmod -R a+rX "${DOTNET_ROOT}"; \
     ln -s "${DOTNET_ROOT}/dotnet" /usr/local/bin/dotnet; \
     node /usr/local/lib/agent-runtime/verify-versions.mjs dotnet
+
+# The HTTPS development certificate is trusted per home volume at startup
+# (dotnet dev-certs https --trust): /home/dev is a volume that hides build-time
+# content, and a baked certificate would publish its private key with the image.
+COPY --chmod=0755 trust-dev-cert.sh /usr/local/lib/agent-runtime/startup.d/
+COPY tools/verify-dev-cert.mjs /usr/local/lib/agent-runtime/
 
 WORKDIR /workspace

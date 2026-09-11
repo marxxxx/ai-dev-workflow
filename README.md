@@ -240,7 +240,8 @@ source of truth for both; no other file restates the thresholds.
 ## Run in a container
 
 The workflow ships a **container runtime** with Claude Code, Codex, OpenCode, Serena,
-Playwright/Chromium, Context7, Azure DevOps MCP, Azure CLI, Superpowers and ccusage.
+Playwright/Chromium, Context7, Azure DevOps MCP, Azure CLI (with the `azure-devops` extension),
+Superpowers and ccusage.
 Prepare the consuming project with the generator on the host, build the tool image separately,
 then mount that project at `/workspace`. A project-scoped Docker volume stores the container's
 own home and one-time interactive logins. The image does not install or run the generator.

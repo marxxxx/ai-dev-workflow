@@ -31,6 +31,7 @@ context7-mcp --help >/dev/null
 mcp-server-azuredevops --version >/dev/null
 ccusage --version
 az version --output none
+az devops --help >/dev/null
 uv --version
 serena --help >/dev/null
 node /usr/local/lib/agent-runtime/verify-versions.mjs "$variant"
@@ -54,6 +55,8 @@ case "$variant" in
   dotnet)
     command -v dotnet >/dev/null || fail "dotnet is not on PATH in the .NET image"
     dotnet --version
+    /usr/local/lib/agent-runtime/startup.d/trust-dev-cert.sh
+    node /usr/local/lib/agent-runtime/verify-dev-cert.mjs
     ;;
   *)
     fail "unknown image variant: $variant"

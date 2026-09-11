@@ -21,7 +21,7 @@ test('matches a version as a whole token in command output', () => {
 test('each variant checks the base tools plus its own', () => {
   const labels = variant => versionChecks(inventory, variant).map(check => check.label);
   const base = labels('base');
-  for (const label of ['node', 'claude', 'codex', 'opencode', 'uv', 'az', 'serena', 'package @playwright/mcp', 'package pnpm']) {
+  for (const label of ['node', 'claude', 'codex', 'opencode', 'uv', 'az', 'az extension azure-devops', 'serena', 'package @playwright/mcp', 'package pnpm']) {
     assert.ok(base.includes(label), `base is missing ${label}`);
   }
   assert.ok(!base.includes('pnpm') && !base.includes('dotnet'));
@@ -34,6 +34,7 @@ test('derives expectations from the inventory', () => {
   const byLabel = Object.fromEntries(versionChecks(inventory, 'node').map(check => [check.label, check.expected]));
   assert.equal(byLabel.node, inventory.baseImage.node);
   assert.equal(byLabel.az, inventory.systemTools.azureCliDebianPackage.split('-')[0]);
+  assert.equal(byLabel['az extension azure-devops'], inventory.systemTools.azureDevOpsCliExtension);
   assert.equal(byLabel.tsc, inventory.npmPackages.typescript);
   assert.equal(byLabel['package typescript-serena'], '5.9.3');
   assert.equal(byLabel.serena, `rev=${inventory.sourceRevisions.serena}`);
