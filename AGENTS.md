@@ -140,6 +140,14 @@ This package is distributed from Git, not npm — the version tag *is* the relea
 2. Create a git tag for the new version (e.g. `git tag vX.Y.Z`).
 3. Push the tag and merge the change to `main`.
 
+## Container tool pins (`docker/`)
+
+`docker/tools/inventory.json` is the single source for every tool version in the agent images;
+`docker/tools/package.json`, its lockfile and the Dockerfile `FROM`/`ARG` pins are derived from it —
+the same "never hand-edit derived files" rule applies. `node docker/tools/inventory.mjs update` pulls
+the latest versions within its `updatePolicy`, `sync` re-derives after a hand edit, `check` is the drift
+gate, and `node docker/build.mjs` builds all three images with a dated tag. See `docker/README.md`.
+
 ## Conventions
 
 - **Zero runtime dependencies** — Node builtins only. Don't add packages.

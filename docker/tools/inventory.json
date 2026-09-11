@@ -31,5 +31,15 @@
   "derivedImages": {
     "dotnetSdk": "10.0.401"
   },
+  "updatePolicy": {
+    "npmMajorHolds": {
+      "@azure-devops/mcp": 2,
+      "typescript-serena": 5
+    },
+    "npmFollowDependency": {
+      "playwright": "@playwright/mcp"
+    },
+    "dotnetChannel": "10.0"
+  },
   "reproducibility": "Node packages are locked by integrity and source tools use immutable revisions. Debian and vendor apt repositories remain mutable, so builds are version-pinned but are not claimed to be byte-identical."
 }

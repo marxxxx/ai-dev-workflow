@@ -33,6 +33,7 @@ ccusage --version
 az version --output none
 uv --version
 serena --help >/dev/null
+node /usr/local/lib/agent-runtime/verify-versions.mjs "$variant"
 
 node /usr/local/lib/agent-runtime/verify-browser.mjs
 node /usr/local/lib/agent-runtime/verify-mcp.mjs

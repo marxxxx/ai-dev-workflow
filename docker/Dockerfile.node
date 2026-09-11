@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
-# Build after the base image: docker build -f docker/Dockerfile.node -t ai-dev-workflow-node docker
-FROM ai-dev-workflow
+# Built by docker/build.mjs; or after the base image: docker build -f docker/Dockerfile.node -t ai-dev-workflow-node docker
+ARG BASE_IMAGE=ai-dev-workflow
+FROM ${BASE_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive \
     IMAGE_VARIANT=node
@@ -10,9 +11,6 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends build-essential g++ make python3; \
     rm -rf /var/lib/apt/lists/*; \
     gcc --version; \
-    pnpm --version | grep -Fx '12.3.4'; \
-    yarn --version | grep -Fx '1.22.22'; \
-    tsc --version | grep -F '7.0.2'; \
-    typescript-language-server --version | grep -F '6.0.0'
+    node /usr/local/lib/agent-runtime/verify-versions.mjs node
 
 WORKDIR /workspace

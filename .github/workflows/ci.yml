@@ -54,10 +54,9 @@ jobs:
           node-version: 24.x
       - name: Install container test dependencies
         run: npm ci --prefix docker/tools --ignore-scripts
+      - name: Check tool pins against the inventory
+        run: node docker/tools/inventory.mjs check
       - name: Build reusable tool images
-        run: |
-          docker build -f docker/Dockerfile -t ai-dev-workflow docker
-          docker build -f docker/Dockerfile.node -t ai-dev-workflow-node docker
-          docker build -f docker/Dockerfile.dotnet -t ai-dev-workflow-dotnet docker
+        run: node docker/build.mjs --tag ci
       - name: Verify offline tools and isolated runtime
         run: bash docker/verify-runtime.sh

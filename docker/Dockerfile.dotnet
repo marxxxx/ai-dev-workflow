@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
-# Build after the base image: docker build -f docker/Dockerfile.dotnet -t ai-dev-workflow-dotnet docker
-FROM ai-dev-workflow
+# Built by docker/build.mjs; or after the base image: docker build -f docker/Dockerfile.dotnet -t ai-dev-workflow-dotnet docker
+ARG BASE_IMAGE=ai-dev-workflow
+FROM ${BASE_IMAGE}
 
 ARG DOTNET_SDK_VERSION=10.0.401
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -20,6 +21,6 @@ RUN set -eux; \
     rm /tmp/dotnet-install.sh; \
     chmod -R a+rX "${DOTNET_ROOT}"; \
     ln -s "${DOTNET_ROOT}/dotnet" /usr/local/bin/dotnet; \
-    test "$(dotnet --version)" = "${DOTNET_SDK_VERSION}"
+    node /usr/local/lib/agent-runtime/verify-versions.mjs dotnet
 
 WORKDIR /workspace

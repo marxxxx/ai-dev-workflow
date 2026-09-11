@@ -11,10 +11,15 @@ the image neither installs nor invokes it.
 From the ai-dev-workflow checkout (PowerShell and POSIX use the same commands):
 
 ```text
-docker build -f docker/Dockerfile -t ai-dev-workflow docker
-docker build -f docker/Dockerfile.node -t ai-dev-workflow-node docker
-docker build -f docker/Dockerfile.dotnet -t ai-dev-workflow-dotnet docker
+node docker/build.mjs                              # tags <image>:<YYYY.MM.DD> and <image>:latest
+node docker/build.mjs --tag 2026.09.11.2 --no-cache
 ```
+
+The script first checks every pin against `tools/inventory.json`, then builds the
+base and derives the Node and .NET variants from exactly that base build (`BASE_IMAGE`
+build argument). Each image carries OCI version/revision labels (`docker inspect`).
+Plain `docker build -f docker/Dockerfile[.node|.dotnet] … docker` still works and
+produces `latest` only.
 
 The build context is the standalone `docker/` directory. The base includes all
 three agents, local Serena, Playwright MCP and its matching Chromium, Context7,
@@ -181,23 +186,51 @@ break the stated filesystem boundary and is not part of this template.
 
 ## Tool inventory, updates and verification
 
-Exact Node package versions and transitive resolutions live in
-`tools/package.json` and `tools/package-lock.json`. Dockerfiles pin the base image,
-uv, Serena/Superpowers revisions, Azure CLI and .NET SDK. The image carries a readable
-inventory under `/opt/agent-tools`. OS packages still use apt repositories, so this
-is a versioned tool runtime, not a claim of byte-identical rebuilds.
+`tools/inventory.json` is the single source for every pin: base image digest and its
+Node version, all Node CLIs and MCP servers, uv, Azure CLI, Serena/Superpowers revisions
+and the .NET SDK. `tools/package.json`, `tools/package-lock.json` and the Dockerfile
+`FROM`/`ARG` pins are derived from it; do not edit them by hand. The inventory is copied
+to `/opt/agent-tools/inventory.json` and every build verifies the installed versions
+against it (`tools/verify-versions.mjs`). OS packages still use apt repositories, so
+this is a versioned tool runtime, not a claim of byte-identical rebuilds.
 
-To update, resolve exact upstream releases, edit the pins, regenerate the container
-lockfile, rebuild all three images and run the checks. Keep ADO on v2 and compare
-its actual tool inventory with `ADO_MCP_TOOLS` and the ticketing include. Install
-Chromium through the MCP package's matching Playwright dependency. Do not add these
-dependencies to the zero-dependency generator or run the generator in the image.
-
-```bash
-npm test
-npm ci --prefix docker/tools --ignore-scripts
-bash docker/verify-runtime.sh
+```text
+node docker/tools/inventory.mjs outdated     # newer upstream versions (read-only)
+node docker/tools/inventory.mjs update       # all pins, fresh lockfile
+node docker/tools/inventory.mjs update --only @anthropic-ai/claude-code,@openai/codex
+node docker/tools/inventory.mjs sync         # re-derive after editing inventory.json by hand
+node docker/tools/inventory.mjs check        # drift gate (CI and build.mjs)
 ```
+
+`updatePolicy` in the inventory bounds automatic updates:
+
+- `npmMajorHolds`: `@azure-devops/mcp` stays on v2 (launcher arguments and
+  `ADO_MCP_TOOLS` target v2). `typescript-serena` stays on TypeScript 5 because
+  Serena's language server needs `lib/tsserver.js`, which native TypeScript 7 no
+  longer ships.
+- `npmFollowDependency`: `playwright` always equals the exact version `@playwright/mcp`
+  depends on, so the installed Chromium matches the MCP.
+- `dotnetChannel`: the SDK follows the latest patch of this channel.
+
+Serena and Superpowers follow their default-branch HEAD; the base image keeps its tag
+and refreshes the digest. Raise a hold or channel deliberately by editing the policy.
+
+Update workflow:
+
+1. `node docker/tools/inventory.mjs update`, then read the upstream release notes for
+   the printed changes. Watch for changed agent CLI flags and config formats
+   (`launch-agent.mjs`, `verify-agent-config.sh`) and compare the ADO MCP tool list
+   with `ADO_MCP_TOOLS` and the ticketing include.
+2. `npm ci --prefix docker/tools --ignore-scripts`, then `node docker/build.mjs --no-cache`;
+   `--no-cache` also refreshes unpinned apt packages such as `gh`.
+3. `npm test`, `bash docker/verify-runtime.sh`, then the live acceptance below.
+4. Commit `tools/inventory.json` together with the derived files.
+
+Consuming projects pick up `:latest` on their next `docker compose run`; logins
+survive in the `agent-home` volume. To stay on a known build, or to roll back, set
+`AGENT_IMAGE` to a dated tag such as `ai-dev-workflow-node:2026.09.11`. Old tags remain
+until removed with `docker image rm`. Do not add these dependencies to the
+zero-dependency generator or run the generator in the image.
 
 Linux CI builds all images and performs credential-free checks: local executables,
 MCP/browser startup, configuration precedence, preserved project files, mount

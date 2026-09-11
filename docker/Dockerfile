@@ -91,17 +91,14 @@ RUN set -eux; \
     rm -rf /opt/superpowers/.git
 
 COPY --chmod=0755 configure-agents.sh entrypoint.sh agent-wrapper.sh verify-agent-config.sh verify-tools.sh /usr/local/bin/
-COPY launch-agent.mjs validate-workspace.mjs tools/verify-browser.mjs tools/verify-mcp.mjs tools/verify-semantic.mjs /usr/local/lib/agent-runtime/
+COPY launch-agent.mjs validate-workspace.mjs tools/verify-browser.mjs tools/verify-mcp.mjs tools/verify-semantic.mjs tools/verify-versions.mjs /usr/local/lib/agent-runtime/
 RUN set -eux; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/claude; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/codex; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/opencode; \
     chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}"; \
-    /opt/agent-tools/node_modules/.bin/claude --version; \
-    /opt/agent-tools/node_modules/.bin/codex --version; \
-    /opt/agent-tools/node_modules/.bin/opencode --version; \
     mcp-server-azuredevops --version; \
-    az version --output none
+    node /usr/local/lib/agent-runtime/verify-versions.mjs base
 
 WORKDIR /workspace
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
