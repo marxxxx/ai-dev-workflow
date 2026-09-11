@@ -9,7 +9,7 @@
     "@azure-devops/mcp": "2.10.0",
     "@openai/codex": "0.154.0",
     "@playwright/mcp": "0.0.80",
-    "@upstash/context7-mcp": "4.0.7",
+    "@upstash/context7-mcp": "4.1.0",
     "ccusage": "20.0.20",
     "jsonc-parser": "3.3.1",
     "opencode-ai": "1.18.30",
