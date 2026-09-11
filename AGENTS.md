@@ -6,7 +6,7 @@ This file provides guidance to Coding Agents when working with code in this repo
 
 A **generator**, not an application. It renders subagent & skill definitions for three coding-agent
 platforms — **Claude Code**, **Codex**, and **OpenCode** — from one canonical source (`agent-src/`)
-plus a small per-project config. It is zero-dependency Node (builtins only, `>=22`), distributed
+plus a small per-project config. It is zero-dependency Node (builtins only, `>=24`), distributed
 directly from Git (no npm registry), and language-agnostic — consuming projects need not be Node
 projects.
 
