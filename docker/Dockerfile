@@ -1,151 +1,105 @@
 # syntax=docker/dockerfile:1
-# ---------------------------------------------------------------------------
-# ai-dev-workflow — BASE image (hand-maintained, NOT generated)
-#
-# This file is a hand-owned published artifact of the ai-dev-workflow project.
-# It is NOT produced by the agent-src/ generator and carries no "DO NOT EDIT"
-# banner semantics — edit it directly. `npm run check` does not cover it.
-#
-# What this image provides (language-agnostic w.r.t. the app under test):
-#   - Debian-slim + a pinned Node LTS (required by the agent CLIs / Playwright /
-#     ccusage / the generator)
-#   - git, gh, ripgrep, ca-certificates, Playwright system deps + chromium
-#   - The three coding agents: Claude Code, Codex, OpenCode
-#   - MCP servers pre-registered for each agent: serena, playwright, context7
-#   - superpowers (skill library) and ccusage (cost reporting)
-#   - The ai-dev-workflow generator on PATH as `ai-dev-workflow` (runs offline)
-#
-# Build (context MUST be the repo root so the generator can be copied in):
-#   docker build -f docker/Dockerfile -t ai-dev-workflow .
-#
-# The container runs as root only long enough for entrypoint.sh to remap to the
-# host UID/GID and drop privileges with gosu. See docker/README.md.
-# ---------------------------------------------------------------------------
+# Reusable agent tool runtime. Build with: docker build -f docker/Dockerfile -t ai-dev-workflow docker
+FROM node:24-bookworm-slim@sha256:2fe369e969550cde8e867afc3fe370b260140cab4a23d467074295b42163d553
 
-# Pinned Node LTS on Debian slim. Bumping the tag is the supported way to move
-# the base Node version.
-FROM node:24-bookworm-slim
-
-# --- Tunable tool versions (pin for reproducibility) -----------------------
-# Left as floating tags by default so a fresh build picks up upstream fixes;
-# pin any of these to an exact version for a reproducible image.
-ARG CLAUDE_CODE_PKG="@anthropic-ai/claude-code"
-ARG CODEX_PKG="@openai/codex"
-ARG OPENCODE_PKG="opencode-ai"
-ARG PLAYWRIGHT_MCP_PKG="@playwright/mcp"
-ARG CONTEXT7_PKG="@upstash/context7-mcp"
-ARG PLAYWRIGHT_PKG="playwright"
-ARG CCUSAGE_PKG="ccusage"
-ARG SUPERPOWERS_REPO="https://github.com/obra/superpowers"
+ARG UV_VERSION=0.12.13
+ARG SERENA_REVISION=701e7c843f46c6a649203a488cece1bf19f1df90
+ARG SUPERPOWERS_REVISION=b36e0829c6d0140e93cfef2ca599b1b07d4a7797
+ARG AZURE_CLI_VERSION=2.90.0-1~bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    # Browsers live in a world-readable shared path so both the (root) build
-    # step and the (non-root) runtime user can use them.
-    PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright \
-    # uv caches/pythons under /opt so the runtime `dev` user reuses what the
-    # build primed instead of re-downloading serena's Python on first run.
-    UV_INSTALL_DIR=/usr/local/bin \
-    UV_CACHE_DIR=/opt/uv/cache \
-    UV_PYTHON_INSTALL_DIR=/opt/uv/python \
-    UV_TOOL_DIR=/opt/uv/tools \
-    # Non-root runtime user; entrypoint.sh remaps its UID/GID to the host's.
     APP_USER=dev \
-    APP_HOME=/home/dev
+    APP_HOME=/home/dev \
+    AGENT_TOOLS_PACKAGE=/opt/agent-tools/package.json \
+    PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright \
+    UV_INSTALL_DIR=/usr/local/bin \
+    UV_NO_MODIFY_PATH=1 \
+    UV_TOOL_BIN_DIR=/opt/uv/bin \
+    UV_TOOL_DIR=/opt/uv/tools \
+    UV_PYTHON_INSTALL_DIR=/opt/uv/python \
+    PATH=/usr/local/bin:/opt/uv/bin:/opt/agent-tools/node_modules/.bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# --- 1. System packages -----------------------------------------------------
-# ca-certificates, curl, gnupg for repos; git/ripgrep for the agents; gosu for
-# the privilege drop; python3 as a fallback interpreter. gh from GitHub's repo.
+# System utilities, GitHub CLI, Azure CLI and libraries required by Chromium.
+# Vendor/apt repository contents remain mutable; inventory.json does not claim byte-identical builds.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        ca-certificates curl gnupg git ripgrep gosu python3 xz-utils; \
+      ca-certificates curl git gnupg gosu libsecret-1-0 python3 ripgrep xz-utils; \
     install -m 0755 -d /etc/apt/keyrings; \
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-        -o /etc/apt/keyrings/githubcli-archive-keyring.gpg; \
+      -o /etc/apt/keyrings/githubcli-archive-keyring.gpg; \
     chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg; \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-        > /etc/apt/sources.list.d/github-cli.list; \
+      > /etc/apt/sources.list.d/github-cli.list; \
+    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc -o /tmp/microsoft.asc; \
+    gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg /tmp/microsoft.asc; \
+    rm /tmp/microsoft.asc; \
+    chmod go+r /etc/apt/keyrings/microsoft.gpg; \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ bookworm main" \
+      > /etc/apt/sources.list.d/azure-cli.list; \
     apt-get update; \
-    apt-get install -y --no-install-recommends gh; \
+    apt-get install -y --no-install-recommends gh "azure-cli=${AZURE_CLI_VERSION}"; \
     rm -rf /var/lib/apt/lists/*
 
-# --- 2. Non-root runtime user ----------------------------------------------
-# The node base image already ships a uid/gid 1000 (`node`), so let the system
-# assign `dev`'s ids here — the exact build-time ids don't matter because
-# entrypoint.sh remaps them at runtime to the host's UID/GID (so files written
-# into the /workspace bind-mount are host-owned).
+# Keep a stable non-root identity while allowing entrypoint remapping for Linux hosts.
 RUN set -eux; \
-    if ! getent group "${APP_USER}" >/dev/null; then groupadd "${APP_USER}"; fi; \
-    if ! id -u "${APP_USER}" >/dev/null 2>&1; then \
-        useradd --gid "${APP_USER}" --create-home --home-dir "${APP_HOME}" \
-            --shell /bin/bash "${APP_USER}"; \
-    fi
+    userdel node; \
+    groupadd --gid 1000 "${APP_USER}"; \
+    useradd --uid 1000 --gid 1000 --create-home --home-dir "${APP_HOME}" --shell /bin/bash "${APP_USER}"
 
-# --- 3. uv (for serena) -----------------------------------------------------
+# Every Node CLI and MCP server is resolved by the committed lockfile under one prefix.
+COPY tools/package.json tools/package-lock.json /opt/agent-tools/
 RUN set -eux; \
-    curl -LsSf https://astral.sh/uv/install.sh | sh; \
-    uv --version; \
-    mkdir -p "${UV_CACHE_DIR}" "${UV_PYTHON_INSTALL_DIR}" "${UV_TOOL_DIR}"
-
-# --- 4. Coding agent CLIs + MCP servers + cost tooling (global npm) ---------
-# The playwright/context7 MCP servers are installed as real global bins (not
-# left to `npx` at runtime) so they start offline. serena runs via `uvx`.
-RUN set -eux; \
-    npm install -g --no-fund --no-audit \
-        "${CLAUDE_CODE_PKG}" \
-        "${CODEX_PKG}" \
-        "${OPENCODE_PKG}" \
-        "${PLAYWRIGHT_MCP_PKG}" \
-        "${CONTEXT7_PKG}" \
-        "${PLAYWRIGHT_PKG}" \
-        "${CCUSAGE_PKG}"; \
+    npm ci --prefix /opt/agent-tools --omit=dev --no-audit --no-fund; \
+    chmod 0755 /opt/agent-tools/node_modules/@ccusage/ccusage-linux-x64/bin/ccusage; \
     npm cache clean --force
+COPY tools/inventory.json /opt/agent-tools/inventory.json
 
-# --- 5. Playwright system deps + chromium ----------------------------------
-# install-deps apt-installs the shared libraries chromium needs; install pulls
-# the browser into PLAYWRIGHT_BROWSERS_PATH. Made world-readable for `dev`.
+# Install Chromium from the exact Playwright revision used by @playwright/mcp.
 RUN set -eux; \
-    playwright install-deps chromium; \
-    playwright install chromium; \
+    /opt/agent-tools/node_modules/.bin/playwright install-deps chromium; \
+    /opt/agent-tools/node_modules/.bin/playwright install chromium; \
     chmod -R a+rX "${PLAYWRIGHT_BROWSERS_PATH}"; \
     rm -rf /var/lib/apt/lists/*
 
-# --- 6. Bake the generator (copied from the build context = repo root) ------
-# Installed globally so `ai-dev-workflow generate|check|init` run offline from
-# the mounted project. Zero runtime deps → this is just a bin symlink.
-COPY package.json LICENSE /opt/ai-dev-workflow/
-COPY agent-src /opt/ai-dev-workflow/agent-src
+# Pin uv and install Serena as a real offline-usable tool, including its Python runtime.
+COPY tools/prepare-serena-config.mjs /tmp/prepare-serena-config.mjs
 RUN set -eux; \
-    npm install -g --no-fund --no-audit /opt/ai-dev-workflow; \
-    ai-dev-workflow --help >/dev/null 2>&1 || true; \
-    npm cache clean --force
+    curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" -o /tmp/install-uv.sh; \
+    sh /tmp/install-uv.sh; \
+    rm /tmp/install-uv.sh; \
+    uv --version | grep -F "${UV_VERSION}"; \
+    mkdir -p /opt/uv/bin /opt/uv/tools /opt/uv/python; \
+    uv tool install --python 3.12 "git+https://github.com/oraios/serena.git@${SERENA_REVISION}"; \
+    /opt/uv/bin/serena --help >/dev/null; \
+    mkdir -p /opt/serena-runtime; \
+    node /tmp/prepare-serena-config.mjs \
+      /opt/uv/tools/serena-agent/lib/python3.12/site-packages/serena/resources/serena_config.template.yml \
+      /opt/serena-runtime/serena_config.yml; \
+    rm /tmp/prepare-serena-config.mjs; \
+    chmod -R a+rX /opt/uv
 
-# --- 7. superpowers (skill library) ----------------------------------------
-# Cloned into the shared skel; wired into the agents' config at configure time.
-# Best-effort: a clone failure must not break the image build.
+# Pin and validate the complete Superpowers plugin source. Each harness loads this local checkout.
 RUN set -eux; \
-    git clone --depth 1 "${SUPERPOWERS_REPO}" /opt/superpowers || \
-        echo "WARN: superpowers clone failed; install it manually inside the container"
+    git init /opt/superpowers; \
+    git -C /opt/superpowers remote add origin https://github.com/obra/superpowers.git; \
+    git -C /opt/superpowers fetch --depth 1 origin "${SUPERPOWERS_REVISION}"; \
+    git -C /opt/superpowers checkout --detach FETCH_HEAD; \
+    test "$(git -C /opt/superpowers rev-parse HEAD)" = "${SUPERPOWERS_REVISION}"; \
+    test -f /opt/superpowers/.codex-plugin/plugin.json; \
+    test -f /opt/superpowers/skills/using-superpowers/SKILL.md; \
+    rm -rf /opt/superpowers/.git
 
-# --- 8. Agent config skel + MCP registration --------------------------------
-# configure-agents.sh is idempotent and reused at runtime by entrypoint.sh
-# (bind-mounts shadow build-time config, so it must be re-applied on start).
-# Here it primes the default /home/dev config for the no-bind-mount case.
-COPY docker/configure-agents.sh /usr/local/bin/configure-agents.sh
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY --chmod=0755 configure-agents.sh entrypoint.sh agent-wrapper.sh verify-agent-config.sh verify-tools.sh /usr/local/bin/
+COPY launch-agent.mjs validate-workspace.mjs tools/verify-browser.mjs tools/verify-mcp.mjs tools/verify-semantic.mjs tools/verify-versions.mjs /usr/local/lib/agent-runtime/
 RUN set -eux; \
-    chmod +x /usr/local/bin/configure-agents.sh /usr/local/bin/entrypoint.sh; \
-    # Prime serena so its Python + package are cached in /opt (best-effort).
-    HOME="${APP_HOME}" uvx --from git+https://github.com/oraios/serena \
-        serena --help >/dev/null 2>&1 || \
-        echo "WARN: serena prime failed; it will fetch on first use (needs network)"; \
-    chmod -R a+rX /opt/uv; \
-    # Bake MCP config into the default home for runs without config bind-mounts.
-    gosu "${APP_USER}" env HOME="${APP_HOME}" /usr/local/bin/configure-agents.sh; \
-    chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}"
+    ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/claude; \
+    ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/codex; \
+    ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/opencode; \
+    chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}"; \
+    mcp-server-azuredevops --version; \
+    node /usr/local/lib/agent-runtime/verify-versions.mjs base
 
 WORKDIR /workspace
-
-# Root at start so entrypoint.sh can remap the user; it drops to `dev` via gosu.
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["bash"]

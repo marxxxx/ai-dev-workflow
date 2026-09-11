@@ -1,0 +1,24 @@
+{
+  "name": "ai-dev-workflow-container-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pinned Node tool runtime for ai-dev-workflow container images",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.268",
+    "@azure-devops/mcp": "2.10.0",
+    "@openai/codex": "0.154.0",
+    "@playwright/mcp": "0.0.80",
+    "@upstash/context7-mcp": "4.1.0",
+    "ccusage": "20.0.20",
+    "jsonc-parser": "3.3.1",
+    "opencode-ai": "1.18.30",
+    "playwright": "1.63.0-alpha-2026-08-31",
+    "pnpm": "12.3.4",
+    "smol-toml": "1.8.0",
+    "typescript": "7.0.2",
+    "typescript-language-server": "6.0.0",
+    "typescript-serena": "npm:typescript@5.9.3",
+    "yarn": "1.22.22"
+  }
+}

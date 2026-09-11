@@ -239,15 +239,16 @@ source of truth for both; no other file restates the thresholds.
 
 ## Run in a container
 
-Prefer not to install the agents and MCP tooling on your host? The workflow ships a **container
-runtime** — a base image with all three agents (Claude Code, Codex, OpenCode) and the recommended MCP
-tooling (serena, playwright + chromium, context7), plus superpowers, ccusage, and the generator,
-**already installed and configured**. Mount your repo at `/workspace`, bind-mount your existing agent
-logins so there is zero re-auth, and run an agent:
+The workflow ships a **container runtime** with Claude Code, Codex, OpenCode, Serena,
+Playwright/Chromium, Context7, Azure DevOps MCP, Azure CLI, Superpowers and ccusage.
+Prepare the consuming project with the generator on the host, build the tool image separately,
+then mount that project at `/workspace`. A project-scoped Docker volume stores the container's
+own home and one-time interactive logins. The image does not install or run the generator.
 
 ```bash
-HOST_UID=$(id -u) HOST_GID=$(id -g) \
-  docker compose -f docker/docker-compose.yml run --rm ai-dev-workflow claude   # or codex | opencode
+export PROJECT_ROOT="$(pwd)" AGENT_IMAGE=ai-dev-workflow
+export HOST_UID="$(id -u)" HOST_GID="$(id -g)"
+docker compose -p my-project-ai -f docker/docker-compose.yml run --rm ai-dev-workflow codex --yolo
 ```
 
 Two derived images add app-facing runtimes (`ai-dev-workflow-node`, `ai-dev-workflow-dotnet`). The

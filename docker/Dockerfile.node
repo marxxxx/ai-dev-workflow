@@ -1,26 +1,16 @@
 # syntax=docker/dockerfile:1
-# ---------------------------------------------------------------------------
-# ai-dev-workflow-node — DERIVED image (hand-maintained, NOT generated)
-#
-# Base + an app-facing Node toolchain for building/testing Node projects under
-# the workflow. The base already carries a pinned Node LTS (the agent CLIs need
-# it); this image is where that same LTS is declared the *app-facing* runtime
-# and the native build toolchain (build-essential) + package managers are added.
-#
-# Build (after the base is built and tagged `ai-dev-workflow`):
-#   docker build -f docker/Dockerfile.node -t ai-dev-workflow-node .
-# ---------------------------------------------------------------------------
-FROM ai-dev-workflow
+# Built by docker/build.mjs; or after the base image: docker build -f docker/Dockerfile.node -t ai-dev-workflow-node docker
+ARG BASE_IMAGE=ai-dev-workflow
+FROM ${BASE_IMAGE}
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    IMAGE_VARIANT=node
 
-# build-essential + python3 cover native addon compilation (node-gyp);
-# corepack enables the pinned yarn/pnpm shims that ship with Node.
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends build-essential python3 make g++; \
+    apt-get install -y --no-install-recommends build-essential g++ make python3; \
     rm -rf /var/lib/apt/lists/*; \
-    corepack enable || true; \
-    node --version
+    gcc --version; \
+    node /usr/local/lib/agent-runtime/verify-versions.mjs node
 
 WORKDIR /workspace

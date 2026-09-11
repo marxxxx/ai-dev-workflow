@@ -1,58 +1,39 @@
-# hand-maintained, NOT generated — see docker/README.md
-#
-# One service that runs the ai-dev-workflow base image against THIS repo (the
-# first dogfood consumer). It encodes every mount and env var so a bare
-# `docker compose run --rm ai-dev-workflow` brings the workflow up with no long
-# `-v` incantation.
-#
-#   # build the base image (context is the repo root)
-#   docker compose -f docker/docker-compose.yml build
-#
-#   # open a shell in the mounted repo (default command)
-#   HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker/docker-compose.yml run --rm ai-dev-workflow
-#
-#   # launch a specific agent by OVERRIDING the command:
-#   ... run --rm ai-dev-workflow claude      # or: codex  |  opencode
-#
-#   # run the generator inside the container:
-#   ... run --rm ai-dev-workflow ai-dev-workflow check
-#
-# A consuming project copies this file, points the /workspace mount at its own
-# repo root, and switches `image:` to a derived image if it needs a runtime
-# (ai-dev-workflow-node / ai-dev-workflow-dotnet).
-
+# Run-only template: copy into a consuming project; build images separately.
 services:
   ai-dev-workflow:
-    image: ai-dev-workflow
-    build:
-      # Context MUST be the repo root so the Dockerfile can copy the generator.
-      context: ..
-      dockerfile: docker/Dockerfile
+    image: ${AGENT_IMAGE:-ai-dev-workflow}
     working_dir: /workspace
-    # Keep STDIN open + allocate a TTY so the interactive agents work.
+    init: true
     stdin_open: true
     tty: true
+    shm_size: 1gb
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Root setup remaps dev and owns its home, then drops privileges.
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
     environment:
-      # UID/GID the entrypoint remaps `dev` to, so repo files stay host-owned.
+      PROJECT_ROOT: ${PROJECT_ROOT:?Set PROJECT_ROOT to an existing absolute project directory}
       HOST_UID: ${HOST_UID:-1000}
       HOST_GID: ${HOST_GID:-1000}
-      # Non-interactive / CI auth fallbacks (used when a login isn't mounted).
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
       CONTEXT7_API_KEY: ${CONTEXT7_API_KEY:-}
-      # gh / git auth pass-through.
-      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      GH_TOKEN: ${GH_TOKEN:-}
     volumes:
-      # The project under test.
-      - ..:/workspace
-      # Agent config + login persistence (reuse existing host logins, zero
-      # re-auth). These are also where ccusage reads session logs.
-      - ${HOME}/.claude:/home/dev/.claude
-      - ${HOME}/.codex:/home/dev/.codex
-      - ${HOME}/.config/opencode:/home/dev/.config/opencode
-      # Serena's semantic index / memories — a bind-mount (not a named volume)
-      # so it survives restarts, consistent with the agent config dirs.
-      - ${HOME}/.serena:/home/dev/.serena
-    # Default command: interactive shell. Override on the CLI to pick an agent.
+      - type: bind
+        source: ${PROJECT_ROOT:?Set PROJECT_ROOT to an existing absolute project directory}
+        target: /workspace
+        bind:
+          create_host_path: false
+      - type: volume
+        source: agent-home
+        target: /home/dev
     command: ["bash"]
+
+volumes:
+  agent-home:

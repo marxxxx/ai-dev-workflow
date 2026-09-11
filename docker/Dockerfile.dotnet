@@ -1,38 +1,26 @@
 # syntax=docker/dockerfile:1
-# ---------------------------------------------------------------------------
-# ai-dev-workflow-dotnet — DERIVED image (hand-maintained, NOT generated)
-#
-# Base + the .NET SDK, for building/testing .NET projects under the workflow.
-# Installed via Microsoft's dotnet-install script so the channel is easy to pin
-# and no extra apt repo is required.
-#
-# Build (after the base is built and tagged `ai-dev-workflow`):
-#   docker build -f docker/Dockerfile.dotnet -t ai-dev-workflow-dotnet .
-# ---------------------------------------------------------------------------
-FROM ai-dev-workflow
+# Built by docker/build.mjs; or after the base image: docker build -f docker/Dockerfile.dotnet -t ai-dev-workflow-dotnet docker
+ARG BASE_IMAGE=ai-dev-workflow
+FROM ${BASE_IMAGE}
 
+ARG DOTNET_SDK_VERSION=10.0.401
 ENV DEBIAN_FRONTEND=noninteractive \
     DOTNET_ROOT=/usr/share/dotnet \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
-    PATH=/usr/share/dotnet:${PATH}
+    IMAGE_VARIANT=dotnet \
+    PATH=/usr/share/dotnet:/usr/local/bin:/opt/uv/bin:/opt/agent-tools/node_modules/.bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# Pin the LTS channel here (e.g. 10.0). Bump to move the SDK version.
-ARG DOTNET_CHANNEL="10.0"
-
-# libicu / libssl are the .NET runtime's native dependencies on Debian.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends libicu72 libssl3; \
     rm -rf /var/lib/apt/lists/*; \
     curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh; \
     chmod +x /tmp/dotnet-install.sh; \
-    /tmp/dotnet-install.sh --channel "${DOTNET_CHANNEL}" --install-dir "${DOTNET_ROOT}"; \
-    rm -f /tmp/dotnet-install.sh; \
+    /tmp/dotnet-install.sh --version "${DOTNET_SDK_VERSION}" --install-dir "${DOTNET_ROOT}"; \
+    rm /tmp/dotnet-install.sh; \
     chmod -R a+rX "${DOTNET_ROOT}"; \
-    # Symlink into /usr/local/bin so `dotnet` is on PATH even under a login
-    # shell (which re-derives PATH and would drop the ENV-provided entry).
-    ln -sf "${DOTNET_ROOT}/dotnet" /usr/local/bin/dotnet; \
-    dotnet --info
+    ln -s "${DOTNET_ROOT}/dotnet" /usr/local/bin/dotnet; \
+    node /usr/local/lib/agent-runtime/verify-versions.mjs dotnet
 
 WORKDIR /workspace

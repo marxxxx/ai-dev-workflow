@@ -6,7 +6,7 @@ This file provides guidance to Coding Agents when working with code in this repo
 
 A **generator**, not an application. It renders subagent & skill definitions for three coding-agent
 platforms — **Claude Code**, **Codex**, and **OpenCode** — from one canonical source (`agent-src/`)
-plus a small per-project config. It is zero-dependency Node (builtins only, `>=18`), distributed
+plus a small per-project config. It is zero-dependency Node (builtins only, `>=24`), distributed
 directly from Git (no npm registry), and language-agnostic — consuming projects need not be Node
 projects.
 
@@ -139,6 +139,15 @@ This package is distributed from Git, not npm — the version tag *is* the relea
    `#vX.Y.Z` tag references) to the new version.
 2. Create a git tag for the new version (e.g. `git tag vX.Y.Z`).
 3. Push the tag and merge the change to `main`.
+
+## Container tool pins (`docker/`)
+
+`docker/tools/inventory.json` is the single source for every tool version in the agent images;
+`docker/tools/package.json`, its lockfile and the Dockerfile `FROM`/`ARG` pins are derived from it —
+the same "never hand-edit derived files" rule applies. `node docker/tools/inventory.mjs update` pulls
+the latest versions within its `updatePolicy`, `sync` re-derives after a hand edit, `check` is the drift
+gate, and `node docker/build.mjs` builds all three images with a dated tag. CI pushes verified builds
+from `main` to Docker Hub (`marxx/ai-dev-workflow`, variant as tag prefix). See `docker/README.md`.
 
 ## Conventions
 

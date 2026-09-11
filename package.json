@@ -36,7 +36,7 @@
     "test": "node --test agent-src/*.test.mjs agent-src/lib/*.test.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   },
   "keywords": [
     "claude-code",

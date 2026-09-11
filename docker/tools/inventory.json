@@ -1,0 +1,45 @@
+{
+  "baseImage": {
+    "reference": "node:24-bookworm-slim@sha256:2fe369e969550cde8e867afc3fe370b260140cab4a23d467074295b42163d553",
+    "node": "24.21.0"
+  },
+  "npmPackages": {
+    "@anthropic-ai/claude-code": "2.1.268",
+    "@azure-devops/mcp": "2.10.0",
+    "@openai/codex": "0.154.0",
+    "@playwright/mcp": "0.0.80",
+    "@upstash/context7-mcp": "4.1.0",
+    "ccusage": "20.0.20",
+    "jsonc-parser": "3.3.1",
+    "opencode-ai": "1.18.30",
+    "playwright": "1.63.0-alpha-2026-08-31",
+    "pnpm": "12.3.4",
+    "smol-toml": "1.8.0",
+    "typescript": "7.0.2",
+    "typescript-language-server": "6.0.0",
+    "typescript-serena": "npm:typescript@5.9.3",
+    "yarn": "1.22.22"
+  },
+  "systemTools": {
+    "azureCliDebianPackage": "2.90.0-1~bookworm",
+    "uv": "0.12.13"
+  },
+  "sourceRevisions": {
+    "serena": "701e7c843f46c6a649203a488cece1bf19f1df90",
+    "superpowers": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797"
+  },
+  "derivedImages": {
+    "dotnetSdk": "10.0.401"
+  },
+  "updatePolicy": {
+    "npmMajorHolds": {
+      "@azure-devops/mcp": 2,
+      "typescript-serena": 5
+    },
+    "npmFollowDependency": {
+      "playwright": "@playwright/mcp"
+    },
+    "dotnetChannel": "10.0"
+  },
+  "reproducibility": "Node packages are locked by integrity and source tools use immutable revisions. Debian and vendor apt repositories remain mutable, so builds are version-pinned but are not claimed to be byte-identical."
+}
