@@ -6,11 +6,13 @@ ARG UV_VERSION=0.12.13
 ARG SERENA_REVISION=701e7c843f46c6a649203a488cece1bf19f1df90
 ARG SUPERPOWERS_REVISION=b36e0829c6d0140e93cfef2ca599b1b07d4a7797
 ARG AZURE_CLI_VERSION=2.90.0-1~bookworm
+ARG AZURE_DEVOPS_EXTENSION_VERSION=1.0.8
 
 ENV DEBIAN_FRONTEND=noninteractive \
     APP_USER=dev \
     APP_HOME=/home/dev \
     AGENT_TOOLS_PACKAGE=/opt/agent-tools/package.json \
+    AZURE_EXTENSION_DIR=/opt/azure-cli/extensions \
     PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright \
     UV_INSTALL_DIR=/usr/local/bin \
     UV_NO_MODIFY_PATH=1 \
@@ -40,6 +42,12 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends gh "azure-cli=${AZURE_CLI_VERSION}"; \
     rm -rf /var/lib/apt/lists/*
+
+# Azure CLI extensions live in the image, not in the persisted ~/.azure of the home volume.
+RUN set -eux; \
+    az extension add --name azure-devops --version "${AZURE_DEVOPS_EXTENSION_VERSION}" --yes --only-show-errors; \
+    chmod -R a+rX "${AZURE_EXTENSION_DIR}"; \
+    rm -rf /root/.azure
 
 # Keep a stable non-root identity while allowing entrypoint remapping for Linux hosts.
 RUN set -eux; \

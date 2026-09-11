@@ -82,6 +82,10 @@ try {
   assert.notEqual(run(['true']).status, 0);
   rmSync(path.join(project, '.git'));
   ok(run(['verify-agent-config.sh']));
+  if (ok(run(['bash', '-c', 'echo "${IMAGE_VARIANT:-base}"'])) === 'dotnet') {
+    // The startup hook trusted the dev certificate in this home volume as the remapped user.
+    ok(run(['bash', '-c', 'cd "$HOME" && dotnet dev-certs https --check --trust']));
+  }
   const configHash = ok(run(['sha256sum', '/home/dev/.codex/config.toml'])).split(/\s+/)[0];
   assert.equal(ok(run(['sha256sum', '/home/dev/.codex/config.toml'])).split(/\s+/)[0], configHash);
   preserved.forEach((file, index) => assert.deepEqual(readFileSync(path.join(project, file)), before[index], `Startup modified ${file}`));

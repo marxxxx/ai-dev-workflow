@@ -29,6 +29,10 @@ export function versionChecks(inventory, variant) {
     { label: 'opencode', expected: npm('opencode-ai'), command: [`${BIN}/opencode`, '--version'] },
     { label: 'uv', expected: inventory.systemTools.uv, command: ['uv', '--version'] },
     { label: 'az', expected: inventory.systemTools.azureCliDebianPackage.split('-')[0], command: ['az', 'version', '--output', 'json'] },
+    {
+      label: 'az extension azure-devops', expected: inventory.systemTools.azureDevOpsCliExtension,
+      command: ['az', 'extension', 'show', '--name', 'azure-devops', '--query', 'version', '--output', 'tsv'],
+    },
     { label: 'serena', expected: `rev=${inventory.sourceRevisions.serena}`, file: SERENA_RECEIPT },
     ...Object.keys(inventory.npmPackages).map(name => ({
       label: `package ${name}`, expected: npm(name), file: `${TOOLS}/node_modules/${name}/package.json`, jsonField: 'version',

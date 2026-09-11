@@ -47,6 +47,7 @@ test('sync rewrites Dockerfile pins from the inventory', t => {
   editJson(path.join(root, 'tools/inventory.json'), inventory => {
     inventory.baseImage.reference = 'node:24-bookworm-slim@sha256:abc';
     inventory.systemTools.uv = '9.9.9';
+    inventory.systemTools.azureDevOpsCliExtension = '8.8.8';
     inventory.sourceRevisions.serena = 'f'.repeat(40);
     inventory.derivedImages.dotnetSdk = '10.0.999';
   });
@@ -54,6 +55,7 @@ test('sync rewrites Dockerfile pins from the inventory', t => {
   const dockerfile = readFileSync(path.join(root, 'Dockerfile'), 'utf8');
   assert.match(dockerfile, /^FROM node:24-bookworm-slim@sha256:abc$/m);
   assert.match(dockerfile, /^ARG UV_VERSION=9\.9\.9$/m);
+  assert.match(dockerfile, /^ARG AZURE_DEVOPS_EXTENSION_VERSION=8\.8\.8$/m);
   assert.match(dockerfile, new RegExp(`^ARG SERENA_REVISION=${'f'.repeat(40)}$`, 'm'));
   assert.match(readFileSync(path.join(root, 'Dockerfile.dotnet'), 'utf8'), /^ARG DOTNET_SDK_VERSION=10\.0\.999$/m);
   assert.deepEqual(findDrift(root), []);
@@ -104,7 +106,7 @@ function sampleInventory() {
       'typescript-serena': 'npm:typescript@5.9.3',
       yarn: '1.22.22',
     },
-    systemTools: { azureCliDebianPackage: '2.90.0-1~bookworm', uv: '0.12.13' },
+    systemTools: { azureCliDebianPackage: '2.90.0-1~bookworm', azureDevOpsCliExtension: '1.0.8', uv: '0.12.13' },
     sourceRevisions: { serena: 'a'.repeat(40), superpowers: 'b'.repeat(40) },
     derivedImages: { dotnetSdk: '10.0.401' },
     updatePolicy: {
@@ -138,6 +140,10 @@ function fakeSources() {
       return '0.13.0';
     },
     debianPackages: async () => 'Package: azure-cli\nVersion: 2.91.0-1~bookworm\n',
+    azureCliExtensionVersions: async name => {
+      assert.equal(name, 'azure-devops');
+      return ['0.26.0', '1.0.9', '1.0.8', '1.1.0b1'];
+    },
     dotnetLatestSdk: async channel => {
       assert.equal(channel, '10.0');
       return '10.0.402';
@@ -156,6 +162,7 @@ test('resolves the latest versions within the update policy', async () => {
     playwright: '1.64.0-alpha-2026-09-10',
     'typescript-serena': 'npm:typescript@5.9.4',
     azureCliDebianPackage: '2.91.0-1~bookworm',
+    azureDevOpsCliExtension: '1.0.9',
     uv: '0.13.0',
     serena: 'c'.repeat(40),
     dotnetSdk: '10.0.402',

@@ -37,5 +37,9 @@ export CODEX_HOME="$HOME/.codex" UV_CACHE_DIR="$HOME/.cache/uv" AZURE_CONFIG_DIR
 cd /workspace
 git config --global --replace-all safe.directory /workspace
 configure-agents.sh
+# Variant images add idempotent per-home setup here (the .NET image trusts its dev certificate).
+for hook in /usr/local/lib/agent-runtime/startup.d/*; do
+  if [[ -x "$hook" ]]; then "$hook"; fi
+done
 if [[ $# == 0 ]]; then set -- bash; fi
 exec "$@"

@@ -9,3 +9,5 @@ for image in ai-dev-workflow ai-dev-workflow-node ai-dev-workflow-dotnet; do
     --user dev --entrypoint /usr/local/bin/verify-tools.sh "$image"
 done
 bash docker/tests/runtime-smoke.sh
+# The .NET image adds a startup hook (dev-certificate trust); run its startup path too.
+AGENT_IMAGE=ai-dev-workflow-dotnet bash docker/tests/runtime-smoke.sh

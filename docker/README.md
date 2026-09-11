@@ -23,10 +23,11 @@ produces `latest` only.
 
 The build context is the standalone `docker/` directory. The base includes all
 three agents, local Serena, Playwright MCP and its matching Chromium, Context7,
-Azure DevOps MCP v2, Azure CLI, Superpowers and ccusage. The Node variant adds
-native compilation tools, package managers and TypeScript semantic tooling; the
-.NET variant adds an exact SDK version. Project dependency installation remains
-the consuming project's responsibility.
+Azure DevOps MCP v2, Azure CLI with its `azure-devops` extension, Superpowers and
+ccusage. The Node variant adds native compilation tools, package managers and
+TypeScript semantic tooling; the .NET variant adds an exact SDK version and trusts
+the ASP.NET Core HTTPS development certificate for `localhost`. Project dependency
+installation remains the consuming project's responsibility.
 
 ### Published images (Docker Hub)
 
@@ -141,6 +142,12 @@ credentials; re-run device login when policy, expiry or revoked access requires 
 The MCP does not create a separate persistent interactive OAuth session in this
 mode. ADO is installed in every image and activated only for ADO projects.
 
+The same Azure CLI login serves the pinned `azure-devops` CLI extension (`az devops`,
+`az boards`, `az repos`, `az pipelines`). It is installed in the image under
+`AZURE_EXTENSION_DIR` (`/opt/azure-cli/extensions`), not in the home volume, so image
+updates replace it. Set a default organization with
+`az devops configure --defaults organization=https://dev.azure.com/<org>`.
+
 ADO API login and Git remote authentication are separate. For GitHub, `gh auth login`
 followed by `gh auth setup-git` stores credentials in this project's runtime home.
 For other remotes configure a project-scoped Git credential helper or a dedicated
@@ -198,6 +205,18 @@ readiness and drives them through Playwright at container-local URLs. Document t
 commands in that project's `AGENTS.md`. Host browser access requires explicit port
 publication and suitable listen addresses (`run --service-ports` when applicable).
 
+### HTTPS on localhost (.NET image)
+
+On every start the .NET image runs a startup hook as `dev` that executes
+`dotnet dev-certs https --trust` unless the development certificate is already
+trusted. Kestrel then serves `https://localhost` with that certificate, and
+Playwright's Chromium (NSS database `~/.pki/nssdb`) as well as OpenSSL clients such
+as curl and `HttpClient` (via `SSL_CERT_DIR`) accept it without certificate errors.
+Certificate, private key and trust live in the `agent-home` volume, one per Compose
+project, and are never part of the published image. The first start in a new
+volume takes a few seconds longer. Node.js clients use their bundled CA list and do
+not see this trust; browsers on the host do not trust the container's certificate.
+
 BomManagerWeb integration is a **separate task**: provide its MongoDB sidecar and
 dataset, separate Linux `node_modules` volumes, an `.env.ai` profile and a new
 `dev:ai` entry point. Keep `dev:max` and other Windows scripts unchanged. This generic
@@ -211,8 +230,8 @@ break the stated filesystem boundary and is not part of this template.
 ## Tool inventory, updates and verification
 
 `tools/inventory.json` is the single source for every pin: base image digest and its
-Node version, all Node CLIs and MCP servers, uv, Azure CLI, Serena/Superpowers revisions
-and the .NET SDK. `tools/package.json`, `tools/package-lock.json` and the Dockerfile
+Node version, all Node CLIs and MCP servers, uv, Azure CLI and its `azure-devops`
+extension, Serena/Superpowers revisions and the .NET SDK. `tools/package.json`, `tools/package-lock.json` and the Dockerfile
 `FROM`/`ARG` pins are derived from it; do not edit them by hand. The inventory is copied
 to `/opt/agent-tools/inventory.json` and every build verifies the installed versions
 against it (`tools/verify-versions.mjs`). OS packages still use apt repositories, so
@@ -259,8 +278,10 @@ zero-dependency generator or run the generator in the image.
 
 Linux CI builds all images and performs credential-free checks: local executables,
 MCP/browser startup, configuration precedence, preserved project files, mount
-boundaries, runtime ownership, persistence and startup failures. The runtime smoke
-suite uses disposable fixture projects and removes only its own Compose volumes.
+boundaries, runtime ownership, persistence and startup failures. In the .NET image
+curl and Chromium must load `https://localhost` with the trusted development
+certificate. The runtime smoke suite runs against the base and the .NET image, uses
+disposable fixture projects and removes only its own Compose volumes.
 
 Live acceptance is recorded separately: complete Codex and Azure CLI device logins,
 recreate the container and verify retained authentication; start a real Codex
