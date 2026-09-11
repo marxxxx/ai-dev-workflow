@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, copyFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, chmodSync, readFileSync, writeFileSync, rmSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +9,8 @@ const template = fileURLToPath(new URL('../docker-compose.yml', import.meta.url)
 const temporary = mkdtempSync(path.join(tmpdir(), 'agent-runtime-smoke-'));
 const project = path.join(temporary, 'project with spaces');
 mkdirSync(project);
+// Linux bind mounts keep host ownership; let the foreign fixture UID (12345) write here.
+chmodSync(project, 0o777);
 mkdirSync(path.join(project, '.codex'));
 mkdirSync(path.join(project, '.agents/skills/example'), { recursive: true });
 writeFileSync(path.join(project, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'azure-devops', azureDevOps: { organization: 'fixture-org' } } }));
