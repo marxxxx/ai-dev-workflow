@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, chmodSync, readFileSync, writeFileSync, rmSync, copyFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, chmodSync, readFileSync, readdirSync, writeFileSync, rmSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,10 +20,29 @@ writeFileSync(path.join(project, '.mcp.json'), JSON.stringify({ mcpServers: {
 } }));
 writeFileSync(path.join(project, '.codex/config.toml'), '[mcp_servers.ado]\ncommand = "npx"\nargs = ["-y", "@azure-devops/mcp@2", "fixture-org"]\n[mcp_servers.dxdocs]\nurl = "https://example.invalid/mcp"\n');
 writeFileSync(path.join(project, '.agents/skills/example/SKILL.md'), '---\nname: example\ndescription: Fixture skill\n---\nRead only.\n');
+// A project-declared volume must mask this host node_modules without touching it.
+const nested = path.join(project, 'apps', 'web', 'node_modules');
+mkdirSync(nested, { recursive: true });
+for (const directory of [path.join(project, 'apps'), path.join(project, 'apps', 'web'), nested]) {
+  chmodSync(directory, 0o777);
+}
+writeFileSync(path.join(nested, 'host-marker'), 'host\n');
+const override = path.join(temporary, 'deps-override.yml');
+writeFileSync(override, [
+  'services:',
+  '  ai-dev-workflow:',
+  '    volumes:',
+  '      - type: volume',
+  '        source: deps-apps-web',
+  '        target: /workspace/apps/web/node_modules',
+  'volumes:',
+  '  deps-apps-web:',
+  '',
+].join('\n'));
 const preserved = ['ai-project.json', '.mcp.json', '.codex/config.toml', '.agents/skills/example/SKILL.md'];
 const before = preserved.map(file => readFileSync(path.join(project, file)));
 const id = `agent-smoke-${process.pid}-${Date.now()}`;
-const projects = [id, `${id}-other`];
+const projects = [id, `${id}-other`, `${id}-deps`];
 const env = { ...process.env, PROJECT_ROOT: project, AGENT_IMAGE: process.env.AGENT_IMAGE || 'ai-dev-workflow', HOST_UID: '12345', HOST_GID: '12345' };
 delete env.CONTEXT7_API_KEY;
 delete env.AZURE_TENANT_ID;
@@ -34,7 +53,8 @@ function docker(args, options = {}) {
 }
 function compose(args, options = {}) {
   const { name = id, file = template, ...execution } = options;
-  return docker(['compose', '-p', name, '-f', file, ...args], execution);
+  const files = (Array.isArray(file) ? file : [file]).flatMap(entry => ['-f', entry]);
+  return docker(['compose', '-p', name, ...files, ...args], execution);
 }
 function ok(result) {
   assert.equal(result.status, 0, result.stderr || result.stdout);
@@ -86,6 +106,16 @@ try {
     // The startup hook trusted the dev certificate in this home volume as the remapped user.
     ok(run(['bash', '-c', 'cd "$HOME" && dotnet dev-certs https --check --trust']));
   }
+  // A volume mounted below the bind is container-only: writable by the runtime user,
+  // and invisible to the host directory it masks.
+  const deps = { name: projects[2], file: [template, override] };
+  ok(run(['bash', '-c', [
+    'test "$(stat -c %u /workspace/apps/web/node_modules)" = 12345',
+    'test ! -e /workspace/apps/web/node_modules/host-marker',
+    'echo container > /workspace/apps/web/node_modules/container-marker',
+  ].join(' && ')], deps));
+  assert.deepEqual(readdirSync(nested), ['host-marker'], 'The container volume must not reach the host node_modules');
+  ok(run(['bash', '-c', 'test -e /workspace/apps/web/node_modules/container-marker'], deps));
   const configHash = ok(run(['sha256sum', '/home/dev/.codex/config.toml'])).split(/\s+/)[0];
   assert.equal(ok(run(['sha256sum', '/home/dev/.codex/config.toml'])).split(/\s+/)[0], configHash);
   preserved.forEach((file, index) => assert.deepEqual(readFileSync(path.join(project, file)), before[index], `Startup modified ${file}`));
@@ -93,6 +123,6 @@ try {
   assert.notEqual(run(['true']).status, 0, 'Invalid runtime configuration must abort startup');
   console.log('Runtime smoke passed: mounts, paths, UID mapping, persistence, config preservation, failure handling.');
 } finally {
-  for (const name of projects) compose(['down', '--volumes', '--remove-orphans'], { name });
+  for (const name of projects) compose(['down', '--volumes', '--remove-orphans'], { name, file: [template, override] });
   rmSync(temporary, { recursive: true, force: true });
 }

@@ -33,7 +33,14 @@ services:
       - type: volume
         source: agent-home
         target: /home/dev
+      # Container-only dependency trees. Each entry masks the host directory below it,
+      # so the host install stays intact and Linux binaries never reach it. Add one per
+      # node_modules of your project, and declare the volume at the bottom of this file.
+      # - type: volume
+      #   source: deps-apps-web
+      #   target: /workspace/apps/web/node_modules
     command: ["bash"]
 
 volumes:
   agent-home:
+  # deps-apps-web:
