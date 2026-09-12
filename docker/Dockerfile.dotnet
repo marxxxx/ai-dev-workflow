@@ -10,6 +10,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
     DOTNET_NOLOGO=1 \
     IMAGE_VARIANT=dotnet \
+    ArtifactsPath=/home/dev/artifacts \
+    NUGET_PACKAGES=/home/dev/.nuget/packages \
     SSL_CERT_DIR=/home/dev/.aspnet/dev-certs/trust:/etc/ssl/certs \
     PATH=/usr/share/dotnet:/usr/local/bin:/opt/uv/bin:/opt/agent-tools/node_modules/.bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -30,6 +32,7 @@ RUN set -eux; \
 # (dotnet dev-certs https --trust): /home/dev is a volume that hides build-time
 # content, and a baked certificate would publish its private key with the image.
 COPY --chmod=0755 trust-dev-cert.sh /usr/local/lib/agent-runtime/startup.d/
-COPY tools/verify-dev-cert.mjs /usr/local/lib/agent-runtime/
+COPY tools/verify-artifacts.mjs tools/verify-dev-cert.mjs /usr/local/lib/agent-runtime/
+RUN node /usr/local/lib/agent-runtime/verify-artifacts.mjs
 
 WORKDIR /workspace
