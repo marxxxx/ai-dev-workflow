@@ -53,5 +53,7 @@ configure-agents.sh
 for hook in /usr/local/lib/agent-runtime/startup.d/*; do
   if [[ -x "$hook" ]]; then "$hook"; fi
 done
+# Advisory: host build artifacts the project shares with the container. Never fatal.
+node /usr/local/lib/agent-runtime/check-host-artifacts.mjs || true
 if [[ $# == 0 ]]; then set -- bash; fi
 exec "$@"

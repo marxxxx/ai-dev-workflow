@@ -39,6 +39,8 @@ writeFileSync(override, [
   '  deps-apps-web:',
   '',
 ].join('\n'));
+// Unmasked and full of host binaries: the preflight must say so without failing.
+mkdirSync(path.join(project, 'pkg', 'node_modules', '@rollup', 'rollup-win32-x64-msvc'), { recursive: true });
 const preserved = ['ai-project.json', '.mcp.json', '.codex/config.toml', '.agents/skills/example/SKILL.md'];
 const before = preserved.map(file => readFileSync(path.join(project, file)));
 const id = `agent-smoke-${process.pid}-${Date.now()}`;
@@ -116,6 +118,10 @@ try {
   ].join(' && ')], deps));
   assert.deepEqual(readdirSync(nested), ['host-marker'], 'The container volume must not reach the host node_modules');
   ok(run(['bash', '-c', 'test -e /workspace/apps/web/node_modules/container-marker'], deps));
+  const preflight = run(['true']);
+  assert.equal(preflight.status, 0, preflight.stderr);
+  assert.match(preflight.stderr, /pkg\/node_modules holds host-platform files/);
+  assert.match(preflight.stderr, /source: deps-pkg/);
   const configHash = ok(run(['sha256sum', '/home/dev/.codex/config.toml'])).split(/\s+/)[0];
   assert.equal(ok(run(['sha256sum', '/home/dev/.codex/config.toml'])).split(/\s+/)[0], configHash);
   preserved.forEach((file, index) => assert.deepEqual(readFileSync(path.join(project, file)), before[index], `Startup modified ${file}`));
