@@ -244,12 +244,15 @@ The runtime does the rest on its own. It discovers these mounts through
 installing into a fresh volume works without a recursive chown of the project. On every
 start it also checks the project for artifacts that *no* volume masks — an unmasked
 `node_modules` holding host-platform packages, or in-tree `bin`/`obj` without a redirect —
-and prints the compose entry that is missing. That check is advisory and never fails the
-start.
+and prints what to add: the missing volume entry for the first case, the missing
+`ArtifactsPath` redirect for the second. That check is advisory and never fails the start.
 
 The copied `compose.ai-dev.yml` is yours to edit: add the database or other services your
-development setup needs, publish ports, pass credentials through `environment`. Only the
-`PROJECT_ROOT` bind on `/workspace` and the `agent-home` volume are load-bearing.
+development setup needs, publish ports, pass credentials through `environment`. The
+`PROJECT_ROOT` bind on `/workspace` and the `agent-home` volume are what the workflow
+itself depends on; the capability, `security_opt` and `HOST_UID`/`HOST_GID` settings the
+template ships are what let the runtime drop privileges, so extend the file rather than
+trimming it.
 
 ## Consuming-project E2E integration
 
