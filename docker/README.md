@@ -209,7 +209,9 @@ breaks the build on the host.
 and `NUGET_PACKAGES=/home/dev/.nuget/packages`; MSBuild takes both as global properties, so
 every build in the container writes below the home volume and the project tree stays
 untouched — no `bin`, no `obj`, and the host's `obj/project.assets.json` is never read.
-Output is namespaced per project (`artifacts/{bin,obj}/<project>/<configuration>/`). Three
+Output is namespaced per project: `artifacts/bin/<project>/<configuration>/` for build output,
+`artifacts/obj/<project>/` (no configuration segment — restore output such as
+`project.assets.json` lands directly under the project) for intermediate output. Three
 caveats: a `Directory.Build.props` that sets `ArtifactsPath` or `BaseOutputPath` itself wins
 over the environment; scripts with hardcoded paths such as `bin/Debug/net10.0/App.dll` break
 in the container; and non-SDK projects are not covered.
@@ -240,8 +242,10 @@ equivalent) inside the container; and where the mount point does not exist on th
 Docker creates it as an empty directory — harmless, and usually gitignored.
 
 The runtime does the rest on its own. It discovers these mounts through
-`/proc/self/mountinfo` rather than configuration, and gives each one to the runtime user, so
-installing into a fresh volume works without a recursive chown of the project. On every
+`/proc/self/mountinfo` rather than configuration — so this applies to any mount nested below
+`/workspace`, not only project-declared dependency volumes, including a nested bind mount such
+as a seeded dataset — and gives each one to the runtime user, so installing into a fresh volume
+works without a recursive chown of the project. On every
 start it also checks the project for artifacts that *no* volume masks — an unmasked
 `node_modules` holding host-platform packages, or in-tree `bin`/`obj` without a redirect —
 and prints what to add: the missing volume entry for the first case, the missing

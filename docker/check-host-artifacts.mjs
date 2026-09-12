@@ -11,7 +11,7 @@ const MAX_DEPTH = 5;
 const SKIP = new Set(['.git', '.vs', '.hg', '.svn']);
 const HOST_PACKAGE = /(^|-)(win32|windows|darwin)(-|$)|msvc/i;
 const HOST_SHIM = /\.(cmd|ps1)$/i;
-const PROJECT_FILE = /\.(csproj|fsproj|sln|slnx)$/i;
+const PROJECT_FILE = /\.(csproj|fsproj)$/i;
 const OUTPUT = new Set(['bin', 'obj']);
 
 const slashes = target => target.split(path.sep).join('/');
@@ -51,8 +51,11 @@ function hostTrace(nodeModules) {
   return null;
 }
 
+const MAX_TRACE_WARNINGS = 3;
+
 export function findHostArtifacts({ root, mounts = [], artifactsPath = '' }) {
   const warnings = [];
+  const traced = [];
   const output = [];
   const queue = [{ directory: root, depth: 0 }];
   while (queue.length) {
@@ -64,32 +67,40 @@ export function findHostArtifacts({ root, mounts = [], artifactsPath = '' }) {
     const hasProjectFile = list.some(entry => entry.isFile() && PROJECT_FILE.test(entry.name));
     for (const entry of list) {
       const full = path.join(directory, entry.name);
-      if (!entry.isDirectory()) continue;
       if (entry.name === 'node_modules') {
+        // A symlinked node_modules (moved onto a faster disk, say) is just as much a
+        // candidate as a real directory — but either way it is inspected here, never
+        // descended into by the BFS below.
+        if (!isPackageLike(entry)) continue;
         if (masked(full, mounts)) continue;
         const trace = hostTrace(full);
-        if (trace) {
-          const relative = path.relative(root, full);
-          const volume = volumeName(relative);
-          warnings.push([
-            `agent runtime: warning: ${slashes(relative)} holds host-platform files (${slashes(trace)})`,
-            '  and no container volume masks it, so host and container installs overwrite each other.',
-            '  Add to your compose.ai-dev.yml, under services.ai-dev-workflow.volumes:',
-            '      - type: volume',
-            `        source: ${volume}`,
-            `        target: /workspace/${slashes(relative)}`,
-            `  and declare the volume at the bottom of the file: ${volume}:`,
-          ].join('\n'));
-        }
+        if (trace) traced.push({ relative: path.relative(root, full), trace });
         continue;
       }
+      if (!entry.isDirectory()) continue;
       if (OUTPUT.has(entry.name)) {
-        if (hasProjectFile) output.push(path.relative(root, full));
+        if (hasProjectFile && !masked(full, mounts)) output.push(path.relative(root, full));
         continue;
       }
       if (SKIP.has(entry.name)) continue;
       if (depth + 1 < MAX_DEPTH) queue.push({ directory: full, depth: depth + 1 });
     }
+  }
+  for (const { relative, trace } of traced.slice(0, MAX_TRACE_WARNINGS)) {
+    const volume = volumeName(relative);
+    warnings.push([
+      `agent runtime: warning: ${slashes(relative)} holds host-platform files (${slashes(trace)})`,
+      '  and no container volume masks it, so host and container installs overwrite each other.',
+      '  Add to your compose.ai-dev.yml, under services.ai-dev-workflow.volumes:',
+      '      - type: volume',
+      `        source: ${volume}`,
+      `        target: "/workspace/${slashes(relative)}"`,
+      `  and declare the volume at the bottom of the file: ${volume}:`,
+    ].join('\n'));
+  }
+  if (traced.length > MAX_TRACE_WARNINGS) {
+    const further = traced.length - MAX_TRACE_WARNINGS;
+    warnings.push(`agent runtime: warning: ${further} more unmasked dependency tree(s) found; the same recipe applies.`);
   }
   if (!artifactsPath && output.length) {
     const listed = output.slice(0, 3).map(slashes).join(', ');

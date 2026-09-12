@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, chmodSync, readFileSync, readdirSync, writeFileSync, rmSync, copyFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, chmodSync, readFileSync, readdirSync, writeFileSync, rmSync, copyFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,6 +43,9 @@ writeFileSync(override, [
 mkdirSync(path.join(project, 'pkg', 'node_modules', '@rollup', 'rollup-win32-x64-msvc'), { recursive: true });
 const preserved = ['ai-project.json', '.mcp.json', '.codex/config.toml', '.agents/skills/example/SKILL.md'];
 const before = preserved.map(file => readFileSync(path.join(project, file)));
+// Meaningful only on Linux, where a bind mount keeps real host uids (see the HOST_UID
+// remapping check below for the same platform guard).
+const projectFileUid = process.platform === 'linux' ? statSync(path.join(project, 'ai-project.json')).uid : null;
 const id = `agent-smoke-${process.pid}-${Date.now()}`;
 const projects = [id, `${id}-other`, `${id}-deps`];
 const env = { ...process.env, PROJECT_ROOT: project, AGENT_IMAGE: process.env.AGENT_IMAGE || 'ai-dev-workflow', HOST_UID: '12345', HOST_GID: '12345' };
@@ -92,7 +95,6 @@ try {
   }
   ok(run(['bash', '-c', 'test "$(id -u)" = 12345 && test "$(id -g)" = 12345 && echo persisted > "$HOME/persistence" && echo writable > /workspace/written']));
   if (process.platform === 'linux') {
-    const { statSync } = await import('node:fs');
     assert.equal(statSync(path.join(project, 'written')).uid, 12345);
   }
   assert.equal(ok(run(['cat', '/home/dev/persistence'])), 'persisted');
@@ -118,6 +120,12 @@ try {
   ].join(' && ')], deps));
   assert.deepEqual(readdirSync(nested), ['host-marker'], 'The container volume must not reach the host node_modules');
   ok(run(['bash', '-c', 'test -e /workspace/apps/web/node_modules/container-marker'], deps));
+  if (process.platform === 'linux') {
+    // The chown that gives a nested volume to the runtime user must stay scoped to that
+    // mount: a regression that walked the chown up into /workspace would flip ownership of
+    // the host project tree itself, which this unchanged host file's uid rules out.
+    assert.equal(statSync(path.join(project, 'ai-project.json')).uid, projectFileUid);
+  }
   const preflight = run(['true']);
   assert.equal(preflight.status, 0, preflight.stderr);
   assert.match(preflight.stderr, /pkg\/node_modules holds host-platform files/);

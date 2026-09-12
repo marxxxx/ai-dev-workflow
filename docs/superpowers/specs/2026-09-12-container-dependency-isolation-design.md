@@ -122,12 +122,12 @@ Die Vorlage `docker/docker-compose.yml` bekommt einen kommentierten Block, ein E
       # darunterliegende Host-Verzeichnis; die Host-Installation bleibt intakt.
       # Ein Eintrag pro node_modules des Projekts:
       # - type: volume
-      #   source: deps-web-node-modules
+      #   source: deps-apps-web
       #   target: /workspace/apps/web/node_modules
 
 volumes:
   agent-home:
-  # deps-web-node-modules:
+  # deps-apps-web:
 ```
 
 **Named**, nicht anonym: anonyme Volumes verschwinden mit `run --rm`, benannte überleben wie
