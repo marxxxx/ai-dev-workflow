@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { findHostArtifacts } from '../check-host-artifacts.mjs';
@@ -41,6 +41,38 @@ test('stays silent once the node_modules is masked by a mount', t => {
   assert.deepEqual(findHostArtifacts({ root, mounts }), []);
 });
 
+test('stays silent when a mount at the parent directory masks node_modules', t => {
+  const root = fixture(t);
+  tree(root, { 'apps/web/node_modules/@esbuild/win32-x64/pkg.json': '' });
+  // The mount is the node_modules' parent, not the node_modules itself — exercises the
+  // ancestor branch of masked() rather than the exact-match branch covered above.
+  const mounts = [path.join(root, 'apps', 'web')];
+  assert.deepEqual(findHostArtifacts({ root, mounts }), []);
+});
+
+test('treats a pnpm-style symlinked scoped package as a host trace', t => {
+  const root = fixture(t);
+  const store = path.join(root, '.pnpm-store', 'esbuild-darwin-arm64');
+  mkdirSync(store, { recursive: true });
+  writeFileSync(path.join(store, 'pkg.json'), '');
+  mkdirSync(path.join(root, 'node_modules', '@esbuild'), { recursive: true });
+  const link = path.join(root, 'node_modules', '@esbuild', 'darwin-arm64');
+  let symlinked = true;
+  try {
+    symlinkSync(store, link, 'dir');
+  } catch {
+    // No privilege to create directory symlinks on this host (see the fix report) — cover
+    // the same code path with a plain directory instead.
+    symlinked = false;
+    mkdirSync(link);
+    writeFileSync(path.join(link, 'pkg.json'), '');
+  }
+  if (!symlinked) t.diagnostic('directory symlinks unavailable on this host; used a plain directory instead');
+  const [warning, ...rest] = findHostArtifacts({ root });
+  assert.deepEqual(rest, []);
+  assert.match(warning, /@esbuild\/darwin-arm64/);
+});
+
 test('treats Windows command shims as host traces and Linux trees as clean', t => {
   const shims = fixture(t);
   tree(shims, { 'node_modules/.bin/tsc.cmd': '', 'node_modules/typescript/index.js': '' });
@@ -71,8 +103,26 @@ test('warns about in-tree .NET output only without a redirect', t => {
 
 test('ignores bin directories without a .NET project', t => {
   const root = fixture(t);
-  tree(root, { 'package.json': '{}', 'bin/cli.js': '' });
+  tree(root, {
+    'package.json': '{}',
+    'bin/cli.js': '',
+    // A project file elsewhere in the tree must not make this unrelated bin/ suspect.
+    'lib/Tool.csproj': '<Project />',
+  });
   assert.deepEqual(findHostArtifacts({ root }), []);
+});
+
+test('only warns about .NET output that shares a directory with the project file', t => {
+  const root = fixture(t);
+  tree(root, {
+    'cli-tool/bin/run.js': '',
+    'services/api/Api.csproj': '<Project />',
+    'services/api/obj/project.assets.json': '{}',
+  });
+  const [warning, ...rest] = findHostArtifacts({ root });
+  assert.deepEqual(rest, []);
+  assert.match(warning, /services[\\/]api[\\/]obj/);
+  assert.doesNotMatch(warning, /cli-tool[\\/]bin/);
 });
 
 test('does not descend into node_modules, .git or build output', t => {
