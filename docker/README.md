@@ -196,6 +196,61 @@ chown the project. Capability reductions retain only the setup capabilities need
 for remapping and privilege drop; commands run non-root. Exit codes and signals
 propagate through the entrypoint and Compose init process.
 
+## Separating host and container dependencies
+
+Everything below `$HOME` is already isolated: the NuGet package cache, the npm cache, uv
+and Azure CLI state live in the `agent-home` volume, the Playwright browsers in the image.
+What the bind mount shares are the artifacts that sit *inside* the project tree, and it
+shares them both ways: a `node_modules` full of `win32` binaries breaks builds in the
+container, and the container overwrites `bin`/`obj` with Linux paths and RIDs, which then
+breaks the build on the host.
+
+**.NET needs no configuration.** The .NET image sets `ArtifactsPath=/home/dev/artifacts`
+and `NUGET_PACKAGES=/home/dev/.nuget/packages`; MSBuild takes both as global properties, so
+every build in the container writes below the home volume and the project tree stays
+untouched — no `bin`, no `obj`, and the host's `obj/project.assets.json` is never read.
+Output is namespaced per project (`artifacts/{bin,obj}/<project>/<configuration>/`). Three
+caveats: a `Directory.Build.props` that sets `ArtifactsPath` or `BaseOutputPath` itself wins
+over the environment; scripts with hardcoded paths such as `bin/Debug/net10.0/App.dll` break
+in the container; and non-SDK projects are not covered.
+
+**Node needs one volume per dependency tree.** npm has no equivalent redirect, so declare a
+named volume for each `node_modules` of your project. Mounted below the bind, it masks the
+host directory: the host install stays intact and usable, the container gets its own Linux
+tree, and on Docker Desktop it is markedly faster than going through the bind mount.
+
+```yaml
+services:
+  ai-dev-workflow:
+    volumes:
+      # … the existing bind on /workspace and the agent-home volume …
+      - type: volume
+        source: deps-apps-web
+        target: /workspace/apps/web/node_modules
+
+volumes:
+  agent-home:
+  deps-apps-web:
+```
+
+Use **named** volumes, not anonymous ones: anonymous volumes disappear with `run --rm`,
+named ones persist per Compose project name (`-p`) like `agent-home`. Two consequences: the
+volume starts out empty, so the first container start needs an `npm ci` (or your project's
+equivalent) inside the container; and where the mount point does not exist on the host,
+Docker creates it as an empty directory — harmless, and usually gitignored.
+
+The runtime does the rest on its own. It discovers these mounts through
+`/proc/self/mountinfo` rather than configuration, and gives each one to the runtime user, so
+installing into a fresh volume works without a recursive chown of the project. On every
+start it also checks the project for artifacts that *no* volume masks — an unmasked
+`node_modules` holding host-platform packages, or in-tree `bin`/`obj` without a redirect —
+and prints the compose entry that is missing. That check is advisory and never fails the
+start.
+
+The copied `compose.ai-dev.yml` is yours to edit: add the database or other services your
+development setup needs, publish ports, pass credentials through `environment`. Only the
+`PROJECT_ROOT` bind on `/workspace` and the `agent-home` volume are load-bearing.
+
 ## Consuming-project E2E integration
 
 Backing services, healthchecks, seeded datasets, application environment, ports and
@@ -218,7 +273,8 @@ volume takes a few seconds longer. Node.js clients use their bundled CA list and
 not see this trust; browsers on the host do not trust the container's certificate.
 
 BomManagerWeb integration is a **separate task**: provide its MongoDB sidecar and
-dataset, separate Linux `node_modules` volumes, an `.env.ai` profile and a new
+dataset, its `node_modules` volumes (see [Separating host and container
+dependencies](#separating-host-and-container-dependencies)), an `.env.ai` profile and a new
 `dev:ai` entry point. Keep `dev:max` and other Windows scripts unchanged. This generic
 repository adds none of that application's services, ports or settings.
 

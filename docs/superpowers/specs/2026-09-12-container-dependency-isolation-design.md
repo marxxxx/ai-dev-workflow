@@ -199,7 +199,9 @@ die eigene Compose-Datei trivial ist.
 **(b) In-tree `bin`/`obj` ohne Redirect.** Wenn `ArtifactsPath` nicht gesetzt ist (Base- oder
 Node-Image, oder aus der Compose-Datei überschrieben), im Workspace aber
 `*.csproj`/`*.fsproj`/`*.sln`/`*.slnx` und dazu `bin/` oder `obj/` existieren, wird gewarnt, dass
-Host- und Container-Builds sich gegenseitig überschreiben werden.
+Host- und Container-Builds sich gegenseitig überschreiben werden. Gemeldet wird ein `bin`/`obj`
+nur dann, wenn **dasselbe Verzeichnis** auch die Projektdatei enthält — dort legt MSBuild die
+Ausgabe ab; das `bin/` eines Node-CLIs im selben Repo bleibt damit unerwähnt.
 
 Scan-Verhalten: Breitensuche ab `/workspace`, Tiefenlimit 5 Ebenen; `.git`, `.vs`, `bin`, `obj`
 und das **Innere** von `node_modules` werden nicht betreten (ein gefundenes `node_modules` wird
