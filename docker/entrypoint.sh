@@ -25,6 +25,18 @@ if [[ "$(id -u)" == 0 ]]; then
   # Do not follow symlinks or change project ownership. Reused homes can have old IDs.
   find "$APP_HOME" -xdev \( ! -uid "$HOST_UID" -o ! -gid "$HOST_GID" \) \
     -exec chown -h "$HOST_UID:$HOST_GID" {} + || fail 'Could not initialize home volume ownership.'
+  # Compose may mask project subdirectories with volumes (a container-only node_modules).
+  # A fresh volume below the bind mount has no template in the image and starts out
+  # root-owned. Repair only when the mount root itself has foreign ownership, and keep
+  # find inside the volume with -xdev: the project is never chowned recursively.
+  while IFS= read -r -d '' mount; do
+    owner="$(stat -c '%u:%g' "$mount" 2>/dev/null || true)"
+    if [[ "$owner" != "$HOST_UID:$HOST_GID" ]]; then
+      find "$mount" -xdev \( ! -uid "$HOST_UID" -o ! -gid "$HOST_GID" \) \
+        -exec chown -h "$HOST_UID:$HOST_GID" {} + ||
+        printf 'agent runtime: warning: could not adjust ownership of %s\n' "$mount" >&2
+    fi
+  done < <(node /usr/local/lib/agent-runtime/workspace-mounts.mjs)
   exec gosu "$APP_USER" env HOME="$APP_HOME" USER="$APP_USER" LOGNAME="$APP_USER" \
     /usr/local/bin/entrypoint.sh "$@"
 fi
@@ -41,5 +53,7 @@ configure-agents.sh
 for hook in /usr/local/lib/agent-runtime/startup.d/*; do
   if [[ -x "$hook" ]]; then "$hook"; fi
 done
+# Advisory: host build artifacts the project shares with the container. Never fatal.
+node /usr/local/lib/agent-runtime/check-host-artifacts.mjs || true
 if [[ $# == 0 ]]; then set -- bash; fi
 exec "$@"

@@ -99,7 +99,7 @@ RUN set -eux; \
     rm -rf /opt/superpowers/.git
 
 COPY --chmod=0755 configure-agents.sh entrypoint.sh agent-wrapper.sh verify-agent-config.sh verify-tools.sh /usr/local/bin/
-COPY launch-agent.mjs validate-workspace.mjs tools/verify-browser.mjs tools/verify-mcp.mjs tools/verify-semantic.mjs tools/verify-versions.mjs /usr/local/lib/agent-runtime/
+COPY launch-agent.mjs validate-workspace.mjs workspace-mounts.mjs check-host-artifacts.mjs tools/verify-browser.mjs tools/verify-mcp.mjs tools/verify-semantic.mjs tools/verify-versions.mjs /usr/local/lib/agent-runtime/
 RUN set -eux; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/claude; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/codex; \
