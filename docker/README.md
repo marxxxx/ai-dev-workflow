@@ -279,12 +279,6 @@ project, and are never part of the published image. The first start in a new
 volume takes a few seconds longer. Node.js clients use their bundled CA list and do
 not see this trust; browsers on the host do not trust the container's certificate.
 
-BomManagerWeb integration is a **separate task**: provide its MongoDB sidecar and
-dataset, its `node_modules` volumes (see [Separating host and container
-dependencies](#separating-host-and-container-dependencies)), an `.env.ai` profile and a new
-`dev:ai` entry point. Keep `dev:max` and other Windows scripts unchanged. This generic
-repository adds none of that application's services, ports or settings.
-
 The default topology does **not** support Testcontainers or other Docker API clients.
 A MongoDB sidecar does not satisfy that requirement. Full integration testing needs
 an explicitly designed dedicated-daemon environment; exposing the host socket would
