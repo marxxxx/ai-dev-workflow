@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdtempSync, mkdirSync, chmodSync, readFileSync, readdirSync, writeFileSync, rmSync, copyFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -98,6 +99,31 @@ try {
     assert.equal(statSync(path.join(project, 'written')).uid, 12345);
   }
   assert.equal(ok(run(['cat', '/home/dev/persistence'])), 'persisted');
+  // Another container of the same Compose project (an agent session running npm ci) creates
+  // and deletes files in the shared home while this one starts. Entries that vanish during
+  // the startup ownership walk must not abort the start.
+  const churn = spawn('docker', ['compose', '-p', id, '-f', template, 'run', '--rm', '-T', '--no-deps', 'ai-dev-workflow', 'bash', '-c',
+    'end=$((SECONDS + 120)); while (( SECONDS < end )) && [[ ! -e "$HOME/churn-stop" ]]; do ' +
+    'mkdir -p "$HOME/churn/tree" && (cd "$HOME/churn/tree" && touch $(seq 2000)) && rm -rf "$HOME/churn/tree"; done; ' +
+    'rm -rf "$HOME/churn" "$HOME/churn-stop"'], { env, stdio: 'ignore' });
+  const churnExit = once(churn, 'exit');
+  let churnContainer = '';
+  for (let wait = 0; wait < 120 && !churnContainer; wait++) {
+    const [candidate] = docker(['ps', '-q', '--filter', `label=com.docker.compose.project=${id}`, '--filter', 'label=com.docker.compose.oneoff=True']).stdout.split('\n');
+    if (candidate && docker(['exec', candidate, 'test', '-d', '/home/dev/churn']).status === 0) churnContainer = candidate;
+    else Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+  }
+  try {
+    assert.ok(churnContainer, 'The churn container did not start writing into the home volume');
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      const started = run(['true']);
+      assert.equal(started.status, 0, `Start ${attempt} during concurrent home writes failed: ${started.stderr}`);
+    }
+  } finally {
+    if (churnContainer) docker(['exec', '--user', '12345', churnContainer, 'touch', '/home/dev/churn-stop']);
+    else churn.kill();
+    await churnExit;
+  }
   ok(run(['bash', '-c', 'test "$(id -u)" = 12346 && test "$(stat -c %u "$HOME/persistence")" = 12346 && echo remapped >> "$HOME/persistence"'], { env: { ...env, HOST_UID: '12346', HOST_GID: '12346' } }));
   ok(run(['bash', '-c', 'test ! -e "$HOME/persistence"'], { name: projects[1] }));
   assert.equal(run(['bash', '-c', 'exit 37']).status, 37);
