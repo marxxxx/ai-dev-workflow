@@ -11,9 +11,11 @@ Azure DevOps organization. Git branches and pull requests target the `{{repo.slu
 
 ## Tooling
 
-**Use the `ado` MCP server tools for ALL ticketing operations — never a CLI.** Each tool covers
-several operations; the `action` parameter selects which one. The relevant tools (domains `core`,
-`work`, `work-items`) are:
+**Use the `ado` MCP server tools for ticketing operations.** The single exception is reading a
+`{{artifact.journal}}` comment whose id is already known: the server has no single-comment read, so
+that one read goes through `az devops invoke` (see The Journal Comment). Never use a CLI for any other
+ticket operation. Each tool covers several operations; the `action` parameter selects which one. The
+relevant tools (domains `core`, `work`, `work-items`) are:
 
 | Tool | `action` | Use |
 |------|----------|-----|
@@ -173,9 +175,18 @@ handoff include; the operations below are the Azure DevOps mechanics.
 in-place journal possible here. It requires **both** `workItemId` and `commentId`: comment ids are
 scoped per work item, not global, so a `commentId` alone is not addressable.
 
-There is no "get one comment" tool. Discover the id — and read the body — from a single
-`list_comments` call, **once per ticket**; every write afterwards is a direct `update` that needs no
-listing. In the `list_comments` response the comment's identifier is the `id` field.
+The MCP server has no "get one comment" tool, and `list_comments` returns every comment on the work
+item — review feedback, test results, cost records — which is expensive to re-read on each journal
+read. So split the journal operations:
+
+| Operation | How |
+|-----------|-----|
+| Create | `ado` MCP `wit_work_item_comment_write` `add` — keep the id from the response |
+| Discover an unknown id | `ado` MCP `wit_work_item` `list_comments`, **once per ticket** |
+| Read by known id | `az devops invoke` against the single-comment REST endpoint |
+| Update by id | `ado` MCP `wit_work_item_comment_write` `update` — needs no listing |
+
+In the `list_comments` response the comment's identifier is the `id` field.
 
 ```text
 # Create the journal comment (once per work item). Keep the comment id from the response.
@@ -183,8 +194,9 @@ wit_work_item_comment_write(action: "add", workItemId: <id>,
   project: "{{ticketing.azure.project}}", format: "Markdown",
   text: "## {{artifact.journal}}\n...the full journal, per the handoff include...")
 
-# Discover the id — and read the body — of an existing journal comment (once per ticket).
-# Take the newest entry whose text starts with "## {{artifact.journal}}"; its `id` is the comment id.
+# Discover the id — and read the body — of an existing journal comment (once per ticket, and only
+# when no id was handed to you). Take the newest entry whose text starts with
+# "## {{artifact.journal}}"; its `id` is the comment id.
 wit_work_item(action: "list_comments", workItemId: <id>, project: "{{ticketing.azure.project}}")
 
 # Update the journal in place by id (replaces the whole text)
@@ -192,6 +204,32 @@ wit_work_item_comment_write(action: "update", workItemId: <id>, commentId: <comm
   project: "{{ticketing.azure.project}}", format: "Markdown",
   text: "## {{artifact.journal}}\n...the full journal...")
 ```
+
+### Reading the journal by id
+
+When you hold the comment id — from the prompt packet, the `add` response, or an earlier discovery —
+read the journal through the Azure CLI instead of listing comments:
+
+```bash
+az devops invoke --area wit --resource comments \
+  --route-parameters project="{{ticketing.azure.project}}" workItemId=<id> commentId=<comment-id> \
+  --organization "https://dev.azure.com/{{ticketing.azure.organization}}" \
+  --api-version 7.1-preview --http-method GET --detect false \
+  --query "{id: id, workItemId: workItemId, isDeleted: isDeleted, text: text}" --output json
+```
+
+- `text` is the Markdown source of the journal, exactly as last written.
+- Pass `--api-version 7.1-preview` exactly. The CLI parses the value as a number after stripping
+  `-preview`, so a resource-versioned value such as `7.1-preview.4` makes it fail before sending.
+- Keep `--organization` and `--detect false`: without them the CLI guesses the organization from the
+  git remote, which is wrong or absent in most checkouts.
+- The CLI needs the `azure-devops` extension and a signed-in `az login` (or `AZURE_DEVOPS_EXT_PAT`).
+
+**Validate before trusting the result.** Use it only when `id` equals the comment id, `workItemId`
+equals the work item, `isDeleted` is not `true`, and `text` starts with `## {{artifact.journal}}`.
+If the command is unavailable, fails, or returns anything else, fall back to one `list_comments`
+discovery above, carry the id it yields, and do not retry the CLI for that id. Never write through the
+CLI: creates and updates stay on the MCP server.
 
 The MCP server exposes no comment delete — correct for the journal, which is edited, never replaced.
 
