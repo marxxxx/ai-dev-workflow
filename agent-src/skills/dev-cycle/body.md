@@ -155,8 +155,7 @@ At `acceptance-test`:
 1. Follow `{{cost.include}}` to post one idempotent `{{artifact.costSummary}}` and clean up the run
    ledger. Missing cost data never blocks handoff; record the gap.
 2. Follow `{{ticketing.include}}` for provider-specific journal cleanup and PR or branch handoff.
-   Where automation creates a PR, include the ticket, implementation summary, review and QA results,
-   human acceptance steps, and every `NEEDS HUMAN REVIEW` item with available screenshots.
+   Where automation creates a PR, include the ticket and a concise implementation summary (<3000 characters) in the description.
 3. Report the PR or branch handoff and stop. Leave acceptance, merge, and closure to a human.
 
 If the run starts at `acceptance-test`, create only missing handoff artifacts and never duplicate the
