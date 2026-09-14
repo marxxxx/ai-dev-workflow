@@ -1,268 +1,171 @@
 # {{project.name}} Development Cycle
 
-Coordinate work for tickets in the {{project.name}} repository.
-The workflow finishes at human acceptance; never automatically close a ticket.
+Coordinate an approved ticket through implementation, review, QA, and PR handoff. Never gather
+requirements, create product tickets, merge, close, or accept a ticket. Process one ticket's full
+cycle before starting another.
 
-This skill is explicit authorization to use the project's implementation, review, and QA subagents
-for the workflow requested by the user. Spawn project custom agents named `developer`,
-`code-reviewer`, and `qa-engineer` where indicated. It consumes approved tickets created
-through `$product-architect`; it does not gather requirements or create product tickets.
-Keep one ticket's implementation, review, QA, and PR sequence complete before
-processing another.
+This skill authorizes the custom `developer`, `code-reviewer`, and `qa-engineer` subagents. Each
+isolated subagent owns its assigned technical work and resulting status transition. You own dispatch,
+workflow validation, retry and continuation limits, cost accounting, and final handoff; do not repeat
+their implementation, review, or QA judgments.
 
-## Ticketing System
+## Runtime Instructions
 
-Before any ticket operation, read `{{ticketing.include}}`. It is the single source of truth for
-listing, reading, creating, commenting, status transitions, branch naming, and pull-request or merge
-handoff. Do not hardcode repository names, provider-specific commands, status encoding, labels,
-comment mechanisms, or PR commands in this skill — if the ticketing backend changes, only that file
-changes. The states below (`new`, `in-progress`, `review`, `test`, `failed`, `acceptance-test`) are
-logical; use the exact representation the include defines.
+- Before ticket operations, read `{{ticketing.include}}` for provider commands, logical-state
+  encoding, comments, branch naming, and PR handoff.
+- Before cost operations, read `{{cost.include}}` for the per-run ledger and
+  `{{artifact.costSummary}}` protocol.
+- Before creating or sizing a journal, checking a handoff, or spawning a continuation, read
+  `{{handoff.include}}`. It is authoritative for the `{{artifact.journal}}` shape, sizing values, handoff
+  contents, progress guard, and continuation limits. Ticketing mechanics for that artifact remain in
+  `{{ticketing.include}}`.
 
-## Cost Accounting
+Never duplicate provider details or include-owned rules here.
 
-Before any cost operation, read `{{cost.include}}`. It is the single source of truth for recording
-each participant's `ccusage` session into a per-run ledger and for posting the token/cost breakdown as
-the `{{artifact.costSummary}}` comment when the ticket reaches `acceptance-test`. Do not hardcode
-`ccusage` commands, ledger paths, or session-detection logic in this skill.
+## Isolated Prompt Packets
 
-## Developer Handoff
+Spawn every role in a fresh context with a self-contained packet. Include only:
 
-Before seeding or sizing a journal, auditing a handoff, or spawning a continuation, read
-`{{handoff.include}}`. It is the single source of truth for the per-ticket `{{artifact.journal}}`
-comment — the living record a developer edits in place as it works, and rewrites its handoff into when
-a ticket does not fit one context window — and for how continuations are counted. Do not hardcode the
-journal's structure, the handoff's required sections, sizing metadata, or continuation limits in this
-skill, and do not hardcode how a comment is created, read, or updated — that belongs to
-`{{ticketing.include}}`.
+- repository root and branch/worktree;
+- ticket number, title, logical state, upstream reference, and lookup path/command;
+- `{{ticketing.include}}`, `{{cost.include}}`, and this run's ledger path;
+- relevant artifact names and the expected outcome, status transition, and return format;
+- known blockers, implementation-review iteration, and material user constraints;
+- for developers, `{{handoff.include}}` and the journal id; for a continuation, also its continuation
+  number and only the remaining criteria.
 
-Before dispatch, obtain the ticket's journal comment id: discover it with one listing call, or create
-the comment and keep the returned id. Pass that id in the prompt packet so the developer never has to
-re-read the ticket to find it.
+Direct subagents to durable context (`AGENTS.md`, the ticket and relevant comments, branch diff,
+code, and tests), not parent conversation history.
 
-The division of labour matters: **you seed the journal, the developer only ticks it.** The developer
-must never plan, size, or decompose a ticket — that belongs to `$product-architect`, and a ticket
-that repeatedly fails to fit is a signal to send back there rather than a load to absorb.
+## States
 
- ## Subagent Context Policy
-
-  When spawning `developer`, `code-reviewer`, or `qa-engineer`, do not fork or share the full
-  conversation/session history. Use a fresh subagent context with a self-contained prompt packet.
-
-  Each prompt packet must include only the context required for that role:
-
-  - repository root and current branch/worktree path;
-  - issue number, title, current logical state, and issue file/path or ticket lookup command;
-  - the upstream ticket reference if the ticket records one — it determines the branch's
-    first segment (`feat/<upstream-number>_<slug>`);
-  - required ticketing include path: `{{ticketing.include}}`;
-  - the cost include path `{{cost.include}}` and this run's cost-ledger path, so the subagent records
-    its `ccusage` session (see `{{cost.include}}`);
-  - for `developer`: the handoff include path `{{handoff.include}}` and this ticket's
-    `{{artifact.journal}}` comment id, so the developer can tick criteria and hand off if the ticket
-    does not fit its context window (see `{{handoff.include}}`);
-  - for a `developer` continuation: that this attempt **is** a continuation, the continuation number,
-    and the criteria that remain — scope the attempt explicitly to those rather than restating the
-    whole ticket;
-  - relevant prior artifact names: `{{artifact.implementationNotes}}`,
-    `{{artifact.reviewFeedback}}`, `{{artifact.testResults}}`, `{{artifact.journal}}`;
-  - exact expected status transition and return format;
-  - known blockers, iteration count, and user constraints that materially affect this issue.
-
-  Do not paste unrelated parent conversation history. If a subagent needs more context, instruct it to
-  read durable sources: `AGENTS.md`, `{{ticketing.include}}`, the issue body/comments, git diff, and
-  the relevant code/tests.
-
-## Workflow States
-
-| State | Meaning | Next action |
-| --- | --- | --- |
-| `new` | Ready to build | Spawn `developer` |
-| `in-progress` | Implementation running or interrupted | A filled `Latest handoff` section in the `{{artifact.journal}}` comment means resume: spawn a fresh `developer` continuation scoped to the remaining criteria. An empty one means the attempt was interrupted without handing off: inspect the branch and ticket, and restart `developer` only when needed |
-| `review` | Awaiting code review | Spawn `code-reviewer` |
-| `test` | Ready for acceptance QA | Spawn `qa-engineer` |
-| `failed` | Review or QA failure | Spawn `developer` with recorded feedback |
-| `acceptance-test` | PR/human acceptance pending | Create missing PR if needed, then stop automation for that ticket |
+| State | Dispatch |
+| --- | --- |
+| `new` | Developer implementation |
+| `in-progress` | Continue only from a current, unconsumed handoff; recover an already-consumed attempt without incrementing; otherwise inspect before restarting |
+| `review` | Code review |
+| `test` | Acceptance QA |
+| `failed` | New developer iteration with recorded feedback |
+| `acceptance-test` | Cost summary and provider-specific PR/human handoff, then stop |
 
 ## Start
 
-1. Read `AGENTS.md`.
-2. Determine whether the request names a ticket; otherwise list the open
-   tickets and their states using the commands in `{{ticketing.include}}`.
-3. Select only tickets not already in the `acceptance-test` state and whose documented
-   dependencies are complete. Process independent tickets in number order unless the
-   user chose one.
-4. Track a maximum of three implementation-review iterations per ticket unless the user
-   explicitly chooses another limit.
-5. Track handoff continuations **separately**. A handoff is not a review rejection and the work was
-   not defective, so a continuation never consumes an implementation-review iteration. The journal's
-   persisted continuation limit controls the maximum (see `{{handoff.include}}`).
-6. Before creating a cost ledger or spawning a developer for a ticket in `new`, `failed`, or
-   resumable `in-progress`, seed or load its `{{artifact.journal}}` comment (creating it, or
-   discovering its id with one listing call) and resolve its sizing metadata:
-   - For a new journal, write one unchecked, numbered row per acceptance criterion, count those rows
-     only, and persist the item count, sizing decision, and continuation limit exactly as
-     `{{handoff.include}}` derives them for that count. Its thresholds and limits are authoritative;
+1. Read `AGENTS.md` and the required runtime includes.
+2. Use the named ticket, or list open tickets and their states. Exclude `acceptance-test` and blocked
+   dependencies; unless the user selected one, process eligible tickets by number.
+3. Enforce a maximum of three implementation-review iterations unless the user chooses another
+   limit. Persist the current iteration and its continuation count in the journal. Derive the
+   iteration from durable blocking review/QA artifacts so restarts do not double-count; developer
+   handoff continuations are separate.
+4. Before developer work in `new`, `failed`, or resumable `in-progress`, seed or load the ticket's
+   single journal and retain its comment id. Resolve sizing as follows:
+   - For a new journal, create one numbered unchecked row per acceptance criterion. Count only those
+     rows and persist the item count, sizing decision, and continuation limit exactly as
+     `{{handoff.include}}` derives them. The thresholds and limits are authoritative;
      do not restate or recompute them here. When those rules size the count as `automatic`, dispatch
      the developer without an oversized-ticket question; otherwise record a `pending` decision and a
      `pending` continuation limit before asking the human.
    - A journal with a `pending` decision is already sized but unresolved: pause before creating a
-     cost ledger or spawning a developer. Ask the human whether to **proceed** with development as
-     scoped or **split** the ticket with `$product-architect`. On restart, reuse its item count and
-     ask this unresolved question; do not treat valid `pending` metadata as legacy or malformed.
-   - On **proceed**, record the decision and the continuation limit `{{handoff.include}}` defines for
-     the persisted item count, before dispatch.
+     cost ledger or spawning a developer. Ask the human to **proceed** as scoped or **split** through
+     `$product-architect`.
+   - On **proceed**, persist the decision and include-defined limit before dispatch. Reuse a valid
+     item count, recorded proceed decision, and continuation limit after restart without
+     asking again.
    - On **split**, record the decision, do not spawn a developer, and do not create a cost ledger.
      End this dev-cycle path, then start `$product-architect` interactively in the same conversation.
-     Do not close or accept the original ticket; ticket acceptance and closure remain the human
-     workflow.
-   - On restart, reuse a valid item count, recorded proceed decision, and continuation limit without
-     asking again. A ticket carrying only legacy append-only `Developer Handoff` comments and no
-     journal comment is seeded from the most recent one per `{{handoff.include}}`, then sized as a
-     new journal. When a legacy journal lacks sizing metadata, or any sizing value is malformed,
-     recount its criteria, perform this sizing check once, and record valid `automatic` or `pending`
-     metadata before developer dispatch. A missing or malformed value must fail safely rather than
-     grant an unlimited limit.
-7. After the sizing step permits developer work — or immediately for a ticket that will only enter
-   review or QA — start its cost ledger before spawning any subagent: follow `{{cost.include}}` to
-   create this run's ledger (a unique per-run path) and record your own orchestrator session. Pass
-   the ledger path in every subagent prompt packet. Never create a ledger for the split path.
+     Do not close or accept the original ticket.
+   - If only legacy append-only handoffs exist, seed the journal from the newest one. If a legacy journal
+     lacks sizing metadata or contains malformed values, recount and record valid metadata
+     before developer dispatch. Derive missing iteration/count values from blocking review/QA
+     comments and subsequent handoff attempts, then persist them. Never assume an unlimited allowance.
+5. Once sizing permits work—or immediately when resuming at `review` or `test`—follow
+   `{{cost.include}}` to reuse the journal's available ledger or create and record a new ledger id.
+   Record the orchestrator session and pass the active path to every subagent. Never create one for
+   the split path.
 
-## Implement Or Fix
+## Developer Phase
 
-For the `new` or `failed` state, spawn the custom `developer` subagent with the ticket
-number, title, current state, branch/worktree context, and instruction to read all comments.
+For `new`, spawn `developer` with the packet above. For `failed`, require the newest blocking review
+or QA stamp to equal the derived target iteration minus one, then apply `{{handoff.include}}`'s
+distinct-failure validation, idempotent reset, and iteration limit. The target may equal the journal's
+current iteration after a restart or its immediate successor before reset. Spawn only after those
+checks pass. For a handed-off `in-progress` ticket, follow the continuation procedure below. In every
+case, tell the developer to read the relevant comments.
 
-The developer owns:
+After the developer returns, validate protocol rather than re-auditing the implementation:
 
-- moving the ticket to the `in-progress` state before edits;
-- working on `{{git.branchPattern}}` — when the ticket records an upstream ticket, its
-  number is the branch's first segment instead of the implementation ticket number (see
-  `{{ticketing.include}}`);
-- implementing and validating the ticket;
-- posting `{{artifact.implementationNotes}}`;
-- moving the ticket to the `review` state only after completion;
-- stopping at an acceptance-criterion boundary and rewriting the `Latest handoff` section of the
-  `{{artifact.journal}}` comment instead, when the remaining work does not fit its context window
-  (see `{{handoff.include}}`).
+- **Complete:** require `review`, a posted `{{artifact.implementationNotes}}`, required validation
+  reported, and all journal criteria checked. Then dispatch review.
+- **Handoff:** require `in-progress`, an updated `Latest handoff`, its identity matching the prompt
+  counters, and the named commit. Read the journal by id and check the include-required structure;
+  do not reinterpret technical decisions.
+- **Blocked:** when the developer explicitly reports a genuine blocker, report it for human attention
+  and stop. Never replace a blocked developer automatically.
+- **Unexpected return:** when the developer neither completes nor explicitly blocks, or writes a
+  malformed handoff, spawn one fresh recovery at the same iteration and continuation counters. Name
+  every structural gap and direct recovery from the branch diff and ticket artifacts. If recovery
+  also returns unexpectedly, stop for human attention.
 
-After it returns, inspect its reported changes and re-read the ticket state/comments. Do not accept a
-claimed completion if the state, branch, or validation evidence is missing. Its run ended in exactly
-one of three outcomes — decide which from the ticket, not from the returned prose:
+For a valid new handoff, apply the include's progress check and verify the current count is below the
+limit. Then increment the count and mark that handoff consumed in one journal write before spawning
+a fresh developer for the remaining criteria. If the handoff was already consumed before a restart,
+reuse the stored count and recover at that continuation without incrementing. A continuation never
+consumes an implementation-review iteration.
 
-- **Complete** — ticket at `review` with `{{artifact.implementationNotes}}` posted. Continue to
-  review.
-- **Handoff** — ticket still at `in-progress`, with the `{{artifact.journal}}` comment's `Latest
-  handoff` section rewritten for this attempt. Read the journal by its id — one read, no ticket
-  re-listing — and audit it before spawning a continuation:
-    - all seven required sections from `{{handoff.include}}` are present;
-    - the criteria status covers every acceptance criterion, each marked done or remaining;
-    - the map names concrete files and symbols, not areas — a vague map means the next developer
-      re-explores, which is the entire cost this protocol exists to avoid;
-    - the work is committed on the feature branch, and the named commit exists;
-    - if a section is missing or empty, do not silently accept it: reconstruct what you can from the
-      branch diff and the ticket, and state the gap in the continuation's prompt packet.
-  Then increment the continuation count and spawn a **fresh** developer scoped to the remaining
-  criteria. A continuation does not consume an implementation-review iteration.
-- **Blocked** — ticket still at `in-progress` with a reported blocker and no new handoff written into
-  the journal. Report
-  it for human attention; do not spawn a continuation to work around it.
+Enforce the include-owned limits. Its **Progress guard (unchanged)** stops after two consecutive continuations
+without a newly completed criterion or materially larger branch diff. At exhaustion,
+leave the ticket `in-progress` and journal intact; recommend `$product-architect` splitting without
+splitting or continuing automatically.
 
-Two limits apply to continuations:
+The maximum of three implementation-review iterations is unchanged by journal sizing.
 
-- **Progress guard (unchanged)** — each continuation must show measurable progress: at least one newly completed
-  criterion, or a materially larger branch diff. If two consecutive continuations show neither, stop.
-  The ticket is stuck, not large, and another attempt will repeat the failure.
-- **Exhaustion** — at the continuation limit, stop automation for that ticket. Leave it at
-  `in-progress` with its `{{artifact.journal}}` comment intact and report that the ticket is too
-  large to implement as scoped and should be split via `$product-architect`. Do not split it
-  yourself, and do not keep cycling.
+## Review Phase
 
-## Review
+For `review`, spawn `code-reviewer` with the branch, acceptance criteria, architecture guidance, and
+implementation notes. The reviewer owns the audit and moves the ticket to:
 
-For the `review` state, spawn the custom `code-reviewer` subagent with the ticket
-number, title, branch/worktree context, and instruction to read the acceptance criteria and
-implementation notes. The reviewer compares branch changes to the acceptance criteria and
-implementation guidance, prioritizing correctness, regressions, security, and missing tests.
+- `test` when it passes; or
+- `failed` after posting `{{artifact.reviewFeedback}}` for blocking findings.
 
-The code-reviewer owns:
+On return, verify only the expected state and, for `failed`, a feedback artifact stamped with the
+active implementation iteration. Trust the review decision; do not inspect the code as a second
+reviewer. A valid `failed` outcome returns to the Developer Phase.
 
-- adding a `{{artifact.reviewFeedback}}` comment with actionable findings when critical or important
-  findings exist, then moving the ticket from `review` to `failed` so it returns to
-  `developer`;
-- moving the ticket from `review` to `test` when review passes or has only minor
-  non-blocking observations.
+## QA Phase
 
-After it returns, verify the posted comment (if any) and the status transition before continuing.
-Count each return to development as an iteration. At the iteration limit, report the
-ticket as blocked for human attention and do not continue cycling. The maximum of three
-implementation-review iterations is unchanged by journal sizing.
+For `test`, spawn `qa-engineer` with the ticket, branch/worktree, implementation notes, and whether
+the scope includes UI or subjective visual work. The QA engineer owns acceptance testing,
+`{{artifact.testResults}}`, and the transition to:
 
-## QA
+- `acceptance-test` when functional QA passes, including allowed `NEEDS HUMAN REVIEW` items; or
+- `failed` when a functional criterion fails; or
+- `test` when required infrastructure or tooling blocks QA before a result can be established.
 
-For the `test` state, spawn the custom `qa-engineer` subagent with the ticket number,
-branch/worktree context, and whether the ticket includes visual/UI work.
+On return, validate only workflow evidence: the results artifact exists, covers every criterion,
+references browser evidence where produced, and the ticket reached an allowed state. Do not rerun
+tests or reassess QA conclusions. Missing or contradictory protocol evidence blocks advancement and
+must be reported. For `failed`, require the results artifact's iteration stamp, then return to the
+Developer Phase. A reported `BLOCKED` result at `test` stops for human attention without consuming an
+iteration.
 
-For visual/UI work, require:
+## Acceptance Handoff
 
-- functional criteria tested objectively;
-- before/after screenshots when a baseline comparison can be performed without disrupting local
-  changes;
-- subjective criteria reported as `NEEDS HUMAN REVIEW`, never automatically passed.
-- no PASS based solely on unit tests, direct component method calls, utility calls, mocked events, API calls, or DOM state injection;
-- `NEEDS HUMAN REVIEW` only for subjective visual claims, not for untested functional behavior —
-  except when no e2e runtime is configured (see `{{app.include}}`), where functional UI/interactive
-  criteria that need a running app may be deferred as `NEEDS HUMAN REVIEW` with a note.
+At `acceptance-test`:
 
-After QA returns, audit the `{{artifact.testResults}}` comment before accepting the handoff:
+1. Follow `{{cost.include}}` to post one idempotent `{{artifact.costSummary}}` and clean up the run
+   ledger. Missing cost data never blocks handoff; record the gap.
+2. Follow `{{ticketing.include}}` for provider-specific journal cleanup and PR or branch handoff.
+   Where automation creates a PR, include the ticket, implementation summary, review and QA results,
+   human acceptance steps, and every `NEEDS HUMAN REVIEW` item with available screenshots.
+3. Report the PR or branch handoff and stop. Leave acceptance, merge, and closure to a human.
 
-  - every acceptance criterion must appear in the result matrix;
-  - every UI criterion must name the route/control/action used;
-  - evidence artifact paths must be present for browser-tested UI criteria;
-  - any criterion marked untested, blocked, or verified only by internal calls means QA did not pass;
-  - exception: when e2e was skipped per `{{app.include}}` (the runtime is unconfigured, or `up`
-    intentionally started no app), UI/interactive criteria deferred as `NEEDS HUMAN REVIEW` (with a
-    note and a passing automated suite) are an acceptable handoff, not a QA failure — advance to PR
-    and carry the human-review items forward;
-  - if the QA evidence is incomplete or invalid, do not advance to PR handoff. Move the
-    ticket to `failed` with a corrective comment, or return it to QA when the only issue
-    is missing evidence and no functional failure was observed.
-
-For handoff move the ticket to `acceptance-test`. If failed, return to implementation.
-
-On the move to `acceptance-test`, follow `{{cost.include}}` to aggregate this run's ledger sessions
-(and the `{{artifact.costOrigin}}` marker product-architect left on the ticket) and post the
-`{{artifact.costSummary}}` comment, then clean up the ledger. Cost reporting never blocks the
-handoff — if `ccusage` or a session is unavailable, post the summary noting the gap.
-
-The `{{artifact.journal}}` comment stays on the ticket as the durable record of how the work
-progressed — there is nothing to clean up, except under file-based ticketing, whose local journal file
-is deleted at this point (see `{{handoff.include}}` and `{{ticketing.include}}`).
-
-## Pull Request And Handoff
-
-Once a ticket reaches `acceptance-test`, create a PR from its feature branch to
-`{{git.prTarget}}` if one does not already exist (see `{{ticketing.include}}`). The PR body must include:
-
-- the related ticket number and implementation summary;
-- code review and QA results;
-- explicit human acceptance steps;
-- every `NEEDS HUMAN REVIEW` criterion and its available screenshot references.
-
-Report the PR URL and leave the ticket open at `acceptance-test`. A human reviews,
-merges, and closes it.
-
-If a ticket was already at `acceptance-test` when this run started (for example only a missing PR had
-to be created), ensure the `{{artifact.costSummary}}` comment exists: post it per `{{cost.include}}`
-if absent, and never post a duplicate if one is already present.
+If the run starts at `acceptance-test`, create only missing handoff artifacts and never duplicate the
+cost summary.
 
 ## Guardrails
 
-- Do not bypass required requirements or visual approval work owned by `$product-architect`.
-- Do not let an agent overwrite or revert unrelated changes in a shared worktree.
-- Do not proceed past a missing approval, missing tool, unavailable browser verification, or
-  unverified status transition; report the blocker.
-- Capture review and test feedback in ticket comments so a later agent has durable context.
-- Do not push a developer to finish a ticket that does not fit its context window. A clean handoff
-  and a fresh continuation beat a degraded session; repeated handoffs on one ticket are a scoping
-  signal to report, not a load to absorb.
+- Validate status and durable artifacts before dispatching the next phase; never infer a successful
+  result from subagent prose alone.
+- Do not overwrite unrelated work or bypass approvals owned by `$product-architect`.
+- Report unavailable required tools, approvals, or status transitions instead of bypassing them.
+- Keep review and QA findings in ticket comments so the next isolated developer has durable context.
