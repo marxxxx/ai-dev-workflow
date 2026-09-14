@@ -135,7 +135,10 @@ project override) → platform overlay → project append**. These files are gen
 - `name`, `description` — shared across platforms (the `description` is platform-neutral).
 - `platforms` — one key per emitted platform (`claude`, `codex`, `opencode`); a platform absent from
   this map is not emitted. Per-platform config:
-  - **claude**: `model`, `tools[]` (allowlist).
+  - **claude**: `model`, `tools[]` (allowlist). Name Serena/Playwright tools by their plain MCP
+    server (`mcp__serena__find_symbol`); the renderer adds the plugin-install alias
+    (`mcp__plugin_serena_serena__find_symbol`), since the container registers them as plain servers
+    and a host may install them as plugins. Claude ignores whichever form is not registered.
   - **codex**: `model`, `model_reasoning_effort`, `nickname_candidates[]`.
   - **opencode**: `model`, `temperature`, `mode`.
 - `interface` (skills only) — Codex skill descriptor written to `agents/openai.yaml`

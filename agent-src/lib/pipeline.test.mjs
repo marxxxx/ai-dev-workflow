@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { renderAll, loadConfig } from '../generate.mjs';
+import { claudeToolAllowlist } from './renderers.mjs';
 import { makeTmpRoot, tmpProject } from '../test-helpers.mjs';
 
 function writeProject(root, config) {
@@ -56,9 +57,36 @@ test('azure-devops backend injects ADO tools into ticketing agents and emits .mc
       /mcp__ado__wit_(query_by_wiql|get_work_item|create_work_item|update_work_item|add_work_item_comment|list_work_item_comments)\b/,
       'retired v1 ADO tool names must not appear in the allowlist',
     );
+    assert.doesNotMatch(developer.content, /mcp__plugin_ado_/, 'ado is not plugin-aliased');
   } finally {
     cleanup();
   }
+});
+
+test('Claude allowlists name serena/playwright tools as both a plain MCP server and a plugin', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const outputs = renderAll(root);
+    const agent = (name) => outputs.find((o) => o.path === path.join('.claude', 'agents', `${name}.md`)).content;
+    // The container runtime registers the servers via --mcp-config (mcp__serena__…); a host install
+    // via Claude Code plugins yields mcp__plugin_serena_serena__…. Either alone leaves the other without tools.
+    for (const name of ['developer', 'code-reviewer']) {
+      assert.match(agent(name), /^ {2}- mcp__serena__find_symbol$/m);
+      assert.match(agent(name), /^ {2}- mcp__plugin_serena_serena__find_symbol$/m);
+    }
+    assert.match(agent('qa-engineer'), /^ {2}- mcp__playwright__browser_navigate$/m);
+    assert.match(agent('qa-engineer'), /^ {2}- mcp__plugin_playwright_playwright__browser_navigate$/m);
+  } finally {
+    cleanup();
+  }
+});
+
+test('claudeToolAllowlist aliases only known servers and does not duplicate entries', () => {
+  assert.deepEqual(
+    claudeToolAllowlist(['Read', 'mcp__serena__find_symbol', 'mcp__plugin_serena_serena__find_symbol', 'mcp__ado__wit_query']),
+    ['Read', 'mcp__serena__find_symbol', 'mcp__plugin_serena_serena__find_symbol', 'mcp__ado__wit_query'],
+  );
+  assert.equal(claudeToolAllowlist(undefined), undefined);
 });
 
 test('azure-devops backend emits Codex project-local ADO MCP config', () => {
