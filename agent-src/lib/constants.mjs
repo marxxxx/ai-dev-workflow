@@ -34,6 +34,12 @@ export const ADO_MCP_TOOLS = [
   'mcp__ado__wit_work_item_attachment',
 ];
 
+// MCP servers that are commonly installed either as a plain MCP server or as a Claude Code plugin.
+// Claude names the same tool `mcp__serena__x` in the first case (the container runtime passes them
+// via --mcp-config) and `mcp__plugin_serena_serena__x` in the second. Manifests list the plain form;
+// the Claude renderer adds the plugin alias. See renderers.mjs → claudeToolAllowlist.
+export const PLUGIN_ALIASED_MCP_SERVERS = ['serena', 'playwright'];
+
 /** Value that follows `flag` in argv, or '' when the flag (or its value) is absent. */
 export function argValue(argv, flag) {
   const i = argv.indexOf(flag);

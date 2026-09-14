@@ -67,7 +67,10 @@ offloads end-to-end-testing to the Human if Playwright is missing).
 The `ado` MCP server is the exception: for the `azure-devops` backend, `generate` merges it into
 `.mcp.json` and `.codex/config.toml` for you — nothing to install by hand. It is pinned to
 `@azure-devops/mcp@2`, whose tool names the ticketing agents' allowlists and the Azure DevOps
-ticketing include are written against.
+ticketing include are written against. The server has no single-comment read, so agents read a known
+`Developer Journal` comment by id through the [Azure CLI](https://learn.microsoft.com/cli/azure/)
+(`az devops invoke`, from the `azure-devops` extension, signed in with `az login`) instead of listing
+every comment; without it they fall back to the slower MCP listing.
 
 The `gitea` backend is the one case with a hard requirement: the agents drive
 [`tea`](https://gitea.com/gitea/tea), Gitea's official CLI, so it must be installed and logged in
