@@ -31,8 +31,6 @@
     "LICENSE"
   ],
   "scripts": {
-    "generate": "node agent-src/generate.mjs generate",
-    "check": "node agent-src/generate.mjs check",
     "test": "node --test agent-src/*.test.mjs agent-src/lib/*.test.mjs"
   },
   "engines": {

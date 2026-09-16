@@ -10,52 +10,39 @@ plus a small per-project config. It is zero-dependency Node (builtins only, `>=2
 directly from Git (no npm registry), and language-agnostic — consuming projects need not be Node
 projects.
 
-This repo **dogfoods itself**: `npm run generate` at the root renders `.claude/`, `.codex/`,
-`.opencode/`, and `.agents/` from `agent-src/`, against the root `ai-project.json` — which describes
-this project for real (`ai-dev-workflow`, `github` backend), not a placeholder. The placeholder
-identity (`ProjectName` / `ProjectSlug`) lives in `agent-src/config/ai-project.template.json`, the
-scaffold `init` copies into a consuming project.
-
-Those four directories are **gitignored here** — unlike a consuming project, this repo does not commit
-its own output. Generate them locally when you want to see what a change produces; see below.
+The placeholder identity (`ProjectName` / `ProjectSlug`) lives in
+`agent-src/config/ai-project.template.json`, the scaffold `init` copies into a consuming project.
 
 ## Commands
 
 ```bash
 npm test          # node --test over agent-src/*.test.mjs + agent-src/lib/*.test.mjs
-npm run generate  # render all platform files to the project root (node agent-src/generate.mjs generate)
-npm run check     # render in memory, diff against disk, exit 1 on drift (CI / pre-commit gate)
 
 # a single test file / test name:
 node --test agent-src/lib/pipeline.test.mjs
 node --test --test-name-pattern "azure" agent-src/lib/*.test.mjs
 
-# onboarding a consuming project (interactive; --answers <file.json> for non-interactive):
-node agent-src/generate.mjs init
+# run against a consuming project:
+node agent-src/generate.mjs init     --root <project>  # interactive; --answers <file.json> for non-interactive
+node agent-src/generate.mjs generate --root <project>  # render all platform files into the project
+node agent-src/generate.mjs check    --root <project>  # render in memory, diff against disk, exit 1 on drift
 ```
 
-All commands accept `--root <dir>` to target a project root other than `cwd`.
+`--root` defaults to `cwd`.
 
 Note: on Windows without symlink privilege, one test in `agent-src/cli.test.mjs` (the "invoked
 through a symlink" case) fails with `EPERM` — this is an environmental limitation, not a code fault.
 
 ## The one rule that matters: never hand-edit generated files
 
-`agent-src/` is the single source of truth. Every file under `.claude/`, `.codex/`, `.opencode/`,
-`.agents/` (and merged `.mcp.json` / `.codex/config.toml` for the azure-devops backend) carries a
-`DO NOT EDIT — generated from agent-src/…` banner.
+`agent-src/` is the single source of truth. Every file the generator writes into a consuming project
+under `.claude/`, `.codex/`, `.opencode/`, `.agents/` (and merged `.mcp.json` / `.codex/config.toml`
+for the azure-devops backend) carries a `DO NOT EDIT — generated from agent-src/…` banner. Any change
+to agent/skill behavior is made in the canonical source under `agent-src/` (a unit's `body.md`,
+`manifest.json`, an `overlays/<platform>.md`, or an `includes/ticketing-*.md`).
 
-**Workflow for any change to agent/skill behavior:**
-1. Edit the canonical source under `agent-src/` (a unit's `body.md`, `manifest.json`, an
-   `overlays/<platform>.md`, or an `includes/ticketing-*.md`).
-2. Run `npm run generate`.
-3. Commit the `agent-src/` change. The regenerated output is gitignored in *this* repo, so there is
-   nothing else to stage — in a consuming project you would commit it alongside.
-
-`npm run check` renders in memory and diffs against disk — it catches both a stale regen and any
-hand-edit to a generated file. It needs the generated dirs to exist, so on a fresh checkout run
-`npm run generate` first; that pairing is exactly what CI does, and there it doubles as a proof that
-generation is deterministic.
+`check` renders in memory and diffs against disk — in a consuming project it catches both a stale
+regen and any hand-edit to a generated file.
 
 ## The second rule: keep the published `files` allowlist in sync with `agent-src/lib/`
 
