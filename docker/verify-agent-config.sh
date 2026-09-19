@@ -33,7 +33,9 @@ NODE
 
 test -r "$HOME/.codex/config.toml"
 test -r "$HOME/.cache/ai-dev-workflow/codex-marketplace/.claude-plugin/marketplace.json"
-test -r "$HOME/.codex/plugins/cache/agent-runtime/superpowers/6.3.0/skills/using-superpowers/SKILL.md"
+# Version-agnostic: the plugin cache path carries the superpowers release version, which the
+# toolstack bumps independently — glob it so a version bump does not silently break this check.
+compgen -G "$HOME/.codex/plugins/cache/agent-runtime/superpowers/*/skills/using-superpowers/SKILL.md" >/dev/null
 plugins="$(/opt/agent-tools/node_modules/.bin/codex plugin list --json)"
 node -e '
   const plugins = JSON.parse(process.argv[1]);

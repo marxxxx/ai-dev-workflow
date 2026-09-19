@@ -101,6 +101,42 @@ workspace paths are rejected at startup. External linked-worktree Git directorie
 are unsupported: use a standalone clone or a layout whose Git directory is entirely
 inside the mounted project. No unrelated host path is mounted automatically.
 
+## Working on this repo in a container
+
+This repository is the **generator**, not a consuming project — it has no `ai-project.json`
+and no generated `.claude/.codex/.opencode` definitions. To work on it inside the agent image,
+use the repo-root `compose.ai-dev.yml`, which sets `AGENT_TOOLSTACK_ONLY=1`. That mode wires
+**only the tool stack** — the Claude Code / Codex / OpenCode harnesses, the managed Serena,
+Playwright and Context7 MCP servers, Superpowers, and the GitHub CLI — and skips all
+project-specific state (no `ai-project.json` read, no `ado` server, no generated dev-cycle
+skills or subagents).
+
+The default image is the published base `marxx/ai-dev-workflow:latest`; no local build is
+needed. Override `AGENT_IMAGE` to use a locally built or pinned tag.
+
+POSIX, from the repository root:
+
+```bash
+export PROJECT_ROOT="$(pwd)" HOST_UID="$(id -u)" HOST_GID="$(id -g)"
+docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow gh auth login   # one-time
+docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow claude --dangerously-skip-permissions
+docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow codex --yolo
+docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow opencode
+docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow bash
+```
+
+PowerShell:
+
+```powershell
+$env:PROJECT_ROOT = (Get-Location).Path
+docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow gh auth login   # one-time
+docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow claude --dangerously-skip-permissions
+```
+
+The `agent-home` volume persists `/home/dev`, so the one-time `gh auth login` and each agent's
+own `login` survive across `run --rm` invocations. `npm test` (`node --test`) runs inside `bash`
+just as it does on the host.
+
 ## Authentication and persistence
 
 The Compose project owns an `agent-home` named volume at `/home/dev`. It persists

@@ -3,7 +3,22 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { buildLaunchPlan, configureRuntime } from './launch-agent.mjs';
+
+const scriptPath = fileURLToPath(new URL('./launch-agent.mjs', import.meta.url));
+
+// Bare workspace with NO ai-project.json / .mcp.json / .codex — proves tool-stack-only reads none of them.
+function bareWorkspace(t) {
+  const root = mkdtempSync(path.join(tmpdir(), 'agent-toolstack-'));
+  const workspace = path.join(root, 'workspace');
+  const home = path.join(root, 'home');
+  mkdirSync(workspace, { recursive: true });
+  mkdirSync(home);
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  return { root, workspace, home };
+}
 
 function fixture(t, backend = 'azure-devops') {
   const root = mkdtempSync(path.join(tmpdir(), 'agent-launcher-'));
@@ -121,4 +136,57 @@ test('missing ADO organization and unsupported agents fail clearly', t => {
   writeFileSync(path.join(workspace, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'azure-devops' } }));
   assert.throws(() => buildLaunchPlan('codex', [], { workspace, home }), /organization/);
   assert.throws(() => buildLaunchPlan('unknown', [], { workspace, home }), /Unsupported agent/);
+});
+
+test('tool-stack-only configureRuntime needs no ai-project.json', t => {
+  const { root, workspace, home } = bareWorkspace(t);
+  const serenaConfigFile = path.join(root, 'serena_config.yml');
+  writeFileSync(serenaConfigFile, 'projects: []\n');
+
+  assert.doesNotThrow(() => configureRuntime({
+    workspace, home, superpowersRoot: '/opt/superpowers', serenaConfigFile,
+    registerCodexPlugin: false, toolstackOnly: true,
+  }));
+  const codex = readFileSync(path.join(home, '.codex/config.toml'), 'utf8');
+  assert.match(codex, /trust_level = "trusted"/);
+  assert.match(codex, /superpowers@agent-runtime/);
+  assert.equal(readFileSync(path.join(home, '.cache/ai-dev-workflow/serena/serena_config.yml'), 'utf8'), 'projects: []\n');
+});
+
+test('tool-stack-only Codex plan emits only managed servers and never checks Azure', t => {
+  const { workspace, home } = bareWorkspace(t);
+  let azureChecked = false;
+  const plan = buildLaunchPlan('codex', ['--yolo'], {
+    workspace, home, toolstackOnly: true,
+    checkAzureAuth: () => { azureChecked = true; return false; },
+  });
+  assert.equal(azureChecked, false);
+  const flat = plan.args.join(' ');
+  assert.ok(flat.includes('mcp_servers.serena.command'));
+  assert.ok(flat.includes('mcp_servers.playwright.args'));
+  assert.ok(flat.includes('mcp_servers.context7.command'));
+  assert.ok(!flat.includes('mcp_servers.ado'));
+  assert.deepEqual(plan.args.slice(-1), ['--yolo']);
+});
+
+test('tool-stack-only Claude config has exactly the three managed servers', t => {
+  const { workspace, home } = bareWorkspace(t);
+  const plan = buildLaunchPlan('claude', ['--dangerously-skip-permissions'], {
+    workspace, home, toolstackOnly: true,
+  });
+  const configPath = plan.args[plan.args.indexOf('--mcp-config') + 1];
+  const effective = JSON.parse(readFileSync(configPath, 'utf8'));
+  assert.deepEqual(Object.keys(effective.mcpServers).sort(), ['context7', 'playwright', 'serena']);
+});
+
+test('CLI honors AGENT_TOOLSTACK_ONLY with no ai-project.json on disk', () => {
+  const result = spawnSync(process.execPath, [scriptPath, 'codex', '--yolo'], {
+    env: { ...process.env, AGENT_TOOLSTACK_ONLY: '1', AGENT_RUNTIME_PRINT_PLAN: '1' },
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const plan = JSON.parse(result.stdout);
+  const flat = plan.args.join(' ');
+  assert.ok(flat.includes('mcp_servers.serena.command'));
+  assert.ok(!flat.includes('mcp_servers.ado'));
 });
