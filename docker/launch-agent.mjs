@@ -60,7 +60,8 @@ function deepSort(value) {
   return Object.fromEntries(Object.keys(value).sort().map(key => [key, deepSort(value[key])]));
 }
 
-function readProjectState(workspace) {
+function readProjectState(workspace, { toolstackOnly = false } = {}) {
+  if (toolstackOnly) return { backend: undefined, organization: undefined, projectServers: {} };
   const identity = readJson(path.join(workspace, 'ai-project.json'), 'ai-project.json');
   if (!identity || typeof identity !== 'object') fail('ai-project.json is required in /workspace. Run the generator preparation on the host.');
   const backend = identity.ticketing?.backend;
@@ -146,8 +147,9 @@ export function configureRuntime({
   superpowersRoot = DEFAULT_SUPERPOWERS,
   serenaConfigFile = '/opt/serena-runtime/serena_config.yml',
   registerCodexPlugin = true,
+  toolstackOnly = false,
 } = {}) {
-  readProjectState(workspace);
+  readProjectState(workspace, { toolstackOnly });
   readJson(path.join(home, '.claude.json'), '~/.claude.json');
   readJsonc(path.join(home, '.config', 'opencode', 'opencode.json'), '~/.config/opencode/opencode.json');
   readJsonc(path.join(home, '.config', 'opencode', 'opencode.jsonc'), '~/.config/opencode/opencode.jsonc');
@@ -230,10 +232,11 @@ export function buildLaunchPlan(agent, forwardedArgs, {
   toolBin = REAL_BIN,
   checkAzureAuth = defaultAzureCheck,
   environment = process.env,
+  toolstackOnly = false,
 } = {}) {
   if (!AGENTS.has(agent)) fail(`Unsupported agent ${JSON.stringify(agent)}. Expected codex, claude, or opencode.`);
   if (!Array.isArray(forwardedArgs)) fail('Forwarded agent arguments must be an array.');
-  const project = readProjectState(workspace);
+  const project = readProjectState(workspace, { toolstackOnly });
   // The produced plan executes inside Linux even when unit tests run on Windows.
   const command = path.posix.join(toolBin, agent);
   if (isAgentLoginOrMaintenance(agent, forwardedArgs)) {
@@ -279,11 +282,13 @@ export function buildLaunchPlan(agent, forwardedArgs, {
 
 function runCli() {
   const [, , action, ...args] = process.argv;
+  const toolstackOnly = process.env.AGENT_TOOLSTACK_ONLY === '1';
   if (action === '--configure') {
-    configureRuntime();
+    configureRuntime({ toolstackOnly });
     return;
   }
   const plan = buildLaunchPlan(action, args, {
+    toolstackOnly,
     checkAzureAuth: process.env.AGENT_RUNTIME_PRINT_PLAN === '1' ? () => true : defaultAzureCheck,
   });
   if (process.env.AGENT_RUNTIME_PRINT_PLAN === '1') {
