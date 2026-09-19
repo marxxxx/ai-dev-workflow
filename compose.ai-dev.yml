@@ -35,7 +35,15 @@ services:
       - type: volume
         source: agent-home
         target: /home/dev
+      # Container-only dependency tree for docker/tools (the launcher and its unit tests
+      # resolve smol-toml / jsonc-parser from here). Masks the host install so a host-side
+      # `npm ci` and a container-side one never overwrite each other. Run `npm ci` in
+      # docker/tools inside the container before invoking those tests.
+      - type: volume
+        source: deps-docker-tools
+        target: /workspace/docker/tools/node_modules
     command: ["bash"]
 
 volumes:
   agent-home:
+  deps-docker-tools:
