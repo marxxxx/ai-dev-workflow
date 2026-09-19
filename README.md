@@ -264,6 +264,17 @@ container assets live under `docker/` and are **hand-maintained, not generated**
 [`docker/README.md`](docker/README.md) for the run model, mounts, auth/persistence, UID/GID mapping,
 and how a consuming project extends the base.
 
+To work on **this repository itself** in a container — tool stack only, without the generated
+dev-cycle skills and subagents — use the repo-root `compose.ai-dev.yml` (it sets
+`AGENT_TOOLSTACK_ONLY=1`):
+
+```bash
+export PROJECT_ROOT="$(pwd)" HOST_UID="$(id -u)" HOST_GID="$(id -g)"
+docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow bash
+```
+
+See [`docker/README.md`](docker/README.md) → *Working on this repo in a container*.
+
 ## License
 
 Apache-2.0
