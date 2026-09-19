@@ -18,6 +18,7 @@ services:
       - CHOWN
       - DAC_OVERRIDE
       - FOWNER
+      - KILL
       - SETUID
       - SETGID
     environment:
