@@ -590,3 +590,42 @@ test('a gitea login containing a space stays one shell argument in the rendered 
     cleanup();
   }
 });
+
+// Rendered copies of one unit across all three platforms.
+function renderedUnit(outputs, kind, name) {
+  const claude = kind === 'agents'
+    ? path.join('.claude', 'agents', `${name}.md`)
+    : path.join('.claude', 'skills', name, 'SKILL.md');
+  const codex = kind === 'agents'
+    ? path.join('.codex', 'agents', `${name}.toml`)
+    : path.join('.agents', 'skills', name, 'SKILL.md');
+  const opencode = kind === 'agents'
+    ? path.join('.opencode', 'agents', `${name}.md`)
+    : path.join('.opencode', 'skills', name, 'SKILL.md');
+  return [claude, codex, opencode].map((p) => {
+    const out = outputs.find((o) => o.path === p);
+    assert.ok(out, `expected rendered output ${p}`);
+    return out;
+  });
+}
+
+test('qa-engineer owns the evidence rules that dev-cycle no longer audits', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    for (const qa of renderedUnit(renderAll(root), 'agents', 'qa-engineer')) {
+      const c = qa.content;
+      assert.match(c, /## Evidence Rules/, qa.path);
+      assert.match(c, /mocked events/, `${qa.path}: internal-only verification is named`);
+      assert.match(c, /never `PASS`/, `${qa.path}: unexercised criteria cannot pass`);
+      assert.match(c, /route, control, and action/, `${qa.path}: UI criteria name their path`);
+      assert.match(c, /evidence paths/, `${qa.path}: per-criterion evidence`);
+      assert.match(c, /Never use it for functional behavior you could not test/, qa.path);
+      assert.match(c, /before\/after screenshots/, `${qa.path}: visual baseline screenshots`);
+      assert.match(c, /audit your own `Test Results`/, `${qa.path}: self-audit before transition`);
+      assert.match(c, /never move to `acceptance-test` on incomplete evidence/, qa.path);
+      assert.doesNotMatch(c, /\{\{.*?\}\}/, qa.path);
+    }
+  } finally {
+    cleanup();
+  }
+});

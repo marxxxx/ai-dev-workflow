@@ -25,9 +25,24 @@ the current implementation-review iteration.
    every criterion and its `PASS`, `FAIL`, `BLOCKED`, or `NEEDS HUMAN REVIEW` result, failure
    reproduction steps, blockers, and evidence references.
 
-Capture relevant screenshots and console/network errors for browser-tested UI criteria. When a safe
-checkout/worktree strategy is provided, compare subjective visual work with
-`{{repo.defaultBranch}}` without disturbing local changes.
+Capture relevant screenshots and console/network errors for browser-tested UI criteria.
+
+## Evidence Rules
+
+- A UI/interactive functional criterion is `PASS` only when exercised through user-visible behavior
+  in the running app. Unit tests, direct component or utility calls, mocked events, API calls, or
+  DOM state injection never justify that `PASS`. A criterion you could not exercise this way is
+  `BLOCKED` with the reason, never `PASS`.
+- For each browser-tested UI criterion, name the route, control, and action used, and reference its
+  evidence paths.
+- Use `NEEDS HUMAN REVIEW` only for subjective visual claims, or for UI/interactive criteria deferred
+  by the include's no-runtime path. Never use it for functional behavior you could not test.
+- For visual work, when a safe checkout/worktree strategy is provided, take before/after screenshots
+  against `{{repo.defaultBranch}}` without disturbing local changes.
+- Before any transition, audit your own `{{artifact.testResults}}`: every criterion present, every
+  browser-tested UI criterion with route, control, action, and evidence paths, and no unexercised
+  criterion marked `PASS`. If the audit fails, correct the results, or leave the ticket in `test`
+  and report the gap; never move to `acceptance-test` on incomplete evidence.
 
 ## Outcome And State
 
