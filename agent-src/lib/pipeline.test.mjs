@@ -617,6 +617,9 @@ test('qa-engineer owns the evidence rules that dev-cycle no longer audits', () =
       assert.match(c, /## Evidence Rules/, qa.path);
       assert.match(c, /mocked events/, `${qa.path}: internal-only verification is named`);
       assert.match(c, /never `PASS`/, `${qa.path}: unexercised criteria cannot pass`);
+      assert.match(c, /A UI\/interactive criterion you could not exercise/,
+        `${qa.path}: BLOCKED rule is scoped to UI criteria`);
+      assert.match(c, /needs no browser test/, `${qa.path}: non-UI criteria may PASS without one`);
       assert.match(c, /route, control, and action/, `${qa.path}: UI criteria name their path`);
       assert.match(c, /evidence paths/, `${qa.path}: per-criterion evidence`);
       assert.match(c, /Never use it for functional behavior you could not test/, qa.path);
@@ -638,7 +641,8 @@ test('code-reviewer checks UI test locators and the Test locators section', () =
       assert.match(c, /stable locators/, `${cr.path}: locator check present`);
       assert.match(c, /removed or renamed/, `${cr.path}: existing locators protected`);
       assert.match(c, /`Implementation Notes` lists them\s+under \*\*Test locators\*\*/, cr.path);
-      assert.match(c, /important finding/, `${cr.path}: missing locator blocks the review`);
+      assert.match(c, /or a missing section, is\s+an important finding/,
+        `${cr.path}: missing locator blocks the review`);
       assert.doesNotMatch(c, /\{\{.*?\}\}/, cr.path);
     }
   } finally {
@@ -654,7 +658,8 @@ test('dev-cycle PR description carries human steps and stays under 3000 characte
       assert.match(c, /under 3000 characters/, `${dc.path}: length limit stated`);
       assert.match(c, /human test steps/, `${dc.path}: acceptance steps required`);
       assert.match(c, /every `NEEDS HUMAN REVIEW` criterion/, `${dc.path}: review items carried`);
-      assert.match(c, /Test Results/, `${dc.path}: links QA results instead of copying`);
+      assert.match(c, /reference `Test Results` rather than copying\s+it/,
+        `${dc.path}: links QA results instead of copying`);
       // Coordinator boundary stays intact.
       assert.match(c, /reassess QA conclusions/, `${dc.path}: coordinator boundary kept`);
       assert.doesNotMatch(c, /\{\{.*?\}\}/, dc.path);
@@ -667,8 +672,9 @@ test('dev-cycle PR description carries human steps and stays under 3000 characte
 test('dev-cycle names every subagent by ticket, role, and counters on every platform', () => {
   const { root, cleanup } = tmpProject();
   try {
-    const skills = renderedUnit(renderAll(root), 'skills', 'dev-cycle');
-    for (const dc of skills) {
+    // renderedUnit returns [claude, codex, opencode], in that order.
+    const [claude, codex, opencode] = renderedUnit(renderAll(root), 'skills', 'dev-cycle');
+    for (const dc of [claude, codex, opencode]) {
       const c = dc.content;
       assert.match(c, /## Subagent Names/, dc.path);
       assert.match(c, /`ticket_<id>_developer_i<iteration>_c<continuation>`/, `${dc.path}: developer`);
@@ -676,9 +682,10 @@ test('dev-cycle names every subagent by ticket, role, and counters on every plat
       assert.match(c, /`ticket_<id>_qa_engineer_i<iteration>`/, `${dc.path}: QA`);
       assert.match(c, /`_r<n>`/, `${dc.path}: respawn at unchanged counters stays unique`);
     }
-    // Codex pins the name to spawn_agent's task_name field.
-    const codex = skills[1];
+    // Only the Codex overlay pins the shared name to spawn_agent's task_name field.
     assert.match(codex.content, /name from `## Subagent Names` as `task_name`/, codex.path);
+    assert.doesNotMatch(claude.content, /task_name/, claude.path);
+    assert.doesNotMatch(opencode.content, /task_name/, opencode.path);
   } finally {
     cleanup();
   }

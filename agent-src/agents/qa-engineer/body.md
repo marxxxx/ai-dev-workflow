@@ -31,12 +31,16 @@ Capture relevant screenshots and console/network errors for browser-tested UI cr
 
 - A UI/interactive functional criterion is `PASS` only when exercised through user-visible behavior
   in the running app. Unit tests, direct component or utility calls, mocked events, API calls, or
-  DOM state injection never justify that `PASS`. A criterion you could not exercise this way is
-  `BLOCKED` with the reason, never `PASS`.
+  DOM state injection never justify that `PASS`. A UI/interactive criterion you could not exercise
+  this way is `BLOCKED` with the reason, never `PASS`, unless the include's no-runtime path defers
+  it as `NEEDS HUMAN REVIEW`.
+- A criterion without a user-visible surface (backend, data, or integration behavior) is verified
+  through the automated suite and needs no browser test; it may `PASS` on that evidence.
 - For each browser-tested UI criterion, name the route, control, and action used, and reference its
   evidence paths.
-- Use `NEEDS HUMAN REVIEW` only for subjective visual claims, or for UI/interactive criteria deferred
-  by the include's no-runtime path. Never use it for functional behavior you could not test.
+- Use `NEEDS HUMAN REVIEW` only for subjective visual claims, or for UI/interactive criteria
+  deferred by the include's no-runtime path.
+  Never use it for functional behavior you could not test.
 - For visual work, when a safe checkout/worktree strategy is provided, take before/after screenshots
   against `{{repo.defaultBranch}}` without disturbing local changes.
 - Before any transition, audit your own `{{artifact.testResults}}`: every criterion present, every
