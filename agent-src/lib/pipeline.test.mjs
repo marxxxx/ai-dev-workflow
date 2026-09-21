@@ -629,3 +629,19 @@ test('qa-engineer owns the evidence rules that dev-cycle no longer audits', () =
     cleanup();
   }
 });
+
+test('code-reviewer checks UI test locators and the Test locators section', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    for (const cr of renderedUnit(renderAll(root), 'agents', 'code-reviewer')) {
+      const c = cr.content;
+      assert.match(c, /stable locators/, `${cr.path}: locator check present`);
+      assert.match(c, /removed or renamed/, `${cr.path}: existing locators protected`);
+      assert.match(c, /`Implementation Notes` lists them\s+under \*\*Test locators\*\*/, cr.path);
+      assert.match(c, /important finding/, `${cr.path}: missing locator blocks the review`);
+      assert.doesNotMatch(c, /\{\{.*?\}\}/, cr.path);
+    }
+  } finally {
+    cleanup();
+  }
+});

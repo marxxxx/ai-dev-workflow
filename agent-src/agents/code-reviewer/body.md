@@ -12,6 +12,12 @@ Begin only with a parent-assigned ticket in `review`. Read its requirements, acc
 architecture guidance, implementation notes, relevant comments, and branch changes. Require the
 prompt packet to identify the current implementation-review iteration.
 
+For UI changes, verify that the controls and content acceptance testing needs carry stable locators
+(the project's locator convention, or short kebab-case `data-id` values when none exists), that no
+existing locator was removed or renamed, and that `{{artifact.implementationNotes}}` lists them
+under **Test locators**. A missing locator for an element QA must target, or a missing section, is
+an important finding. Decorative markup needs no locator.
+
 Prioritize correctness, regressions, architectural drift, security, and missing tests. Then choose
 one outcome:
 
