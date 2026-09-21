@@ -645,3 +645,21 @@ test('code-reviewer checks UI test locators and the Test locators section', () =
     cleanup();
   }
 });
+
+test('dev-cycle PR description carries human steps and stays under 3000 characters', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    for (const dc of renderedUnit(renderAll(root), 'skills', 'dev-cycle')) {
+      const c = dc.content;
+      assert.match(c, /under 3000 characters/, `${dc.path}: length limit stated`);
+      assert.match(c, /human test steps/, `${dc.path}: acceptance steps required`);
+      assert.match(c, /every `NEEDS HUMAN REVIEW` criterion/, `${dc.path}: review items carried`);
+      assert.match(c, /Test Results/, `${dc.path}: links QA results instead of copying`);
+      // Coordinator boundary stays intact.
+      assert.match(c, /reassess QA conclusions/, `${dc.path}: coordinator boundary kept`);
+      assert.doesNotMatch(c, /\{\{.*?\}\}/, dc.path);
+    }
+  } finally {
+    cleanup();
+  }
+});
