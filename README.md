@@ -275,6 +275,11 @@ docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow bash
 
 See [`docker/README.md`](docker/README.md) → *Working on this repo in a container*.
 
+Behind a TLS-inspecting corporate proxy, mount the company root certificates with the
+`docker/docker-compose.certs.yml` overlay and pass the proxy variables; the published images
+install them at startup, so no per-company image build is needed. See
+[`docker/README.md`](docker/README.md) → *Corporate TLS inspection*.
+
 ## License
 
 Apache-2.0

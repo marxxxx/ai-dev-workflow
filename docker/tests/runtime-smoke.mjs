@@ -127,7 +127,11 @@ try {
   ok(run(['bash', '-c', 'test "$(id -u)" = 12346 && test "$(stat -c %u "$HOME/persistence")" = 12346 && echo remapped >> "$HOME/persistence"'], { env: { ...env, HOST_UID: '12346', HOST_GID: '12346' } }));
   ok(run(['bash', '-c', 'test ! -e "$HOME/persistence"'], { name: projects[1] }));
   assert.equal(run(['bash', '-c', 'exit 37']).status, 37);
-  ok(run(['bash', '-c', 'test ! -S /var/run/docker.sock && test ! -d /host && test -r /workspace/.agents/skills/example/SKILL.md']));
+  // Without the certs overlay, company CA installation is a complete no-op.
+  ok(run(['bash', '-c', [
+    'test ! -S /var/run/docker.sock && test ! -d /host && test -r /workspace/.agents/skills/example/SKILL.md',
+    'test ! -e /etc/ssl/agent-extra-ca.pem && test -z "${NODE_EXTRA_CA_CERTS:-}" && test -z "${SSL_CERT_FILE:-}"',
+  ].join(' && ')]));
   writeFileSync(path.join(project, '.git'), 'gitdir: /outside/git/worktrees/agent\n');
   assert.notEqual(run(['true']).status, 0);
   rmSync(path.join(project, '.git'));
