@@ -663,3 +663,23 @@ test('dev-cycle PR description carries human steps and stays under 3000 characte
     cleanup();
   }
 });
+
+test('dev-cycle names every subagent by ticket, role, and counters on every platform', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const skills = renderedUnit(renderAll(root), 'skills', 'dev-cycle');
+    for (const dc of skills) {
+      const c = dc.content;
+      assert.match(c, /## Subagent Names/, dc.path);
+      assert.match(c, /`ticket_<id>_developer_i<iteration>_c<continuation>`/, `${dc.path}: developer`);
+      assert.match(c, /`ticket_<id>_code_reviewer_i<iteration>`/, `${dc.path}: reviewer`);
+      assert.match(c, /`ticket_<id>_qa_engineer_i<iteration>`/, `${dc.path}: QA`);
+      assert.match(c, /`_r<n>`/, `${dc.path}: respawn at unchanged counters stays unique`);
+    }
+    // Codex pins the name to spawn_agent's task_name field.
+    const codex = skills[1];
+    assert.match(codex.content, /name from `## Subagent Names` as `task_name`/, codex.path);
+  } finally {
+    cleanup();
+  }
+});

@@ -37,6 +37,18 @@ Spawn every role in a fresh context with a self-contained packet. Include only:
 Direct subagents to durable context (`AGENTS.md`, the ticket and relevant comments, branch diff,
 code, and tests), not parent conversation history.
 
+## Subagent Names
+
+Name every spawned subagent after its ticket, role, and counters. Pass the name in the spawn tool's
+name or label field (the task description where no name field exists):
+
+- developer: `ticket_<id>_developer_i<iteration>_c<continuation>`, initial continuation `0`;
+- code reviewer: `ticket_<id>_code_reviewer_i<iteration>`;
+- QA engineer: `ticket_<id>_qa_engineer_i<iteration>`.
+
+When a role is respawned at unchanged counters (bounded recovery, or QA repeated after `BLOCKED`),
+append `_r<n>`, starting at `1`, so every name stays unique.
+
 ## States
 
 | State | Dispatch |
