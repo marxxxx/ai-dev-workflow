@@ -232,6 +232,56 @@ chown the project. Capability reductions retain only the setup capabilities need
 for remapping and privilege drop; commands run non-root. Exit codes and signals
 propagate through the entrypoint and Compose init process.
 
+## Corporate TLS inspection
+
+Behind a TLS-inspecting proxy every outbound call (harness logins, `npx`, `gh`, `az`,
+`git`, package restores) fails until the container trusts the company root certificates.
+No per-company image build is needed: the published images install certificates from a
+read-only mount at startup.
+
+1. Put the company root certificates in one host directory. Accepted files (top level
+   only) are `*.crt`, `*.pem`, `*.cer` and `*.cert`, as PEM or DER; a PEM bundle with
+   several certificates is fine. Other files are skipped with a warning.
+2. Copy [`docker-compose.certs.yml`](docker-compose.certs.yml) alongside
+   `compose.ai-dev.yml` as `compose.ai-dev.certs.yml` and set `AGENT_CA_DIR` to that
+   directory's absolute path.
+3. Set the proxy variables (`HTTPS_PROXY`, `HTTP_PROXY`, `NO_PROXY`; both upper- and
+   lowercase are passed through because Go, Node, curl/git and Python read different ones).
+   Keep `localhost,127.0.0.1,::1` in `NO_PROXY`, or the agent's own E2E traffic to the app
+   under test is routed through the corporate proxy.
+4. Pass the overlay as a second `-f`:
+
+```powershell
+docker compose --env-file .env.ai-dev -f compose.ai-dev.yml -f compose.ai-dev.certs.yml `
+  run --rm ai-dev-workflow claude
+```
+
+`COMPOSE_FILE=compose.ai-dev.yml:compose.ai-dev.certs.yml` (`;` as separator on Windows)
+avoids repeating both `-f`. The overlay applies unchanged to the repo-root self-dev
+`compose.ai-dev.yml`.
+
+On every start the entrypoint, still as root, splits each certificate into its own file
+under `/usr/local/share/ca-certificates/agent-extra/` (DER is converted), runs
+`update-ca-certificates` and prints `agent runtime: trusted N company root certificate(s)`.
+The commands then run with:
+
+| Variable | Value | Consumers |
+| --- | --- | --- |
+| `NODE_EXTRA_CA_CERTS` | `/etc/ssl/agent-extra-ca.pem` (company roots only) | Node and Bun: Claude Code, OpenCode, `npx`-started MCP servers such as `ado` |
+| `SSL_CERT_FILE` | `/etc/ssl/certs/ca-certificates.crt` (full system bundle) | OpenSSL-based clients, `gh` (Go), `uv` |
+| `REQUESTS_CA_BUNDLE` | `/etc/ssl/certs/ca-certificates.crt` | Python `requests`, e.g. Azure CLI |
+
+curl, git and .NET (`SSL_CERT_DIR`) read the system store directly. Certificates are
+re-installed from the mount on every start and never baked into an image; removing a
+file from the directory removes its trust on the next start. The mount target is
+read-only and outside `/workspace` and `/home/dev`, so an agent cannot plant a root CA
+for the next start to install. Without the overlay none of this runs and none of the
+variables is set. `docker exec` into a running container does not pass through the
+entrypoint, so such shells lack these variables; the system OpenSSL store is still
+correct there.
+
+Playwright's Chromium uses its own NSS database and does not see the company roots yet.
+
 ## Separating host and container dependencies
 
 Everything below `$HOME` is already isolated: the NuGet package cache, the npm cache, uv
@@ -314,6 +364,8 @@ Certificate, private key and trust live in the `agent-home` volume, one per Comp
 project, and are never part of the published image. The first start in a new
 volume takes a few seconds longer. Node.js clients use their bundled CA list and do
 not see this trust; browsers on the host do not trust the container's certificate.
+Company root certificates are a separate mechanism and *are* visible to Node through
+`NODE_EXTRA_CA_CERTS` — see [Corporate TLS inspection](#corporate-tls-inspection).
 
 The default topology does **not** support Testcontainers or other Docker API clients.
 A MongoDB sidecar does not satisfy that requirement. Full integration testing needs
