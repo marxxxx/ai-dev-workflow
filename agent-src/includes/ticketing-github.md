@@ -22,9 +22,9 @@ Statuses are stored as GitHub labels on the issue.
 | `{{status.new}}` | Ready for development | Product-architect (on issue creation) |
 | `{{status.in-progress}}` | Developer actively working | Developer (before starting work) |
 | `{{status.review}}` | Implementation complete, awaiting code review | Developer (after implementation) |
-| `{{status.test}}` | Code review passed, ready for QA testing | Orchestrator (after review passes) |
-| `{{status.acceptance-test}}` | Automated workflow complete, PR open | Orchestrator (after QA passes) |
-| `{{status.failed}}` | Code review or QA testing found issues | Orchestrator (on review/test failure) |
+| `{{status.test}}` | Code review passed, ready for QA testing | Code reviewer (after review passes) |
+| `{{status.acceptance-test}}` | Automated workflow complete, PR open | QA engineer (after QA passes) |
+| `{{status.failed}}` | Code review or QA testing found issues | Code reviewer or QA engineer (on failure); orchestrator only when it rejects QA evidence |
 | **Closed** | Human has verified and accepted | **Human only — NEVER closed by automation** |
 
 ## Upstream Ticket

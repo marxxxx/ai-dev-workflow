@@ -28,6 +28,15 @@ concurrent runs from mixing their numbers, each run owns a **ledger file at a un
 - `<nonce>` is a random token (e.g. 8+ hex chars) generated once when the run starts. Two runs of the
   same ticket never collide because each generates its own nonce.
 
+**The journal remembers every ledger.** An interrupted run leaves its ledger behind, and the run that
+resumes the ticket must still price it. So the orchestrator appends each new ledger's **basename**
+(`<ticket>-<nonce>.json`) to the `Cost ledger ids` field of the ticket's `{{artifact.journal}}` (see
+`{{handoff.include}}`) in the same step that creates the file. Never store an absolute local path on
+the ticket. On restart, resolve the listed basenames under the current machine's
+`<os-temp-dir>/ai-dev-workflow-cost/` and reuse the newest one that exists as this run's ledger. If
+none exists — a different machine, or a cleared temp directory — create a new ledger, append its id,
+and keep the missing ids listed: they become named gaps in the final summary.
+
 Ledger shape:
 
 ```json
@@ -69,8 +78,8 @@ note rather than guessing — the summary will show the gap instead of a wrong n
 
 ## Who records, and when
 
-- **Orchestrator (`dev-cycle`)** — creates the ledger at the start of each ticket and records its own
-  session with `phase: "orchestrator"`.
+- **Orchestrator (`dev-cycle`)** — reuses or creates the ledger at the start of each ticket (see
+  above), records its id in the journal, and records its own session with `phase: "orchestrator"`.
 - **Subagents (`developer`, `code-reviewer`, `qa-engineer`)** — when the prompt packet includes a
   cost-ledger path, append an entry with the matching `phase` before finishing. (On Claude Code this
   is a no-op by design, since the subagent shares the orchestrator's session — recording it again is
@@ -82,13 +91,14 @@ note rather than guessing — the summary will show the gap instead of a wrong n
 
 ## Producing the summary (at `{{status.acceptance-test}}`)
 
-When the orchestrator moves a ticket to `{{status.acceptance-test}}`:
+Once a ticket reaches `{{status.acceptance-test}}` and the orchestrator has audited the QA result:
 
-1. **Idempotency** — if a `{{artifact.costSummary}}` comment already exists on the ticket, stop; do
-   not post a second one (handles re-runs on an already-`{{status.acceptance-test}}` ticket where the
-   ledger from the original run is gone).
+1. **Idempotency** — if a `{{artifact.costSummary}}` comment already exists on the ticket, do not
+   price or post a second one (handles re-runs on an already-`{{status.acceptance-test}}` ticket), but
+   still perform the cleanup in step 6.
 2. Collect the sessions to price:
-   - every entry in this run's ledger, and
+   - every entry in every available ledger listed in the journal's `Cost ledger ids` — earlier,
+     interrupted runs of this ticket included; list each missing ledger id as a gap, and
    - the `{{artifact.costOrigin}}` marker on the ticket (the product-architect session), if present.
    Deduplicate by `(harness, sessionId)` — this collapses Claude Code's shared session that multiple
    phases reported.
@@ -127,11 +137,12 @@ When the orchestrator moves a ticket to `{{status.acceptance-test}}`:
 5. Post the table as the `{{artifact.costSummary}}` comment using `{{ticketing.include}}`. State that
    USD is an estimate computed locally by ccusage from token counts and may differ from an actual
    bill.
-6. **Clean up** — delete the run's ledger file.
+6. **Clean up** — delete every listed ledger file that exists and set `Cost ledger ids` to `cleaned`,
+   before any backend-specific journal cleanup in `{{ticketing.include}}`.
 
 ## Degradation
 
 Cost reporting must never block the handoff. If `ccusage` is not installed, a session id is missing,
-or a lookup fails, still move the ticket to `{{status.acceptance-test}}` and post a
+or a lookup fails, still proceed with the `{{status.acceptance-test}}` handoff and post a
 `{{artifact.costSummary}}` comment that names what was unavailable (e.g. "ccusage not installed — no
 cost data" or "product-architect session not recorded"), so the gap is visible rather than silent.

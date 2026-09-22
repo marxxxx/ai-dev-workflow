@@ -590,3 +590,44 @@ test('a gitea login containing a space stays one shell argument in the rendered 
     cleanup();
   }
 });
+
+// Every backend's status table must name the agent that actually performs each transition; the
+// reviewer and QA bodies own test/failed/acceptance-test, so the table must not defer them.
+test('ticketing includes assign review and QA transitions to the agents that perform them', () => {
+  const dir = path.join(import.meta.dirname, '..', 'includes');
+  for (const file of fs.readdirSync(dir).filter((f) => f.startsWith('ticketing-'))) {
+    const rows = fs.readFileSync(path.join(dir, file), 'utf8').split('\n');
+    const setBy = (state) => rows.find((r) => r.startsWith(`| \`{{status.${state}}}\``))?.split('|').at(-2) ?? '';
+    assert.match(setBy('test'), /Code reviewer/, `${file}: test must be set by the code reviewer`);
+    assert.match(setBy('acceptance-test'), /QA engineer/, `${file}: acceptance-test must be set by QA`);
+    assert.match(setBy('failed'), /Code reviewer or QA engineer/, `${file}: failed must be set by reviewer/QA`);
+  }
+});
+
+// Loop counters, the consumed-handoff marker, and ledger ids must survive an orchestrator restart,
+// so they live in the journal and the failure artifacts carry their iteration.
+test('renderAll persists restart-safe loop state in the journal and failure artifacts', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const outputs = renderAll(root);
+    const find = (p) => outputs.find((o) => o.path === p).content;
+    const handoff = find('.agents/includes/handoff.md');
+    const cost = find('.agents/includes/cost.md');
+
+    for (const field of ['Implementation-review iteration:', 'Continuation count:',
+      'Cost ledger ids:', 'Last consumed handoff:']) {
+      assert.ok(handoff.includes(field), `the journal must persist "${field}"`);
+    }
+    assert.match(handoff, /in one journal write\*\*, increment the count and set `Last consumed handoff`/,
+      'a continuation must be marked consumed before it is spawned');
+    assert.match(cost, /every available ledger listed in the journal's `Cost ledger ids`/,
+      'the summary must aggregate ledgers from interrupted runs');
+
+    for (const agent of ['code-reviewer', 'qa-engineer']) {
+      assert.match(find(path.join('.claude', 'agents', `${agent}.md`)), /first line is `Implementation iteration: <number>`/,
+        `${agent} must stamp its artifact with the implementation-review iteration`);
+    }
+  } finally {
+    cleanup();
+  }
+});

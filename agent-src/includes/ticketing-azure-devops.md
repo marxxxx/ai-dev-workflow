@@ -42,9 +42,9 @@ nudged alongside for board visibility only.
 | `{{status.new}}` | `{{azureState.new}}` | Ready for development | Product-architect (on creation) |
 | `{{status.in-progress}}` | `{{azureState.in-progress}}` | Developer actively working | Developer (before starting) |
 | `{{status.review}}` | `{{azureState.review}}` | Implementation complete, awaiting review | Developer (after implementation) |
-| `{{status.test}}` | `{{azureState.test}}` | Review passed, ready for QA | Orchestrator (after review passes) |
-| `{{status.acceptance-test}}` | `{{azureState.acceptance-test}}` | Automated workflow complete, PR open | Orchestrator (after QA passes) |
-| `{{status.failed}}` | `{{azureState.failed}}` | Review or QA found issues | Orchestrator (on failure) |
+| `{{status.test}}` | `{{azureState.test}}` | Review passed, ready for QA | Code reviewer (after review passes) |
+| `{{status.acceptance-test}}` | `{{azureState.acceptance-test}}` | Automated workflow complete, PR open | QA engineer (after QA passes) |
+| `{{status.failed}}` | `{{azureState.failed}}` | Review or QA found issues | Code reviewer or QA engineer (on failure); orchestrator only when it rejects QA evidence |
 | **Done / Closed** | `Done` | Human has verified and accepted | **Human only — NEVER set by automation** |
 
 Tags are a single semicolon-separated string in the `System.Tags` field. A status transition

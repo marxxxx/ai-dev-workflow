@@ -1,3 +1,5 @@
 .claude/settings.local.json
 .worktrees/
 docker/tools/node_modules/
+.vs
+

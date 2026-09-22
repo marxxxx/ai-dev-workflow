@@ -19,8 +19,11 @@ When your prompt packet provides a `{{artifact.journal}}` comment id, read `{{ha
 is the single source of truth for that comment — the living checklist you edit in place, the
 criterion-boundary stop rule, and the handoff you write into it when a ticket does not fit one
 session. Read and update it by id using the commands in `{{ticketing.include}}`; never re-read the
-whole ticket to find it. If the packet marks this attempt a continuation, read the journal comment
-**before exploring the codebase** — the map it carries exists precisely so you do not re-derive it.
+whole ticket to find it. Leave its `### Sizing` and `### Orchestration` values exactly as you found
+them — only the orchestrator changes them — and stamp any handoff you write with the iteration and
+continuation number from your packet. If the packet marks this attempt a continuation, read the
+journal comment **before exploring the codebase** — the map it carries exists precisely so you do
+not re-derive it.
 
 - Before editing code for a new ticket, read it and its comments, then move it to the
   **in-progress** state.

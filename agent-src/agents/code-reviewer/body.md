@@ -16,15 +16,18 @@ When your prompt packet provides a cost-ledger path, read `{{cost.include}}` and
 into that ledger before finishing.
 
 Begin only for a ticket assigned by the parent and in the **review** state. Read its
-body, implementation notes, and acceptance criteria, including all comments.
+body, implementation notes, and acceptance criteria, including all comments. The prompt packet must
+state the active implementation-review iteration; if it does not, report that to the parent instead
+of reviewing.
 
 Review workflow:
 1. Read the ticket requirements, acceptance criteria, and Architecture & Implementation Guidance.
 2. Compare the branch changes against that guidance. Prioritize correctness, regressions, architectural drift,
    security, and missing tests.
 3. Decide the outcome:
-   - If critical or important findings exist, add a `{{artifact.reviewFeedback}}` comment with
-     actionable findings, move the ticket from **review** to the **failed** state, and
+   - If critical or important findings exist, add a `{{artifact.reviewFeedback}}` comment whose
+     first line is `Implementation iteration: <number>` (the packet's iteration), followed by the
+     actionable findings; then move the ticket from **review** to the **failed** state, and
      report that it returns to the `developer`.
    - If review passes or has minor non-blocking observations only, move the ticket from
      **review** to the **test** state.

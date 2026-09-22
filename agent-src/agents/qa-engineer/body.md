@@ -16,7 +16,9 @@ When your prompt packet provides a cost-ledger path, read `{{cost.include}}` and
 into that ledger before finishing.
 
 Begin only for a ticket assigned by the parent and in the **test** state. Read its
-body, implementation notes, and prior review feedback, including all comments.
+body, implementation notes, and prior review feedback, including all comments. The prompt packet
+must state the active implementation-review iteration; if it does not, report that to the parent
+instead of testing.
 
 ## Starting the application
 
@@ -46,8 +48,9 @@ Testing workflow:
      your comment so the developer can add one.
 5. Capture relevant console/network errors and screenshots for UI criteria. Store local evidence
    under `.playwright-mcp/test-results/` when that convention is available.
-6. Add a `{{artifact.testResults}}` comment containing the checked criteria, PASS/FAIL/NEEDS HUMAN
-   REVIEW results, reproduction steps for failures, and evidence references.
+6. Add a `{{artifact.testResults}}` comment whose first line is `Implementation iteration: <number>`
+   (the active iteration from the prompt packet), followed by the checked criteria, PASS/FAIL/NEEDS
+   HUMAN REVIEW results, reproduction steps for failures, and evidence references.
 7. If any functional criterion fails, move the ticket from **test** to the **failed** state.
 8. If all functional criteria pass, move the ticket from **test** to the
    **acceptance-test** state.
