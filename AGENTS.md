@@ -91,3 +91,7 @@ hand-edit them (`node docker/tools/inventory.mjs update | sync | check`). See `d
   mechanics (currently just `skills/dev-cycle/overlays/codex.md`).
 - A consuming project's `AGENTS.md` / `CLAUDE.md` are hand-owned and never generated; the qa-engineer
   is pointed at its e2e section instead of shipping start/stop scripts.
+
+## TDD Workstyle
+- Write tests only for logic / code.
+- Never write tests when changing prose just for the sake of following the TDD cycle. 
