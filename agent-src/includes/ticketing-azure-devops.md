@@ -129,11 +129,17 @@ wit_work_item_link_write(action: "link", project: "{{ticketing.azure.project}}",
 wit_work_item_comment_write(action: "add", workItemId: <impl-id>,
   project: "{{ticketing.azure.project}}", format: "Markdown",
   text: "**Upstream:** <upstream-url>")
+
+# No upstream ticket: record the explicit answer required by the product-architect's creation gate.
+wit_work_item_comment_write(action: "add", workItemId: <impl-id>,
+  project: "{{ticketing.azure.project}}", format: "Markdown",
+  text: "**Upstream:** None")
 ```
 
-Recording an upstream ticket is optional — skip it when there is none; the implementation work item is
-then the single source of truth. The upstream ticket number also drives the feature-branch name (see Git
-Branching Convention). A later agent reads it back from whichever record was used: relations via
+An upstream ticket is optional, but recording the answer is mandatory — use `**Upstream:** None` when
+there is none; the implementation work item is then the single source of truth. The upstream ticket
+number also drives the feature-branch name (see Git Branching Convention). A later agent reads it back
+from whichever record was used: relations via
 `wit_work_item(action: "get", id, expand: "All")`, or the `**Upstream:**` comment via
 `wit_work_item(action: "list_comments", workItemId)`.
 
@@ -248,6 +254,9 @@ The MCP server exposes no comment delete — correct for the journal, which is e
 - [ ] Requirement 1
 - [ ] Requirement 2
 
+## Explicit Exclusions
+- [Out-of-scope behavior, or None]
+
 ## Architecture & Implementation Guidance
 [High-level technical approach agreed upon with the human.]
 
@@ -267,8 +276,12 @@ The MCP server exposes no comment delete — correct for the journal, which is e
 [List dependent work items or "None"]
 
 ## Acceptance Criteria
+### Functional Criteria
 - [ ] Criterion 1
 - [ ] Criterion 2
+
+### Visual Criteria [HUMAN REVIEW]
+- [ ] [VISUAL - HUMAN REVIEW] [Subjective criterion; omit section when none]
 ```
 
 ### Bug Template
@@ -291,6 +304,9 @@ The MCP server exposes no comment delete — correct for the journal, which is e
 - Screenshots: [attach or reference]
 - Console errors: [relevant error messages]
 
+## Explicit Exclusions
+- [Out-of-scope behavior, or None]
+
 ## Architecture & Implementation Guidance
 ### Likely Root Cause
 [Analysis of where the bug likely originates]
@@ -299,15 +315,20 @@ The MCP server exposes no comment delete — correct for the journal, which is e
 [High-level guidance on how to fix it]
 
 ## Acceptance Criteria
+### Functional Criteria
 - [ ] Bug no longer occurs when following reproduction steps
+
+### Visual Criteria [HUMAN REVIEW]
+- [ ] [VISUAL - HUMAN REVIEW] [Subjective criterion; omit section when none]
 ```
 
 ## Git Branching Convention
 
 - Branch name: `{{git.branchPattern}}` (for example `feat/42_user-login`).
-- When the work item is linked to an upstream ticket (a `System.LinkTypes.Related` relation, or a
-  `Hyperlink` to an external requirement), the branch's first segment is the **upstream ticket number**
-  instead of the implementation work-item id — for example an upstream PBI `12345` uses
-  `feat/12345_user-login`. With no upstream ticket, use the implementation work-item id as before.
+- When the work item records an upstream ticket (a `System.LinkTypes.Related` relation, or an
+  `**Upstream:**` comment for an external requirement), the branch's first segment is the **upstream
+  ticket number** instead of the implementation work-item id — for example an upstream PBI `12345` uses
+  `feat/12345_user-login`. With no upstream ticket (`**Upstream:** None`), use the implementation
+  work-item id as before.
 - All implementation work happens on the feature branch.
 - Merged into `{{git.prTarget}}` only after human acceptance.

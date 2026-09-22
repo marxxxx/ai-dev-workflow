@@ -190,6 +190,9 @@ Filter the JSON for the entry whose body starts with `## {{artifact.journal}}` a
 - [ ] Requirement 1
 - [ ] Requirement 2
 
+## Explicit Exclusions
+- [Out-of-scope behavior, or None]
+
 ## Architecture & Implementation Guidance
 [High-level technical approach agreed upon with the human.]
 
@@ -209,8 +212,12 @@ Filter the JSON for the entry whose body starts with `## {{artifact.journal}}` a
 [List dependent issues or "None"]
 
 ## Acceptance Criteria
+### Functional Criteria
 - [ ] Criterion 1
 - [ ] Criterion 2
+
+### Visual Criteria [HUMAN REVIEW]
+- [ ] [VISUAL - HUMAN REVIEW] [Subjective criterion; omit section when none]
 ```
 
 ### Bug Issue Template
@@ -235,6 +242,9 @@ Filter the JSON for the entry whose body starts with `## {{artifact.journal}}` a
 - Screenshots: [attach or reference]
 - Console errors: [relevant error messages]
 
+## Explicit Exclusions
+- [Out-of-scope behavior, or None]
+
 ## Architecture & Implementation Guidance
 ### Likely Root Cause
 [Analysis of where the bug likely originates]
@@ -243,7 +253,11 @@ Filter the JSON for the entry whose body starts with `## {{artifact.journal}}` a
 [High-level guidance on how to fix it]
 
 ## Acceptance Criteria
+### Functional Criteria
 - [ ] Bug no longer occurs when following reproduction steps
+
+### Visual Criteria [HUMAN REVIEW]
+- [ ] [VISUAL - HUMAN REVIEW] [Subjective criterion; omit section when none]
 ```
 
 ## Git Branching Convention

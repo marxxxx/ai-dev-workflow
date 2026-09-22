@@ -45,7 +45,8 @@ field as the originating ticket number or URL (for example `upstream: "AB#12345"
 `upstream: "https://dev.azure.com/org/project/_workitems/edit/12345"`). This links the implementation
 issue back to the requirement's source and drives the feature-branch name (see Git Branching
 Convention). The field is optional: leave it empty (`upstream: ""`) when there is no upstream ticket —
-the issue itself is then the single source of truth.
+that empty value is how this backend records the explicit "None" answer, and the issue itself is then
+the single source of truth.
 
 ## Commands Reference
 
@@ -207,6 +208,9 @@ upstream: ""
 - [ ] Requirement 1
 - [ ] Requirement 2
 
+## Explicit Exclusions
+- [Out-of-scope behavior, or None]
+
 ## Architecture & Implementation Guidance
 [High-level technical approach agreed upon with the human.]
 
@@ -226,8 +230,12 @@ upstream: ""
 None
 
 ## Acceptance Criteria
+### Functional Criteria
 - [ ] Criterion 1
 - [ ] Criterion 2
+
+### Visual Criteria [HUMAN REVIEW]
+- [ ] [VISUAL - HUMAN REVIEW] [Subjective criterion; omit section when none]
 ```
 
 ### Bug Issue Template
@@ -258,6 +266,9 @@ upstream: ""
 - Screenshots: [attach or reference]
 - Console errors: [relevant error messages]
 
+## Explicit Exclusions
+- [Out-of-scope behavior, or None]
+
 ## Architecture & Implementation Guidance
 ### Likely Root Cause
 [Analysis of where the bug likely originates]
@@ -266,7 +277,11 @@ upstream: ""
 [High-level guidance on how to fix it]
 
 ## Acceptance Criteria
+### Functional Criteria
 - [ ] Bug no longer occurs when following reproduction steps
+
+### Visual Criteria [HUMAN REVIEW]
+- [ ] [VISUAL - HUMAN REVIEW] [Subjective criterion; omit section when none]
 ```
 
 ## Git Branching Convention
