@@ -9,28 +9,26 @@ generate the per-platform files.
 ## Workflow
 
 1. Edit a unit's `body.md` (shared, platform-neutral prose) or `manifest.json` (per-platform config).
-2. Run the generator:
+2. Run `npm test`, then render into a consuming project to inspect the output (this repo has no
+   `ai-project.json` and no generated files of its own):
 
    ```bash
-   node agent-src/generate.mjs
+   node agent-src/generate.mjs generate --root <project>
    ```
 
-3. Commit the changed `agent-src/` sources **and** the regenerated platform files together.
-
 Every generated file carries a `DO NOT EDIT — generated from agent-src/…` banner. Hand-edits are
-caught by `node agent-src/generate.mjs --check` (renders in memory and diffs against disk; exits
-non-zero on drift — suitable for a pre-commit hook or CI gate).
+caught by `generate.mjs check` (renders in memory and diffs against disk; exits non-zero on drift).
 
 ## Layout
 
 ```
 agent-src/
-  generate.mjs                 # entrypoint: zero-dependency Node CLI (parse argv + dispatch); also --check
+  generate.mjs                 # entrypoint: zero-dependency Node CLI (parse argv + dispatch)
   lib/                         # feature modules the entrypoint composes:
     constants.mjs serialize.mjs identity.mjs config.mjs tokens.mjs units.mjs
-    ticketing.mjs renderers.mjs onboard.mjs pipeline.mjs
+    ticketing.mjs app.mjs cost.mjs handoff.mjs renderers.mjs onboard.mjs pipeline.mjs
   config/
-    ai-workflow.json           # PACKAGE-owned config: workflow states/artifacts + ticketing.includePath
+    ai-workflow.json           # PACKAGE-owned config: workflow states/artifacts + runtime include paths
     ai-project.template.json   # scaffold template copied by `init` when non-interactive
   includes/
     ticketing-github.md        # ticketing operations — GitHub (gh CLI) variant
@@ -39,6 +37,7 @@ agent-src/
     ticketing-azure-devops.md  # ticketing operations — Azure DevOps (@azure-devops/mcp) variant
     e2e-runtime.md             # how the qa-engineer brings the app up (points at AGENTS.md)
     cost.md                    # how the workflow records ccusage session cost + posts the summary
+    handoff.md                 # developer handoff protocol + ticket sizing thresholds
   skills/<name>/
     body.md                    # shared SKILL body — uses {{token}}s; references the ticketing include
     manifest.json              # name, description, platforms{}, interface{} (Codex openai.yaml)
@@ -80,6 +79,7 @@ every body and to each manifest `description`/`interface` string:
 - `{{project.name}}`, `{{project.slug}}`, `{{project.serena}}`, `{{project.description}}`
 - `{{repo.slug}}`, `{{repo.defaultBranch}}`
 - `{{ticketing.include}}` (path agents read at runtime), `{{ticketing.backend}}`
+- `{{ticketing.dir}}`, `{{ticketing.metadataFile}}` — file backend only
 - `{{git.branchPattern}}`, `{{git.prTarget}}`
 - `{{artifact.implementationNotes}}`, `{{artifact.reviewFeedback}}`, `{{artifact.testResults}}`,
   `{{artifact.journal}}`, `{{artifact.costOrigin}}`, `{{artifact.costSummary}}` — one per key of
@@ -105,7 +105,7 @@ Per-unit `manifest.tokens` still work and override a global token of the same na
 instructs the agent to read that one file before any ticket operation. The includes are the single
 place that knows repository names, CLI commands, status encoding, comment mechanisms, and PR/handoff;
 the includes folder is where you add a new backend. The azure-devops backend additionally merges an
-`ado` server into the project's `.mcp.json` (non-destructively) and injects the `@azure-devops/mcp`
+`ado` server into the project's `.mcp.json` and `.codex/config.toml` (non-destructively) and injects the `@azure-devops/mcp`
 work-item tools into the Claude allowlists of the ticketing agents.
 
 `AGENTS.md` (and `CLAUDE.md`) remain hand-owned, project-specific docs carrying the

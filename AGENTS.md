@@ -1,149 +1,93 @@
 # AGENTS.md
 
-This file provides guidance to Coding Agents when working with code in this repository.
+Guidance for coding agents working in this repository.
 
 ## What this repo is
 
-A **generator**, not an application. It renders subagent & skill definitions for three coding-agent
-platforms — **Claude Code**, **Codex**, and **OpenCode** — from one canonical source (`agent-src/`)
-plus a small per-project config. It is zero-dependency Node (builtins only, `>=24`), distributed
-directly from Git (no npm registry), and language-agnostic — consuming projects need not be Node
-projects.
+A **generator**, not an application. It renders subagent & skill definitions for **Claude Code**,
+**Codex**, and **OpenCode** from one canonical source (`agent-src/`) plus a small per-project config
+(`ai-project.json` in the consuming project). Zero-dependency Node (builtins only, `>=24`),
+distributed from Git (`npx github:marxxxx/ai-dev-workflow#vX.Y.Z`, no npm registry), and
+language-agnostic — consuming projects need not be Node projects.
 
-The placeholder identity (`ProjectName` / `ProjectSlug`) lives in
-`agent-src/config/ai-project.template.json`, the scaffold `init` copies into a consuming project.
+This repo has no `ai-project.json` and no generated output of its own; run the generator against a
+consuming project with `--root`.
 
 ## Commands
 
 ```bash
 npm test          # node --test over agent-src/*.test.mjs + agent-src/lib/*.test.mjs
+node --test agent-src/lib/pipeline.test.mjs                               # single file
+node --test --test-name-pattern "azure" agent-src/lib/*.test.mjs          # single test
 
-# a single test file / test name:
-node --test agent-src/lib/pipeline.test.mjs
-node --test --test-name-pattern "azure" agent-src/lib/*.test.mjs
-
-# run against a consuming project:
 node agent-src/generate.mjs init     --root <project>  # interactive; --answers <file.json> for non-interactive
 node agent-src/generate.mjs generate --root <project>  # render all platform files into the project
 node agent-src/generate.mjs check    --root <project>  # render in memory, diff against disk, exit 1 on drift
 ```
 
-`--root` defaults to `cwd`.
+## Rule 1: never hand-edit generated files
 
-Note: on Windows without symlink privilege, one test in `agent-src/cli.test.mjs` (the "invoked
-through a symlink" case) fails with `EPERM` — this is an environmental limitation, not a code fault.
+`agent-src/` is the single source of truth. Everything the generator writes into a consuming project
+(`.claude/`, `.codex/`, `.opencode/`, `.agents/`, plus the merged `.mcp.json` / `.codex/config.toml`
+for azure-devops) is generated; files carry a `DO NOT EDIT` banner. Change behavior in `agent-src/`:
+a unit's `body.md`, `manifest.json`, `overlays/<platform>.md`, or an `includes/*.md`.
 
-## The one rule that matters: never hand-edit generated files
+## Rule 2: keep the `package.json` `files` allowlist in sync
 
-`agent-src/` is the single source of truth. Every file the generator writes into a consuming project
-under `.claude/`, `.codex/`, `.opencode/`, `.agents/` (and merged `.mcp.json` / `.codex/config.toml`
-for the azure-devops backend) carries a `DO NOT EDIT — generated from agent-src/…` banner. Any change
-to agent/skill behavior is made in the canonical source under `agent-src/` (a unit's `body.md`,
-`manifest.json`, an `overlays/<platform>.md`, or an `includes/ticketing-*.md`).
-
-`check` renders in memory and diffs against disk — in a consuming project it catches both a stale
-regen and any hand-edit to a generated file.
-
-## The second rule: keep the published `files` allowlist in sync with `agent-src/lib/`
-
-`package.json` `files` enumerates each runtime `agent-src/lib/*.mjs` module **individually** (test
-files are intentionally excluded). This is an allowlist, not a glob — so **adding a new `lib/*.mjs`
-module, or a new `import` of one, silently omits it from the npm package**. Everything works locally
-and in CI (the files are on disk), but `npx @strobl/ai-dev-workflow` installs a package missing the
-module and dies at import time:
-
-```
-Error [ERR_MODULE_NOT_FOUND]: Cannot find module '…/agent-src/lib/<name>.mjs'
-    imported from …/agent-src/lib/pipeline.mjs
-```
-
-We have hit this repeatedly (`cost.mjs` was the latest). **Whenever you add, rename, or delete a
-non-test file under `agent-src/lib/` (or add a new `import` from anywhere in `agent-src/`), update
-the `files` list in `package.json` in the same commit.** Same applies to any new `agent-src/config/*`
-or `includes/*` asset read at runtime.
-
-Verify before publishing — `npm pack --dry-run` lists exactly what ships; confirm every runtime
-`lib/*.mjs` (and no `.test.mjs`) is present. A local `node agent-src/generate.mjs generate` never
-catches this because it resolves against the working tree, not the packaged subset.
+`files` lists each runtime `agent-src/lib/*.mjs` **individually** (tests excluded). npm honors it
+when installing from Git too, so a module missing from the list works locally and in CI but fails at
+import time for consumers (`ERR_MODULE_NOT_FOUND`). **When you add, rename, or delete a non-test
+`lib/*.mjs`, or any runtime asset under `config/` or `includes/`, update `files` in the same
+commit.** Verify with `npm pack --dry-run`.
 
 ## Architecture
 
-`agent-src/generate.mjs` is a thin CLI orchestrator (parse argv → dispatch). The real work lives in
-`agent-src/lib/`, composed by `lib/pipeline.mjs` as a linear pipeline:
+`agent-src/generate.mjs` is a thin CLI (parse argv → dispatch). `lib/pipeline.mjs` composes a linear
+pipeline: **config → tokens → units → renderers → outputs**.
 
-**config → tokens → units → renderers → outputs**
+- **`config.mjs`** — merges package-owned `agent-src/config/ai-workflow.json` (workflow states,
+  artifacts, include paths — coupled to the skills) with project-owned `ai-project.json` (identity,
+  repository, git, `ticketing.backend`). Package wins on `workflow` and include paths. Flattens the
+  result into dotted `{{tokens}}`.
+- **`tokens.mjs`** — `{{token}}` substitution. **Unresolved tokens throw** (fail-closed), re-checked
+  over every output in the pipeline.
+- **`units.mjs`** — loads units from `agent-src/{agents,skills}/<name>/`, layering a consuming
+  project's optional `agent-custom/` (`body.md` overrides, `append.md` appends). Body order: package
+  body (or override) → platform overlay → project append.
+- **`renderers.mjs`** — `RENDERERS[kind][platform]`; emits Markdown+frontmatter (Claude/OpenCode),
+  `.toml` (Codex agents) or `.agents/skills/…` + `openai.yaml` (Codex skills). `smokeCheck` validates
+  required fields.
+- **Runtime includes** (`ticketing.mjs`, `app.mjs`, `cost.mjs`, `handoff.mjs` + `includes/`) — shared
+  procedures are **rendered once to `.agents/includes/*.md` and read at runtime, never inlined** into
+  bodies. `includes/ticketing-<backend>.md` (github | gitea | file | azure-devops) is where a new
+  backend goes. azure-devops also merges an `ado` MCP server into `.mcp.json` / `.codex/config.toml`
+  and adds its tools to the ticketing agents' Claude allowlists (`constants.mjs`).
+- **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` only; recommended tooling is
+  *printed*, never installed or documented with install steps.
 
-- **`lib/config.mjs`** — merges the *two* config sources. `agent-src/config/ai-workflow.json` is
-  **package-owned** (workflow `states`/`artifacts` coupled to the orchestrator skill, plus the
-  `ticketing`/`app` `includePath` conventions). `ai-project.json` at the project root is
-  **project-owned** (project/repository/git identity + the `ticketing.backend` choice). The package
-  wins on `workflow` and the `includePath`s; the project owns the rest. `buildGlobalTokens` then
-  flattens the merged config into a dotted `{{token}}` namespace (`{{project.name}}`, `{{repo.slug}}`,
-  `{{ticketing.include}}`, `{{status.<id>}}`, `{{azureState.<id>}}`, …).
-- **`lib/units.mjs`** — loads each unit from `agent-src/{agents,skills}/<name>/` (`body.md` +
-  `manifest.json`, optional `overlays/<platform>.md`). Also layers a consuming project's optional
-  `agent-custom/{agents,skills}/<name>/` — `body.md` fully overrides the package body; `append.md`
-  is appended after the overlay.
-- **`lib/tokens.mjs`** — `{{token}}` substitution. Token values may be a string or a per-platform
-  map. **An unresolved token throws** (fail-closed) — this is enforced again in `pipeline.mjs` over
-  every rendered output. Body resolution order: **package body (or project override) → platform
-  overlay → project append**.
-- **`lib/renderers.mjs`** — `RENDERERS[kind][platform]` dispatch. Each renderer emits
-  `{ path, content }` with the right shape: Claude/OpenCode = Markdown + YAML frontmatter, Codex
-  agents = `.toml` with a `developer_instructions = """…"""` block, Codex skills = `.agents/skills/…`
-  Markdown **plus** an `agents/openai.yaml` interface descriptor. `smokeCheck` asserts each emitted
-  file has its required fields.
-- **`lib/ticketing.mjs` + `includes/`** — ticketing is **read at runtime, never inlined**. The
-  selected `includes/ticketing-<backend>.md` (github | gitea | file | azure-devops) is rendered once to
-  `ticketing.includePath` (`.agents/includes/ticketing.md`); every agent/skill body across all three
-  platforms is instructed to read that one file before any ticket operation. The `includes/` folder
-  is where you add a new backend. The **azure-devops** backend additionally merges an `ado` MCP
-  server into `.mcp.json` and `.codex/config.toml` (non-destructively) and injects the ADO work-item
-  tools into the ticketing agents' Claude allowlists (`lib/constants.mjs` → `ADO_MCP_TOOLS`,
-  `TICKETING_AGENTS`).
-- **`lib/app.mjs`** — renders the e2e-runtime include the `qa-engineer` reads to bring the app up.
-- **`lib/onboard.mjs`** — the `init` interview. It writes `ai-project.json` and nothing else: the
-  tooling the agents expect (superpowers, serena, playwright, context7) is *printed* — name, purpose,
-  link — and installing it is the user's job. Don't add install instructions or generate a doc for
-  them; per-harness install steps differ and go stale, and each project's own docs are the authority.
+Units: agents `developer`, `code-reviewer`, `qa-engineer`; skills `dev-cycle` (orchestrator) and
+`product-architect`. See `agent-src/README.md` for the output map and manifest schema.
 
-The units themselves are three agents (`developer`, `code-reviewer`, `qa-engineer`) and two skills
-(`dev-cycle`, `product-architect`). See `agent-src/README.md` for the output map and manifest schema.
+**Workflow states** (`ai-workflow.json`): `new → in-progress → review → test → acceptance-test`, with
+`failed → in-progress` on rejection. Bodies refer to states logically; the ticketing include defines
+their encoding per backend.
 
-### The workflow state machine
+## Releasing
 
-`ai-workflow.json` defines the ticket lifecycle the `dev-cycle` skill orchestrates:
-`new → in-progress → review → test → acceptance-test`, with `failed → in-progress` for review/QA
-rejections. States are represented differently per backend (GitHub/ADO labels vs. file frontmatter),
-which is exactly why bodies refer to states *logically* and defer their concrete encoding to the
-ticketing include.
+The Git tag is the release: update version references in `README.md` (`#vX.Y.Z`), tag `vX.Y.Z`,
+push the tag and merge to `main`.
 
-## Releasing a new version
+## Container images (`docker/`)
 
-This package is distributed from Git, not npm — the version tag *is* the release. To cut one:
-
-1. Update the version references in `README.md` (install commands, `package.json` example, any
-   `#vX.Y.Z` tag references) to the new version.
-2. Create a git tag for the new version (e.g. `git tag vX.Y.Z`).
-3. Push the tag and merge the change to `main`.
-
-## Container tool pins (`docker/`)
-
-`docker/tools/inventory.json` is the single source for every tool version in the agent images;
-`docker/tools/package.json`, its lockfile and the Dockerfile `FROM`/`ARG` pins are derived from it —
-the same "never hand-edit derived files" rule applies. `node docker/tools/inventory.mjs update` pulls
-the latest versions within its `updatePolicy`, `sync` re-derives after a hand edit, `check` is the drift
-gate, and `node docker/build.mjs` builds all three images with a dated tag. CI pushes verified builds
-from `main` to Docker Hub (`marxx/ai-dev-workflow`, variant as tag prefix). See `docker/README.md`.
+Hand-maintained, not generated. `docker/tools/inventory.json` is the single source for tool pins;
+`docker/tools/package.json`, its lockfile and Dockerfile `FROM`/`ARG` pins are derived — never
+hand-edit them (`node docker/tools/inventory.mjs update | sync | check`). See `docker/README.md`.
 
 ## Conventions
 
-- **Zero runtime dependencies** — Node builtins only. Don't add packages.
-- **LF line endings** on every platform (the generator writes LF regardless of OS).
-- Everything shared across platforms lives in a unit's `body.md`; use `overlays/<platform>.md` only
-  for genuinely platform-specific guidance (none exist today — Serena, Playwright, and superpowers
-  are available on all three platforms). This is the structural guarantee that platform guidance does
-  not leak between tools.
-- `AGENTS.md` / `CLAUDE.md` in a *consuming* project are hand-owned and never regenerated; the
-  generator points the qa-engineer at the consuming project's `AGENTS.md` e2e section rather than
-  shipping start/stop scripts.
+- **Zero runtime dependencies** — don't add packages.
+- **LF line endings** everywhere.
+- Shared guidance goes in `body.md`; `overlays/<platform>.md` only for genuinely platform-specific
+  mechanics (currently just `skills/dev-cycle/overlays/codex.md`).
+- A consuming project's `AGENTS.md` / `CLAUDE.md` are hand-owned and never generated; the qa-engineer
+  is pointed at its e2e section instead of shipping start/stop scripts.

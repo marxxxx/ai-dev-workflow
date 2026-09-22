@@ -144,45 +144,15 @@ tech stack, the install / build / run / test commands, and the points above.
 
 ## Oversized tickets: developer handoff
 
-Sometimes a ticket turns out to be bigger than one context window — planning was too coarse, or the
-work grew once the code was open. Without a protocol the `developer` keeps pushing until it degrades
-or dies mid-edit, and its replacement re-explores the codebase from nothing. That failure mode is
-most visible in long Codex sessions.
+When a ticket outgrows one context window, the `developer` stops at an acceptance-criterion
+boundary, commits, and writes a handoff into the ticket's single **Developer Journal** comment;
+`dev-cycle` then spawns a fresh developer for the remaining criteria. The developer never sizes or
+plans tickets — that stays with `product-architect`. Large tickets pause for a human
+proceed-or-split decision, and continuations are capped so repeated handoffs surface as a scoping
+problem rather than looping.
 
-Instead, a developer under context pressure **stops at an acceptance-criterion boundary**, commits
-what it has, and writes its handoff into the ticket's **Developer Journal** comment. `dev-cycle` then
-spawns a *fresh* developer scoped to the remaining criteria. The handoff carries the map — files,
-symbols, conventions, decisions already made, dead ends already hit, and the exact next step — so the
-new window is spent implementing rather than rediscovering.
-
-Two things keep this from becoming a treadmill:
-
-- **The developer never plans or sizes a ticket.** That stays with `product-architect`. `dev-cycle`
-  seeds the journal comment with one row per acceptance criterion (it already holds the ticket, so
-  this costs the developer no context) and the developer only ticks rows. Its single judgment is local: *can I
-  finish the criterion in front of me?*
-- **The human decides whether an oversized ticket proceeds.** A journal with five or fewer criteria
-  starts development normally and keeps the three-continuation allowance. Before spending a developer
-  context or creating a cost ledger for more than five criteria, `dev-cycle` asks whether to proceed
-  as scoped or return to `product-architect` to split it. A recorded proceed decision sets the durable
-  allowance to `ceil(criteria / 3) + 1` (6 items = 3; 7–9 = 4), so a restart does not ask again. A
-  split ends that dev-cycle path without dispatching a developer and leaves ticket acceptance to the
-  human workflow.
-- **Repeated handoffs are treated as a scoping signal, not a load to absorb.** Continuations are
-  counted separately from implement→review iterations — a handoff isn't a review rejection — and
-  capped. A continuation that shows no measurable progress stops the loop, and on exhaustion
-  `dev-cycle` stops automation for that ticket and tells you it should be split via
-  `product-architect` rather than cycling silently.
-
-The mechanics live in one generated file, `.agents/includes/handoff.md`, read at runtime by both
-sides of the protocol. **All of the progress state lives on the ticket**, in one `Developer Journal`
-comment: criteria checklist, sizing decision, discovered context, attempt log, and the latest handoff.
-It is created once and then edited in place by comment id — `gh api ... PATCH` on GitHub,
-`tea comments edit` on Gitea, `wit_work_item_comment_write(action: "update")` on Azure DevOps — so
-updating it never costs a re-read of the ticket. Nothing is hidden in a temp directory, so a run can
-resume on another machine and a human supervising the run can read the whole state in the ticket. The
-one exception is file-based ticketing, which has no comment objects: there the journal stays a local
-file and the ticket records its path.
+All progress state lives on the ticket (file-based ticketing: a local journal file). The
+thresholds and mechanics are defined only in the generated `.agents/includes/handoff.md`.
 
 ## Per-ticket cost summary
 

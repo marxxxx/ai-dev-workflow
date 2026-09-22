@@ -11,7 +11,7 @@ Gitea server-side plugin or MCP server is involved.
 
 **Version.** Every generated command is verified against **tea 0.15.1** — each subcommand and flag
 checked against that binary's own `--help`. The include leans on the `comments` command group
-(`tea comments list` / `tea comments add`) and on passing `--login` / `--repo` to every subcommand. If
+(`tea comments list` / `add` / `edit`) and on passing `--login` / `--repo` to every subcommand. If
 a command comes back as unknown, check `tea --version` first — a differing CLI version is the likely
 cause, not the generated include.
 
