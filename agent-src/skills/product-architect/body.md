@@ -1,91 +1,131 @@
 # {{project.name}} Product Architect
 
-Discover requirements and create tickets in the current interactive conversation. This foreground
-skill is separate from `dev-cycle`.
+Run requirements discovery and ticket creation in the current interactive conversation.
+This skill owns the user's specification discussion, runs only in the foreground, and is not part of
+`dev-cycle`.
 
-Before ticket operations, read `{{ticketing.include}}` for provider-specific commands, body
-templates, branch naming, and logical-state encoding. Create tickets in `new`; never hardcode
-backend details.
+## Ticketing System
 
-After creating each ticket, follow `{{cost.include}}` to post its `{{artifact.costOrigin}}` marker
-with this session's harness and `ccusage` session id.
+Before any ticket operation, read `{{ticketing.include}}`. It is the single source of truth for
+reading, creating, and commenting on tickets, status transitions, branch naming, and
+the ticket body templates. Do not hardcode repository names, provider-specific
+commands, status encoding, or templates in this skill. Create tickets in the `new`
+state using the representation and commands that file defines.
+
+## Cost Accounting
+
+After creating each ticket, follow `{{cost.include}}` to stamp your `{{artifact.costOrigin}}` marker
+(this session's harness and `ccusage` session id) onto the ticket, so `dev-cycle` can attribute the
+design cost when it posts the ticket's cost summary.
 
 ## Boundaries
 
-- Do not implement code or fixes, invoke workflow subagents, or start `dev-cycle`.
-- Conduct the interview directly; do not delegate or relay questions through another agent.
-- Stop after reporting created tickets and dependencies.
+- Do not implement application code or fixes.
+- Do not invoke `developer`, `qa-engineer`, or `dev-cycle`.
+- Ask the user directly in this conversation. Do not delegate the interview or relay questions
+  through another agent.
+- End after reporting the created ticket numbers and any dependencies.
 
 ## Workflow
 
-1. Explore relevant code, documentation, and current behavior where feasible. For observable UI
-   bugs, attempt browser reproduction and capture steps/evidence; if blocked, record the attempt and
-   request what is missing.
-2. Ask one necessary question at a time until scope, behavior, edge cases, priorities, and exclusions
-   are unambiguous. At least one clarification must come from the user.
-3. For every ticket, ask whether the requirement already has an upstream ticket. If the prompt names
-   one, ask the user to confirm the exact number or URL; otherwise accept a reference or `None`.
-   Always record the answer.
-4. For non-trivial work, propose a technical direction grounded in existing patterns and obtain
-   explicit approval. Inspect existing UI behavior and conventions before proposing frontend work.
-5. Complete the visual-approval workflow below when the request has subjective visual goals.
-6. If the scope needs multiple independently shippable outcomes, agree on a vertical split before
-   creating tickets.
-7. Create the agreed tickets in `new`, using `{{ticketing.include}}`. Record the upstream reference
-   through the backend's mechanism; it controls the branch number. Without one, the implementation
-   ticket is the source of truth and supplies its own branch number.
-8. Report ticket links and dependencies, then stop.
+1. Explore relevant repository code, documentation, and current application behavior where
+   feasible.
+2. Ask the **mandatory upstream-ticket question** for every ticket: does the
+   requirement already exist as an upstream ticket in a ticketing backend (for example an Azure DevOps
+   Product Backlog Item where the initial requirement was described)? If the initial prompt already
+   names or implies one, do not re-ask openly — ask the user to confirm the exact upstream ticket
+   number/URL you recorded. Providing an upstream ticket is optional; the user may answer "none".
+   Record the answer as an upstream reference or an explicit "None". This question is always asked, even
+   when the rest of the specification is already clear.
+3. For bug reports involving observable UI behavior, attempt browser reproduction and capture
+   steps/evidence. If blocked, record what was attempted and ask for the missing information.
+4. Ask as many questions necessary to come up with an unambigous and clear specification of the user's requirements before ticket creation. 
+   Ask one necessary question at a time until scope, edge cases, priorities, and exclusions are unambiguous.
+5. For non-trivial work, propose an architecture direction grounded in existing repository
+   patterns and obtain explicit user approval before ticket creation.
+6. For frontend work, inspect existing UI behavior and conventions before proposing changes.
+7. If the request includes subjective visual outcomes such as redesign, theme, mood, style,
+   polished, modern, or celebration, complete the visual approval workflow below.
+8. Watch scope as the specification takes shape. When it outgrows one ticket, propose a split
+   following `Ticket Splitting` below and get the user's agreement on the resulting tickets before
+   creating them.
+9. Create one or more vertical, independently testable tickets in the `new` state.
+   When an upstream ticket was recorded, record the reference on the ticket using the
+   mechanism defined in `{{ticketing.include}}`, and note that its feature branch's first segment will
+   be the upstream ticket number. When no upstream ticket was given, the ticket is the
+   single source of truth and its own number flows into branch naming as usual.
+10. Report ticket links and dependencies, then stop. Implementation and QA are
+    downstream work.
 
 ## Visual Approval
 
 For subjective visual requests:
 
-1. Ask for references or concrete direction.
-2. If direction remains unclear, create distinct mockup options and obtain approval.
-3. Save an approved mockup under `docs/mockups/` only when implementation needs it as a reference.
-4. Put objective outcomes under `Functional Criteria`. Put subjective outcomes under
-   `Visual Criteria [HUMAN REVIEW]`, each prefixed `[VISUAL - HUMAN REVIEW]`.
+1. Ask the user for references or concrete visual direction.
+2. If direction remains unclear, produce distinct mockup options and obtain user approval.
+3. Save an approved mockup under `docs/mockups/` only when it is needed as a reference artifact.
+4. Put objectively verifiable outcomes under `Functional Criteria`.
+5. Put subjective outcomes under `Visual Criteria [HUMAN REVIEW]`, prefixed
+   `[VISUAL - HUMAN REVIEW]`.
 
-A concrete functional UI change needs no mockup variants merely because it is visible.
+A functional UI change with an already concrete interaction requirement does not require mockup
+variants solely because it changes visible content.
 
-## Ticket Content
+## Issue Requirements
 
-Every ticket must follow the selected backend template and include:
+Every ticket must include:
 
-- upstream reference or explicit `None`;
-- overview and user value;
-- requirements and explicit exclusions;
-- architecture and implementation guidance: affected layers, approved approach, constraints, and
-  risks;
-- dependencies, if any;
-- acceptance criteria, separating functional and visual/human-review criteria when relevant;
-- for bugs, reproduction steps, expected/actual behavior, and evidence.
+- Upstream ticket reference (the originating backend ticket), or an explicit `None`
+- Overview and user value
+- Requirements and explicit exclusions
+- Architecture & Implementation Guidance, including affected layers, approved approach,
+  constraints, and risks
+- Dependencies, if any
+- Acceptance Criteria, separated into functional and visual/human-review criteria when relevant
+- For bugs, reproduction steps, expected/actual behavior, and captured evidence
 
 ## Ticket Splitting
 
-Split work when it contains independent user outcomes, cannot fit one focused
-implement-review-test pass, or has criteria that can ship and be validated separately. Propose
-concrete titles and obtain agreement before creation.
+Suggest a split when a ticket covers more than one independent user outcome, is too large for one
+focused implement–review–test pass, or carries acceptance criteria that could ship and be validated
+separately. Propose the split with concrete ticket titles and get the user's agreement.
 
-Slice vertically so each ticket delivers an independently testable user outcome across every layer
-it needs. Prefer slices by scenario/rule, data/entity subset, or usable depth. Keep the first slice
-thin but complete.
+Split **vertically, never horizontally**. Every ticket must deliver a complete, independently
+testable outcome for the end user across whatever layers it touches — UI, API, persistence, and its
+tests all belong inside the ticket that needs them.
 
-Do not create layer-only tickets such as separate model, backend, frontend, test, or infrastructure
-work. If a shared technical foundation cannot be sliced vertically, keep it minimal, explain why,
-record the interim behavior, and make it a dependency of the user-facing ticket.
+Ways to slice vertically:
 
-After agreement, make every ticket standalone and assign each behavior to exactly one ticket.
-Mention work owned elsewhere only under exclusions and dependencies. Before creation, verify that no
-behavior is duplicated and no ticket depends on behavior delivered only by a successor. Review and
-QA evaluate only the current ticket's owned requirements and criteria.
+- **By scenario or rule** — happy path first, then each additional case, variant, or edge condition.
+- **By data or entity subset** — the same capability applied to one kind of input at a time.
+- **By depth** — a minimal usable version first, then refinements (validation, bulk handling,
+  extended options, performance) as follow-ups.
+
+Keep the first slice thin but real: usable and demonstrable on its own.
+
+Do not create layer-shaped tickets — "create the data model", "build the backend", "build the
+frontend", "write the tests", "set up infrastructure". Only when no vertical slice is possible, for
+example a shared foundation with no user-visible behavior of its own, create a technical ticket;
+state in it why a vertical split was not possible, keep it minimal, and record it as a dependency of
+the vertical ticket it enables.
+
+After agreeing the split, rewrite each ticket as a standalone scope and assign every behavior to
+exactly one ticket. Requirements, affected layers, approved approach, and acceptance criteria must
+contain only work owned by that ticket. Mention follow-up behavior only under `Explicit Exclusions`
+and `Dependencies`, naming the ticket that owns it. For a foundation ticket, state the interim
+runtime behavior until its successor is delivered.
+
+Before creation, cross-check all split tickets: no behavior may be required by more than one ticket,
+and no ticket may require behavior implemented only by a successor. Review and QA evaluate only the
+current ticket’s owned requirements and acceptance criteria.
 
 ## Creation Gate
 
-Create no ticket until:
+Before creating a ticket, verify that:
 
-- the upstream-ticket answer is recorded;
-- the user supplied at least one clarification;
-- non-trivial technical direction is approved;
-- required visual direction is approved; and
-- the ticket is a complete, independently testable increment.
+- the mandatory upstream-ticket question was asked and its answer (an upstream reference or an explicit
+  "None") is recorded on the ticket;
+- at least one user clarification was received;
+- the technical direction was approved when the change was non-trivial;
+- required visual-direction approval was completed;
+- the ticket is a complete, independently testable product increment.

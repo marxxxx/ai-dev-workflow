@@ -1,27 +1,49 @@
-# Developer Handoff: Tickets Larger Than One Context Window
+# Developer Handoff: Surviving A Ticket Larger Than One Context Window
 
-This generated include defines how a developer stops at a clean boundary and transfers unfinished
-work to a fresh developer. Edit `agent-src/includes/handoff.md`, then regenerate.
+This file is the single source of truth for how a `developer` that cannot finish a ticket in one
+session stops cleanly and hands the remaining work to a fresh developer. It is generated from
+`agent-src/includes/handoff.md`. Do not edit it here — edit the source and regenerate.
 
-The developer never plans, sizes, or decomposes a ticket. `$product-architect` owns scope; the
-developer works existing acceptance criteria and decides only whether the current criterion can be
-finished safely.
+The problem it solves: a ticket that was scoped too coarsely does not fit one context window. Without
+a protocol the developer keeps pushing until it degrades or dies mid-edit, and its replacement
+re-discovers the same codebase from scratch — burning a second window on work the first one already
+did.
 
-## Journal Artifact
+**The developer never plans, sizes, or decomposes a ticket.** That is `$product-architect`'s job.
+The developer only does bookkeeping against acceptance criteria that already exist, and makes one
+local judgment: *can I finish the criterion in front of me?*
 
-`{{artifact.journal}}` is the ticket's single mutable checklist, discovery log, attempt history, and
-latest resume document. Create it once and update it in place. `{{ticketing.include}}` defines how to
-create, discover, read, and update it for the selected backend.
+## One artifact: the `{{artifact.journal}}` comment
 
-For comment-based backends, identify it by the first-line heading `## {{artifact.journal}}`. Discover
-the newest matching comment id once, carry that id in every developer packet, and update by id
-without re-listing. Losing the id is not a blocker: rediscover it once. Because updates replace the
-whole body, always write the complete journal.
+| What | Where | Lifetime |
+| --- | --- | --- |
+| Mutable checklist, running notes, attempt log, and the latest resume document | **A single ticket comment**, created once per ticket and **edited in place** via `{{ticketing.include}}` | Lives with the ticket |
 
-For file ticketing, the issue points to one stable machine-local journal file instead. Follow that
-backend's recovery and cleanup procedure.
+All progress state lives on the ticket. There is no side file and no run state to lose: the ticket is
+the whole record, visible to the human supervising the run, and a run that resumes on a different
+machine resumes from exactly the same state.
 
-## Journal Shape
+**Addressing the comment.** The journal comment is identified by its first line, the heading
+`## {{artifact.journal}}`. Its **comment id** is discovered **once per ticket** — one list-comments
+call, filtered for that heading, newest match wins — and then travels in the prompt packet to the
+`developer` and to every continuation. After that, every update is an in-place write **by id**: no
+re-listing, no re-reading the ticket. See `{{ticketing.include}}` for the backend's exact create,
+discover, read-by-id, and update-by-id commands; some backends have no read-by-id and read from the
+one listing call instead.
+
+Because the id is derivable from the ticket at any time with a single listing call, losing it is
+never a blocker — rediscover it and carry on.
+
+**Read-modify-write discipline.** An update replaces the comment's whole body, so always write the
+full journal, not a fragment. The writer normally still holds the body it last wrote and does not
+need to read first; a fresh session reads the journal once before its first write.
+
+**File-based ticketing is the one exception.** Where the backend has no real comment objects, the
+journal stays a local Markdown file and the ticket carries a `## {{artifact.journal}}` section
+recording its path. `{{ticketing.include}}` defines that arrangement; everything below applies
+unchanged to its contents.
+
+## The journal comment
 
 ```markdown
 ## {{artifact.journal}}
@@ -34,13 +56,6 @@ Branch: <branch>   Upstream: <ref or none>
 - Item count: <positive integer>
 - Sizing decision: <automatic | pending | proceed | split>
 - Continuation limit: <positive integer | pending>
-- Implementation-review iteration: <positive integer>
-- Continuation count: <non-negative integer>
-
-### Orchestration
-
-- Cost ledger ids: <none | comma-separated ledger basenames | cleaned>
-- Last consumed handoff: <none or iITERATION/cCONTINUATION>
 
 ### Criteria
 
@@ -49,123 +64,162 @@ Branch: <branch>   Upstream: <ref or none>
 
 ### Discovered context
 
-<!-- files, symbols, conventions, utilities, and failed approaches -->
+<!-- files, symbols, conventions, utilities to reuse; appended as they are found -->
 
 ### Attempts
 
-<!-- implementation iteration, continuation count, completed criteria, outcome, and commit -->
+<!-- one line per developer attempt: attempt number, criteria completed, outcome, commit -->
 
 ### Latest handoff
 
-<!-- Attempt: i<implementation iteration>/c<continuation count>, then the seven required sections -->
+<!-- the seven required sections below; rewritten in full by each handing-off developer -->
 ```
 
-## Sizing Metadata
+Markdown, so a human reading the ticket can follow the run without any extra tooling.
 
-The orchestrator owns all sizing fields:
+### Sizing metadata
 
-- **Item count:** numbered rows under `### Criteria`, checked or unchecked. Do not count notes,
-  attempts, or other lists.
-- **Sizing decision:** `automatic` for fifteen or fewer items; `pending` while an oversized ticket
-  awaits the human; `proceed` when approved as scoped; or `split` when returned to
-  `$product-architect`.
-- **Continuation limit:** the number of *additional* developer attempts allowed after the first in
-  one implementation-review iteration. It is `pending` while the decision is `pending` or `split`;
-  otherwise derive it from the item count:
+The `### Sizing` values are owned by the orchestrator (`dev-cycle`), not the developer. They make a
+large-ticket decision durable across restarts:
+
+- **Item count** is the number of numbered acceptance-criterion rows in `### Criteria` only. Count
+  both checked and unchecked rows; do not count notes, attempts, or other Markdown lists.
+- **Sizing decision** is `automatic` for fifteen or fewer items, `pending` while an oversized journal
+  awaits the human, `proceed` after the human approves development as scoped, or `split` after the
+  human sends it back to `$product-architect`.
+- **Continuation limit** is the number of *additional* developer attempts allowed after the first
+  one — a ticket with a limit of 1 may run two developers in total. It scales with the item count on
+  the estimate that one attempt covers about five criteria, with the initial attempt as the buffer:
 
   | Item count | Continuation limit |
   | --- | --- |
   | 1-6 | 1 |
   | 7-9 | 2 |
   | 10-15 | 3 |
-  | above the automatic threshold (`proceed` only) | `ceil(item count / 5)` |
+  | above the `automatic` threshold (`proceed` only) | `ceil(item count / 5)` — 4 for 16-20, 5 for 21-25 |
 
-The limit is derived once, when the orchestrator seeds the journal. Missing, non-positive, or
-inconsistent legacy metadata never implies unlimited attempts: recount the criteria, repeat the
-sizing decision once, and persist valid values before developer dispatch.
+  It remains `pending` only while the decision is `pending` or `split`.
 
-Initialize the implementation-review iteration to one and its continuation count to zero. The limit
-applies per implementation-review iteration and remains fixed for the ticket. `dev-cycle` updates
-these counters transactionally as described under loop control.
+The orchestrator writes all three values immediately after it seeds a journal. A legacy journal that
+lacks sizing metadata, or one with missing, non-positive, or inconsistent values, is never allowed
+to dispatch a developer on an assumed unlimited allowance. Recount its criterion rows, run the
+sizing decision procedure once, and persist valid replacement metadata before dispatching.
 
-## Responsibilities
+## Who does what
 
-The orchestrator creates the journal before the first developer. It copies every acceptance
-criterion into a numbered unchecked row; writes sizing metadata; initializes the other sections;
-retains the comment id; and reuses an existing valid journal after restart. Never create a second
-journal. If duplicates exist, merge useful history into the newest and use only it.
+**The orchestrator (`dev-cycle`) seeds the journal comment.** Before spawning `developer` for a ticket
+it reads the ticket — which it already holds — and creates the comment with one **unchecked** row per
+acceptance criterion, numbered, quoted from the ticket, plus the sizing metadata and empty
+`Discovered context`, `Attempts`, and `Latest handoff` sections. It keeps the returned comment id and
+passes it in the prompt packet. The developer therefore receives a checklist it did not have to
+author. If a journal comment already exists (a continuation), the orchestrator reuses it and its valid
+sizing metadata rather than creating a second one or asking the human again.
 
-For each criterion in ticket order, the developer:
+**Never create a second journal comment on a ticket.** One ticket, one journal comment, edited in
+place. If two ever exist, the newest is authoritative — fold anything worth keeping from the older one
+into it and stop writing to the old one.
 
-1. implements and validates it;
-2. ticks its row and records files, validation results, and durable decisions;
-3. appends useful discoveries;
-4. writes the complete journal by id; and
-5. commits the criterion on the feature branch, regardless of whether the parent separately asked
-   for commits.
+**The developer ticks rows.** For each criterion, in ticket order:
 
-The developer preserves all `Sizing` and `Orchestration` fields; only `dev-cycle` changes them.
+1. Implement it.
+2. Validate it — run the applicable tests and lint/type checks for what you changed.
+3. Tick its row and append two or three lines underneath: files touched, tests run and their result,
+   any decision worth not relitigating. Write the updated journal back to the comment by id.
+4. Append anything newly learned to `Discovered context` — a file that turned out to matter, a
+   convention, an existing utility that should be reused, an approach that failed.
+5. **Commit the work on the feature branch.** The branch diff is a fresh developer's main recovery
+   channel, so a criterion that is finished but uncommitted is a criterion that will be redone. This
+   commit is required regardless of whether the parent asked for commits.
 
-## Stop And Handoff
+## The stop rule
 
-Never start the next criterion unless enough context remains to finish it and write a complete
-handoff. Around half the context budget, prefer stopping at the next criterion boundary; around
-three quarters, stop at the current boundary. Reserve space for the handoff.
+**Never begin work on the next criterion if you cannot also finish it and write the handoff.**
 
-To hand off:
+That is a judgment about the single unit of work in front of you, not an estimate of the whole
+ticket. Two hints break ties:
 
-1. Commit all progress, including known-broken work, and describe failures explicitly.
-2. In one journal update, tick completed criteria, append the attempt, and replace
-   `### Latest handoff` with `Attempt: i<iteration>/c<continuation>` followed by all required
-   sections below. Use the counters from the prompt packet.
-3. Leave the ticket `{{status.in-progress}}`. Do not move it to `{{status.review}}` or post
-   `{{artifact.implementationNotes}}`.
-4. Return the completed and remaining criteria and final commit to the parent.
+- Around **half** your context window consumed: prefer stopping at the next criterion boundary rather
+  than starting another one.
+- Around **three quarters** consumed: stop at the current boundary immediately and hand off. Do not
+  start anything else, and do not attempt "just one more small fix" — the handoff itself needs room.
 
-### Required `Latest handoff` Sections
+Reserve enough budget to write a complete handoff. A truncated handoff is worse than an early one:
+the next developer re-explores anyway, and the attempt is wasted.
 
-Use all seven in this order:
+## Handing off
 
-1. **Criteria status:** every criterion marked done or remaining.
-2. **Where the work stands:** branch, last commit, and committed, uncommitted, or broken work.
-3. **Map:** concrete files and symbols for remaining work, relevant conventions, and reusable
-   utilities. Name paths and symbols, not broad areas.
-4. **Decisions made and why.**
-5. **Dead ends:** failed approaches and reasons.
-6. **Exact next step:** one concrete first action, not a plan.
-7. **Validation status:** tests that pass, fail, exist, or remain unwritten.
+1. Commit the work in progress on the feature branch. If some of it does not build or does not pass,
+   commit it anyway and say so in the handoff — losing it is worse than recording it as broken.
+2. Update the journal comment in one write: tick what is done, add this attempt to `Attempts`, and
+   **replace** `### Latest handoff` with the seven sections below. The previous handoff is superseded
+   — its history survives as the `Attempts` line, which is why that line must name the attempt's
+   outcome and commit.
+3. **Leave the ticket in the `{{status.in-progress}}` state.** A handoff is not a completion —
+   never move the ticket to `{{status.review}}`, and do not post `{{artifact.implementationNotes}}`
+   (that comment means "this ticket is finished and ready for review").
+4. Return to the parent stating plainly that you handed off, which criteria are done, which remain,
+   and the commit you left the branch on.
 
-## Continuations
+### Required sections of `### Latest handoff`
 
-Before exploring, a continuation reads the journal once by id and inspects the existing branch diff.
-Its prompt counters must match the journal's active iteration and continuation count. Trust recorded
-context and dead ends; verify rather than rediscover. Correct inaccurate journal information before
-it propagates. Continue the remaining criteria under the same rules; a continuation may hand off.
+All seven, in this order. The orchestrator audits for them, and a handoff missing the map or the next
+step forces the next developer to re-explore — which is the whole cost this protocol exists to avoid.
 
-If a legacy ticket has only append-only `Developer Handoff` comments, seed the journal from the
-newest comment, preserve its criteria and seven sections, then persist valid sizing metadata. Keep
-old comments as history but never update them.
+1. **Criteria status** — every acceptance criterion, quoted from the ticket, marked done or remaining.
+2. **Where the work stands** — branch name, last commit SHA, and what is committed versus
+   uncommitted or known-broken.
+3. **Map** — the files and symbols that matter for the remaining work, the conventions this area
+   follows, and the existing utilities to reuse. *This is the section that saves the next window:
+   it replaces exploration, so be specific — name paths and symbols, not areas.*
+4. **Decisions made and why** — so the next developer does not relitigate settled choices.
+5. **Dead ends** — approaches already tried that do not work, and why. Equally valuable: it stops the
+   next developer from spending its window rediscovering a wall.
+6. **Exact next step** — the single concrete action to take first, not a plan.
+7. **Validation status** — which tests exist, which pass, which fail, and which are not written yet.
 
-## Loop Control
+## Resuming from a handoff
 
-- Continuations are separate from implementation-review iterations and never consume one.
-- The persisted continuation count is scoped to the current implementation-review iteration. The
-  limit is derived once, when the orchestrator seeds the journal; read both rather than recalculating.
-- A handoff is new only when its `Attempt` identity matches the active counters and differs from
-  `Last consumed handoff`. Before spawning, verify progress and that the current count is below the
-  limit. In one journal write, increment the count and mark the handoff consumed; then spawn with the
-  new count. After a restart, an already-consumed handoff reuses the stored count without another
-  increment.
-- Blocking `{{artifact.reviewFeedback}}` and `{{artifact.testResults}}` comments must start with their
-  `Implementation iteration: <number>`. On `failed`, consider distinct stamped failures only. They
-  must include the failure that caused the state, form a contiguous sequence starting at the first
-  iteration, and contain no conflicting review/QA failures for one iteration. The target is one above
-  the highest valid failed iteration and must equal either the journal's iteration (already consumed)
-  or the next iteration; otherwise stop for human attention. Only for the next iteration, set it,
-  reset the continuation count, clear `Latest handoff`, and reset `Last consumed handoff` in one
-  write. Duplicate comments with the same artifact type and iteration do not increment it again.
-- **Progress guard:** each continuation must newly complete a criterion or materially increase the
-  branch diff. After two consecutive attempts do neither, stop: the ticket is stuck, not merely
-  large.
-- **Exhaustion:** at the limit, leave the ticket `{{status.in-progress}}` and journal intact. Tell the
-  human the ticket should be split through `$product-architect`; do not split or continue silently.
+When the prompt packet says this is a continuation, **before exploring anything**:
+
+1. Read the journal comment — one read, by the id the packet gave you. It carries the criteria
+   checklist, the discovered context, the attempt log, and the latest handoff's seven sections.
+2. Read the branch diff for the criteria already marked done.
+
+Then trust the map. Do not re-derive what the journal already recorded, and do not re-attempt what
+its dead-ends section rules out — re-exploration is exactly the cost this protocol exists to avoid.
+Verify rather than rediscover: if something in the map turns out to be wrong, correct it in the
+journal so the error does not propagate.
+
+Work the remaining criteria under the same rules. A continuation may itself hand off.
+
+## Legacy tickets
+
+A ticket worked before this protocol may have no journal comment but one or more append-only
+`Developer Handoff` comments. Seed the journal comment from the most recent one — its seven sections
+become `### Latest handoff`, its criteria status becomes the `### Criteria` rows — then run the sizing
+procedure once and persist valid metadata. Leave the old comments in place as history; never write to
+them again.
+
+## Loop control (orchestrator)
+
+- Handoff **continuations are counted separately** from implementation-review iterations and do not
+  consume one — a handoff is not a review rejection, and the work was not defective.
+- The journal's persisted **Continuation limit** controls the maximum number of continuations. It is
+  derived once, when the orchestrator seeds the journal, from the item count under
+  [Sizing metadata](#sizing-metadata) — read the persisted value rather than recomputing it here.
+  This changes neither the progress guard nor the implementation-review iteration limit.
+- **Progress guard** — a continuation must show measurable progress: at least one newly ticked
+  criterion, or a materially larger branch diff. If two consecutive continuations show neither, stop:
+  the ticket is stuck, not large, and continuing will only repeat the failure.
+- **On exhaustion** — stop automation for that ticket. Leave it in `{{status.in-progress}}` with its
+  `{{artifact.journal}}` comment intact, and report to the human that the ticket is too large to
+  implement as scoped and should be split via `$product-architect`. Do not split it yourself, and do
+  not silently keep cycling.
+
+Repeated handoffs on one ticket are a **signal about the ticket, not about the developer**. Surface
+it — a ticket that reaches its persisted continuation limit was scoped too coarsely, and that is
+information the human needs for the next round of planning.
+
+## Cleanup
+
+When the ticket reaches `{{status.acceptance-test}}` the cost ledger is deleted in `{{cost.include}}`.
