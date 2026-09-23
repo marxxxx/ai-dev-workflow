@@ -6,7 +6,7 @@ A customizable AI development workflow — subagent and skill definitions for **
 The generator is a zero-dependency Node script. It's distributed **directly from this Git repo** (no
 npm registry) and the consuming project does **not** need to be a Node project. It works in any repo
 (C#/.NET, Go, Rust, …) — the only requirement is Node on the machine that runs the generator (your
-dev box and CI). Pin to a Git tag (e.g. `#v0.21.2`) so devs and CI stay in sync.
+dev box and CI). Pin to a Git tag (e.g. `#v0.22.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -28,7 +28,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
-npx github:marxxxx/ai-dev-workflow#v0.21.2 init
+npx github:marxxxx/ai-dev-workflow#v0.22.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -39,12 +39,12 @@ npx github:marxxxx/ai-dev-workflow#v0.21.2 init
 #    e2e setup there — see End-to-end testing below.)
 
 # 3. generate the platform files
-npx github:marxxxx/ai-dev-workflow#v0.21.2 generate
+npx github:marxxxx/ai-dev-workflow#v0.22.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the tag (`#v0.21.2`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the tag (`#v0.22.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 ## Recommended tooling
 
@@ -178,7 +178,7 @@ Add it as a dev dependency pointing at the Git tag, and wire up scripts:
 
 ```jsonc
 "devDependencies": {
-  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.21.2"
+  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.22.0"
 },
 "scripts": {
   "agents:generate": "ai-dev-workflow generate",
@@ -195,6 +195,11 @@ npx github:marxxxx/ai-dev-workflow#<new-tag> generate   # or bump the pinned tag
 Review the diff in `.claude/`/`.codex/`/etc. and commit. `ai-project.json` is never touched. Run
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
+
+**Upgrading to v0.22.0.** The Codex agents (`developer`, `code-reviewer`, `qa-engineer`) now default to
+`gpt-6-sol` (previously `gpt-5.6-terra`); reasoning efforts are unchanged (`high` for the developer,
+`medium` for the reviewer and QA). Regenerate to pick it up. The OpenCode and Claude model settings are
+unchanged.
 
 **Upgrading to v0.20.0.** The generator now requires **Node >= 24** (previously `>=18`). Upgrade Node
 on dev boxes and CI runners before bumping the pinned tag — older runtimes are unsupported and only get
