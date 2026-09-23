@@ -196,10 +196,10 @@ Review the diff in `.claude/`/`.codex/`/etc. and commit. `ai-project.json` is ne
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
 
-**Upgrading to v0.22.0.** The Codex agents (`developer`, `code-reviewer`, `qa-engineer`) now default to
-`gpt-6-sol` (previously `gpt-5.6-terra`); reasoning efforts are unchanged (`high` for the developer,
-`medium` for the reviewer and QA). Regenerate to pick it up. The OpenCode and Claude model settings are
-unchanged.
+**Upgrading to v0.22.0.** The OpenAI-based agents (`developer`, `code-reviewer`, `qa-engineer`) now
+default to `gpt-6-sol` (previously `gpt-5.6-terra`) — `gpt-6-sol` on Codex, `openai/gpt-6-sol` on OpenCode.
+Codex reasoning efforts are unchanged (`high` for the developer, `medium` for the reviewer and QA).
+Regenerate to pick it up. The Claude model setting (`opus`) is unchanged.
 
 **Upgrading to v0.20.0.** The generator now requires **Node >= 24** (previously `>=18`). Upgrade Node
 on dev boxes and CI runners before bumping the pinned tag — older runtimes are unsupported and only get

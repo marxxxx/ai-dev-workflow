@@ -42,7 +42,7 @@
       "nickname_candidates": ["Verifier", "Tester"]
     },
     "opencode": {
-      "model": "openai/gpt-5.6-terra",
+      "model": "openai/gpt-6-sol",
       "temperature": 0,
       "mode": "subagent"
     }
