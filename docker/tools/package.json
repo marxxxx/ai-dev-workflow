@@ -5,19 +5,19 @@
   "description": "Pinned Node tool runtime for ai-dev-workflow container images",
   "license": "UNLICENSED",
   "dependencies": {
-    "@anthropic-ai/claude-code": "2.1.280",
+    "@anthropic-ai/claude-code": "2.1.282",
     "@azure-devops/mcp": "2.10.0",
-    "@openai/codex": "0.156.1",
+    "@openai/codex": "0.157.0",
     "@playwright/mcp": "0.0.82",
     "@upstash/context7-mcp": "4.1.1",
     "ccusage": "20.0.24",
     "jsonc-parser": "3.3.1",
     "opencode-ai": "1.18.32",
     "playwright": "1.64.0-alpha-1789764292000",
-    "pnpm": "12.5.1",
+    "pnpm": "12.6.0",
     "smol-toml": "1.9.0",
     "typescript": "7.0.2",
-    "typescript-language-server": "6.0.0",
+    "typescript-language-server": "6.0.1",
     "typescript-serena": "npm:typescript@5.9.3",
     "yarn": "1.22.22"
   }
