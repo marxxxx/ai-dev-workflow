@@ -2,8 +2,13 @@
 # Reusable agent tool runtime. Build with: docker build -f docker/Dockerfile -t ai-dev-workflow docker
 FROM node:24-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
 
+<<<<<<< HEAD
 ARG UV_VERSION=0.12.19
 ARG SERENA_REVISION=7a2968335f2198b966864de1ce3655c8e485a653
+=======
+ARG UV_VERSION=0.12.18
+ARG SERENA_REVISION=9fa423710732790de5052006b257afcac771d26e
+>>>>>>> main
 ARG SUPERPOWERS_REVISION=5bf4e78011075bcfc0dc295f0724994cd123ee71
 ARG AZURE_CLI_VERSION=2.90.0-1~bookworm
 ARG AZURE_DEVOPS_EXTENSION_VERSION=1.0.8
