@@ -3,3 +3,4 @@
 docker/tools/node_modules/
 .vs
 
+.env.ai-dev
