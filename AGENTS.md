@@ -65,10 +65,11 @@ pipeline: **config → tokens → units → renderers → outputs**.
 - **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` only; recommended tooling is
   *printed*, never installed or documented with install steps.
 
-Units: one skill, `agent-dev`. It adds only the ticket edges (in-progress at start; implementation
-summary + cost summary comments and `review` at the end) around the unmodified superpowers chain.
+Units: one skill, `agent-dev`. It adds only the ticket edges around the unmodified superpowers chain:
+`in-progress` at the start, the approved spec and plan as comments, and the implementation summary,
+cost summary and `review` at the end.
 **Keep it lean**: every rendered byte is read on every run, so do not restate superpowers skills or
-invent process of their own — the spec/plan files superpowers writes are the only durable artifacts.
+invent process of their own — the spec/plan files superpowers writes are the working artifacts.
 See `agent-src/README.md` for the output map and manifest schema.
 
 **Workflow states** (`ai-workflow.json`): `new → in-progress → review`. Bodies refer to states

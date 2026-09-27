@@ -17,7 +17,7 @@ dev box and CI). Pin to a Git tag (e.g. `#v0.22.0`) so devs and CI stay in sync.
 | `ai-project.json` | **you** — project identity + ticketing backend choice | yes |
 | `AGENTS.md` | **you** — create with your coding agent's native `/init`; `agent-dev` reads it first (add an [End-to-end testing](#end-to-end-testing) section for agent-run e2e checks) | yes |
 | `agent-custom/` | **you** (optional) — per-project tweaks to the skill body (see [Customizing the skill](#customizing-the-skill)) | yes |
-| `docs/superpowers/{specs,plans}/` | written by superpowers during each run — the only durable working files | yes |
+| `docs/superpowers/{specs,plans}/` | written by superpowers during each run; the approved versions are also posted to the ticket | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
 | `.mcp.json` | merged (azure-devops backend only) — the shared `ado` server entry; other servers preserved | yes |
 | `.codex/config.toml` | merged (azure-devops backend only) — the Codex project-local `ado` MCP server entry; other Codex settings preserved | yes |
@@ -105,7 +105,7 @@ passes and still catches hand-edits to the generated files.
 ## The `agent-dev` workflow
 
 Run `/agent-dev [ticket-id]` (Codex: `$agent-dev`). The skill adds only what superpowers doesn't know
-about — the ticket and two closing comments — and otherwise follows the superpowers skills as written:
+about — the ticket and its comments — and otherwise follows the superpowers skills as written:
 
 1. **Start** — record the start time, read `AGENTS.md`; with a ticket, read it and move it to
    `in-progress`. Without one, it asks whether to **create a ticket**; if you say yes, it creates one
@@ -120,7 +120,10 @@ about — the ticket and two closing comments — and otherwise follows the supe
    If you chose agent testing, an [end-to-end check](#end-to-end-testing) runs before finishing.
    Instead of the finishing skill's merge/PR/keep menu, the run always ends with a **draft PR**
    (Gitea: a `WIP:` title), so a human reviews and tests before publishing it.
-4. **Close-out** — with a ticket, post an **Implementation Summary** comment (approach,
+4. **Ticket comments along the way** — with a ticket, the spec is posted as an **Approved Spec**
+   comment once you approve it, and the plan as an **Approved Plan** comment once you give the
+   go-ahead to execute it, so reviewers can read both on the ticket.
+5. **Close-out** — with a ticket, post an **Implementation Summary** comment (approach,
    consequences, possible side effects, what to watch when testing) and a **Cost Summary** comment,
    then move the ticket to `review`. Without a ticket, both are printed instead.
 

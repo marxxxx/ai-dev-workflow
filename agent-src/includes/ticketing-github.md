@@ -23,6 +23,8 @@ BODY_EOF
 
 ## Comment
 
+A comment holds at most 65,536 characters.
+
 ```bash
 cat <<'BODY_EOF' | gh issue comment <number> --repo {{repo.slug}} --body-file -
 ## <Title>
