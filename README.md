@@ -15,7 +15,7 @@ dev box and CI). Pin to a Git tag (e.g. `#v0.22.0`) so devs and CI stay in sync.
 | File / dir | Owner | Committed? |
 |---|---|---|
 | `ai-project.json` | **you** — project identity + ticketing backend choice | yes |
-| `AGENTS.md` | **you** — create with your coding agent's native `/init`; `agent-dev` reads it first | yes |
+| `AGENTS.md` | **you** — create with your coding agent's native `/init`; `agent-dev` reads it first (add an [End-to-end testing](#end-to-end-testing) section for agent-run e2e checks) | yes |
 | `agent-custom/` | **you** (optional) — per-project tweaks to the skill body (see [Customizing the skill](#customizing-the-skill)) | yes |
 | `docs/superpowers/{specs,plans}/` | written by superpowers during each run — the only durable working files | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
@@ -58,6 +58,7 @@ stale. Follow each project's own docs.
 |---|---|---|
 | [superpowers](https://github.com/obra/superpowers) | **required** | The whole workflow: brainstorming → worktree → plan → implementation (TDD, review, verification) → finishing the branch |
 | [serena](https://github.com/oraios/serena) | recommended | MCP server: semantic, symbol-level code navigation and editing |
+| [playwright](https://github.com/microsoft/playwright-mcp) | recommended | MCP server: drives a real browser for the optional [end-to-end check](#end-to-end-testing) |
 | [context7](https://github.com/upstash/context7) | recommended | MCP server: up-to-date library and framework documentation |
 | [ccusage](https://ccusage.com) | recommended | CLI behind the [cost summary](#cost-summary); without it the summary names the gap |
 
@@ -110,10 +111,12 @@ about — the ticket and two closing comments — and otherwise follows the supe
    `in-progress`.
 2. **Brainstorming** — the full requirements interview with you. A ticket (often an upstream ticket
    with too little detail to implement from) is only background context; it never replaces the
-   interview. The spec lands in `docs/superpowers/specs/`.
+   interview. For changes with user-visible behavior it also asks whether the agent should test
+   end to end or you prefer to test manually. The spec lands in `docs/superpowers/specs/`.
 3. **Worktree → plan → implementation → finishing the branch** — superpowers' own
    `using-git-worktrees`, `writing-plans`, `subagent-driven-development` (TDD, code review,
    verification) and `finishing-a-development-branch`. The branch follows `git.branchPattern`.
+   If you chose agent testing, an [end-to-end check](#end-to-end-testing) runs before finishing.
    Instead of the finishing skill's merge/PR/keep menu, the run always ends with a **draft PR**
    (Gitea: a `WIP:` title), so a human reviews and tests before publishing it.
 4. **Close-out** — with a ticket, post an **Implementation Summary** comment (approach,
@@ -122,6 +125,29 @@ about — the ticket and two closing comments — and otherwise follows the supe
 
 Ticket states are just `new → in-progress → review`; acceptance and closing stay with the human.
 Nothing else is written to the ticket.
+
+### End-to-end testing
+
+Superpowers itself never starts your app: its verification is satisfied by passing tests. So
+`agent-dev` adds one decision and one step. During brainstorming, for a change with user-visible
+behavior (UI, user flows), it asks whether **you want the agent to test it end to end** or **you
+prefer to test it manually**, and records the answer in the spec. If you chose the agent, it starts
+the app, exercises the changed flows in a browser via Playwright, captures evidence, and shuts the
+app down before opening the draft PR. The **Implementation Summary** always states the outcome:
+tested by the agent (with what was checked), left to manual testing at your request, or not tested
+and why. A missing setup, missing browser tooling, or a failed startup never blocks the PR; it is
+reported there instead.
+
+The workflow ships no start/stop scripts, because starting the app differs per stack and per OS.
+Describe it in prose in an **End-to-end testing** section of your `AGENTS.md`, and the agent turns
+that into commands for the OS it runs on. Cover:
+
+- the backing services to start (database, cache, broker) and any migrate/seed steps;
+- how to start the app and how to tell it's reachable;
+- the base URL and ports;
+- the **test-locator attribute** to select elements by (for example `data-testid`).
+
+Without that section, the agent tells you during brainstorming if you ask it to test end to end.
 
 ### Cost summary
 

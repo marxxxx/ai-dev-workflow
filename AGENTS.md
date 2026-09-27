@@ -91,7 +91,8 @@ hand-edit them (`node docker/tools/inventory.mjs update | sync | check`). See `d
 - **LF line endings** everywhere.
 - Shared guidance goes in `body.md`; `overlays/<platform>.md` only for genuinely platform-specific
   mechanics (none today).
-- A consuming project's `AGENTS.md` / `CLAUDE.md` are hand-owned and never generated.
+- A consuming project's `AGENTS.md` / `CLAUDE.md` are hand-owned and never generated; `agent-dev`'s
+  optional e2e check reads its End-to-end testing section instead of shipping start/stop scripts.
 
 ## TDD Workstyle
 - Write tests only for logic / code.

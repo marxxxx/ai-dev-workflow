@@ -101,6 +101,7 @@ test('init prints the dependencies with links and no install instructions', () =
 
     assert.match(stdout, /https:\/\/github\.com\/obra\/superpowers/);
     assert.match(stdout, /https:\/\/github\.com\/oraios\/serena/);
+    assert.match(stdout, /https:\/\/github\.com\/microsoft\/playwright-mcp/);
     assert.match(stdout, /Required:\n\s+superpowers/, 'agent-dev cannot run without superpowers');
     assert.match(stdout, /https:\/\/github\.com\/upstash\/context7/);
 

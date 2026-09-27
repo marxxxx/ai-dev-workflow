@@ -14,7 +14,8 @@ import { readJson, buildProjectConfig } from './config.mjs';
  */
 const AGENTS_MD_GUIDANCE =
   'Create AGENTS.md with your coding agent\'s native `/init` command. agent-dev reads it first, so\n' +
-  'keep build/test commands and project conventions there.';
+  'keep build/test commands and project conventions there. For end-to-end checks, add an\n' +
+  '"End-to-end testing" section describing how to start the app (see the ai-dev-workflow README).';
 
 /**
  * The tooling the agents expect, printed after onboarding. Deliberately names and links each
@@ -31,6 +32,9 @@ const DEPENDENCIES =
   'Recommended:\n' +
   '  serena       MCP server: semantic, symbol-level code navigation and editing\n' +
   '               https://github.com/oraios/serena\n' +
+  '\n' +
+  '  playwright   MCP server: drives a real browser for agent-dev\'s optional end-to-end check\n' +
+  '               https://github.com/microsoft/playwright-mcp\n' +
   '\n' +
   '  context7     MCP server: up-to-date library and framework documentation\n' +
   '               https://github.com/upstash/context7\n' +

@@ -22,12 +22,21 @@ Invoke each skill and follow it as written:
 1. `superpowers:brainstorming` — run the full requirements interview with the user. A ticket is
    **context, not a spec**: tickets are often incomplete, so feed its content in as background and
    never skip or shorten the interview because a ticket exists. Note the ticket reference in the spec.
+   If the change has user-visible behavior (UI, user flows), also ask the user whether you should
+   test it end to end in the running app or they prefer to test it manually. If they want you to but
+   `AGENTS.md` has no end-to-end section, say so right away. Record the answer in the spec, together
+   with the checks it covers.
 2. `superpowers:using-git-worktrees` — branch name per `{{git.branchPattern}}`; the ticket include
    defines the number to use and the slug rule when there is no ticket.
 3. `superpowers:writing-plans`.
 4. `superpowers:subagent-driven-development` (or `superpowers:executing-plans` where subagents are
    unavailable). It carries TDD, code review, and verification.
-5. `superpowers:finishing-a-development-branch` — base branch `{{git.prTarget}}`. Run its
+5. **End-to-end check** (only if the spec says the agent tests end to end) — start the app as the
+   `AGENTS.md` end-to-end section describes, exercise the changed flows in a browser (Playwright),
+   capture evidence (screenshots outside the repo, or observations), and shut the app down. If
+   there is no such section, no browser tooling, or startup fails, do not block: report it in the
+   summary instead.
+6. `superpowers:finishing-a-development-branch` — base branch `{{git.prTarget}}`. Run its
    verification, but do **not** offer its integration menu: the choice is already made. Push the
    branch and open a **draft pull request** with the ticket include's commands, so a human can
    review and test before publishing it. Write the implementation summary (section 3) first; it is
@@ -45,7 +54,8 @@ The `{{artifact.implementationSummary}}` — at most about 250 words:
 **Approach** — what was built and how.
 **Consequences** — behavior, API, data, or config changes.
 **Possible side effects** — what else this could affect.
-**Watch when testing** — concrete things to check.
+**Watch when testing** — concrete things to check. State the end-to-end status: tested by the
+agent (what, with evidence), left to manual testing at the user's request, or not tested (why).
 Spec: <path> · Plan: <path> · PR: <link, added once the draft PR exists>
 ```
 
