@@ -77,7 +77,7 @@ every body and to each manifest `description`/`interface` string:
 - `{{repo.slug}}`, `{{repo.defaultBranch}}`
 - `{{ticketing.include}}` (path agents read at runtime), `{{ticketing.backend}}`
 - `{{ticketing.dir}}`, `{{ticketing.metadataFile}}` — file backend only
-- `{{git.branchPattern}}`, `{{git.prTarget}}`
+- `{{git.prTarget}}` (branch and PR names are fixed by `agent-dev`, derived from the ticket)
 - `{{artifact.implementationSummary}}`, `{{artifact.costSummary}}` — one per key of
   `workflow.artifacts`; each is the title of a ticket comment `agent-dev` posts at close-out
 - `{{cost.include}}` — the cost-summary include path, package-owned like `{{ticketing.include}}`

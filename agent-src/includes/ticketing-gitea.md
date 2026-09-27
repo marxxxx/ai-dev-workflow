@@ -17,6 +17,19 @@ tea issues --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} <number>
 tea comments list --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} <number>
 ```
 
+## Create
+
+Created straight into `{{status.in-progress}}`; the output shows the new issue's number.
+
+```bash
+BODY=$(cat <<'BODY_EOF'
+<a few sentences summarizing the spec; spec path>
+BODY_EOF
+)
+tea issues create --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} \
+  --title "<title>" --description "$BODY" --labels "{{status.in-progress}}"
+```
+
 ## Comment
 
 ```bash
@@ -49,13 +62,6 @@ tea issues edit --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} \
 
 Never close an issue — that is the human's acceptance.
 
-## Branch
-
-- `{{git.branchPattern}}` with the issue number (for example `feat/42_user-login`).
-- If the issue body starts with `**Upstream:** <ref>`, use the upstream ticket number instead
-  (`**Upstream:** AB#12345` → `feat/12345_user-login`).
-- No ticket: drop the number and its separator, keeping only the slug of the spec topic.
-
 ## Pull Requests
 
 Always open PRs as drafts; the human reviewer publishes them after reviewing and testing. `tea` has
@@ -63,5 +69,5 @@ no draft flag: Gitea treats a `WIP:` title prefix as a draft (work in progress).
 
 ```bash
 tea pulls create --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} \
-  --base {{git.prTarget}} --head <branch> --title "WIP: <title> (#<number>)" --description "..."
+  --base {{git.prTarget}} --head <branch> --title "WIP: <pr-title>" --description "..."
 ```

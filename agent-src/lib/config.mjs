@@ -84,7 +84,7 @@ export function buildProjectConfig(a) {
     project: { name: a.name, slug: a.slug, serenaProject: a.serena, description: a.description },
     repository: { slug: a.repoSlug, defaultBranch: a.defaultBranch },
     ticketing,
-    git: { branchPattern: a.branchPattern, prTarget: a.prTarget },
+    git: { prTarget: a.prTarget },
   };
 }
 
@@ -117,7 +117,6 @@ export function buildGlobalTokens(config) {
   put('ticketing.azure.featureType', c.ticketing?.azureDevOps?.featureType || 'Issue');
   put('ticketing.azure.bugType', c.ticketing?.azureDevOps?.bugType || 'Issue');
 
-  put('git.branchPattern', c.git?.branchPattern);
   put('git.prTarget', c.git?.prTarget);
 
   // Cost accounting: the include path is package-owned (always present). The include tells agent-dev

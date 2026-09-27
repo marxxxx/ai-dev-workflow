@@ -13,7 +13,10 @@ when you report cost.
    - If it was already `in-progress`, an earlier attempt died without reporting its cost. Ask
      whether to post a partial `{{artifact.costSummary}}` for it first, and have the user confirm the
      window start (suggest when the ticket moved to `in-progress`, if the backend shows it).
-4. No ticket: the flow is the same; the summaries are printed instead of posted.
+4. No ticket: ask the user whether you should **create a ticket** for this work. If yes, create it
+   once brainstorming has settled the scope (see below); from then on it is the run's ticket, exactly
+   as if its id had been given. If no, the flow is the same, and the summaries are printed instead of
+   posted.
 
 ## 2. Superpowers chain
 
@@ -26,8 +29,10 @@ Invoke each skill and follow it as written:
    test it end to end in the running app or they prefer to test it manually. If they want you to but
    `AGENTS.md` has no end-to-end section, say so right away. Record the answer in the spec, together
    with the checks it covers.
-2. `superpowers:using-git-worktrees` — branch name per `{{git.branchPattern}}`; the ticket include
-   defines the number to use and the slug rule when there is no ticket.
+   If the user asked for a new ticket, create it now with the ticket include's commands (it starts
+   in `in-progress`): a short title and a few sentences summarizing the spec, plus its path. Add the
+   new ticket's number to the spec.
+2. `superpowers:using-git-worktrees` — branch named per **Naming** below.
 3. `superpowers:writing-plans`.
 4. `superpowers:subagent-driven-development` (or `superpowers:executing-plans` where subagents are
    unavailable). It carries TDD, code review, and verification.
@@ -39,11 +44,20 @@ Invoke each skill and follow it as written:
 6. `superpowers:finishing-a-development-branch` — base branch `{{git.prTarget}}`. Run its
    verification, but do **not** offer its integration menu: the choice is already made. Push the
    branch and open a **draft pull request** with the ticket include's commands, so a human can
-   review and test before publishing it. Write the implementation summary (section 3) first; it is
-   the PR description, plus the ticket reference.
+   review and test before publishing it. PR title per **Naming** below. Write the implementation
+   summary (section 3) first; it is the PR description, plus the ticket reference.
 
 The spec and plan under `docs/superpowers/` are the only durable working files. Do not mirror them
 onto the ticket.
+
+### Naming
+
+Both names derive from the ticket: its number, and a **short title** (its title cut to a few words).
+
+- Branch: `<number>_<short_title_slug>`: lowercase ASCII, words joined by `_` (for example
+  `42_user_login_form`). Without a ticket: `<short_title_slug>`.
+- PR title: `<number>: <short title>` (for example `42: User login form`). Without a ticket:
+  `<short title>`.
 
 ## 3. Close-out
 

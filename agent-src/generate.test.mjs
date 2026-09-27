@@ -69,7 +69,7 @@ test('buildProjectConfig (file backend) omits azureDevOps', () => {
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: 'A demo',
     repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file',
-    branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+    prTarget: 'main',
     file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' },
   });
   assert.equal(cfg.project.name, 'Demo');
@@ -82,7 +82,7 @@ test('buildProjectConfig (azure scrum) fills types + stateMapping', () => {
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
     repoSlug: 'demo', defaultBranch: 'main', backend: 'azure-devops',
-    branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+    prTarget: 'main',
     azure: { organization: 'myorg', project: 'myproj', processTemplate: 'scrum' },
   });
   const a = cfg.ticketing.azureDevOps;
@@ -99,18 +99,32 @@ test('buildProjectConfig (github backend) omits both file and azureDevOps', () =
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
     repoSlug: 'me/demo', defaultBranch: 'main', backend: 'github',
-    branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+    prTarget: 'main',
   });
   assert.equal(cfg.ticketing.backend, 'github');
   assert.ok(!('file' in cfg.ticketing));
   assert.ok(!('azureDevOps' in cfg.ticketing));
 });
 
+test('buildProjectConfig writes only the PR target under git — naming is fixed, not configurable', () => {
+  const cfg = buildProjectConfig({
+    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
+    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'github', prTarget: 'main',
+  });
+  assert.deepEqual(cfg.git, { prTarget: 'main' });
+});
+
+test('buildGlobalTokens ignores a legacy git.branchPattern', () => {
+  const tokens = buildGlobalTokens({ git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' }, workflow: WORKFLOW });
+  assert.ok(!('git.branchPattern' in tokens), 'the branch name is derived from the ticket, not a project pattern');
+  assert.equal(tokens['git.prTarget'], 'main');
+});
+
 test('buildProjectConfig writes no e2e block', () => {
   const base = {
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
     repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file',
-    branchPattern: 'x', prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
+    prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
   };
   assert.ok(!('e2e' in buildProjectConfig(base)), 'no e2e block — e2e setup lives in AGENTS.md prose');
 });
@@ -155,7 +169,7 @@ test('buildProjectConfig (gitea backend) records the tea login and omits file + 
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
     repoSlug: 'me/demo', defaultBranch: 'main', backend: 'gitea',
-    branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+    prTarget: 'main',
     gitea: { login: 'myserver' },
   });
   assert.equal(cfg.ticketing.backend, 'gitea');

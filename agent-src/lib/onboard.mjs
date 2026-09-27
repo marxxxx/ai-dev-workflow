@@ -150,7 +150,6 @@ export async function runInterview(prompter, { detectRepoSlug, projectRoot }) {
       processTemplate: await prompter.askChoice('Process template', 'azure.processTemplate', ['basic', 'scrum'], 'basic'),
     };
   }
-  answers.branchPattern = await prompter.ask('Branch pattern', 'branchPattern', 'feat/<issue-number>_<slug>');
   answers.prTarget = await prompter.ask('PR target branch', 'prTarget', defaultBranch);
   return answers;
 }

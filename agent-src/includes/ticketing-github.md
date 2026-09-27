@@ -9,6 +9,18 @@ Use the `gh` CLI for every ticket operation. Issues live in `{{repo.slug}}`.
 gh issue view <number> --repo {{repo.slug}} --comments
 ```
 
+## Create
+
+Created straight into `{{status.in-progress}}`; the command prints the issue URL, whose last segment
+is the number.
+
+```bash
+cat <<'BODY_EOF' | gh issue create --repo {{repo.slug}} --title "<title>" \
+  --label "{{status.in-progress}}" --body-file -
+<a few sentences summarizing the spec; spec path>
+BODY_EOF
+```
+
 ## Comment
 
 ```bash
@@ -35,18 +47,11 @@ gh issue edit <number> --repo {{repo.slug}} --remove-label "{{status.in-progress
 
 Never close an issue — that is the human's acceptance.
 
-## Branch
-
-- `{{git.branchPattern}}` with the issue number (for example `feat/42_user-login`).
-- If the issue body starts with `**Upstream:** <ref>`, use the upstream ticket number instead
-  (`**Upstream:** AB#12345` → `feat/12345_user-login`).
-- No ticket: drop the number and its separator, keeping only the slug of the spec topic.
-
 ## Pull Requests
 
 Always open PRs as drafts; the human reviewer publishes them after reviewing and testing.
 
 ```bash
 gh pr create --draft --repo {{repo.slug}} --base {{git.prTarget}} --head <branch> \
-  --title "<title> (#<number>)" --body-file <file>
+  --title "<pr-title>" --body-file <file>
 ```

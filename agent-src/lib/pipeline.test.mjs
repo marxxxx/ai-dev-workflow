@@ -39,7 +39,7 @@ test('azure-devops backend emits .mcp.json with the pinned ADO server', () => {
           processTemplate: 'basic', stateMapping: {},
         },
       },
-      git: { branchPattern: 'x', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
     const outputs = renderAll(root);
     const mcp = outputs.find((o) => o.path === '.mcp.json');
@@ -82,6 +82,9 @@ test('agent-dev drives the superpowers chain and defers ticketing and cost to th
       assert.match(body, /Implementation Summary/);
       assert.match(body, /partial/i, 'failed or interrupted runs offer a partial cost summary');
       assert.match(body, /draft pull request/i, 'a finished run hands off through a draft PR');
+      assert.match(body, /`<number>_<short_title_slug>`/, 'branch name derives from the ticket');
+      assert.match(body, /`<number>: <short title>`/, 'PR title derives from the ticket');
+      assert.match(body, /create a ticket/i, 'without a ticket, offer to create one');
       assert.doesNotMatch(body, /\{\{.*?\}\}/);
     }
   } finally {
@@ -112,40 +115,44 @@ const BACKENDS = {
       project: { name: 'File Demo', slug: 'file-demo', serenaProject: 'file-demo', description: '' },
       repository: { slug: 'me/file-demo', defaultBranch: 'main' },
       ticketing: { backend: 'file', file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' } },
-      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
+      git: { prTarget: 'main' },
     },
     review: /status: review/,
     draft: /gh pr create --draft/,
+    create: /next_id/,
   },
   github: {
     project: {
       project: { name: 'GH Demo', slug: 'gh-demo', serenaProject: 'gh-demo', description: '' },
       repository: { slug: 'me/gh-demo', defaultBranch: 'main' },
       ticketing: { backend: 'github' },
-      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
+      git: { prTarget: 'main' },
     },
     review: /status:review/,
     draft: /gh pr create --draft/,
+    create: /gh issue create/,
   },
   gitea: {
     project: {
       project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
       repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
       ticketing: { backend: 'gitea', gitea: { login: 'myserver' } },
-      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
+      git: { prTarget: 'main' },
     },
     review: /status:review/,
     draft: /--title "WIP: /,
+    create: /tea issues create/,
   },
   'azure-devops': {
     project: {
       project: { name: 'ADO Demo', slug: 'ado-demo', serenaProject: 'ado-demo', description: '' },
       repository: { slug: 'ado-repo', defaultBranch: 'main' },
       ticketing: { backend: 'azure-devops', azureDevOps: { organization: 'contoso', project: 'widgets' } },
-      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
+      git: { prTarget: 'main' },
     },
     review: /status:review/,
     draft: /--draft true/,
+    create: /wit_work_item_write\(action: "create"/,
   },
 };
 
@@ -159,6 +166,8 @@ for (const [backend, spec] of Object.entries(BACKENDS)) {
       assert.match(include.content, spec.review, 'the include must show the move to review');
       assert.match(include.content, /## Pull Requests/);
       assert.match(include.content, spec.draft, 'finished work is handed off as a draft PR');
+      assert.match(include.content, spec.create, 'the include must show how to create a ticket');
+      assert.doesNotMatch(include.content, /Upstream|feat\//, 'naming derives from the ticket itself, not an upstream reference or pattern');
       assert.doesNotMatch(include.content, /Journal|Issue Body Templates|Work Item Body Templates|acceptance-test|Developer Handoff/);
       assert.doesNotMatch(include.content, /\{\{.*?\}\}/, 'include must fully resolve');
       assert.ok(include.content.length < 6000, `${backend} include should stay small (${include.content.length} bytes)`);
@@ -181,7 +190,7 @@ test('azure-devops backend emits Codex project-local ADO MCP config', () => {
           processTemplate: 'basic', stateMapping: {},
         },
       },
-      git: { branchPattern: 'x', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
 
     const outputs = renderAll(root);
@@ -210,7 +219,7 @@ test('azure-devops Codex MCP config preserves unrelated TOML and replaces ado on
           processTemplate: 'basic', stateMapping: {},
         },
       },
-      git: { branchPattern: 'x', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
 
     const codexDir = path.join(root, '.codex');
@@ -251,7 +260,7 @@ test('renderAll throws when azure-devops lacks an organization', () => {
       project: { name: 'ADO', slug: 'ado', serenaProject: 'ado', description: '' },
       repository: { slug: 'ado', defaultBranch: 'main' },
       ticketing: { backend: 'azure-devops', azureDevOps: { project: 'widgets' } },
-      git: { branchPattern: 'x', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
     assert.throws(() => renderAll(root), /organization is required/);
   } finally {
@@ -379,7 +388,7 @@ test('gitea backend renders the tea-driven ticketing include with the login subs
       project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
       repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
       ticketing: { backend: 'gitea', gitea: { login: 'myserver' } },
-      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
     const outputs = renderAll(root);
     const include = outputs.find((o) => o.path === '.agents/includes/ticketing.md');
@@ -400,7 +409,7 @@ test('renderAll throws when gitea lacks a login', () => {
       project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
       repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
       ticketing: { backend: 'gitea' },
-      git: { branchPattern: 'x', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
     assert.throws(() => renderAll(root), /ticketing\.gitea\.login is required/);
   } finally {
@@ -416,7 +425,7 @@ test('a gitea login containing a space stays one shell argument in the rendered 
       repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
       // `tea login add` happily accepts spaces in a profile name, and real installs have them.
       ticketing: { backend: 'gitea', gitea: { login: 'gitea ki' } },
-      git: { branchPattern: 'x', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
     const include = renderAll(root).find((o) => o.path === '.agents/includes/ticketing.md');
     const bare = include.content.match(/--login (?!")\S*/g) || [];

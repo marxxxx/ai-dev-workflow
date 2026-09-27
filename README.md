@@ -108,20 +108,25 @@ Run `/agent-dev [ticket-id]` (Codex: `$agent-dev`). The skill adds only what sup
 about — the ticket and two closing comments — and otherwise follows the superpowers skills as written:
 
 1. **Start** — record the start time, read `AGENTS.md`; with a ticket, read it and move it to
-   `in-progress`.
+   `in-progress`. Without one, it asks whether to **create a ticket**; if you say yes, it creates one
+   once brainstorming has settled the scope and uses it for the rest of the run.
 2. **Brainstorming** — the full requirements interview with you. A ticket (often an upstream ticket
    with too little detail to implement from) is only background context; it never replaces the
    interview. For changes with user-visible behavior it also asks whether the agent should test
    end to end or you prefer to test manually. The spec lands in `docs/superpowers/specs/`.
 3. **Worktree → plan → implementation → finishing the branch** — superpowers' own
    `using-git-worktrees`, `writing-plans`, `subagent-driven-development` (TDD, code review,
-   verification) and `finishing-a-development-branch`. The branch follows `git.branchPattern`.
+   verification) and `finishing-a-development-branch`.
    If you chose agent testing, an [end-to-end check](#end-to-end-testing) runs before finishing.
    Instead of the finishing skill's merge/PR/keep menu, the run always ends with a **draft PR**
    (Gitea: a `WIP:` title), so a human reviews and tests before publishing it.
 4. **Close-out** — with a ticket, post an **Implementation Summary** comment (approach,
    consequences, possible side effects, what to watch when testing) and a **Cost Summary** comment,
    then move the ticket to `review`. Without a ticket, both are printed instead.
+
+Names derive from the ticket's number and a short version of its title: branch
+`<number>_<short_title_slug>` (e.g. `42_user_login_form`), PR title `<number>: <short title>` (e.g.
+`42: User login form`). Without a ticket, both drop the number.
 
 Ticket states are just `new → in-progress → review`; acceptance and closing stay with the human.
 Nothing else is written to the ticket.
@@ -188,8 +193,8 @@ Review the diff in `.claude/`/`.codex/`/etc. and commit. `ai-project.json` is ne
 `DO NOT EDIT — generated from agent-src/…` banner.
 
 **Upgrading to v0.22.0.** The custom multi-agent workflow is replaced by the single `agent-dev`
-skill. `dev-cycle`, `product-architect`, the `developer` / `code-reviewer` / `qa-engineer` agents, the
-developer journal/handoff, and the e2e include are gone; ticket states shrink to
+skill. `dev-cycle`, `product-architect`, the `developer` / `code-reviewer` / `qa-engineer` agents,
+the developer journal/handoff, and the e2e include are gone; ticket states shrink to
 `new → in-progress → review`. **superpowers is now required.** `generate` does not delete files it no
 longer produces, so remove these yourself:
 
@@ -204,9 +209,10 @@ longer produces, so remove these yourself:
 ```
 
 `agent-custom/` files for the removed units are ignored; move anything you still need to
-`agent-custom/skills/agent-dev/append.md`. Old `stateMapping` keys (`test`, `failed`,
-`acceptance-test`) in `ai-project.json` are harmless and can be deleted. Tickets left in retired
-states (`test`, `failed`, `acceptance-test`) need a manual move.
+`agent-custom/skills/agent-dev/append.md`. `git.branchPattern` is no longer read — branch and PR
+names now derive from the ticket — so delete it from `ai-project.json`. Old `stateMapping` keys
+(`test`, `failed`, `acceptance-test`) in `ai-project.json` are harmless and can be deleted. Tickets
+left in retired states (`test`, `failed`, `acceptance-test`) need a manual move.
 
 **Upgrading to v0.20.0.** The generator now requires **Node >= 24** (previously `>=18`). Upgrade Node
 on dev boxes and CI runners before bumping the pinned tag — older runtimes are unsupported and only get

@@ -16,6 +16,23 @@ wit_work_item(action: "list_comments", workItemId: <id>, project: "{{ticketing.a
 wit_work_item_attachment(attachmentId: "<guid>", project: "{{ticketing.azure.project}}", fileName: "<name>")
 ```
 
+## Create
+
+Created straight into `{{status.in-progress}}`; the response carries the new work item's `id`.
+`fields` is an array of `{ name, value }` entries, and the Markdown body needs `format: "Markdown"`.
+
+```text
+wit_work_item_write(action: "create", project: "{{ticketing.azure.project}}",
+  workItemType: "{{ticketing.azure.featureType}}", fields: [
+    { name: "System.Title", value: "<title>" },
+    { name: "System.Description", value: "<a few sentences summarizing the spec; spec path>", format: "Markdown" },
+    { name: "System.Tags", value: "{{status.in-progress}}" },
+    { name: "System.State", value: "{{azureState.in-progress}}" }
+  ])
+```
+
+Use `{{ticketing.azure.bugType}}` instead when the work is a bug fix.
+
 ## Comment
 
 ```text
@@ -44,13 +61,6 @@ wit_work_item_write(action: "update", id: <id>, project: "{{ticketing.azure.proj
 
 Never set `Done` and never remove a work item — that is the human's acceptance.
 
-## Branch
-
-- `{{git.branchPattern}}` with the work-item id (for example `feat/42_user-login`).
-- If the work item records an upstream ticket (a `Related` link, or an `**Upstream:** <ref>`
-  comment), use the upstream number instead (upstream PBI `12345` → `feat/12345_user-login`).
-- No ticket: drop the number and its separator, keeping only the slug of the spec topic.
-
 ## Pull Requests
 
 Always open PRs as drafts; the human reviewer publishes them after reviewing and testing.
@@ -59,5 +69,5 @@ Always open PRs as drafts; the human reviewer publishes them after reviewing and
 az repos pr create --repository "{{repo.slug}}" --project "{{ticketing.azure.project}}" \
   --organization "https://dev.azure.com/{{ticketing.azure.organization}}" \
   --target-branch "{{git.prTarget}}" --source-branch "<branch>" --draft true \
-  --title "<id>: <title>" --description "..."
+  --title "<pr-title>" --description "..."
 ```
