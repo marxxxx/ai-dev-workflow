@@ -1,7 +1,7 @@
 # {{project.name}} Agent Dev
 
 Take one change from request to pull request with the **superpowers** workflow, unmodified. This
-skill only adds what superpowers does not know about: the optional ticket and its comments.
+skill only adds what superpowers does not know about: the optional ticket, and two closing comments.
 Read `{{ticketing.include}}` only when you touch the ticket or open a PR, and `{{cost.include}}` only
 when you report cost.
 
@@ -32,11 +32,11 @@ Invoke each skill and follow it as written:
    If the user asked for a new ticket, create it now with the ticket include's commands (it starts
    in `in-progress`): a short title and a few sentences summarizing the spec, plus its path. Add the
    new ticket's number to the spec.
-   Once the user has approved the spec, post it on the ticket as the `{{artifact.spec}}` comment
-   (see **Ticket comments** below).
+   With a ticket, once the user has approved the written spec, **attach the approved spec** to the
+   ticket with the include's commands. If the spec changes later in the run, attach the final version
+   again at close-out.
 2. `superpowers:using-git-worktrees` — branch named per **Naming** below.
-3. `superpowers:writing-plans`. Once the user approves the plan (their go-ahead to execute it), post
-   it as the `{{artifact.plan}}` comment.
+3. `superpowers:writing-plans`.
 4. `superpowers:subagent-driven-development` (or `superpowers:executing-plans` where subagents are
    unavailable). It carries TDD, code review, and verification.
 5. **End-to-end check** (only if the spec says the agent tests end to end) — start the app as the
@@ -50,13 +50,8 @@ Invoke each skill and follow it as written:
    review and test before publishing it. PR title per **Naming** below. Write the implementation
    summary (section 3) first; it is the PR description, plus the ticket reference.
 
-### Ticket comments
-
-With a ticket, the approved spec and plan are posted in full, each under a `## <title>` heading
-followed by its repository path, so reviewers can read them on the ticket. If a comment exceeds the
-backend's size limit (see the ticket include) or is rejected as too large, post it in numbered parts
-(`<title> (1/2)`, …). Post each once, as approved. Later revisions stay in the files under
-`docs/superpowers/`.
+The spec and plan under `docs/superpowers/` are the only durable working files. Only the approved
+spec goes onto the ticket; the plan stays in the repo.
 
 ### Naming
 
@@ -95,5 +90,5 @@ ticket at `in-progress`. Failed attempts then still count toward the ticket's co
 
 - Never close the ticket; acceptance is human.
 - Never merge and never publish the draft PR; both belong to the human reviewer.
-- Post nothing to the ticket beyond the approved spec and plan, the implementation summary, and the
-  cost comments.
+- Post nothing to the ticket beyond the approved spec, the implementation summary, and the cost
+  comments.

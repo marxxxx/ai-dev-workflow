@@ -32,6 +32,16 @@ cat <<'BODY_EOF' | gh issue comment <number> --repo {{repo.slug}} --body-file -
 BODY_EOF
 ```
 
+## Attach the spec
+
+GitHub has no API for issue attachments, so the approved spec goes onto the issue as one comment,
+collapsed. Comments are capped at 65,536 characters; for a longer spec, post only the path.
+
+```bash
+{ printf '## Spec\n`<spec path>`\n\n<details><summary>Approved spec</summary>\n\n'
+  cat <spec path>; printf '\n</details>\n'; } | gh issue comment <number> --repo {{repo.slug}} --body-file -
+```
+
 ## Status
 
 Status is a label; a transition swaps the old label for the new one.

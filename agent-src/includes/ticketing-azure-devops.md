@@ -40,6 +40,31 @@ wit_work_item_comment_write(action: "add", workItemId: <id>,
   project: "{{ticketing.azure.project}}", text: "## <Title>\n...", format: "Markdown")
 ```
 
+## Attach the spec
+
+The `ado` MCP server cannot upload files, so this one step uses the Azure CLI (`azure-devops`
+extension, signed in with `az login`). Upload the approved spec, then link it to the work item as an
+attachment:
+
+```bash
+ORG="https://dev.azure.com/{{ticketing.azure.organization}}"
+URL=$(az devops invoke --organization "$ORG" --area wit --resource attachments \
+  --route-parameters project="{{ticketing.azure.project}}" --query-parameters fileName=<spec file name> \
+  --http-method POST --in-file <spec path> --media-type application/octet-stream \
+  --api-version 7.1 --query url -o tsv)
+PATCH=$(mktemp)
+cat > "$PATCH" <<PATCH_EOF
+[{ "op": "add", "path": "/relations/-",
+   "value": { "rel": "AttachedFile", "url": "$URL", "attributes": { "comment": "Approved spec" } } }]
+PATCH_EOF
+az devops invoke --organization "$ORG" --area wit --resource workItems --route-parameters id=<id> \
+  --http-method PATCH --in-file "$PATCH" --media-type application/json-patch+json --api-version 7.1
+rm -f "$PATCH"
+```
+
+If `az` is unavailable or not signed in, post the spec as a comment instead: `## Spec`, the path, and
+the full text inside `<details><summary>Approved spec</summary>…</details>`. Say so in the summary.
+
 ## Status
 
 The status tag in `System.Tags` (semicolon-separated) is authoritative; `System.State` is nudged along

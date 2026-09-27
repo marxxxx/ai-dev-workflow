@@ -41,6 +41,17 @@ BODY_EOF
 tea comments add --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} <number> "$BODY"
 ```
 
+## Attach the spec
+
+`tea` cannot upload issue attachments, so the approved spec goes onto the issue as one comment,
+collapsed:
+
+```bash
+BODY=$({ printf '## Spec\n`<spec path>`\n\n<details><summary>Approved spec</summary>\n\n'
+  cat <spec path>; printf '\n</details>\n'; })
+tea comments add --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} <number> "$BODY"
+```
+
 ## Status
 
 Status is a label; a transition swaps the old label for the new one. Before the first transition,

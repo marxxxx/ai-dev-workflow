@@ -113,7 +113,10 @@ about — the ticket and its comments — and otherwise follows the superpowers 
 2. **Brainstorming** — the full requirements interview with you. A ticket (often an upstream ticket
    with too little detail to implement from) is only background context; it never replaces the
    interview. For changes with user-visible behavior it also asks whether the agent should test
-   end to end or you prefer to test manually. The spec lands in `docs/superpowers/specs/`.
+   end to end or you prefer to test manually. The spec lands in `docs/superpowers/specs/`; once you
+   approve it, it is attached to the ticket (Azure DevOps: a real attachment via the Azure CLI;
+   GitHub/Gitea: a collapsed comment, since their CLIs cannot upload issue attachments; file backend:
+   the path). The plan stays in the repo.
 3. **Worktree → plan → implementation → finishing the branch** — superpowers' own
    `using-git-worktrees`, `writing-plans`, `subagent-driven-development` (TDD, code review,
    verification) and `finishing-a-development-branch`.
@@ -132,7 +135,7 @@ Names derive from the ticket's number and a short version of its title: branch
 `42: User login form`). Without a ticket, both drop the number.
 
 Ticket states are just `new → in-progress → review`; acceptance and closing stay with the human.
-Nothing else is written to the ticket.
+Nothing beyond the spec and those two comments is written to the ticket.
 
 ### End-to-end testing
 

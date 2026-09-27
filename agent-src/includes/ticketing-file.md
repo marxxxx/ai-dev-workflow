@@ -43,6 +43,19 @@ cat >> {{ticketing.dir}}/<number>_<slug>.md <<'BODY_EOF'
 BODY_EOF
 ```
 
+## Attach the spec
+
+The path is the reference:
+
+```bash
+cat >> {{ticketing.dir}}/<number>_<slug>.md <<'BODY_EOF'
+
+---
+## Spec
+<spec path>
+BODY_EOF
+```
+
 ## Status
 
 Status is the `status:` frontmatter field.
