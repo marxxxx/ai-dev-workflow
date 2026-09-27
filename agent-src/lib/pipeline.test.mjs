@@ -67,16 +67,15 @@ test('renderAll emits only the agent-dev skill plus the ticketing and cost inclu
   }
 });
 
-test('agent-dev drives the superpowers chain and defers ticketing and cost to the includes', () => {
+test('agent-dev enters the superpowers workflow and defers ticketing and cost to the includes', () => {
   const { root, cleanup } = tmpProject();
   try {
     const outputs = renderAll(root);
     for (const p of AGENT_DEV_PATHS.filter((p) => p.endsWith('SKILL.md'))) {
       const body = outputs.find((o) => o.path === p).content;
-      for (const skill of ['brainstorming', 'using-git-worktrees', 'writing-plans',
-        'subagent-driven-development', 'finishing-a-development-branch']) {
-        assert.match(body, new RegExp(`superpowers:${skill}`), `${p} must invoke superpowers:${skill}`);
-      }
+      assert.match(body, /superpowers:brainstorming/, `${p} must enter the workflow via superpowers:brainstorming`);
+      assert.deepEqual(body.match(/superpowers:[\w-]+/g).filter((s) => s !== 'superpowers:brainstorming'), [],
+        `${p} must not restate superpowers' internal chain`);
       assert.match(body, /\.agents\/includes\/ticketing\.md/);
       assert.match(body, /\.agents\/includes\/cost\.md/);
       assert.match(body, /Implementation Summary/);
@@ -85,7 +84,7 @@ test('agent-dev drives the superpowers chain and defers ticketing and cost to th
       assert.match(body, /`<number>_<short_title_slug>`/, 'branch name derives from the ticket');
       assert.match(body, /`<number>: <short title>`/, 'PR title derives from the ticket');
       assert.match(body, /create a ticket/i, 'without a ticket, offer to create one');
-      assert.match(body, /post it on the ticket as\s+`Approved Spec` comments/i, 'the approved spec goes onto the ticket as comments');
+      assert.match(body, /post the spec on it as\s+`Approved Spec` comments/i, 'the approved spec goes onto the ticket as comments');
       assert.doesNotMatch(body, /attach|Approved Plan/i, 'no attachments, and the plan stays in the repo');
       assert.doesNotMatch(body, /\{\{.*?\}\}/);
     }

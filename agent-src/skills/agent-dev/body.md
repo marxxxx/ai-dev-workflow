@@ -18,40 +18,37 @@ when you report cost.
    as if its id had been given. If no, the flow is the same, and the summaries are printed instead of
    posted.
 
-## 2. Superpowers chain
+## 2. Superpowers workflow
 
-Invoke each skill and follow it as written:
+Invoke `superpowers:brainstorming` and follow the workflow it leads you through, as its skills
+write it. This skill adds only the hooks below. They are events, not steps: apply each one whenever
+it occurs, wherever the workflow puts it.
 
-1. `superpowers:brainstorming` — run the full requirements interview with the user. A ticket is
-   **context, not a spec**: tickets are often incomplete, so feed its content in as background and
-   never skip or shorten the interview because a ticket exists. Note the ticket reference in the spec.
-   If the change has user-visible behavior (UI, user flows), also ask the user whether you should
-   test it end to end in the running app or they prefer to test it manually. If they want you to but
-   `AGENTS.md` has no end-to-end section, say so right away. Record the answer in the spec, together
-   with the checks it covers.
-   If the user asked for a new ticket, create it now with the ticket include's commands (it starts
-   in `in-progress`): a short title and a few sentences summarizing the spec, plus its path. Add the
-   new ticket's number to the spec.
-   With a ticket, once the user has approved the written spec, post it on the ticket as
-   `{{artifact.spec}}` comments with the include's commands. If the spec changes later in the run,
-   post the final version again at close-out.
-2. `superpowers:using-git-worktrees` — branch named per **Naming** below.
-3. `superpowers:writing-plans`.
-4. `superpowers:subagent-driven-development` (or `superpowers:executing-plans` where subagents are
-   unavailable). It carries TDD, code review, and verification.
-5. **End-to-end check** (only if the spec says the agent tests end to end) — start the app as the
-   `AGENTS.md` end-to-end section describes, exercise the changed flows in a browser (Playwright),
-   capture evidence (screenshots outside the repo, or observations), and shut the app down. If
-   there is no such section, no browser tooling, or startup fails, do not block: report it in the
-   summary instead.
-6. `superpowers:finishing-a-development-branch` — base branch `{{git.prTarget}}`. Run its
-   verification, but do **not** offer its integration menu: the choice is already made. Push the
-   branch and open a **draft pull request** with the ticket include's commands, so a human can
-   review and test before publishing it. PR title per **Naming** below. Write the implementation
-   summary (section 3) first; it is the PR description, plus the ticket reference.
+- **Requirements interview** — a ticket is **context, not a spec**: tickets are often incomplete,
+  so feed its content in as background and never skip or shorten the interview because a ticket
+  exists. Note the ticket reference in the spec. If the change has user-visible behavior (UI, user
+  flows), also ask the user whether you should test it end to end in the running app or they prefer
+  to test it manually. If they want you to but `AGENTS.md` has no end-to-end section, say so right
+  away. Record the answer in the spec, together with the checks it covers.
+- **Written spec approved** — if the user asked for a new ticket, create it now with the ticket
+  include's commands (it starts in `in-progress`): a short title and a few sentences summarizing the
+  spec, plus its path. Add the new ticket's number to the spec. With a ticket, post the spec on it as
+  `{{artifact.spec}}` comments with the include's commands. If the spec changes later in the run,
+  post the final version again at close-out.
+- **Branch or worktree created** — name it per **Naming** below.
+- **Implementation verified, before integrating** — only if the spec says the agent tests end to
+  end: start the app as the `AGENTS.md` end-to-end section describes, exercise the changed flows in
+  a browser (Playwright), capture evidence (screenshots outside the repo, or observations), and shut
+  the app down. If there is no such section, no browser tooling, or startup fails, do not block:
+  report it in the summary instead.
+- **Integration options offered** (merge, PR, keep, discard) — do **not** present them: the choice
+  is already made. Base branch `{{git.prTarget}}`. Write the implementation summary (section 3),
+  then push the branch and open a **draft pull request** with the ticket include's commands, so a
+  human can review and test before publishing it. PR title per **Naming** below; the summary plus
+  the ticket reference is the PR description.
 
-The spec and plan under `docs/superpowers/` are the only durable working files. Only the approved
-spec goes onto the ticket; the plan stays in the repo.
+The spec and plan the workflow writes are the only durable working files. Only the approved spec
+goes onto the ticket; the plan stays in the repo.
 
 ### Naming
 

@@ -117,11 +117,12 @@ about — the ticket and its comments — and otherwise follows the superpowers 
    approve it, it is posted to the ticket as an **Approved Spec** comment (split into numbered
    comments if it exceeds the backend's limit; the file backend gets just the path). The plan stays
    in the repo.
-3. **Worktree → plan → implementation → finishing the branch** — superpowers' own
-   `using-git-worktrees`, `writing-plans`, `subagent-driven-development` (TDD, code review,
-   verification) and `finishing-a-development-branch`.
-   If you chose agent testing, an [end-to-end check](#end-to-end-testing) runs before finishing.
-   Instead of the finishing skill's merge/PR/keep menu, the run always ends with a **draft PR**
+3. **The rest of the superpowers workflow** — whatever superpowers chains from brainstorming
+   (today: worktree, plan, implementation with TDD and review, finishing the branch). `agent-dev`
+   does not restate that chain; it only hooks in at events (spec approved, branch created,
+   integration offered), so superpowers releases need no changes here.
+   If you chose agent testing, an [end-to-end check](#end-to-end-testing) runs before integrating.
+   Instead of superpowers' merge/PR/keep menu, the run always ends with a **draft PR**
    (Gitea: a `WIP:` title), so a human reviews and tests before publishing it.
 4. **Close-out** — with a ticket, post an **Implementation Summary** comment (approach,
    consequences, possible side effects, what to watch when testing) and a **Cost Summary** comment,
