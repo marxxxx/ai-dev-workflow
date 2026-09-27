@@ -51,12 +51,12 @@ test('azureMapping returns the basic and scrum tables', () => {
   assert.equal(basic.featureType, 'Issue');
   assert.equal(basic.bugType, 'Issue');
   assert.equal(basic.stateMapping['new'], 'To Do');
-  assert.equal(basic.stateMapping['acceptance-test'], 'Doing');
+  assert.deepEqual(basic.stateMapping, { 'new': 'To Do', 'in-progress': 'Doing', 'review': 'Doing' });
   const scrum = azureMapping('scrum');
   assert.equal(scrum.featureType, 'Product Backlog Item');
   assert.equal(scrum.bugType, 'Bug');
   assert.equal(scrum.stateMapping['new'], 'New');
-  assert.equal(scrum.stateMapping['in-progress'], 'Committed');
+  assert.deepEqual(scrum.stateMapping, { 'new': 'New', 'in-progress': 'Committed', 'review': 'Committed' });
 });
 
 test('azureMapping throws on unknown template', () => {
@@ -115,40 +115,18 @@ test('buildProjectConfig writes no e2e block', () => {
   assert.ok(!('e2e' in buildProjectConfig(base)), 'no e2e block — e2e setup lives in AGENTS.md prose');
 });
 
-test('buildGlobalTokens sets app.include and never emits app.up/down tokens', () => {
-  const appCfg = { app: { includePath: '.agents/includes/e2e-runtime.md' }, workflow: WORKFLOW };
-  const tokens = buildGlobalTokens(appCfg);
-  assert.equal(tokens['app.include'], '.agents/includes/e2e-runtime.md');
-  assert.ok(!('app.up' in tokens));
-  assert.ok(!('app.down' in tokens));
-  assert.ok(!('app.logsDir' in tokens));
-});
-
-test('buildGlobalTokens sets cost.include and the cost artifact tokens', () => {
+test('buildGlobalTokens sets cost.include and the summary artifact tokens', () => {
   const costCfg = {
     cost: { includePath: '.agents/includes/cost.md' },
     workflow: {
       states: WORKFLOW.states,
-      artifacts: { ...WORKFLOW.artifacts, costOrigin: 'Cost Origin', costSummary: 'Cost Summary' },
+      artifacts: { ...WORKFLOW.artifacts, implementationSummary: 'Implementation Summary', costSummary: 'Cost Summary' },
     },
   };
   const tokens = buildGlobalTokens(costCfg);
   assert.equal(tokens['cost.include'], '.agents/includes/cost.md');
-  assert.equal(tokens['artifact.costOrigin'], 'Cost Origin');
+  assert.equal(tokens['artifact.implementationSummary'], 'Implementation Summary');
   assert.equal(tokens['artifact.costSummary'], 'Cost Summary');
-});
-
-test('buildGlobalTokens sets handoff.include and the journal artifact token', () => {
-  const handoffCfg = {
-    handoff: { includePath: '.agents/includes/handoff.md' },
-    workflow: {
-      states: WORKFLOW.states,
-      artifacts: { ...WORKFLOW.artifacts, journal: 'Developer Journal' },
-    },
-  };
-  const tokens = buildGlobalTokens(handoffCfg);
-  assert.equal(tokens['handoff.include'], '.agents/includes/handoff.md');
-  assert.equal(tokens['artifact.journal'], 'Developer Journal');
 });
 
 import { cmdScaffold } from './generate.mjs';

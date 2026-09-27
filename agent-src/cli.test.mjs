@@ -10,10 +10,10 @@ import { runCli, runCliViaSymlink, canSymlink, tmpProject, makeTmpRoot, MINIMAL_
 
 // A representative sample of the files each backend/platform emits.
 const SPOT_CHECK = [
-  path.join('.claude', 'agents', 'developer.md'),
-  path.join('.claude', 'skills', 'dev-cycle', 'SKILL.md'),
-  path.join('.codex', 'agents', 'developer.toml'),
-  path.join('.opencode', 'agents', 'developer.md'),
+  path.join('.claude', 'skills', 'agent-dev', 'SKILL.md'),
+  path.join('.agents', 'skills', 'agent-dev', 'SKILL.md'),
+  path.join('.opencode', 'skills', 'agent-dev', 'SKILL.md'),
+  path.join('.agents', 'includes', 'cost.md'),
   path.join('.agents', 'includes', 'ticketing.md'),
 ];
 
@@ -25,7 +25,7 @@ test('generate writes all platform files with no leftover placeholders', () => {
     for (const rel of SPOT_CHECK) {
       assert.ok(fs.existsSync(path.join(root, rel)), `missing ${rel}`);
     }
-    const sample = fs.readFileSync(path.join(root, '.claude', 'agents', 'developer.md'), 'utf8');
+    const sample = fs.readFileSync(path.join(root, '.claude', 'skills', 'agent-dev', 'SKILL.md'), 'utf8');
     assert.doesNotMatch(sample, /\{\{.*?\}\}/, 'unresolved placeholder leaked into output');
   } finally {
     cleanup();
@@ -38,7 +38,7 @@ test('check passes right after generate, fails after a file is mutated', () => {
     assert.equal(runCli(['generate', '--root', root]).status, 0);
     assert.equal(runCli(['check', '--root', root]).status, 0);
 
-    const target = path.join(root, '.claude', 'agents', 'developer.md');
+    const target = path.join(root, '.claude', 'skills', 'agent-dev', 'SKILL.md');
     fs.writeFileSync(target, 'tampered\n');
     const { status, stderr } = runCli(['check', '--root', root]);
     assert.equal(status, 1);
@@ -101,7 +101,7 @@ test('init prints the dependencies with links and no install instructions', () =
 
     assert.match(stdout, /https:\/\/github\.com\/obra\/superpowers/);
     assert.match(stdout, /https:\/\/github\.com\/oraios\/serena/);
-    assert.match(stdout, /https:\/\/github\.com\/microsoft\/playwright-mcp/);
+    assert.match(stdout, /Required:\n\s+superpowers/, 'agent-dev cannot run without superpowers');
     assert.match(stdout, /https:\/\/github\.com\/upstash\/context7/);
 
     // Installing is the user's job — the old setup doc's per-harness recipes must not come back.
@@ -129,7 +129,7 @@ test('init --answers scaffolds a github-backend project', () => {
   }
 });
 
-test('init writes no e2e block or scripts, and generate emits the AGENTS-driven include', () => {
+test('init writes no e2e block or scripts, and generate emits no e2e include', () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     fs.writeFileSync(path.join(root, 'answers.json'), JSON.stringify({ name: 'E2E Demo', backend: 'file' }));
@@ -142,10 +142,7 @@ test('init writes no e2e block or scripts, and generate emits the AGENTS-driven 
     assert.equal(fs.existsSync(path.join(root, 'AGENTS.md')), false, 'AGENTS.md is user-owned via native /init');
 
     assert.equal(runCli(['generate', '--root', root]).status, 0);
-    const include = fs.readFileSync(path.join(root, '.agents', 'includes', 'e2e-runtime.md'), 'utf8');
-    assert.match(include, /AGENTS\.md/, 'include points the agent at AGENTS.md');
-    assert.doesNotMatch(include, /scripts\/e2e-up/, 'no start/stop scripts referenced');
-    assert.doesNotMatch(include, /\{\{.*?\}\}/, 'include fully resolves');
+    assert.equal(fs.existsSync(path.join(root, '.agents', 'includes', 'e2e-runtime.md')), false, 'the e2e include is retired');
   } finally {
     cleanup();
   }
@@ -191,7 +188,7 @@ test('init --answers scaffolds a gitea project, and generate emits the tea-drive
 
     assert.equal(runCli(['generate', '--root', root]).status, 0);
     const include = fs.readFileSync(path.join(root, '.agents', 'includes', 'ticketing.md'), 'utf8');
-    assert.match(include, /tea issues list --login "myserver" --repo me\/gitea-demo/);
+    assert.match(include, /tea issues --login "myserver" --repo me\/gitea-demo <number>/);
     assert.doesNotMatch(include, /\{\{.*?\}\}/, 'include fully resolves');
   } finally {
     cleanup();

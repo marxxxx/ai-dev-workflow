@@ -11,8 +11,7 @@
   },
   "ticketing": {
     "backend": "file",
-    "github": {
-    },
+    "github": {},
     "gitea": {
       "login": "YourTeaLoginName"
     },
@@ -29,10 +28,7 @@
       "stateMapping": {
         "new": "To Do",
         "in-progress": "Doing",
-        "review": "Doing",
-        "test": "Doing",
-        "failed": "Doing",
-        "acceptance-test": "Doing"
+        "review": "Doing"
       }
     }
   },

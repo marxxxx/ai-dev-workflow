@@ -4,8 +4,9 @@ Guidance for coding agents working in this repository.
 
 ## What this repo is
 
-A **generator**, not an application. It renders subagent & skill definitions for **Claude Code**,
-**Codex**, and **OpenCode** from one canonical source (`agent-src/`) plus a small per-project config
+A **generator**, not an application. It renders a lean `agent-dev` skill (a thin wrapper around the
+[superpowers](https://github.com/obra/superpowers) workflow) for **Claude Code**, **Codex**, and
+**OpenCode** from one canonical source (`agent-src/`) plus a small per-project config
 (`ai-project.json` in the consuming project). Zero-dependency Node (builtins only, `>=24`),
 distributed from Git (`npx github:marxxxx/ai-dev-workflow#vX.Y.Z`, no npm registry), and
 language-agnostic — consuming projects need not be Node projects.
@@ -57,20 +58,21 @@ pipeline: **config → tokens → units → renderers → outputs**.
 - **`renderers.mjs`** — `RENDERERS[kind][platform]`; emits Markdown+frontmatter (Claude/OpenCode),
   `.toml` (Codex agents) or `.agents/skills/…` + `openai.yaml` (Codex skills). `smokeCheck` validates
   required fields.
-- **Runtime includes** (`ticketing.mjs`, `app.mjs`, `cost.mjs`, `handoff.mjs` + `includes/`) — shared
-  procedures are **rendered once to `.agents/includes/*.md` and read at runtime, never inlined** into
-  bodies. `includes/ticketing-<backend>.md` (github | gitea | file | azure-devops) is where a new
-  backend goes. azure-devops also merges an `ado` MCP server into `.mcp.json` / `.codex/config.toml`
-  and adds its tools to the ticketing agents' Claude allowlists (`constants.mjs`).
+- **Runtime includes** (`ticketing.mjs`, `cost.mjs` + `includes/`) — shared procedures are **rendered
+  once to `.agents/includes/*.md` and read at runtime, never inlined** into bodies.
+  `includes/ticketing-<backend>.md` (github | gitea | file | azure-devops) is where a new backend
+  goes. azure-devops also merges an `ado` MCP server into `.mcp.json` / `.codex/config.toml`.
 - **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` only; recommended tooling is
   *printed*, never installed or documented with install steps.
 
-Units: agents `developer`, `code-reviewer`, `qa-engineer`; skills `dev-cycle` (orchestrator) and
-`product-architect`. See `agent-src/README.md` for the output map and manifest schema.
+Units: one skill, `agent-dev`. It adds only the ticket edges (in-progress at start; implementation
+summary + cost summary comments and `review` at the end) around the unmodified superpowers chain.
+**Keep it lean**: every rendered byte is read on every run, so do not restate superpowers skills or
+invent process of their own — the spec/plan files superpowers writes are the only durable artifacts.
+See `agent-src/README.md` for the output map and manifest schema.
 
-**Workflow states** (`ai-workflow.json`): `new → in-progress → review → test → acceptance-test`, with
-`failed → in-progress` on rejection. Bodies refer to states logically; the ticketing include defines
-their encoding per backend.
+**Workflow states** (`ai-workflow.json`): `new → in-progress → review`. Bodies refer to states
+logically; the ticketing include defines their encoding per backend.
 
 ## Releasing
 
@@ -88,9 +90,8 @@ hand-edit them (`node docker/tools/inventory.mjs update | sync | check`). See `d
 - **Zero runtime dependencies** — don't add packages.
 - **LF line endings** everywhere.
 - Shared guidance goes in `body.md`; `overlays/<platform>.md` only for genuinely platform-specific
-  mechanics (currently just `skills/dev-cycle/overlays/codex.md`).
-- A consuming project's `AGENTS.md` / `CLAUDE.md` are hand-owned and never generated; the qa-engineer
-  is pointed at its e2e section instead of shipping start/stop scripts.
+  mechanics (none today).
+- A consuming project's `AGENTS.md` / `CLAUDE.md` are hand-owned and never generated.
 
 ## TDD Workstyle
 - Write tests only for logic / code.

@@ -3,7 +3,6 @@
 
 import path from 'node:path';
 import { dq, yamlScalar } from './serialize.mjs';
-import { PLUGIN_ALIASED_MCP_SERVERS } from './constants.mjs';
 
 function banner(unit, commentStyle) {
   const type = unit.kind === 'agent' ? 'agents' : 'skills';
@@ -31,29 +30,13 @@ function frontmatterDoc(unit, fields, body) {
   return lines.join('\n') + '\n' + banner(unit, 'html') + '\n\n' + body;
 }
 
-/**
- * Adds the plugin-provided alias (`mcp__plugin_<s>_<s>__x`) after each `mcp__<s>__x` entry whose
- * server may be installed either way. Claude drops allowlist entries naming tools that are not
- * registered and keeps the rest, so whichever form the session does not provide is inert.
- */
-export function claudeToolAllowlist(tools) {
-  if (!Array.isArray(tools)) return tools;
-  const expanded = tools.flatMap((tool) => {
-    const match = /^mcp__(.+?)__(.+)$/.exec(tool);
-    if (!match || !PLUGIN_ALIASED_MCP_SERVERS.includes(match[1])) return [tool];
-    const [, server, name] = match;
-    return [tool, `mcp__plugin_${server}_${server}__${name}`];
-  });
-  return [...new Set(expanded)];
-}
-
 function renderClaudeAgent(unit, body) {
   const cfg = unit.manifest.platforms.claude;
   const fields = [
     ['name', unit.manifest.name],
     ['description', unit.manifest.description],
     ['model', cfg.model],
-    ['tools', claudeToolAllowlist(cfg.tools)],
+    ['tools', cfg.tools],
   ];
   return [{ path: path.join('.claude', 'agents', `${unit.name}.md`), content: frontmatterDoc(unit, fields, body) }];
 }

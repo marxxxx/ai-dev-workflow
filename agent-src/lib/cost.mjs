@@ -7,10 +7,9 @@ import { normalizeLF } from './serialize.mjs';
 import { substituteTokens } from './tokens.mjs';
 
 /**
- * Render the resolved cost include — the single-source-of-truth for how the workflow records a
- * ticket's ccusage session cost (via a per-run ledger) and posts the token/cost summary comment when
- * the ticket reaches acceptance-test. Platform-neutral: per-harness differences are expressed as
- * in-prose branches (like the e2e-runtime include's Windows/Linux split). Mirrors renderE2eInclude.
+ * Render the resolved cost include — the single-source-of-truth for how agent-dev totals the ccusage
+ * sessions of one run (a time window, across all harnesses) and posts the cost summary. Platform-
+ * neutral. Mirrors renderTicketingInclude.
  * Returns null when no include path is configured (package always sets one).
  */
 export function renderCostInclude(config, globalTokens) {

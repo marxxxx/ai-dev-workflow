@@ -1,25 +1,28 @@
 # ai-dev-workflow
 
-A customizable AI development workflow — subagent and skill definitions for **Claude Code**,
-**Codex**, and **OpenCode** — generated per project from one small config file.
+A lean AI development workflow for **Claude Code**, **Codex**, and **OpenCode**: one `agent-dev`
+skill that takes a change from an (optional) ticket to a pull request by running the unmodified
+[superpowers](https://github.com/obra/superpowers) workflow, generated per project from one small
+config file.
 
 The generator is a zero-dependency Node script. It's distributed **directly from this Git repo** (no
 npm registry) and the consuming project does **not** need to be a Node project. It works in any repo
 (C#/.NET, Go, Rust, …) — the only requirement is Node on the machine that runs the generator (your
-dev box and CI). Pin to a Git tag (e.g. `#v0.21.2`) so devs and CI stay in sync.
+dev box and CI). Pin to a Git tag (e.g. `#v0.22.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
 | File / dir | Owner | Committed? |
 |---|---|---|
 | `ai-project.json` | **you** — project identity + ticketing backend choice | yes |
-| `AGENTS.md` | **you** — create with your coding agent's native `/init`; describe e2e setup here (see [End-to-end testing](#end-to-end-testing-qa)) | yes |
-| `agent-custom/` | **you** (optional) — per-project tweaks to agent/skill bodies (see [Customizing agents](#customizing-agents)) | yes |
+| `AGENTS.md` | **you** — create with your coding agent's native `/init`; `agent-dev` reads it first | yes |
+| `agent-custom/` | **you** (optional) — per-project tweaks to the skill body (see [Customizing the skill](#customizing-the-skill)) | yes |
+| `docs/superpowers/{specs,plans}/` | written by superpowers during each run — the only durable working files | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
 | `.mcp.json` | merged (azure-devops backend only) — the shared `ado` server entry; other servers preserved | yes |
 | `.codex/config.toml` | merged (azure-devops backend only) — the Codex project-local `ado` MCP server entry; other Codex settings preserved | yes |
 
-Everything else (agent/skill sources, workflow state machine, the generator) lives in the package and
+Everything else (the skill source, ticketing/cost includes, the generator) lives in the package and
 updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the sources are authored.
 
 ## Quick start (any project, incl. C# — no `package.json` needed)
@@ -28,53 +31,42 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
-npx github:marxxxx/ai-dev-workflow#v0.21.2 init
+npx github:marxxxx/ai-dev-workflow#v0.22.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
 #    the state mapping; generate then merges the `ado` server into .mcp.json
 #    and .codex/config.toml.
-#    Install the tooling it lists — see Recommended tooling below.
-#    Then create AGENTS.md with your coding agent's native /init and describe your
-#    e2e setup there — see End-to-end testing below.)
+#    Install the tooling it lists — see Tooling below — then create AGENTS.md
+#    with your coding agent's native /init.)
 
 # 3. generate the platform files
-npx github:marxxxx/ai-dev-workflow#v0.21.2 generate
+npx github:marxxxx/ai-dev-workflow#v0.22.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the tag (`#v0.21.2`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the tag (`#v0.22.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
-## Recommended tooling
+## Tooling
 
-The agents are written to take advantage of the tools below, and `init` prints this list. **You
-install them** — for whichever of Claude Code / Codex / OpenCode you run. This workflow deliberately
-does not carry install instructions: they differ per harness and go stale. Follow each project's own
-docs, which are the authority on installing it.
+`init` prints this list. **You install them** — for whichever of Claude Code / Codex / OpenCode you
+run. This workflow deliberately does not carry install instructions: they differ per harness and go
+stale. Follow each project's own docs.
 
-| Tool | What the agents use it for |
-|---|---|
-| [superpowers](https://github.com/obra/superpowers) | Skill library driving the brainstorm → plan → implement workflow (`developer`) |
-| [serena](https://github.com/oraios/serena) | MCP server: semantic, symbol-level code navigation and editing (`developer`, `code-reviewer`) |
-| [playwright](https://github.com/microsoft/playwright-mcp) | MCP server: drives a real browser for end-to-end testing (`qa-engineer`) |
-| [context7](https://github.com/upstash/context7) | MCP server: up-to-date library and framework documentation |
-| [ccusage](https://ccusage.com) | CLI: per-session token/cost reporting behind the [per-ticket cost summary](#per-ticket-cost-summary) |
+| Tool | | What `agent-dev` uses it for |
+|---|---|---|
+| [superpowers](https://github.com/obra/superpowers) | **required** | The whole workflow: brainstorming → worktree → plan → implementation (TDD, review, verification) → finishing the branch |
+| [serena](https://github.com/oraios/serena) | recommended | MCP server: semantic, symbol-level code navigation and editing |
+| [context7](https://github.com/upstash/context7) | recommended | MCP server: up-to-date library and framework documentation |
+| [ccusage](https://ccusage.com) | recommended | CLI behind the [cost summary](#cost-summary); without it the summary names the gap |
 
-None are hard requirements — an agent degrades to what is available (the `qa-engineer`, for example,
-offloads end-to-end-testing to the Human if Playwright is missing). 
+For the `azure-devops` backend, `generate` merges the `ado` MCP server (pinned to
+`@azure-devops/mcp@2`, whose tool names the Azure DevOps ticketing include is written against) into
+`.mcp.json` and `.codex/config.toml` — nothing to install by hand.
 
-The `ado` MCP server is the exception: for the `azure-devops` backend, `generate` merges it into
-`.mcp.json` and `.codex/config.toml` for you — nothing to install by hand. It is pinned to
-`@azure-devops/mcp@2`, whose tool names the ticketing agents' allowlists and the Azure DevOps
-ticketing include are written against. The server has no single-comment read, so agents read a known
-`Developer Journal` comment by id through the [Azure CLI](https://learn.microsoft.com/cli/azure/)
-(`az devops invoke`, from the `azure-devops` extension, signed in with `az login`) instead of listing
-every comment; without it they fall back to the slower MCP listing.
-
-The `gitea` backend is the one case with a hard requirement: the agents drive
-[`tea`](https://gitea.com/gitea/tea), Gitea's official CLI, so it must be installed and logged in
-before the workflow runs — see [Gitea backend setup](docs/gitea-backend-setup.md).
+The `gitea` backend requires [`tea`](https://gitea.com/gitea/tea), Gitea's official CLI, installed
+and logged in — see [Gitea backend setup](docs/gitea-backend-setup.md).
 
 ## Commands
 
@@ -82,95 +74,68 @@ before the workflow runs — see [Gitea backend setup](docs/gitea-backend-setup.
 |---|---|
 | `generate` (default) | Render all platform files to the project root |
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
-| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), then writes `ai-project.json` — the only file it creates. It prints the [recommended tooling](#recommended-tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init` and describe your e2e setup there. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
+| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), then writes `ai-project.json` — the only file it creates. It prints the [tooling](#tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
 
-## Customizing agents
+## Customizing the skill
 
-`ai-project.json` and per-unit `tokens` cover most tuning. When a project needs to change the actual
-instructions of a shipped agent or skill, add a committed **`agent-custom/`** directory that mirrors
-the source layout (`agent-custom/{agents,skills}/<name>/`). Two knobs per unit:
+`ai-project.json` and per-unit `tokens` cover most tuning. To change the instructions of the shipped
+skill, add a committed **`agent-custom/`** directory that mirrors the source layout
+(`agent-custom/skills/<name>/`). Two knobs:
 
 | File | Effect |
 |---|---|
-| `agent-custom/<agents\|skills>/<name>/append.md` | **Appended** to the package body (after any platform overlay). The safe default — core instructions stay intact and upstream improvements to that agent keep flowing on update. |
-| `agent-custom/<agents\|skills>/<name>/body.md` | **Full override** — replaces the package body for that unit. Escape hatch for a wholesale rewrite; you then own that body (it no longer tracks upstream). |
+| `agent-custom/skills/agent-dev/append.md` | **Appended** to the package body. The safe default — upstream improvements keep flowing on update. |
+| `agent-custom/skills/agent-dev/body.md` | **Full override** — replaces the package body. You then own that body (it no longer tracks upstream). |
 
 Both files support the same `{{tokens}}` as package bodies (`{{project.name}}`, `{{repo.slug}}`, …);
-an unresolved token fails the generator with a clear error. `<name>` must match a unit that ships in
-the package. Resolution order is **package body (or your override) → platform overlay → your append**.
+an unresolved token fails the generator with a clear error. Example:
 
-Example — add a house rule to the developer without forking its body:
-
-```
-agent-custom/agents/developer/append.md
-```
 ```md
+<!-- agent-custom/skills/agent-dev/append.md -->
 ## House rules
-Always run `npm run lint` before moving a ticket to review.
+Always run `npm run lint` before finishing the branch.
 ```
 
-Then `generate` and commit. Because `agent-custom/` files are **inputs** to generation (not edits to
-the generated output), `check` still passes and still catches hand-edits to the generated files — a
-customized unit's `DO NOT EDIT` banner names both sources so you know where to edit.
+Then `generate` and commit. `agent-custom/` files are **inputs** to generation, so `check` still
+passes and still catches hand-edits to the generated files.
 
-## End-to-end testing (QA)
+## The `agent-dev` workflow
 
-The `qa-engineer` needs to reliably start your app to test it with Playwright. Because "start the
-app" differs per stack (Node, .NET, …) **and per OS** (Windows, Linux), the workflow does **not**
-ship start/stop scripts. Instead you describe **what** it takes to bring the app up, in prose, in the
-**End-to-end testing** section of your `AGENTS.md`; the QA agent translates that into the concrete
-commands for whatever OS it runs on. Cover: which backing services to start (db/cache/broker), any
-migrate/seed steps, how to start the app, how to know it's reachable, and the base URL (your **Ports
-& URLs**).
+Run `/agent-dev [ticket-id]` (Codex: `$agent-dev`). The skill adds only what superpowers doesn't know
+about — the ticket and two closing comments — and otherwise follows the superpowers skills as written:
 
-Also name your **test-locator attribute** in `AGENTS.md` — the attribute the QA agent uses to select
-elements in Playwright tests (e.g. `data-testid`, or whatever convention the codebase already uses).
-Being explicit keeps browser tests reliable.
+1. **Start** — record the start time, read `AGENTS.md`; with a ticket, read it and move it to
+   `in-progress`.
+2. **Brainstorming** — the full requirements interview with you. A ticket (often an upstream ticket
+   with too little detail to implement from) is only background context; it never replaces the
+   interview. The spec lands in `docs/superpowers/specs/`.
+3. **Worktree → plan → implementation → finishing the branch** — superpowers' own
+   `using-git-worktrees`, `writing-plans`, `subagent-driven-development` (TDD, code review,
+   verification) and `finishing-a-development-branch`. The branch follows `git.branchPattern`.
+   Instead of the finishing skill's merge/PR/keep menu, the run always ends with a **draft PR**
+   (Gitea: a `WIP:` title), so a human reviews and tests before publishing it.
+4. **Close-out** — with a ticket, post an **Implementation Summary** comment (approach,
+   consequences, possible side effects, what to watch when testing) and a **Cost Summary** comment,
+   then move the ticket to `review`. Without a ticket, both are printed instead.
 
-From that section the QA agent decides:
+Ticket states are just `new → in-progress → review`; acceptance and closing stay with the human.
+Nothing else is written to the ticket.
 
-| `AGENTS.md` e2e section | QA behavior |
-|---|---|
-| describes how to start the app | bring it up, drive the browser against its URL end-to-end, then tear down |
-| absent (or no `AGENTS.md`) | **skip** browser e2e — run the suite, mark UI criteria `NEEDS HUMAN REVIEW`, **leave e2e to the human** (not a failure) |
-| described, but startup genuinely fails | report a **blocker** |
+### Cost summary
 
-The QA agent reads this via `.agents/includes/e2e-runtime.md` (generated — the single source of truth
-that points it at your `AGENTS.md`). Create `AGENTS.md` with your coding agent's native `/init`
-(Claude `/init` → `CLAUDE.md`; Codex / OpenCode `/init` → `AGENTS.md`), then make sure it covers the
-tech stack, the install / build / run / test commands, and the points above.
-
-## Oversized tickets: developer handoff
-
-When a ticket outgrows one context window, the `developer` stops at an acceptance-criterion
-boundary, commits, and writes a handoff into the ticket's single **Developer Journal** comment;
-`dev-cycle` then spawns a fresh developer for the remaining criteria. The developer never sizes or
-plans tickets — that stays with `product-architect`. Large tickets pause for a human
-proceed-or-split decision, and continuations are capped so repeated handoffs surface as a scoping
-problem rather than looping.
-
-All progress state lives on the ticket (file-based ticketing: a local journal file). The
-thresholds and mechanics are defined only in the generated `.agents/includes/handoff.md`.
-
-## Per-ticket cost summary
-
-The workflow records what each ticket cost to build and posts a **Cost Summary** comment when
-`dev-cycle` moves the ticket to `acceptance-test` — a per-phase token/USD breakdown (design,
-implement, review, QA) plus a grand total. Cost data comes from [`ccusage`](https://ccusage.com), a
-standalone CLI that reads each coding agent's local session logs; it reads the logs of **all three
-harnesses**, so a ticket whose design ran in one harness and whose implementation ran in another
-still aggregates correctly — as long as both ran on the same machine and user account. The
-`product-architect` skill stamps a **Cost Origin** marker on the ticket so design cost is attributed
-back to the right run.
-
-The mechanics live in one generated file, `.agents/includes/cost.md` (the single source of truth for
-the ccusage ledger and aggregation), which every agent and skill reads at runtime. It **degrades
-gracefully**: if `ccusage` isn't installed the summary is skipped rather than failing the handoff,
-and re-runs are idempotent. The summary is posted through the same ticketing mechanism as every other
-comment, so it lands wherever your `ticketing.backend` puts ticket comments (GitHub / Gitea / file /
-Azure DevOps).
+One total per run — tokens and estimated USD — from a single `ccusage@20 session --json` report,
+which covers every harness in one JSON shape. It counts the sessions active in the run's **time
+window**, which includes Codex/OpenCode subagent sessions with no bookkeeping during the run. The
+report has no project field, so on a shared host other sessions active in that window are counted
+too; the comment lists every counted session. In the container runtime the home volume is per
+project, so the count is project-scoped there. ccusage's JSON is not a stable API, which is why the
+major version is pinned; models ccusage cannot price are named instead of shown as $0. If a run
+fails, is abandoned, or is interrupted, `agent-dev` offers a **partial** cost summary so failed
+attempts still count; a ticket can therefore carry several cost comments, which together are its
+cost. Cost reporting never blocks the close-out. The procedure lives in the generated
+`.agents/includes/cost.md`.
 
 ## In a Node project
 
@@ -178,7 +143,7 @@ Add it as a dev dependency pointing at the Git tag, and wire up scripts:
 
 ```jsonc
 "devDependencies": {
-  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.21.2"
+  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.22.0"
 },
 "scripts": {
   "agents:generate": "ai-dev-workflow generate",
@@ -196,23 +161,30 @@ Review the diff in `.claude/`/`.codex/`/etc. and commit. `ai-project.json` is ne
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
 
+**Upgrading to v0.22.0.** The custom multi-agent workflow is replaced by the single `agent-dev`
+skill. `dev-cycle`, `product-architect`, the `developer` / `code-reviewer` / `qa-engineer` agents, the
+developer journal/handoff, and the e2e include are gone; ticket states shrink to
+`new → in-progress → review`. **superpowers is now required.** `generate` does not delete files it no
+longer produces, so remove these yourself:
+
+```
+.claude/agents/{developer,code-reviewer,qa-engineer}.md
+.codex/agents/{developer,code-reviewer,qa-engineer}.toml
+.opencode/agents/{developer,code-reviewer,qa-engineer}.md
+.claude/skills/{dev-cycle,product-architect}/
+.agents/skills/{dev-cycle,product-architect}/
+.opencode/skills/{dev-cycle,product-architect}/
+.agents/includes/{handoff,e2e-runtime}.md
+```
+
+`agent-custom/` files for the removed units are ignored; move anything you still need to
+`agent-custom/skills/agent-dev/append.md`. Old `stateMapping` keys (`test`, `failed`,
+`acceptance-test`) in `ai-project.json` are harmless and can be deleted. Tickets left in retired
+states (`test`, `failed`, `acceptance-test`) need a manual move.
+
 **Upgrading to v0.20.0.** The generator now requires **Node >= 24** (previously `>=18`). Upgrade Node
 on dev boxes and CI runners before bumping the pinned tag — older runtimes are unsupported and only get
 an engine warning, not a clear error.
-
-**Upgrading to v0.19.0.** The append-only `Developer Handoff` comment was merged into the single
-living `Developer Journal` comment, so the `{{artifact.handoff}}` token no longer exists — use
-`{{artifact.journal}}`. This only affects you if one of your `agent-custom/` files references it, in
-which case `generate` fails closed on the unresolved token rather than emitting a broken body. Tickets
-already carrying `Developer Handoff` comments need no migration: `dev-cycle` seeds a journal comment
-from the most recent one and leaves the old comments in place as history.
-
-The journal also carries **sizing metadata**, which decides when a ticket is too large to implement in
-one cycle. A ticket is sized automatically up to fifteen acceptance criteria — above that, `dev-cycle`
-pauses and asks whether to proceed as scoped or split via `$product-architect`. Within that budget it
-allows a limited number of **continuations** (fresh `developer` attempts after the first, spawned when
-one runs out of context), scaled to the criterion count. `.agents/includes/handoff.md` is the single
-source of truth for both; no other file restates the thresholds.
 
 ## Run in a container
 
@@ -235,7 +207,7 @@ container assets live under `docker/` and are **hand-maintained, not generated**
 and how a consuming project extends the base.
 
 To work on **this repository itself** in a container — tool stack only, without the generated
-dev-cycle skills and subagents — use the repo-root `compose.ai-dev.yml` (it sets
+`agent-dev` skill — use the repo-root `compose.ai-dev.yml` (it sets
 `AGENT_TOOLSTACK_ONLY=1`):
 
 ```bash

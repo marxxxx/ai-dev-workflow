@@ -2,14 +2,8 @@
   "ticketing": {
     "includePath": ".agents/includes/ticketing.md"
   },
-  "app": {
-    "includePath": ".agents/includes/e2e-runtime.md"
-  },
   "cost": {
     "includePath": ".agents/includes/cost.md"
-  },
-  "handoff": {
-    "includePath": ".agents/includes/handoff.md"
   },
   "workflow": {
     "states": [
@@ -26,7 +20,7 @@
         "label": "status:in-progress",
         "frontmatter": "in-progress",
         "azureState": "Doing",
-        "meaning": "Implementation running or interrupted",
+        "meaning": "agent-dev is working on it",
         "next": "review"
       },
       {
@@ -34,40 +28,12 @@
         "label": "status:review",
         "frontmatter": "review",
         "azureState": "Doing",
-        "meaning": "Awaiting code review",
-        "next": "test"
-      },
-      {
-        "id": "test",
-        "label": "status:test",
-        "frontmatter": "test",
-        "azureState": "Doing",
-        "meaning": "Ready for acceptance QA",
-        "next": "acceptance-test"
-      },
-      {
-        "id": "failed",
-        "label": "status:failed",
-        "frontmatter": "failed",
-        "azureState": "Doing",
-        "meaning": "Review or QA failure",
-        "next": "in-progress"
-      },
-      {
-        "id": "acceptance-test",
-        "label": "status:acceptance-test",
-        "frontmatter": "acceptance-test",
-        "azureState": "Doing",
-        "meaning": "PR/human acceptance pending",
+        "meaning": "Work finished (PR open); awaiting human review and acceptance",
         "next": null
       }
     ],
     "artifacts": {
-      "implementationNotes": "Implementation Notes",
-      "reviewFeedback": "Code Review Feedback",
-      "testResults": "Test Results",
-      "journal": "Developer Journal",
-      "costOrigin": "Cost Origin",
+      "implementationSummary": "Implementation Summary",
       "costSummary": "Cost Summary"
     }
   }

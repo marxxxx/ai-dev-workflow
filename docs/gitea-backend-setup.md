@@ -37,23 +37,20 @@ Agents never create logins or handle tokens: if the profile is missing they stop
 
 ## 3. The workflow status labels
 
-This step is not optional, and it is the one that bites silently. Gitea does not create labels
-implicitly when one is assigned — and worse, it **ignores an unknown label in a filter** rather than
-erroring: `tea issues list --labels "status:new"` against a repository without that label returns
-*every* open issue instead of none. Since that is exactly the query the workflow uses to pick up work,
-a missing label makes the agents treat unrelated issues as ready-to-build tickets. Create all six
-before the first ticket moves:
+This step is not optional. Gitea does not create labels implicitly when one is assigned, so a status
+transition onto a missing label silently does nothing — and it **ignores an unknown label in a
+filter** rather than erroring (`tea issues list --labels "status:new"` then returns *every* open
+issue). Create all three before the first ticket moves:
 
 ```bash
-for L in new in-progress review test failed acceptance-test; do
+for L in new in-progress review; do
   tea labels create --login <profile> --repo <owner/repo> \
     --name "status:$L" --color "#ededed"
 done
 ```
 
-Only the names matter — pick whatever colors you like. The agents verify the set with
-`tea labels list` before their first query and stop to ask you rather than running a query whose
-filter might be silently dropped.
+Only the names matter — pick whatever colors you like. `agent-dev` verifies the set with
+`tea labels list` before its first transition and stops to ask you if one is missing.
 
 **Making it a server-wide default (optional).** If you administer the Gitea instance, you can have
 every newly created repository offer these labels instead of running the loop per repo. Drop a file
@@ -66,19 +63,10 @@ labels:
     description: Ready for development
   - name: "status:in-progress"
     color: 1d76db
-    description: Implementation running or interrupted
+    description: agent-dev is working on it
   - name: "status:review"
     color: fbca04
-    description: Awaiting code review
-  - name: "status:test"
-    color: 0e8a16
-    description: Ready for acceptance QA
-  - name: "status:failed"
-    color: d93f0b
-    description: Review or QA failure
-  - name: "status:acceptance-test"
-    color: 5319e7
-    description: PR/human acceptance pending
+    description: Work finished; awaiting human review and acceptance
 ```
 
 After a restart the set appears in the **Issue Labels** dropdown when creating a repository. Two

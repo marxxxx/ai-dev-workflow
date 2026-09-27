@@ -1,6 +1,6 @@
 # agent-src — single source of truth for agent & skill definitions
 
-Custom subagent and skill definitions for Claude Code, Codex, and OpenCode are **generated** from
+The `agent-dev` skill (and any future skill or subagent) definitions for Claude Code, Codex, and OpenCode are **generated** from
 the canonical sources in this directory. No tool reads `agent-src/` at runtime; it exists only to
 generate the per-platform files.
 
@@ -26,24 +26,21 @@ agent-src/
   generate.mjs                 # entrypoint: zero-dependency Node CLI (parse argv + dispatch)
   lib/                         # feature modules the entrypoint composes:
     constants.mjs serialize.mjs identity.mjs config.mjs tokens.mjs units.mjs
-    ticketing.mjs app.mjs cost.mjs handoff.mjs renderers.mjs onboard.mjs pipeline.mjs
+    ticketing.mjs cost.mjs renderers.mjs onboard.mjs pipeline.mjs
   config/
-    ai-workflow.json           # PACKAGE-owned config: workflow states/artifacts + runtime include paths
+    ai-workflow.json           # PACKAGE-owned config: ticket states/comment titles + runtime include paths
     ai-project.template.json   # scaffold template copied by `init` when non-interactive
   includes/
-    ticketing-github.md        # ticketing operations — GitHub (gh CLI) variant
-    ticketing-gitea.md         # ticketing operations — Gitea (tea CLI, verified vs. 0.15.1) variant
-    ticketing-file.md          # ticketing operations — file-based (.tickets/) variant
-    ticketing-azure-devops.md  # ticketing operations — Azure DevOps (@azure-devops/mcp) variant
-    e2e-runtime.md             # how the qa-engineer brings the app up (points at AGENTS.md)
-    cost.md                    # how the workflow records ccusage session cost + posts the summary
-    handoff.md                 # developer handoff protocol + ticket sizing thresholds
+    ticketing-github.md        # ticket read/comment/status/PR — GitHub (gh CLI)
+    ticketing-gitea.md         # … — Gitea (tea CLI, verified vs. 0.15.1)
+    ticketing-file.md          # … — file-based (.tickets/)
+    ticketing-azure-devops.md  # … — Azure DevOps (@azure-devops/mcp)
+    cost.md                    # how agent-dev totals a run's ccusage sessions + posts the summary
   skills/<name>/
-    body.md                    # shared SKILL body — uses {{token}}s; references the ticketing include
+    body.md                    # shared SKILL body — uses {{token}}s; references the includes
     manifest.json              # name, description, platforms{}, interface{} (Codex openai.yaml)
-  agents/<name>/
-    body.md                    # shared agent instructions — uses {{token}}s
-    manifest.json              # name, description, platforms{} (model/tools/config per platform)
+  agents/<name>/               # (none ship today; the renderers still support subagents)
+    body.md, manifest.json
 
 <project-root>/
   ai-project.json              # PROJECT-owned config: project/repository/git identity + ticketing backend choice
@@ -59,7 +56,7 @@ the project can't accidentally desync skill-coupled values:
   `repository`, `git`, and the `ticketing` **backend choice** (`"github"` | `"file"` | `"gitea"` |
   `"azure-devops"`) plus the github/file/gitea/azureDevOps sub-configs. This file stays in the project across updates.
 - **`agent-src/config/ai-workflow.json`** ships **with the package** and is package-owned: the
-  `workflow.states` / `workflow.artifacts` (coupled to the orchestrator skill) and
+  `workflow.states` / `workflow.artifacts` (coupled to the `agent-dev` skill) and
   `ticketing.includePath` (the fixed runtime convention). It updates with the package; projects
   don't edit it.
 
@@ -81,14 +78,12 @@ every body and to each manifest `description`/`interface` string:
 - `{{ticketing.include}}` (path agents read at runtime), `{{ticketing.backend}}`
 - `{{ticketing.dir}}`, `{{ticketing.metadataFile}}` — file backend only
 - `{{git.branchPattern}}`, `{{git.prTarget}}`
-- `{{artifact.implementationNotes}}`, `{{artifact.reviewFeedback}}`, `{{artifact.testResults}}`,
-  `{{artifact.journal}}`, `{{artifact.costOrigin}}`, `{{artifact.costSummary}}` — one per key of
-  `workflow.artifacts`; each is the title of a named ticket comment
-- `{{app.include}}`, `{{cost.include}}`, `{{handoff.include}}` — the other runtime include paths
-  (e2e runtime, cost accounting, developer handoff), package-owned like `{{ticketing.include}}`
+- `{{artifact.implementationSummary}}`, `{{artifact.costSummary}}` — one per key of
+  `workflow.artifacts`; each is the title of a ticket comment `agent-dev` posts at close-out
+- `{{cost.include}}` — the cost-summary include path, package-owned like `{{ticketing.include}}`
 - `{{status.<id>}}` — resolves to the label (`status:new`) for github, gitea and azure-devops, or the
   file-frontmatter value (`new`) for file, depending on `ticketing.backend`. Used only inside the
-  ticketing includes; bodies refer to states logically (`new`, `review`, …) and defer their
+  ticketing includes; bodies refer to states logically (`new`, `in-progress`, `review`) and defer their
   representation to the include.
 - `{{azureState.<id>}}` — the Azure DevOps native board State (e.g. `Doing`) the work item is
   nudged to on each transition; azure-devops backend only.
@@ -103,23 +98,20 @@ Per-unit `manifest.tokens` still work and override a global token of the same na
 `includes/ticketing-<backend>.md` (with tokens substituted) to `ticketing.includePath`
 (default `.agents/includes/ticketing.md`) and **every** agent/skill body — across all three harnesses —
 instructs the agent to read that one file before any ticket operation. The includes are the single
-place that knows repository names, CLI commands, status encoding, comment mechanisms, and PR/handoff;
-the includes folder is where you add a new backend. The azure-devops backend additionally merges an
-`ado` server into the project's `.mcp.json` and `.codex/config.toml` (non-destructively) and injects the `@azure-devops/mcp`
-work-item tools into the Claude allowlists of the ticketing agents.
+place that knows repository names, CLI commands, status encoding, comments, branch naming, and PRs;
+the includes folder is where you add a new backend. Keep them short — they are read on every run.
+The azure-devops backend additionally merges an `ado` server into the project's `.mcp.json` and
+`.codex/config.toml` (non-destructively).
 
 `AGENTS.md` (and `CLAUDE.md`) remain hand-owned, project-specific docs carrying the
-tech-stack/ports/conventions prose — including the **End-to-end testing** section the qa-engineer
-reads to bring the app up. `init` does not scaffold or own them; you create `AGENTS.md` with your
-coding agent's native `/init` (see the repo README's **End-to-end testing** section for what to put
-in it). They are never regenerated or overwritten — unlike the platform files, which `generate` owns.
+tech-stack/commands/conventions prose that `agent-dev` reads first. `init` does not scaffold or own
+them; you create `AGENTS.md` with your coding agent's native `/init`. They are never regenerated or
+overwritten — unlike the platform files, which `generate` owns.
 
 A unit *may* also contain `overlays/<platform>.md`; the generator appends it to that platform's
 rendered body. This is the structural guarantee that platform-specific guidance does **not leak**
-between tools. Only one exists today: `skills/dev-cycle/overlays/codex.md`, which carries the Codex
-`spawn_agent` / `fork_turns` rules for spawning fresh developers and handoff continuations. Guidance
-that is not genuinely platform-specific belongs in the shared `body.md` — Serena, Playwright, and
-superpowers are available on all three platforms, so none of that is overlaid.
+between tools. None exist today: superpowers ships its own per-harness tool mappings, so `agent-dev`
+needs no platform-specific guidance. Anything not genuinely platform-specific belongs in `body.md`.
 
 **Project overrides (`agent-custom/`).** A consuming project can tailor any shipped unit without
 forking the package by adding a committed `agent-custom/{agents,skills}/<name>/` dir at its root
@@ -128,17 +120,14 @@ forking the package by adding a committed `agent-custom/{agents,skills}/<name>/`
 the same `{{token}}` treatment; an unresolved token throws. Resolution order is **package body (or the
 project override) → platform overlay → project append**. These files are generation *inputs*, so
 `check` stays meaningful; a customized unit's `DO NOT EDIT` banner names both sources. See the root
-[README](../README.md#customizing-agents) for the consumer-facing guide.
+[README](../README.md#customizing-the-skill) for the consumer-facing guide.
 
 ## Manifest schema
 
 - `name`, `description` — shared across platforms (the `description` is platform-neutral).
 - `platforms` — one key per emitted platform (`claude`, `codex`, `opencode`); a platform absent from
   this map is not emitted. Per-platform config:
-  - **claude**: `model`, `tools[]` (allowlist). Name Serena/Playwright tools by their plain MCP
-    server (`mcp__serena__find_symbol`); the renderer adds the plugin-install alias
-    (`mcp__plugin_serena_serena__find_symbol`), since the container registers them as plain servers
-    and a host may install them as plugins. Claude ignores whichever form is not registered.
+  - **claude**: `model`, `tools[]` (allowlist, emitted verbatim).
   - **codex**: `model`, `model_reasoning_effort`, `nickname_candidates[]`.
   - **opencode**: `model`, `temperature`, `mode`.
 - `interface` (skills only) — Codex skill descriptor written to `agents/openai.yaml`
@@ -149,26 +138,14 @@ project override) → platform overlay → project append**. These files are gen
 
 ## Output map
 
-The selected ticketing variant is also emitted once, to `ticketing.includePath`
-(default `.agents/includes/ticketing.md`); all three harnesses read that same file at runtime. The
-`e2e-runtime` include (`.agents/includes/e2e-runtime.md`), the `cost` include
-(`.agents/includes/cost.md`), and the `handoff` include (`.agents/includes/handoff.md`) are emitted
-the same way — one shared file each. The cost include is the single source of truth for recording
-each participant's `ccusage` session into a per-run ledger and posting the `Cost Summary` comment
-when a ticket reaches `acceptance-test`. The handoff include is the single source of truth for what a
-`developer` does when a ticket turns out to be larger than one context window: stop at an
-acceptance-criterion boundary, write the handoff into the ticket's single living `Developer Journal`
-comment, and let the orchestrator spawn a fresh developer scoped to the remaining criteria. That
-comment is the workflow's only progress state — created once, then edited in place by comment id
-using the per-backend commands in the ticketing include.
+The selected ticketing variant is emitted once to `ticketing.includePath`
+(`.agents/includes/ticketing.md`), and the cost include to `.agents/includes/cost.md`; all three
+harnesses read those same files at runtime.
 
 | Source unit | → Claude | → Codex | → OpenCode |
 |---|---|---|---|
-| `skills/dev-cycle` | `.claude/skills/dev-cycle/SKILL.md` | `.agents/skills/dev-cycle/SKILL.md` + `…/agents/openai.yaml` | `.opencode/skills/dev-cycle/SKILL.md` |
-| `skills/product-architect` | `.claude/skills/product-architect/SKILL.md` | `.agents/skills/product-architect/SKILL.md` + `…/agents/openai.yaml` | `.opencode/skills/product-architect/SKILL.md` |
-| `agents/developer` | `.claude/agents/developer.md` | `.codex/agents/developer.toml` | `.opencode/agents/developer.md` |
-| `agents/qa-engineer` | `.claude/agents/qa-engineer.md` | `.codex/agents/qa-engineer.toml` | `.opencode/agents/qa-engineer.md` |
-| `agents/code-reviewer` | `.claude/agents/code-reviewer.md` | `.codex/agents/code-reviewer.toml` | `.opencode/agents/code-reviewer.md` |
+| `skills/agent-dev` | `.claude/skills/agent-dev/SKILL.md` | `.agents/skills/agent-dev/SKILL.md` + `…/agents/openai.yaml` | `.opencode/skills/agent-dev/SKILL.md` |
+| `agents/<name>` (none ship today) | `.claude/agents/<name>.md` | `.codex/agents/<name>.toml` | `.opencode/agents/<name>.md` |
 
 Note: Codex skills are emitted under `.agents/skills/` (the location Codex loads skills from at
 runtime), not `.codex/`.

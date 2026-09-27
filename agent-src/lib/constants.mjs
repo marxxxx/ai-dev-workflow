@@ -15,30 +15,9 @@ export const CUSTOM_DIR = 'agent-custom';
 
 // The npx spec for the azure-devops MCP server, used by both the .mcp.json and the Codex
 // config.toml renderers. Pinned to a major: v2 renamed every v1 tool (wit_get_work_item →
-// wit_work_item(action: "get"), …), and a floating `latest` silently breaks ADO_MCP_TOOLS below
-// — a Claude subagent allowlist naming tools the server no longer registers yields no tools at
-// all. Bump this deliberately, together with ADO_MCP_TOOLS and includes/ticketing-azure-devops.md.
+// wit_work_item(action: "get"), …), and a floating `latest` silently breaks the tool names
+// documented in includes/ticketing-azure-devops.md. Bump this deliberately, together with that include.
 export const ADO_MCP_PACKAGE = '@azure-devops/mcp@2';
-
-// Agents that perform ticketing operations and therefore need the azure-devops MCP tools
-// added to their Claude allowlist when that backend is selected.
-export const TICKETING_AGENTS = ['developer', 'code-reviewer', 'qa-engineer'];
-export const ADO_MCP_TOOLS = [
-  'mcp__ado__wit_query',
-  'mcp__ado__wit_work_item',
-  'mcp__ado__wit_work_item_write',
-  'mcp__ado__wit_work_item_comment_write',
-  'mcp__ado__wit_work_item_link_write',
-  // Bug reports carry repro evidence (screenshots, logs) as attachments; without this the
-  // developer and qa-engineer can see that an attachment exists but never open it.
-  'mcp__ado__wit_work_item_attachment',
-];
-
-// MCP servers that are commonly installed either as a plain MCP server or as a Claude Code plugin.
-// Claude names the same tool `mcp__serena__x` in the first case (the container runtime passes them
-// via --mcp-config) and `mcp__plugin_serena_serena__x` in the second. Manifests list the plain form;
-// the Claude renderer adds the plugin alias. See renderers.mjs → claudeToolAllowlist.
-export const PLUGIN_ALIASED_MCP_SERVERS = ['serena', 'playwright'];
 
 /** Value that follows `flag` in argv, or '' when the flag (or its value) is absent. */
 export function argValue(argv, flag) {

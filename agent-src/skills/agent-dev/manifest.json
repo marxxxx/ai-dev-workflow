@@ -1,0 +1,15 @@
+{
+  "name": "agent-dev",
+  "description": "Implement a {{project.name}} change end-to-end with the superpowers workflow, optionally starting from a ticket. Use when the user runs /agent-dev or $agent-dev, with or without a ticket id.",
+  "platforms": {
+    "claude": {},
+    "codex": {},
+    "opencode": {}
+  },
+  "interface": {
+    "display_name": "{{project.name}} Agent Dev",
+    "short_description": "Ticket to PR with the superpowers workflow",
+    "default_prompt": "Use $agent-dev to implement this {{project.name}} change (optionally: ticket <id>)."
+  },
+  "tokens": {}
+}
