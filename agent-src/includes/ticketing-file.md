@@ -43,16 +43,16 @@ cat >> {{ticketing.dir}}/<number>_<slug>.md <<'BODY_EOF'
 BODY_EOF
 ```
 
-## Attach the spec
+## Post the spec
 
-The path is the reference:
+The spec file already lives in the repository, so the comment is just its path:
 
 ```bash
 cat >> {{ticketing.dir}}/<number>_<slug>.md <<'BODY_EOF'
 
 ---
-## Spec
-<spec path>
+## {{artifact.spec}}
+`<spec path>`
 BODY_EOF
 ```
 

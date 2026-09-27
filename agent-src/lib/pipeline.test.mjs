@@ -85,7 +85,8 @@ test('agent-dev drives the superpowers chain and defers ticketing and cost to th
       assert.match(body, /`<number>_<short_title_slug>`/, 'branch name derives from the ticket');
       assert.match(body, /`<number>: <short title>`/, 'PR title derives from the ticket');
       assert.match(body, /create a ticket/i, 'without a ticket, offer to create one');
-      assert.match(body, /attach the approved spec/i, 'the approved spec goes onto the ticket');
+      assert.match(body, /post it on the ticket as\s+`Approved Spec` comments/i, 'the approved spec goes onto the ticket as comments');
+      assert.doesNotMatch(body, /attach|Approved Plan/i, 'no attachments, and the plan stays in the repo');
       assert.doesNotMatch(body, /\{\{.*?\}\}/);
     }
   } finally {
@@ -121,7 +122,7 @@ const BACKENDS = {
     review: /status: review/,
     draft: /gh pr create --draft/,
     create: /next_id/,
-    spec: /## Spec\n<spec path>/,
+    spec: /## Approved Spec\n`<spec path>`\nBODY_EOF/,
   },
   github: {
     project: {
@@ -133,7 +134,7 @@ const BACKENDS = {
     review: /status:review/,
     draft: /gh pr create --draft/,
     create: /gh issue create/,
-    spec: /<details>/,
+    spec: /## Approved Spec[\s\S]*gh issue comment/,
   },
   gitea: {
     project: {
@@ -145,7 +146,7 @@ const BACKENDS = {
     review: /status:review/,
     draft: /--title "WIP: /,
     create: /tea issues create/,
-    spec: /<details>/,
+    spec: /## Approved Spec[\s\S]*tea comments add/,
   },
   'azure-devops': {
     project: {
@@ -157,7 +158,7 @@ const BACKENDS = {
     review: /status:review/,
     draft: /--draft true/,
     create: /wit_work_item_write\(action: "create"/,
-    spec: /--resource attachments[\s\S]*"rel": "AttachedFile"/,
+    spec: /## Approved Spec[\s\S]*wit_work_item_comment_write/,
   },
 };
 
@@ -172,8 +173,9 @@ for (const [backend, spec] of Object.entries(BACKENDS)) {
       assert.match(include.content, /## Pull Requests/);
       assert.match(include.content, spec.draft, 'finished work is handed off as a draft PR');
       assert.match(include.content, spec.create, 'the include must show how to create a ticket');
-      assert.match(include.content, /## Attach the spec/);
-      assert.match(include.content, spec.spec, 'the include must show how the spec is attached');
+      assert.match(include.content, /## Post the spec/);
+      assert.match(include.content, spec.spec, 'the include must show how the spec is posted as a comment');
+      assert.doesNotMatch(include.content, /"rel": "AttachedFile"|--resource attachments|<details>/, 'the spec is a readable comment, not an attachment');
       assert.doesNotMatch(include.content, /Upstream|feat\//, 'naming derives from the ticket itself, not an upstream reference or pattern');
       assert.doesNotMatch(include.content, /Journal|Issue Body Templates|Work Item Body Templates|acceptance-test|Developer Handoff/);
       assert.doesNotMatch(include.content, /\{\{.*?\}\}/, 'include must fully resolve');

@@ -41,14 +41,14 @@ BODY_EOF
 tea comments add --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} <number> "$BODY"
 ```
 
-## Attach the spec
+## Post the spec
 
-`tea` cannot upload issue attachments, so the approved spec goes onto the issue as one comment,
-collapsed:
+Post the approved spec as a readable comment: heading, path, then the full text. If it exceeds what
+the server accepts (it rejects the comment), split it at heading boundaries into numbered comments
+(`## {{artifact.spec}} (1/2)`, …), each repeating the path line.
 
 ```bash
-BODY=$({ printf '## Spec\n`<spec path>`\n\n<details><summary>Approved spec</summary>\n\n'
-  cat <spec path>; printf '\n</details>\n'; })
+BODY=$({ printf '## {{artifact.spec}}\n`<spec path>`\n\n'; cat <spec path>; })
 tea comments add --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} <number> "$BODY"
 ```
 

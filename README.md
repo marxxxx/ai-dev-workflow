@@ -17,7 +17,7 @@ dev box and CI). Pin to a Git tag (e.g. `#v0.22.0`) so devs and CI stay in sync.
 | `ai-project.json` | **you** — project identity + ticketing backend choice | yes |
 | `AGENTS.md` | **you** — create with your coding agent's native `/init`; `agent-dev` reads it first (add an [End-to-end testing](#end-to-end-testing) section for agent-run e2e checks) | yes |
 | `agent-custom/` | **you** (optional) — per-project tweaks to the skill body (see [Customizing the skill](#customizing-the-skill)) | yes |
-| `docs/superpowers/{specs,plans}/` | written by superpowers during each run; the approved versions are also posted to the ticket | yes |
+| `docs/superpowers/{specs,plans}/` | written by superpowers during each run; the approved spec is also posted to the ticket | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
 | `.mcp.json` | merged (azure-devops backend only) — the shared `ado` server entry; other servers preserved | yes |
 | `.codex/config.toml` | merged (azure-devops backend only) — the Codex project-local `ado` MCP server entry; other Codex settings preserved | yes |
@@ -114,19 +114,16 @@ about — the ticket and its comments — and otherwise follows the superpowers 
    with too little detail to implement from) is only background context; it never replaces the
    interview. For changes with user-visible behavior it also asks whether the agent should test
    end to end or you prefer to test manually. The spec lands in `docs/superpowers/specs/`; once you
-   approve it, it is attached to the ticket (Azure DevOps: a real attachment via the Azure CLI;
-   GitHub/Gitea: a collapsed comment, since their CLIs cannot upload issue attachments; file backend:
-   the path). The plan stays in the repo.
+   approve it, it is posted to the ticket as an **Approved Spec** comment (split into numbered
+   comments if it exceeds the backend's limit; the file backend gets just the path). The plan stays
+   in the repo.
 3. **Worktree → plan → implementation → finishing the branch** — superpowers' own
    `using-git-worktrees`, `writing-plans`, `subagent-driven-development` (TDD, code review,
    verification) and `finishing-a-development-branch`.
    If you chose agent testing, an [end-to-end check](#end-to-end-testing) runs before finishing.
    Instead of the finishing skill's merge/PR/keep menu, the run always ends with a **draft PR**
    (Gitea: a `WIP:` title), so a human reviews and tests before publishing it.
-4. **Ticket comments along the way** — with a ticket, the spec is posted as an **Approved Spec**
-   comment once you approve it, and the plan as an **Approved Plan** comment once you give the
-   go-ahead to execute it, so reviewers can read both on the ticket.
-5. **Close-out** — with a ticket, post an **Implementation Summary** comment (approach,
+4. **Close-out** — with a ticket, post an **Implementation Summary** comment (approach,
    consequences, possible side effects, what to watch when testing) and a **Cost Summary** comment,
    then move the ticket to `review`. Without a ticket, both are printed instead.
 

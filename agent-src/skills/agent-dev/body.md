@@ -32,9 +32,9 @@ Invoke each skill and follow it as written:
    If the user asked for a new ticket, create it now with the ticket include's commands (it starts
    in `in-progress`): a short title and a few sentences summarizing the spec, plus its path. Add the
    new ticket's number to the spec.
-   With a ticket, once the user has approved the written spec, **attach the approved spec** to the
-   ticket with the include's commands. If the spec changes later in the run, attach the final version
-   again at close-out.
+   With a ticket, once the user has approved the written spec, post it on the ticket as
+   `{{artifact.spec}}` comments with the include's commands. If the spec changes later in the run,
+   post the final version again at close-out.
 2. `superpowers:using-git-worktrees` — branch named per **Naming** below.
 3. `superpowers:writing-plans`.
 4. `superpowers:subagent-driven-development` (or `superpowers:executing-plans` where subagents are

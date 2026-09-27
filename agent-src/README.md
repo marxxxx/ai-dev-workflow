@@ -78,9 +78,8 @@ every body and to each manifest `description`/`interface` string:
 - `{{ticketing.include}}` (path agents read at runtime), `{{ticketing.backend}}`
 - `{{ticketing.dir}}`, `{{ticketing.metadataFile}}` — file backend only
 - `{{git.prTarget}}` (branch and PR names are fixed by `agent-dev`, derived from the ticket)
-- `{{artifact.spec}}`, `{{artifact.plan}}`, `{{artifact.implementationSummary}}`,
-  `{{artifact.costSummary}}` — one per key of `workflow.artifacts`; each is the title of a ticket
-  comment `agent-dev` posts
+- `{{artifact.spec}}`, `{{artifact.implementationSummary}}`, `{{artifact.costSummary}}` — one per
+  key of `workflow.artifacts`; each is the title of a ticket comment `agent-dev` posts
 - `{{cost.include}}` — the cost-summary include path, package-owned like `{{ticketing.include}}`
 - `{{status.<id>}}` — resolves to the label (`status:new`) for github, gitea and azure-devops, or the
   file-frontmatter value (`new`) for file, depending on `ticketing.backend`. Used only inside the

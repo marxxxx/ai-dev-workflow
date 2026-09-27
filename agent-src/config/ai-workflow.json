@@ -34,7 +34,6 @@
     ],
     "artifacts": {
       "spec": "Approved Spec",
-      "plan": "Approved Plan",
       "implementationSummary": "Implementation Summary",
       "costSummary": "Cost Summary"
     }

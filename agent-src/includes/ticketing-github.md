@@ -23,8 +23,6 @@ BODY_EOF
 
 ## Comment
 
-A comment holds at most 65,536 characters.
-
 ```bash
 cat <<'BODY_EOF' | gh issue comment <number> --repo {{repo.slug}} --body-file -
 ## <Title>
@@ -32,14 +30,15 @@ cat <<'BODY_EOF' | gh issue comment <number> --repo {{repo.slug}} --body-file -
 BODY_EOF
 ```
 
-## Attach the spec
+## Post the spec
 
-GitHub has no API for issue attachments, so the approved spec goes onto the issue as one comment,
-collapsed. Comments are capped at 65,536 characters; for a longer spec, post only the path.
+Post the approved spec as a readable comment: heading, path, then the full text. If it exceeds
+GitHub's 65,536-character comment limit, split it at heading boundaries into numbered comments
+(`## {{artifact.spec}} (1/2)`, …), each repeating the path line.
 
 ```bash
-{ printf '## Spec\n`<spec path>`\n\n<details><summary>Approved spec</summary>\n\n'
-  cat <spec path>; printf '\n</details>\n'; } | gh issue comment <number> --repo {{repo.slug}} --body-file -
+{ printf '## {{artifact.spec}}\n`<spec path>`\n\n'; cat <spec path>; } \
+  | gh issue comment <number> --repo {{repo.slug}} --body-file -
 ```
 
 ## Status
