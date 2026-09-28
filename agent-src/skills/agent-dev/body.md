@@ -9,10 +9,20 @@ when you report cost.
 
 1. Record the start time: `date -u +%Y-%m-%dT%H:%M:%SZ`.
 2. Read `AGENTS.md`.
-3. If a ticket id was given: read the ticket and its comments, then move it to `in-progress`.
-   - If it was already `in-progress`, an earlier attempt died without reporting its cost. Ask
-     whether to post a partial `{{artifact.costSummary}}` for it first, and have the user confirm the
-     window start (suggest when the ticket moved to `in-progress`, if the backend shows it).
+3. If a ticket id was given: read the ticket and its comments, then move it to `in-progress`. If it
+   already was, this run **resumes** an earlier one. Find where that one stopped, working on the
+   ticket's branch or worktree (see **Naming**) if one exists:
+   - **No `{{artifact.spec}}` comment** — no spec was approved yet. Continue with section 2 as usual.
+   - **Spec, no plan** — the spec is approved. Skip brainstorming: invoke `superpowers:writing-plans`
+     with the spec at the path in the comment, then follow the workflow from there.
+   - **Spec and plan** (a plan file for that spec) — development was interrupted. Compare the plan's
+     tasks with the branch's commits and working tree to find what is done, confirm that with the
+     user, then continue executing the plan from the first unfinished task, as its header says.
+
+   The **Written spec approved** hook has already fired for a resumed spec; do not post it again.
+   When resuming, if no `{{artifact.costSummary}}` comment covers the earlier session, ask whether to
+   post a partial one for it first (section 4), and have the user confirm the window start (suggest
+   when the ticket moved to `in-progress` or its last cost comment, if the backend shows it).
 4. No ticket: ask the user whether you should **create a ticket** for this work. If yes, create it
    once brainstorming has settled the scope (see below); from then on it is the run's ticket, exactly
    as if its id had been given. If no, the flow is the same, and the summaries are printed instead of

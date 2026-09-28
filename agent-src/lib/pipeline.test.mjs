@@ -74,8 +74,9 @@ test('agent-dev enters the superpowers workflow and defers ticketing and cost to
     for (const p of AGENT_DEV_PATHS.filter((p) => p.endsWith('SKILL.md'))) {
       const body = outputs.find((o) => o.path === p).content;
       assert.match(body, /superpowers:brainstorming/, `${p} must enter the workflow via superpowers:brainstorming`);
-      assert.deepEqual(body.match(/superpowers:[\w-]+/g).filter((s) => s !== 'superpowers:brainstorming'), [],
-        `${p} must not restate superpowers' internal chain`);
+      const entrySkills = ['superpowers:brainstorming', 'superpowers:writing-plans'];
+      assert.deepEqual(body.match(/superpowers:[\w-]+/g).filter((s) => !entrySkills.includes(s)), [],
+        `${p} must name only entry skills, not restate superpowers' internal chain`);
       assert.match(body, /\.agents\/includes\/ticketing\.md/);
       assert.match(body, /\.agents\/includes\/cost\.md/);
       assert.match(body, /Implementation Summary/);

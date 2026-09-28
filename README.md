@@ -109,7 +109,10 @@ about — the ticket and its comments — and otherwise follows the superpowers 
 
 1. **Start** — record the start time, read `AGENTS.md`; with a ticket, read it and move it to
    `in-progress`. Without one, it asks whether to **create a ticket**; if you say yes, it creates one
-   once brainstorming has settled the scope and uses it for the rest of the run.
+   once brainstorming has settled the scope and uses it for the rest of the run. A ticket already
+   `in-progress` **resumes** where the earlier run stopped: straight to planning if a spec was
+   approved, to the next unfinished plan task if a plan exists (offering a partial cost summary for
+   the interrupted session).
 2. **Brainstorming** — the full requirements interview with you. A ticket (often an upstream ticket
    with too little detail to implement from) is only background context; it never replaces the
    interview. For changes with user-visible behavior it also asks whether the agent should test

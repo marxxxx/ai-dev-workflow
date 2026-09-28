@@ -68,7 +68,8 @@ pipeline: **config → tokens → units → renderers → outputs**.
 Units: one skill, `agent-dev`. It adds only the ticket edges around the unmodified superpowers chain:
 `in-progress` at the start, the approved spec as a comment, and the implementation summary, cost
 summary and `review` at the end.
-It names only the entry skill (`superpowers:brainstorming`) and hooks in at events (spec approved,
+It names only entry skills — `superpowers:brainstorming`, plus `superpowers:writing-plans` when
+resuming an in-progress ticket whose spec is already approved — and hooks in at events (spec approved,
 branch created, integration offered), never at superpowers' internal skill order — that is theirs to
 change. **Keep it lean**: every rendered byte is read on every run, so do not restate superpowers
 skills or invent process of their own — the spec/plan files superpowers writes are the working artifacts.
