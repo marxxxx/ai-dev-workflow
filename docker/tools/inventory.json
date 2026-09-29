@@ -30,7 +30,8 @@
     "superpowers": "8ca22dba9a94f28898bbce59f2537ff4d87c747d"
   },
   "derivedImages": {
-    "dotnetSdk": "10.0.401"
+    "dotnetSdk": "10.0.401",
+    "dotnetEf": "10.0.12"
   },
   "updatePolicy": {
     "npmMajorHolds": {

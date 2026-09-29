@@ -47,7 +47,10 @@ export function versionChecks(inventory, variant) {
     );
   }
   if (variant === 'dotnet') {
-    checks.push({ label: 'dotnet', expected: inventory.derivedImages.dotnetSdk, command: ['dotnet', '--version'] });
+    checks.push(
+      { label: 'dotnet', expected: inventory.derivedImages.dotnetSdk, command: ['dotnet', '--version'] },
+      { label: 'dotnet-ef', expected: inventory.derivedImages.dotnetEf, command: ['dotnet-ef', '--version'] },
+    );
   }
   return checks;
 }

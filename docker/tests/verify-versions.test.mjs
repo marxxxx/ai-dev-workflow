@@ -14,6 +14,7 @@ test('matches a version as a whole token in command output', () => {
   assert.ok(outputHasVersion('Version 7.0.2', '7.0.2'));
   assert.ok(outputHasVersion('uv 0.12.13 (x86_64-unknown-linux-gnu)', '0.12.13'));
   assert.ok(outputHasVersion('"azure-cli": "2.90.0",', '2.90.0'));
+  assert.ok(outputHasVersion('Entity Framework Core .NET Command-line Tools\n10.0.12\n', '10.0.12'));
   assert.ok(!outputHasVersion('1.22.22', '1.22.2'));
   assert.ok(!outputHasVersion('11.22.2', '1.22.2'));
 });
@@ -26,7 +27,7 @@ test('each variant checks the base tools plus its own', () => {
   }
   assert.ok(!base.includes('pnpm') && !base.includes('dotnet'));
   assert.ok(['pnpm', 'yarn', 'tsc', 'typescript-language-server'].every(label => labels('node').includes(label)));
-  assert.ok(labels('dotnet').includes('dotnet'));
+  assert.ok(['dotnet', 'dotnet-ef'].every(label => labels('dotnet').includes(label)));
   assert.throws(() => versionChecks(inventory, 'rust'), /variant/);
 });
 

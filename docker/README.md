@@ -25,7 +25,7 @@ The build context is the standalone `docker/` directory. The base includes all
 three agents, local Serena, Playwright MCP and its matching Chromium, Context7,
 Azure DevOps MCP v2, Azure CLI with its `azure-devops` extension, Superpowers and
 ccusage. The Node variant adds native compilation tools, package managers and
-TypeScript semantic tooling; the .NET variant adds an exact SDK version and trusts
+TypeScript semantic tooling; the .NET variant adds an exact SDK version, the matching `dotnet-ef` tool, and trusts
 the ASP.NET Core HTTPS development certificate for `localhost`. Project dependency
 installation remains the consuming project's responsibility.
 
@@ -376,7 +376,7 @@ break the stated filesystem boundary and is not part of this template.
 
 `tools/inventory.json` is the single source for every pin: base image digest and its
 Node version, all Node CLIs and MCP servers, uv, Azure CLI and its `azure-devops`
-extension, Serena/Superpowers revisions and the .NET SDK. `tools/package.json`, `tools/package-lock.json` and the Dockerfile
+extension, Serena/Superpowers revisions, the .NET SDK and `dotnet-ef`. `tools/package.json`, `tools/package-lock.json` and the Dockerfile
 `FROM`/`ARG` pins are derived from it; do not edit them by hand. The inventory is copied
 to `/opt/agent-tools/inventory.json` and every build verifies the installed versions
 against it (`tools/verify-versions.mjs`). OS packages still use apt repositories, so
@@ -398,7 +398,7 @@ node docker/tools/inventory.mjs check        # drift gate (CI and build.mjs)
   longer ships.
 - `npmFollowDependency`: `playwright` always equals the exact version `@playwright/mcp`
   depends on, so the installed Chromium matches the MCP.
-- `dotnetChannel`: the SDK follows the latest patch of this channel.
+- `dotnetChannel`: the SDK and `dotnet-ef` follow the latest patch of this channel.
 
 Serena and Superpowers follow their default-branch HEAD; the base image keeps its tag
 and refreshes the digest. Raise a hold or channel deliberately by editing the policy.
