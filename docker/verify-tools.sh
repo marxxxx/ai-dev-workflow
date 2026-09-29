@@ -53,8 +53,11 @@ case "$variant" in
     node /usr/local/lib/agent-runtime/verify-semantic.mjs
     ;;
   dotnet)
-    command -v dotnet >/dev/null || fail "dotnet is not on PATH in the .NET image"
+    for command in dotnet dotnet-ef; do
+      command -v "$command" >/dev/null || fail "$command is not on PATH in the .NET image"
+    done
     dotnet --version
+    dotnet-ef --version
     /usr/local/lib/agent-runtime/startup.d/trust-dev-cert.sh
     node /usr/local/lib/agent-runtime/verify-dev-cert.mjs
     ;;

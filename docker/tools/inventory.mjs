@@ -31,6 +31,7 @@ const DOCKERFILE_ARGS = {
   },
   'Dockerfile.dotnet': {
     DOTNET_SDK_VERSION: inventory => inventory.derivedImages.dotnetSdk,
+    DOTNET_EF_VERSION: inventory => inventory.derivedImages.dotnetEf,
   },
 };
 
@@ -221,6 +222,8 @@ export async function resolveUpdates(inventory, sources) {
   }
   const channel = policy.dotnetChannel ?? inventory.derivedImages.dotnetSdk.split('.').slice(0, 2).join('.');
   propose('dotnetSdk', ['derivedImages', 'dotnetSdk'], inventory.derivedImages.dotnetSdk, await sources.dotnetLatestSdk(channel));
+  const efVersions = (await sources.nugetVersions('dotnet-ef')).filter(version => version.startsWith(`${channel}.`));
+  propose('dotnetEf', ['derivedImages', 'dotnetEf'], inventory.derivedImages.dotnetEf, latestVersion(efVersions));
   return changes;
 }
 
@@ -293,6 +296,9 @@ export function createSources(fetchImpl = globalThis.fetch) {
     async azureCliExtensionVersions(name) {
       const index = await getJson('https://azcliextensionsync.blob.core.windows.net/index1/index.json');
       return (index.extensions?.[name] ?? []).map(entry => entry.metadata?.version).filter(Boolean);
+    },
+    async nugetVersions(name) {
+      return (await getJson(`https://api.nuget.org/v3-flatcontainer/${name.toLowerCase()}/index.json`)).versions;
     },
     async dotnetLatestSdk(channel) {
       const url = `https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/${channel}/releases.json`;

@@ -50,6 +50,7 @@ test('sync rewrites Dockerfile pins from the inventory', t => {
     inventory.systemTools.azureDevOpsCliExtension = '8.8.8';
     inventory.sourceRevisions.serena = 'f'.repeat(40);
     inventory.derivedImages.dotnetSdk = '10.0.999';
+    inventory.derivedImages.dotnetEf = '10.0.99';
   });
   syncDerivedFiles(root, { regenerateLockfile: false });
   const dockerfile = readFileSync(path.join(root, 'Dockerfile'), 'utf8');
@@ -57,7 +58,9 @@ test('sync rewrites Dockerfile pins from the inventory', t => {
   assert.match(dockerfile, /^ARG UV_VERSION=9\.9\.9$/m);
   assert.match(dockerfile, /^ARG AZURE_DEVOPS_EXTENSION_VERSION=8\.8\.8$/m);
   assert.match(dockerfile, new RegExp(`^ARG SERENA_REVISION=${'f'.repeat(40)}$`, 'm'));
-  assert.match(readFileSync(path.join(root, 'Dockerfile.dotnet'), 'utf8'), /^ARG DOTNET_SDK_VERSION=10\.0\.999$/m);
+  const dotnetDockerfile = readFileSync(path.join(root, 'Dockerfile.dotnet'), 'utf8');
+  assert.match(dotnetDockerfile, /^ARG DOTNET_SDK_VERSION=10\.0\.999$/m);
+  assert.match(dotnetDockerfile, /^ARG DOTNET_EF_VERSION=10\.0\.99$/m);
   assert.deepEqual(findDrift(root), []);
 });
 
@@ -108,7 +111,7 @@ function sampleInventory() {
     },
     systemTools: { azureCliDebianPackage: '2.90.0-1~bookworm', azureDevOpsCliExtension: '1.0.8', uv: '0.12.13' },
     sourceRevisions: { serena: 'a'.repeat(40), superpowers: 'b'.repeat(40) },
-    derivedImages: { dotnetSdk: '10.0.401' },
+    derivedImages: { dotnetSdk: '10.0.401', dotnetEf: '10.0.11' },
     updatePolicy: {
       npmMajorHolds: { '@azure-devops/mcp': 2, 'typescript-serena': 5 },
       npmFollowDependency: { playwright: '@playwright/mcp' },
@@ -144,6 +147,10 @@ function fakeSources() {
       assert.equal(name, 'azure-devops');
       return ['0.26.0', '1.0.9', '1.0.8', '1.1.0b1'];
     },
+    nugetVersions: async name => {
+      assert.equal(name, 'dotnet-ef');
+      return ['9.0.9', '10.0.11', '10.0.12', '10.1.0', '11.0.0-preview.1'];
+    },
     dotnetLatestSdk: async channel => {
       assert.equal(channel, '10.0');
       return '10.0.402';
@@ -166,6 +173,7 @@ test('resolves the latest versions within the update policy', async () => {
     uv: '0.13.0',
     serena: 'c'.repeat(40),
     dotnetSdk: '10.0.402',
+    dotnetEf: '10.0.12',
   });
 });
 
