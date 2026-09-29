@@ -1,0 +1,48 @@
+name: Release
+
+# Publishes the package to npm when a vX.Y.Z tag is pushed. Uses npm trusted
+# publishing (OIDC): configure a Trusted Publisher for this repo and workflow on
+# the package's npmjs.com settings page — no NPM_TOKEN secret needed. Provenance
+# is attached automatically.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org
+
+      - name: Check tag matches package.json version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Publish (skipped if this version is already on npm)
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already published; skipping."
+          else
+            npm publish
+          fi

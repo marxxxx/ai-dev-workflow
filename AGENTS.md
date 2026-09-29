@@ -8,7 +8,7 @@ A **generator**, not an application. It renders a lean `agent-dev` skill (a thin
 [superpowers](https://github.com/obra/superpowers) workflow) for **Claude Code**, **Codex**, and
 **OpenCode** from one canonical source (`agent-src/`) plus a small per-project config
 (`ai-project.json` in the consuming project). Zero-dependency Node (builtins only, `>=24`),
-distributed from Git (`npx github:marxxxx/ai-dev-workflow#vX.Y.Z`, no npm registry), and
+published to npm as `@strobl_dev/adw` (`npx @strobl_dev/adw@X.Y.Z`), and
 language-agnostic — consuming projects need not be Node projects.
 
 This repo has no `ai-project.json` and no generated output of its own; run the generator against a
@@ -80,8 +80,10 @@ logically; the ticketing include defines their encoding per backend.
 
 ## Releasing
 
-The Git tag is the release: update version references in `README.md` (`#vX.Y.Z`), tag `vX.Y.Z`,
-push the tag and merge to `main`.
+The Git tag is the release: bump `version` in `package.json`, update version references in
+`README.md` (`@X.Y.Z`), merge to `main`, then tag `vX.Y.Z` and push the tag.
+`.github/workflows/release.yml` checks that the tag matches `package.json`, runs the tests and
+publishes to npm via trusted publishing (it skips versions already on npm).
 
 ## Container images (`docker/`)
 

@@ -5,10 +5,11 @@ skill that takes a change from an (optional) ticket to a pull request by running
 [superpowers](https://github.com/obra/superpowers) workflow, generated per project from one small
 config file.
 
-The generator is a zero-dependency Node script. It's distributed **directly from this Git repo** (no
-npm registry) and the consuming project does **not** need to be a Node project. It works in any repo
-(C#/.NET, Go, Rust, …) — the only requirement is Node on the machine that runs the generator (your
-dev box and CI). Pin to a Git tag (e.g. `#v0.23.0`) so devs and CI stay in sync.
+The generator is a zero-dependency Node script, published to npm as
+[`@strobl_dev/adw`](https://www.npmjs.com/package/@strobl_dev/adw). The consuming project does
+**not** need to be a Node project. It works in any repo (C#/.NET, Go, Rust, …) — the only
+requirement is Node on the machine that runs the generator (your dev box and CI). Pin a version
+(e.g. `@0.24.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -27,11 +28,11 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ## Quick start (any project, incl. C# — no `package.json` needed)
 
-`npx` can run the bin straight from GitHub — nothing is installed into the repo:
+`npx` runs the bin straight from npm — nothing is installed into the repo:
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
-npx github:marxxxx/ai-dev-workflow#v0.23.0 init
+npx @strobl_dev/adw@0.24.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -41,12 +42,15 @@ npx github:marxxxx/ai-dev-workflow#v0.23.0 init
 #    with your coding agent's native /init.)
 
 # 3. generate the platform files
-npx github:marxxxx/ai-dev-workflow#v0.23.0 generate
+npx @strobl_dev/adw@0.24.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the tag (`#v0.23.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the version (`@0.24.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+
+Versions up to v0.23.0 were only distributed from Git (`npx github:marxxxx/ai-dev-workflow#v0.23.0`).
+npm 12 refuses git specs by default (`EALLOWGIT`); add `--allow-git=all` if you still need one.
 
 ## Tooling
 
@@ -177,27 +181,32 @@ cost. Cost reporting never blocks the close-out. The procedure lives in the gene
 
 ## In a Node project
 
-Add it as a dev dependency pointing at the Git tag, and wire up scripts:
+Add it as a dev dependency with an exact version, and wire up scripts:
 
 ```jsonc
 "devDependencies": {
-  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.23.0"
+  "@strobl_dev/adw": "0.24.0"
 },
 "scripts": {
-  "agents:generate": "ai-dev-workflow generate",
-  "agents:check":    "ai-dev-workflow check"
+  "agents:generate": "adw generate",
+  "agents:check":    "adw check"
 }
 ```
 
 ## Updating
 
 ```bash
-npx github:marxxxx/ai-dev-workflow#<new-tag> generate   # or bump the pinned tag, then `generate`
+npx @strobl_dev/adw@<new-version> generate   # or bump the pinned version, then `generate`
 ```
 
 Review the diff in `.claude/`/`.codex/`/etc. and commit. `ai-project.json` is never touched. Run
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
+
+**Upgrading to v0.24.0.** The package moved to the npm registry as `@strobl_dev/adw`; replace
+`github:marxxxx/ai-dev-workflow#vX.Y.Z` with `@strobl_dev/adw@X.Y.Z` in scripts, CI and
+`devDependencies`. The generated output is unchanged. The bin is now `adw`; `ai-dev-workflow` still
+works as an alias.
 
 **Upgrading to v0.23.0.** The custom multi-agent workflow is replaced by the single `agent-dev`
 skill. `dev-cycle`, `product-architect`, the `developer` / `code-reviewer` / `qa-engineer` agents,
