@@ -8,7 +8,7 @@ config file.
 The generator is a zero-dependency Node script. It's distributed **directly from this Git repo** (no
 npm registry) and the consuming project does **not** need to be a Node project. It works in any repo
 (C#/.NET, Go, Rust, …) — the only requirement is Node on the machine that runs the generator (your
-dev box and CI). Pin to a Git tag (e.g. `#v0.22.0`) so devs and CI stay in sync.
+dev box and CI). Pin to a Git tag (e.g. `#v0.23.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -31,7 +31,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
-npx github:marxxxx/ai-dev-workflow#v0.22.0 init
+npx github:marxxxx/ai-dev-workflow#v0.23.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -41,12 +41,12 @@ npx github:marxxxx/ai-dev-workflow#v0.22.0 init
 #    with your coding agent's native /init.)
 
 # 3. generate the platform files
-npx github:marxxxx/ai-dev-workflow#v0.22.0 generate
+npx github:marxxxx/ai-dev-workflow#v0.23.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the tag (`#v0.22.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the tag (`#v0.23.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 ## Tooling
 
@@ -181,7 +181,7 @@ Add it as a dev dependency pointing at the Git tag, and wire up scripts:
 
 ```jsonc
 "devDependencies": {
-  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.22.0"
+  "@strobl/ai-dev-workflow": "github:marxxxx/ai-dev-workflow#v0.23.0"
 },
 "scripts": {
   "agents:generate": "ai-dev-workflow generate",
@@ -199,7 +199,7 @@ Review the diff in `.claude/`/`.codex/`/etc. and commit. `ai-project.json` is ne
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
 
-**Upgrading to v0.22.0.** The custom multi-agent workflow is replaced by the single `agent-dev`
+**Upgrading to v0.23.0.** The custom multi-agent workflow is replaced by the single `agent-dev`
 skill. `dev-cycle`, `product-architect`, the `developer` / `code-reviewer` / `qa-engineer` agents,
 the developer journal/handoff, and the e2e include are gone; ticket states shrink to
 `new → in-progress → review`. **superpowers is now required.** `generate` does not delete files it no
