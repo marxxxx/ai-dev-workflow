@@ -46,6 +46,9 @@ it occurs, wherever the workflow puts it.
   `{{artifact.spec}}` comments with the include's commands. If the spec changes later in the run,
   post the final version again at close-out.
 - **Branch or worktree created** — name it per **Naming** below.
+- **Subagent dispatched** — never give it the platform's premium top model tier, even when you run
+  on it yourself: use at most the standard flagship tier below it, or a cheaper one where the task
+  allows.
 - **Implementation verified, before integrating** — only if the spec says the agent tests end to
   end: start the app as the `AGENTS.md` end-to-end section describes, exercise the changed flows in
   a browser (Playwright), capture evidence (screenshots outside the repo, or observations), and shut
