@@ -34,9 +34,7 @@ export function loadConfig(projectRoot) {
     ...project,
     workflow: pkg.workflow,
     ticketing: { ...(project.ticketing || {}), includePath: pkg.ticketing?.includePath },
-    app: { ...(project.app || {}), includePath: pkg.app?.includePath },
     cost: { ...(project.cost || {}), includePath: pkg.cost?.includePath },
-    handoff: { ...(project.handoff || {}), includePath: pkg.handoff?.includePath },
   };
 }
 
@@ -47,7 +45,6 @@ const AZURE_TEMPLATES = {
     bugType: 'Issue',
     stateMapping: {
       'new': 'To Do', 'in-progress': 'Doing', 'review': 'Doing',
-      'test': 'Doing', 'failed': 'Doing', 'acceptance-test': 'Doing',
     },
   },
   scrum: {
@@ -55,7 +52,6 @@ const AZURE_TEMPLATES = {
     bugType: 'Bug',
     stateMapping: {
       'new': 'New', 'in-progress': 'Committed', 'review': 'Committed',
-      'test': 'Committed', 'failed': 'Committed', 'acceptance-test': 'Committed',
     },
   },
 };
@@ -88,7 +84,7 @@ export function buildProjectConfig(a) {
     project: { name: a.name, slug: a.slug, serenaProject: a.serena, description: a.description },
     repository: { slug: a.repoSlug, defaultBranch: a.defaultBranch },
     ticketing,
-    git: { branchPattern: a.branchPattern, prTarget: a.prTarget },
+    git: { prTarget: a.prTarget },
   };
 }
 
@@ -121,21 +117,11 @@ export function buildGlobalTokens(config) {
   put('ticketing.azure.featureType', c.ticketing?.azureDevOps?.featureType || 'Issue');
   put('ticketing.azure.bugType', c.ticketing?.azureDevOps?.bugType || 'Issue');
 
-  put('git.branchPattern', c.git?.branchPattern);
   put('git.prTarget', c.git?.prTarget);
 
-  // E2E runtime: the include path is package-owned (always present). The include itself points the
-  // qa-engineer at the project's AGENTS.md e2e-setup section — no per-project command tokens.
-  put('app.include', c.app?.includePath);
-
-  // Cost accounting: the include path is package-owned (always present). The include tells the
-  // workflow how to record ccusage session cost and post the per-ticket summary at acceptance-test.
+  // Cost accounting: the include path is package-owned (always present). The include tells agent-dev
+  // how to total the run's ccusage sessions and post the cost summary.
   put('cost.include', c.cost?.includePath);
-
-  // Developer handoff: the include path is package-owned (always present). The include tells the
-  // developer how to stop at a criterion boundary and hand off, and the orchestrator how to seed the
-  // journal, audit the handoff, and count continuations.
-  put('handoff.include', c.handoff?.includePath);
 
   for (const [k, v] of Object.entries(c.workflow?.artifacts || {})) put(`artifact.${k}`, v);
   const usesTagLabels = backend === 'github' || backend === 'gitea' || backend === 'azure-devops';

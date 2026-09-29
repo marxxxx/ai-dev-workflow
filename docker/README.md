@@ -108,8 +108,8 @@ and no generated `.claude/.codex/.opencode` definitions. To work on it inside th
 use the repo-root `compose.ai-dev.yml`, which sets `AGENT_TOOLSTACK_ONLY=1`. That mode wires
 **only the tool stack** — the Claude Code / Codex / OpenCode harnesses, the managed Serena,
 Playwright and Context7 MCP servers, Superpowers, and the GitHub CLI — and skips all
-project-specific state (no `ai-project.json` read, no `ado` server, no generated dev-cycle
-skills or subagents).
+project-specific state (no `ai-project.json` read, no `ado` server, no generated `agent-dev`
+skill).
 
 The default image is the published base `marxx/ai-dev-workflow:latest`; no local build is
 needed. Override `AGENT_IMAGE` to use a locally built or pinned tag.
@@ -430,8 +430,8 @@ disposable fixture projects and removes only its own Compose volumes.
 
 Live acceptance is recorded separately: complete Codex and Azure CLI device logins,
 recreate the container and verify retained authentication; start a real Codex
-`--yolo` session, discover `dev-cycle`/`product-architect`, invoke developer,
-code-reviewer and qa-engineer on harmless read-only fixture tasks, use Serena and
-Playwright, and perform an ADO read from the primary agent and a subagent. Check Git
+`--yolo` session, discover `agent-dev` and the superpowers skills, dispatch a subagent
+on a harmless read-only fixture task, use Serena and Playwright, and perform an ADO
+read from the primary agent and a subagent. Check Git
 remote access separately. Record actual results; an unperformed or blocked login,
 model call, application E2E or Testcontainers run is not a passing automated check.

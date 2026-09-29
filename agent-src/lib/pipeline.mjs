@@ -2,14 +2,12 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { KNOWN_PLATFORMS, TICKETING_AGENTS, ADO_MCP_TOOLS } from './constants.mjs';
+import { KNOWN_PLATFORMS } from './constants.mjs';
 import { loadConfig, buildGlobalTokens } from './config.mjs';
 import { loadUnits } from './units.mjs';
 import { substituteManifestStrings, resolveBody } from './tokens.mjs';
 import { renderTicketingInclude, renderMcpJson, renderCodexAdoMcpToml } from './ticketing.mjs';
-import { renderE2eInclude } from './app.mjs';
 import { renderCostInclude } from './cost.mjs';
-import { renderHandoffInclude } from './handoff.mjs';
 import { RENDERERS, smokeCheck } from './renderers.mjs';
 
 export function renderAll(projectRoot) {
@@ -37,17 +35,7 @@ export function renderAll(projectRoot) {
     outputs.push(ticketing);
   }
 
-  // The resolved e2e-runtime include — the qa-engineer's single source of truth for app startup.
-  const e2e = renderE2eInclude(config, globalTokens);
-  if (e2e) {
-    if (/\{\{.*?\}\}/.test(e2e.content)) {
-      throw new Error(`E2E include: unresolved placeholder in ${e2e.path}`);
-    }
-    seenPaths.add(e2e.path);
-    outputs.push(e2e);
-  }
-
-  // The resolved cost include — the workflow's single source of truth for ccusage cost accounting.
+  // The resolved cost include — agent-dev's single source of truth for the ccusage cost total.
   const cost = renderCostInclude(config, globalTokens);
   if (cost) {
     if (/\{\{.*?\}\}/.test(cost.content)) {
@@ -55,17 +43,6 @@ export function renderAll(projectRoot) {
     }
     seenPaths.add(cost.path);
     outputs.push(cost);
-  }
-
-  // The resolved handoff include — how a developer stops at a criterion boundary and hands the rest
-  // of an oversized ticket to a fresh developer.
-  const handoff = renderHandoffInclude(config, globalTokens);
-  if (handoff) {
-    if (/\{\{.*?\}\}/.test(handoff.content)) {
-      throw new Error(`Handoff include: unresolved placeholder in ${handoff.path}`);
-    }
-    seenPaths.add(handoff.path);
-    outputs.push(handoff);
   }
 
   // The azure-devops backend also owns the `ado` entry in .mcp.json (non-destructive merge).
@@ -83,18 +60,6 @@ export function renderAll(projectRoot) {
     }
     seenPaths.add(codexAdoMcp.path);
     outputs.push(codexAdoMcp);
-  }
-
-  // azure-devops backend: give ticketing agents access to the `ado` MCP tools on Claude.
-  if (config.ticketing?.backend === 'azure-devops') {
-    for (const unit of units) {
-      if (unit.kind !== 'agent' || !TICKETING_AGENTS.includes(unit.name)) continue;
-      const claude = unit.manifest.platforms?.claude;
-      if (!claude || !Array.isArray(claude.tools)) continue;
-      for (const tool of ADO_MCP_TOOLS) {
-        if (!claude.tools.includes(tool)) claude.tools.push(tool);
-      }
-    }
   }
 
   for (const unit of units) {

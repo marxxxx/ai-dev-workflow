@@ -1,6 +1,6 @@
 # Work on ai-dev-workflow itself inside its own agent image.
 # Tool stack only (harnesses + managed MCPs + GitHub CLI); no generated
-# dev-cycle definitions and no ai-project.json are required or read.
+# agent-dev skill and no ai-project.json are required or read.
 services:
   ai-dev-workflow:
     image: ${AGENT_IMAGE:-marxx/ai-dev-workflow:latest}

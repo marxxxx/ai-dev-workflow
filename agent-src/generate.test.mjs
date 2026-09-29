@@ -51,12 +51,12 @@ test('azureMapping returns the basic and scrum tables', () => {
   assert.equal(basic.featureType, 'Issue');
   assert.equal(basic.bugType, 'Issue');
   assert.equal(basic.stateMapping['new'], 'To Do');
-  assert.equal(basic.stateMapping['acceptance-test'], 'Doing');
+  assert.deepEqual(basic.stateMapping, { 'new': 'To Do', 'in-progress': 'Doing', 'review': 'Doing' });
   const scrum = azureMapping('scrum');
   assert.equal(scrum.featureType, 'Product Backlog Item');
   assert.equal(scrum.bugType, 'Bug');
   assert.equal(scrum.stateMapping['new'], 'New');
-  assert.equal(scrum.stateMapping['in-progress'], 'Committed');
+  assert.deepEqual(scrum.stateMapping, { 'new': 'New', 'in-progress': 'Committed', 'review': 'Committed' });
 });
 
 test('azureMapping throws on unknown template', () => {
@@ -69,7 +69,7 @@ test('buildProjectConfig (file backend) omits azureDevOps', () => {
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: 'A demo',
     repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file',
-    branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+    prTarget: 'main',
     file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' },
   });
   assert.equal(cfg.project.name, 'Demo');
@@ -82,7 +82,7 @@ test('buildProjectConfig (azure scrum) fills types + stateMapping', () => {
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
     repoSlug: 'demo', defaultBranch: 'main', backend: 'azure-devops',
-    branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+    prTarget: 'main',
     azure: { organization: 'myorg', project: 'myproj', processTemplate: 'scrum' },
   });
   const a = cfg.ticketing.azureDevOps;
@@ -99,56 +99,48 @@ test('buildProjectConfig (github backend) omits both file and azureDevOps', () =
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
     repoSlug: 'me/demo', defaultBranch: 'main', backend: 'github',
-    branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+    prTarget: 'main',
   });
   assert.equal(cfg.ticketing.backend, 'github');
   assert.ok(!('file' in cfg.ticketing));
   assert.ok(!('azureDevOps' in cfg.ticketing));
 });
 
+test('buildProjectConfig writes only the PR target under git — naming is fixed, not configurable', () => {
+  const cfg = buildProjectConfig({
+    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
+    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'github', prTarget: 'main',
+  });
+  assert.deepEqual(cfg.git, { prTarget: 'main' });
+});
+
+test('buildGlobalTokens ignores a legacy git.branchPattern', () => {
+  const tokens = buildGlobalTokens({ git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' }, workflow: WORKFLOW });
+  assert.ok(!('git.branchPattern' in tokens), 'the branch name is derived from the ticket, not a project pattern');
+  assert.equal(tokens['git.prTarget'], 'main');
+});
+
 test('buildProjectConfig writes no e2e block', () => {
   const base = {
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
     repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file',
-    branchPattern: 'x', prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
+    prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
   };
   assert.ok(!('e2e' in buildProjectConfig(base)), 'no e2e block — e2e setup lives in AGENTS.md prose');
 });
 
-test('buildGlobalTokens sets app.include and never emits app.up/down tokens', () => {
-  const appCfg = { app: { includePath: '.agents/includes/e2e-runtime.md' }, workflow: WORKFLOW };
-  const tokens = buildGlobalTokens(appCfg);
-  assert.equal(tokens['app.include'], '.agents/includes/e2e-runtime.md');
-  assert.ok(!('app.up' in tokens));
-  assert.ok(!('app.down' in tokens));
-  assert.ok(!('app.logsDir' in tokens));
-});
-
-test('buildGlobalTokens sets cost.include and the cost artifact tokens', () => {
+test('buildGlobalTokens sets cost.include and the summary artifact tokens', () => {
   const costCfg = {
     cost: { includePath: '.agents/includes/cost.md' },
     workflow: {
       states: WORKFLOW.states,
-      artifacts: { ...WORKFLOW.artifacts, costOrigin: 'Cost Origin', costSummary: 'Cost Summary' },
+      artifacts: { ...WORKFLOW.artifacts, implementationSummary: 'Implementation Summary', costSummary: 'Cost Summary' },
     },
   };
   const tokens = buildGlobalTokens(costCfg);
   assert.equal(tokens['cost.include'], '.agents/includes/cost.md');
-  assert.equal(tokens['artifact.costOrigin'], 'Cost Origin');
+  assert.equal(tokens['artifact.implementationSummary'], 'Implementation Summary');
   assert.equal(tokens['artifact.costSummary'], 'Cost Summary');
-});
-
-test('buildGlobalTokens sets handoff.include and the journal artifact token', () => {
-  const handoffCfg = {
-    handoff: { includePath: '.agents/includes/handoff.md' },
-    workflow: {
-      states: WORKFLOW.states,
-      artifacts: { ...WORKFLOW.artifacts, journal: 'Developer Journal' },
-    },
-  };
-  const tokens = buildGlobalTokens(handoffCfg);
-  assert.equal(tokens['handoff.include'], '.agents/includes/handoff.md');
-  assert.equal(tokens['artifact.journal'], 'Developer Journal');
 });
 
 import { cmdScaffold } from './generate.mjs';
@@ -177,7 +169,7 @@ test('buildProjectConfig (gitea backend) records the tea login and omits file + 
   const cfg = buildProjectConfig({
     name: 'Demo', slug: 'demo', serena: 'demo', description: '',
     repoSlug: 'me/demo', defaultBranch: 'main', backend: 'gitea',
-    branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main',
+    prTarget: 'main',
     gitea: { login: 'myserver' },
   });
   assert.equal(cfg.ticketing.backend, 'gitea');

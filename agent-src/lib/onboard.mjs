@@ -10,13 +10,12 @@ import { readJson, buildProjectConfig } from './config.mjs';
 
 /**
  * The next-step guidance printed after onboarding: create AGENTS.md with the coding agent's native
- * `/init`, then describe the e2e-infra setup there. Shared by both entry points.
+ * `/init`. Shared by both entry points.
  */
 const AGENTS_MD_GUIDANCE =
-  'Create AGENTS.md with your coding agent\'s native `/init` command, then add an "End-to-end\n' +
-  'testing" section describing how to start the app + backing services (see the "End-to-end\n' +
-  'testing" section of the ai-dev-workflow README).\n' +
-  'Without it, the qa-engineer leaves end-to-end testing to the human.';
+  'Create AGENTS.md with your coding agent\'s native `/init` command. agent-dev reads it first, so\n' +
+  'keep build/test commands and project conventions there. For end-to-end checks, add an\n' +
+  '"End-to-end testing" section describing how to start the app (see the ai-dev-workflow README).';
 
 /**
  * The tooling the agents expect, printed after onboarding. Deliberately names and links each
@@ -24,22 +23,23 @@ const AGENTS_MD_GUIDANCE =
  * are already documented upstream. Installing these is the user's job.
  */
 const DEPENDENCIES =
-  'Recommended tooling — install whichever your coding agent uses.\n' +
-  'These are not installed for you:\n' +
+  'Tooling — install for whichever coding agent you use. These are not installed for you.\n' +
   '\n' +
-  '  superpowers  Skill library driving the brainstorm -> plan -> implement workflow\n' +
+  'Required:\n' +
+  '  superpowers  Skill library: the brainstorm -> plan -> implement workflow agent-dev runs\n' +
   '               https://github.com/obra/superpowers\n' +
   '\n' +
+  'Recommended:\n' +
   '  serena       MCP server: semantic, symbol-level code navigation and editing\n' +
   '               https://github.com/oraios/serena\n' +
   '\n' +
-  '  playwright   MCP server: drives a real browser for end-to-end testing\n' +
+  '  playwright   MCP server: drives a real browser for agent-dev\'s optional end-to-end check\n' +
   '               https://github.com/microsoft/playwright-mcp\n' +
   '\n' +
   '  context7     MCP server: up-to-date library and framework documentation\n' +
   '               https://github.com/upstash/context7\n' +
   '\n' +
-  '  ccusage      CLI: per-session token/cost reporting used for the per-ticket cost summary\n' +
+  '  ccusage      CLI: token/cost reporting used for agent-dev\'s cost summary\n' +
   '               https://ccusage.com';
 
 /** Template-copy scaffold — the non-interactive fallback. Never overwrites. */
@@ -150,7 +150,6 @@ export async function runInterview(prompter, { detectRepoSlug, projectRoot }) {
       processTemplate: await prompter.askChoice('Process template', 'azure.processTemplate', ['basic', 'scrum'], 'basic'),
     };
   }
-  answers.branchPattern = await prompter.ask('Branch pattern', 'branchPattern', 'feat/<issue-number>_<slug>');
   answers.prTarget = await prompter.ask('PR target branch', 'prTarget', defaultBranch);
   return answers;
 }

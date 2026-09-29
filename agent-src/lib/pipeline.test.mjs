@@ -6,7 +6,6 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { renderAll, loadConfig } from '../generate.mjs';
-import { claudeToolAllowlist } from './renderers.mjs';
 import { makeTmpRoot, tmpProject } from '../test-helpers.mjs';
 
 function writeProject(root, config) {
@@ -27,7 +26,7 @@ test('renderAll produces a set of unique output paths (file backend)', () => {
   }
 });
 
-test('azure-devops backend injects ADO tools into ticketing agents and emits .mcp.json', () => {
+test('azure-devops backend emits .mcp.json with the pinned ADO server', () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     writeProject(root, {
@@ -40,54 +39,152 @@ test('azure-devops backend injects ADO tools into ticketing agents and emits .mc
           processTemplate: 'basic', stateMapping: {},
         },
       },
-      git: { branchPattern: 'x', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
     const outputs = renderAll(root);
     const mcp = outputs.find((o) => o.path === '.mcp.json');
     assert.ok(mcp, '.mcp.json should be produced for azure-devops');
     assert.match(mcp.content, /@azure-devops\/mcp@2/, 'the ADO MCP server must be pinned to a major');
-
-    const developer = outputs.find((o) => o.path === path.join('.claude', 'agents', 'developer.md'));
-    assert.ok(developer, 'developer agent should be rendered');
-    assert.match(developer.content, /mcp__ado__wit_query/, 'ADO MCP tool should be added to the allowlist');
-    // The v1 tool surface was renamed wholesale in @azure-devops/mcp v2. An allowlist naming tools
-    // the pinned server no longer registers leaves the subagent with no ADO tools at all.
-    assert.doesNotMatch(
-      developer.content,
-      /mcp__ado__wit_(query_by_wiql|get_work_item|create_work_item|update_work_item|add_work_item_comment|list_work_item_comments)\b/,
-      'retired v1 ADO tool names must not appear in the allowlist',
-    );
-    assert.doesNotMatch(developer.content, /mcp__plugin_ado_/, 'ado is not plugin-aliased');
   } finally {
     cleanup();
   }
 });
 
-test('Claude allowlists name serena/playwright tools as both a plain MCP server and a plugin', () => {
+const AGENT_DEV_PATHS = [
+  path.join('.claude', 'skills', 'agent-dev', 'SKILL.md'),
+  path.join('.agents', 'skills', 'agent-dev', 'SKILL.md'),
+  path.join('.agents', 'skills', 'agent-dev', 'agents', 'openai.yaml'),
+  path.join('.opencode', 'skills', 'agent-dev', 'SKILL.md'),
+];
+
+test('renderAll emits only the agent-dev skill plus the ticketing and cost includes', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const paths = renderAll(root).map((o) => o.path).sort();
+    assert.deepEqual(paths, [...AGENT_DEV_PATHS, '.agents/includes/cost.md', '.agents/includes/ticketing.md'].sort());
+  } finally {
+    cleanup();
+  }
+});
+
+test('agent-dev enters the superpowers workflow and defers ticketing and cost to the includes', () => {
   const { root, cleanup } = tmpProject();
   try {
     const outputs = renderAll(root);
-    const agent = (name) => outputs.find((o) => o.path === path.join('.claude', 'agents', `${name}.md`)).content;
-    // The container runtime registers the servers via --mcp-config (mcp__serena__…); a host install
-    // via Claude Code plugins yields mcp__plugin_serena_serena__…. Either alone leaves the other without tools.
-    for (const name of ['developer', 'code-reviewer']) {
-      assert.match(agent(name), /^ {2}- mcp__serena__find_symbol$/m);
-      assert.match(agent(name), /^ {2}- mcp__plugin_serena_serena__find_symbol$/m);
+    for (const p of AGENT_DEV_PATHS.filter((p) => p.endsWith('SKILL.md'))) {
+      const body = outputs.find((o) => o.path === p).content;
+      assert.match(body, /superpowers:brainstorming/, `${p} must enter the workflow via superpowers:brainstorming`);
+      const entrySkills = ['superpowers:brainstorming', 'superpowers:writing-plans'];
+      assert.deepEqual(body.match(/superpowers:[\w-]+/g).filter((s) => !entrySkills.includes(s)), [],
+        `${p} must name only entry skills, not restate superpowers' internal chain`);
+      assert.match(body, /\.agents\/includes\/ticketing\.md/);
+      assert.match(body, /\.agents\/includes\/cost\.md/);
+      assert.match(body, /Implementation Summary/);
+      assert.match(body, /partial/i, 'failed or interrupted runs offer a partial cost summary');
+      assert.match(body, /draft pull request/i, 'a finished run hands off through a draft PR');
+      assert.match(body, /`<number>_<short_title_slug>`/, 'branch name derives from the ticket');
+      assert.match(body, /`<number>: <short title>`/, 'PR title derives from the ticket');
+      assert.match(body, /create a ticket/i, 'without a ticket, offer to create one');
+      assert.match(body, /post the spec on it as\s+`Approved Spec` comments/i, 'the approved spec goes onto the ticket as comments');
+      assert.doesNotMatch(body, /attach|Approved Plan/i, 'no attachments, and the plan stays in the repo');
+      assert.doesNotMatch(body, /\{\{.*?\}\}/);
     }
-    assert.match(agent('qa-engineer'), /^ {2}- mcp__playwright__browser_navigate$/m);
-    assert.match(agent('qa-engineer'), /^ {2}- mcp__plugin_playwright_playwright__browser_navigate$/m);
   } finally {
     cleanup();
   }
 });
 
-test('claudeToolAllowlist aliases only known servers and does not duplicate entries', () => {
-  assert.deepEqual(
-    claudeToolAllowlist(['Read', 'mcp__serena__find_symbol', 'mcp__plugin_serena_serena__find_symbol', 'mcp__ado__wit_query']),
-    ['Read', 'mcp__serena__find_symbol', 'mcp__plugin_serena_serena__find_symbol', 'mcp__ado__wit_query'],
-  );
-  assert.equal(claudeToolAllowlist(undefined), undefined);
+test('the cost include totals the unified ccusage report over a time window, including partial runs', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const cost = renderAll(root).find((o) => o.path === '.agents/includes/cost.md').content;
+    assert.match(cost, /ccusage@20 session --json --since/, 'one pinned, harness-agnostic command');
+    assert.doesNotMatch(cost, /ccusage@latest|ccusage (claude|codex|opencode) /, 'no floating version, no per-harness commands');
+    assert.match(cost, /metadata\.lastActivity/);
+    assert.match(cost, /unpricedModels/, 'unpriced models must be named, not reported as $0');
+    assert.match(cost, /Cost Summary/);
+    assert.match(cost, /partial/i);
+    assert.doesNotMatch(cost, /ledger|Developer Journal|code-review|qa-engineer/i, 'no ledger or per-role breakdown');
+    assert.doesNotMatch(cost, /\{\{.*?\}\}/);
+  } finally {
+    cleanup();
+  }
 });
+
+const BACKENDS = {
+  file: {
+    project: {
+      project: { name: 'File Demo', slug: 'file-demo', serenaProject: 'file-demo', description: '' },
+      repository: { slug: 'me/file-demo', defaultBranch: 'main' },
+      ticketing: { backend: 'file', file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' } },
+      git: { prTarget: 'main' },
+    },
+    review: /status: review/,
+    draft: /gh pr create --draft/,
+    create: /next_id/,
+    spec: /## Approved Spec\n`<spec path>`\nBODY_EOF/,
+  },
+  github: {
+    project: {
+      project: { name: 'GH Demo', slug: 'gh-demo', serenaProject: 'gh-demo', description: '' },
+      repository: { slug: 'me/gh-demo', defaultBranch: 'main' },
+      ticketing: { backend: 'github' },
+      git: { prTarget: 'main' },
+    },
+    review: /status:review/,
+    draft: /gh pr create --draft/,
+    create: /gh issue create/,
+    spec: /## Approved Spec[\s\S]*gh issue comment/,
+  },
+  gitea: {
+    project: {
+      project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
+      repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
+      ticketing: { backend: 'gitea', gitea: { login: 'myserver' } },
+      git: { prTarget: 'main' },
+    },
+    review: /status:review/,
+    draft: /--title "WIP: /,
+    create: /tea issues create/,
+    spec: /## Approved Spec[\s\S]*tea comments add/,
+  },
+  'azure-devops': {
+    project: {
+      project: { name: 'ADO Demo', slug: 'ado-demo', serenaProject: 'ado-demo', description: '' },
+      repository: { slug: 'ado-repo', defaultBranch: 'main' },
+      ticketing: { backend: 'azure-devops', azureDevOps: { organization: 'contoso', project: 'widgets' } },
+      git: { prTarget: 'main' },
+    },
+    review: /status:review/,
+    draft: /--draft true/,
+    create: /wit_work_item_write\(action: "create"/,
+    spec: /## Approved Spec[\s\S]*wit_work_item_comment_write/,
+  },
+};
+
+for (const [backend, spec] of Object.entries(BACKENDS)) {
+  test(`${backend} ticketing include is slim: read, comment, in-progress/review, PR — no journal or templates`, () => {
+    const { root, cleanup } = makeTmpRoot();
+    try {
+      writeProject(root, spec.project);
+      const include = renderAll(root).find((o) => o.path === '.agents/includes/ticketing.md');
+      assert.ok(include, `the ticketing include should be produced for ${backend}`);
+      assert.match(include.content, spec.review, 'the include must show the move to review');
+      assert.match(include.content, /## Pull Requests/);
+      assert.match(include.content, spec.draft, 'finished work is handed off as a draft PR');
+      assert.match(include.content, spec.create, 'the include must show how to create a ticket');
+      assert.match(include.content, /## Post the spec/);
+      assert.match(include.content, spec.spec, 'the include must show how the spec is posted as a comment');
+      assert.doesNotMatch(include.content, /"rel": "AttachedFile"|--resource attachments|<details>/, 'the spec is a readable comment, not an attachment');
+      assert.doesNotMatch(include.content, /Upstream|feat\//, 'naming derives from the ticket itself, not an upstream reference or pattern');
+      assert.doesNotMatch(include.content, /Journal|Issue Body Templates|Work Item Body Templates|acceptance-test|Developer Handoff/);
+      assert.doesNotMatch(include.content, /\{\{.*?\}\}/, 'include must fully resolve');
+      assert.ok(include.content.length < 6000, `${backend} include should stay small (${include.content.length} bytes)`);
+    } finally {
+      cleanup();
+    }
+  });
+}
 
 test('azure-devops backend emits Codex project-local ADO MCP config', () => {
   const { root, cleanup } = makeTmpRoot();
@@ -102,7 +199,7 @@ test('azure-devops backend emits Codex project-local ADO MCP config', () => {
           processTemplate: 'basic', stateMapping: {},
         },
       },
-      git: { branchPattern: 'x', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
 
     const outputs = renderAll(root);
@@ -131,7 +228,7 @@ test('azure-devops Codex MCP config preserves unrelated TOML and replaces ado on
           processTemplate: 'basic', stateMapping: {},
         },
       },
-      git: { branchPattern: 'x', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
 
     const codexDir = path.join(root, '.codex');
@@ -172,252 +269,9 @@ test('renderAll throws when azure-devops lacks an organization', () => {
       project: { name: 'ADO', slug: 'ado', serenaProject: 'ado', description: '' },
       repository: { slug: 'ado', defaultBranch: 'main' },
       ticketing: { backend: 'azure-devops', azureDevOps: { project: 'widgets' } },
-      git: { branchPattern: 'x', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
     assert.throws(() => renderAll(root), /organization is required/);
-  } finally {
-    cleanup();
-  }
-});
-
-test('renderAll emits the single AGENTS-driven e2e include and the qa-engineer points at it', () => {
-  const { root, cleanup } = tmpProject();
-  try {
-    const outputs = renderAll(root);
-    const e2e = outputs.find((o) => o.path === '.agents/includes/e2e-runtime.md');
-    assert.ok(e2e, 'e2e-runtime include should always be produced');
-    assert.match(e2e.content, /AGENTS\.md/, 'include points the agent at AGENTS.md');
-    assert.match(e2e.content, /NEEDS HUMAN REVIEW/);
-    assert.doesNotMatch(e2e.content, /scripts\/e2e-up|scripts\/e2e-down/, 'no start/stop scripts');
-    assert.doesNotMatch(e2e.content, /\{\{.*?\}\}/, 'include must fully resolve');
-    // The qa-engineer body points at the include and must resolve on every platform.
-    const qa = outputs.find((o) => o.path === path.join('.claude', 'agents', 'qa-engineer.md'));
-    assert.match(qa.content, /\.agents\/includes\/e2e-runtime\.md/);
-    assert.doesNotMatch(qa.content, /\{\{.*?\}\}/);
-  } finally {
-    cleanup();
-  }
-});
-
-test('renderAll emits the cost include and dev-cycle points at it', () => {
-  const { root, cleanup } = tmpProject();
-  try {
-    const outputs = renderAll(root);
-    const cost = outputs.find((o) => o.path === '.agents/includes/cost.md');
-    assert.ok(cost, 'cost include should always be produced');
-    assert.match(cost.content, /ccusage/, 'cost include invokes ccusage');
-    assert.match(cost.content, /Cost Summary/, 'cost include names the summary artifact');
-    assert.doesNotMatch(cost.content, /\{\{.*?\}\}/, 'include must fully resolve');
-    // The dev-cycle orchestrator points at the cost include and must resolve on every platform.
-    const devcycle = outputs.find((o) => o.path === path.join('.claude', 'skills', 'dev-cycle', 'SKILL.md'));
-    assert.match(devcycle.content, /\.agents\/includes\/cost\.md/);
-    assert.doesNotMatch(devcycle.content, /\{\{.*?\}\}/);
-  } finally {
-    cleanup();
-  }
-});
-
-test('renderAll emits the handoff include and developer + dev-cycle point at it', () => {
-  const { root, cleanup } = tmpProject();
-  try {
-    const outputs = renderAll(root);
-    const handoff = outputs.find((o) => o.path === '.agents/includes/handoff.md');
-    assert.ok(handoff, 'handoff include should always be produced');
-    assert.match(handoff.content, /Developer Journal/, 'handoff include names the journal artifact');
-    assert.doesNotMatch(handoff.content, /\{\{.*?\}\}/, 'include must fully resolve');
-    // Both sides of the protocol must point at the same include on every platform.
-    const dev = outputs.find((o) => o.path === path.join('.claude', 'agents', 'developer.md'));
-    assert.match(dev.content, /\.agents\/includes\/handoff\.md/);
-    assert.doesNotMatch(dev.content, /\{\{.*?\}\}/);
-    const devcycle = outputs.find((o) => o.path === path.join('.claude', 'skills', 'dev-cycle', 'SKILL.md'));
-    assert.match(devcycle.content, /\.agents\/includes\/handoff\.md/);
-  } finally {
-    cleanup();
-  }
-});
-
-// The journal is the workflow's only progress state, and it lives on the ticket as one comment that
-// is created once and then edited in place. That only works if every backend's include actually
-// documents an address-a-single-comment-by-id update — which is exactly what these assert.
-const JOURNAL_OPS = {
-  file: {
-    project: {
-      project: { name: 'File Demo', slug: 'file-demo', serenaProject: 'file-demo', description: '' },
-      repository: { slug: 'me/file-demo', defaultBranch: 'main' },
-      ticketing: { backend: 'file', file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' } },
-      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
-    },
-    // No comment objects here: the journal stays a local file the ticket points at.
-    create: /ai-dev-workflow-handoff\/file-demo-<number>\.md/,
-    discover: /## Developer Journal/,
-    update: /cat > "\$JOURNAL"/,
-  },
-  github: {
-    project: {
-      project: { name: 'GH Demo', slug: 'gh-demo', serenaProject: 'gh-demo', description: '' },
-      repository: { slug: 'me/gh-demo', defaultBranch: 'main' },
-      ticketing: { backend: 'github' },
-      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
-    },
-    create: /gh api -X POST repos\/me\/gh-demo\/issues\/<number>\/comments/,
-    discover: /startswith\("## Developer Journal"\)/,
-    update: /gh api -X PATCH repos\/me\/gh-demo\/issues\/comments\/<comment-id>/,
-  },
-  gitea: {
-    project: {
-      project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
-      repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
-      ticketing: { backend: 'gitea', gitea: { login: 'myserver' } },
-      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
-    },
-    create: /tea comments add .*<number> "\$BODY"/,
-    discover: /tea comments list .*--output json/,
-    update: /tea comments edit .*<comment-id> "\$BODY"/,
-  },
-  'azure-devops': {
-    project: {
-      project: { name: 'ADO Demo', slug: 'ado-demo', serenaProject: 'ado-demo', description: '' },
-      repository: { slug: 'ado-repo', defaultBranch: 'main' },
-      ticketing: { backend: 'azure-devops', azureDevOps: { organization: 'contoso', project: 'widgets' } },
-      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
-    },
-    create: /wit_work_item_comment_write\(action: "add", workItemId: <id>/,
-    discover: /wit_work_item\(action: "list_comments", workItemId: <id>/,
-    update: /wit_work_item_comment_write\(action: "update", workItemId: <id>, commentId: <comment-id>/,
-  },
-};
-
-for (const [backend, spec] of Object.entries(JOURNAL_OPS)) {
-  test(`${backend} ticketing include documents create/discover/update for the journal comment`, () => {
-    const { root, cleanup } = makeTmpRoot();
-    try {
-      writeProject(root, spec.project);
-      const include = renderAll(root).find((o) => o.path === '.agents/includes/ticketing.md');
-      assert.ok(include, `the ticketing include should be produced for ${backend}`);
-      assert.match(include.content, /## The Journal Comment/,
-        'every backend must document how the journal comment is addressed');
-      assert.match(include.content, spec.create, 'the include must show how the journal is created');
-      assert.match(include.content, spec.discover, 'the include must show how the journal is found/read');
-      assert.match(include.content, spec.update, 'the include must show an in-place update, not a re-post');
-      assert.doesNotMatch(include.content, /\{\{.*?\}\}/, 'include must fully resolve');
-    } finally {
-      cleanup();
-    }
-  });
-
-  test(`${backend} ticketing include lists the journal artifact and not the retired handoff one`, () => {
-    const { root, cleanup } = makeTmpRoot();
-    try {
-      writeProject(root, spec.project);
-      const include = renderAll(root).find((o) => o.path === '.agents/includes/ticketing.md');
-      assert.match(include.content, /`Developer Journal` — the workflow's progress record/,
-        'the journal must be listed among the ticket artifacts');
-      assert.doesNotMatch(include.content, /Developer Handoff/,
-        'the append-only handoff artifact was merged into the journal comment');
-    } finally {
-      cleanup();
-    }
-  });
-}
-
-test('renderAll documents the persisted oversized-journal gate before developer dispatch', () => {
-  const { root, cleanup } = tmpProject();
-  try {
-    const outputs = renderAll(root);
-    const handoff = outputs.find((o) => o.path === '.agents/includes/handoff.md');
-    const devcycle = outputs.find((o) => o.path === path.join('.claude', 'skills', 'dev-cycle', 'SKILL.md'));
-
-    assert.match(handoff.content, /Item count: <positive integer>/,
-      'new journals must persist their acceptance-criterion count');
-    assert.match(handoff.content, /Sizing decision: <automatic \| pending \| proceed \| split>/,
-      'new journals must persist whether the human approved development or requested a split');
-    assert.match(handoff.content, /Continuation limit: <positive integer \| pending>/,
-      'new journals must persist the effective continuation limit');
-
-    // The include owns every threshold and limit; the numbers live here and nowhere else.
-    assert.match(handoff.content, /`automatic` for fifteen or fewer items/,
-      'the include must own the threshold above which a human decides');
-    assert.match(handoff.content, /number of \*additional\* developer attempts allowed after the first/,
-      'the include must define a continuation as an attempt beyond the initial developer');
-    assert.match(handoff.content, /\| 1-6 \| 1 \|\s+\| 7-9 \| 2 \|\s+\| 10-15 \| 3 \|/,
-      'the include must own the item-count bands as a single table');
-    assert.match(handoff.content, /`ceil\(item count \/ 5\)`/,
-      'the include must own the scaled limit for an approved oversized ticket');
-    assert.match(handoff.content, /derived once, when the orchestrator seeds the journal/,
-      'loop control must point at the sizing table rather than restating the bands');
-
-    // The orchestrator carries the procedure and defers the values.
-    assert.match(devcycle.content, /persist the item count, sizing decision, and continuation limit exactly as\s+`[^`]*handoff\.md`/is,
-      'the orchestrator must persist metadata the include derives, not values of its own');
-    assert.match(devcycle.content, /thresholds and limits are authoritative;\s+do not restate or recompute them here/is,
-      'the orchestrator must be told explicitly not to duplicate the include');
-    assert.match(devcycle.content, /`pending` decision is already sized but unresolved: pause before creating a\s+cost ledger or spawning a developer/is,
-      'an unresolved sizing decision must block implementation setup');
-    assert.match(devcycle.content, /size the count as `automatic`, dispatch\s+the developer without an oversized-ticket question/is,
-      'an automatic decision must dispatch without prompting the human');
-    assert.match(devcycle.content, /otherwise record a `pending` decision and a\s+`pending` continuation limit before asking the human/is,
-      'a new oversized journal must persist its pending state before prompting the human');
-    assert.match(devcycle.content, /recorded proceed decision.*without\s+asking again/is,
-      'restart behavior must reuse a persisted proceed decision');
-    assert.match(devcycle.content, /legacy journal.*lacks sizing metadata.*record.*before developer\s+dispatch/is,
-      'legacy journals must be migrated through the gate exactly once');
-  } finally {
-    cleanup();
-  }
-});
-
-// The include is the single source of truth for sizing thresholds and continuation limits
-// (dev-cycle's own "Developer Handoff" section says so). Restating a number in a body that already
-// reads the include at runtime is how the two drift apart, so assert the numbers are absent.
-test('only the handoff include states the sizing thresholds and continuation limits', () => {
-  const { root, cleanup } = tmpProject();
-  try {
-    const outputs = renderAll(root);
-    const handoff = outputs.find((o) => o.path === '.agents/includes/handoff.md');
-
-    // Every rendered body that defers to the include, across all three platforms.
-    const readers = outputs.filter((o) => o.path !== handoff.path && o.content.includes('handoff.md'));
-    assert.ok(readers.length >= 3, 'developer and dev-cycle must be rendered for every platform');
-
-    const forbidden = [
-      [/fifteen or fewer|more than fifteen/i, 'the automatic sizing threshold'],
-      [/ceil\(item count \/ \d\)/, 'the continuation-limit formula'],
-      [/\b(1-6|7-9|10-15|16 to 20|21 to 25)\b/, 'an item-count band'],
-      [/\d+ continuations?\b/, 'a concrete continuation count'],
-    ];
-
-    for (const reader of readers) {
-      for (const [pattern, what] of forbidden) {
-        assert.doesNotMatch(reader.content, pattern,
-          `${reader.path} restates ${what}; it must defer to the handoff include instead`);
-      }
-    }
-
-    // …and the include itself still carries them, so the rule is not vacuously satisfied.
-    for (const [pattern, what] of forbidden.slice(0, 3)) {
-      assert.match(handoff.content, pattern, `the handoff include must own ${what}`);
-    }
-  } finally {
-    cleanup();
-  }
-});
-
-test('renderAll documents the split path without developer dispatch or a cost ledger', () => {
-  const { root, cleanup } = tmpProject();
-  try {
-    const devcycle = renderAll(root)
-      .find((o) => o.path === path.join('.claude', 'skills', 'dev-cycle', 'SKILL.md'));
-
-    assert.match(devcycle.content, /On \*\*split\*\*.*do not spawn a developer.*do not create a cost ledger/is,
-      'split must stop before any implementation-only setup');
-    assert.match(devcycle.content, /end this dev-cycle path.*start `\$product-architect` interactively in the same conversation/is,
-      'split must transfer to the foreground product-architect workflow');
-    assert.match(devcycle.content, /do not close.*or accept the original ticket/is,
-      'ticket acceptance remains a human workflow after a split decision');
-    assert.match(devcycle.content, /three implementation-review iterations.*unchanged/is,
-      'the sizing policy must not alter implementation-review iteration limits');
-    assert.match(devcycle.content, /progress guard \(unchanged\).*two consecutive continuations/is,
-      'the sizing policy must not alter the existing continuation progress guard');
   } finally {
     cleanup();
   }
@@ -433,9 +287,9 @@ test('loadConfig merges package workflow + includePath over the project file', (
     // package-owned (from agent-src/config/ai-workflow.json)
     assert.ok(cfg.workflow, 'workflow states/artifacts come from the package');
     assert.equal(cfg.ticketing.includePath, '.agents/includes/ticketing.md');
-    assert.equal(cfg.app.includePath, '.agents/includes/e2e-runtime.md');
     assert.equal(cfg.cost.includePath, '.agents/includes/cost.md');
-    assert.equal(cfg.handoff.includePath, '.agents/includes/handoff.md');
+    assert.ok(!('app' in cfg) && !('handoff' in cfg), 'the e2e and handoff includes are retired');
+    assert.deepEqual(cfg.workflow.states.map((s) => s.id), ['new', 'in-progress', 'review']);
   } finally {
     cleanup();
   }
@@ -464,20 +318,20 @@ function writeCustom(root, rel, content) {
   fs.writeFileSync(abs, content);
 }
 
-const DEVELOPER = path.join('.claude', 'agents', 'developer.md');
+const AGENT_DEV = path.join('.claude', 'skills', 'agent-dev', 'SKILL.md');
 
 test('agent-custom append.md is appended after the package body with tokens resolved', () => {
   const { root, cleanup } = tmpProject();
   try {
-    writeCustom(root, 'agents/developer/append.md', '## House rules\nAlways lint for {{project.name}}.\n');
-    const dev = renderAll(root).find((o) => o.path === DEVELOPER);
+    writeCustom(root, 'skills/agent-dev/append.md', '## House rules\nAlways lint for {{project.name}}.\n');
+    const dev = renderAll(root).find((o) => o.path === AGENT_DEV);
     // Package prose still present…
-    assert.match(dev.content, /Own implementation only\./);
+    assert.match(dev.content, /superpowers:brainstorming/);
     // …and the fragment is appended, with {{project.name}} resolved from MINIMAL_PROJECT.
     assert.match(dev.content, /## House rules\nAlways lint for Test Project\./);
     assert.doesNotMatch(dev.content, /\{\{.*?\}\}/);
     // Banner now points at both sources.
-    assert.match(dev.content, /agent-src\/agents\/developer \+ agent-custom\/agents\/developer/);
+    assert.match(dev.content, /agent-src\/skills\/agent-dev \+ agent-custom\/skills\/agent-dev/);
   } finally {
     cleanup();
   }
@@ -486,10 +340,10 @@ test('agent-custom append.md is appended after the package body with tokens reso
 test('agent-custom body.md fully overrides the package body', () => {
   const { root, cleanup } = tmpProject();
   try {
-    writeCustom(root, 'agents/developer/body.md', 'Custom developer for {{project.name}} only.\n');
-    const dev = renderAll(root).find((o) => o.path === DEVELOPER);
-    assert.match(dev.content, /Custom developer for Test Project only\./);
-    assert.doesNotMatch(dev.content, /Own implementation only\./, 'package body must be gone');
+    writeCustom(root, 'skills/agent-dev/body.md', 'Custom agent-dev for {{project.name}} only.\n');
+    const dev = renderAll(root).find((o) => o.path === AGENT_DEV);
+    assert.match(dev.content, /Custom agent-dev for Test Project only\./);
+    assert.doesNotMatch(dev.content, /superpowers:brainstorming/, 'package body must be gone');
     assert.doesNotMatch(dev.content, /\{\{.*?\}\}/);
   } finally {
     cleanup();
@@ -499,12 +353,12 @@ test('agent-custom body.md fully overrides the package body', () => {
 test('agent-custom override and append combine (override is the base, append follows)', () => {
   const { root, cleanup } = tmpProject();
   try {
-    writeCustom(root, 'agents/developer/body.md', 'BASE override.\n');
-    writeCustom(root, 'agents/developer/append.md', 'EXTRA appended.\n');
-    const dev = renderAll(root).find((o) => o.path === DEVELOPER);
+    writeCustom(root, 'skills/agent-dev/body.md', 'BASE override.\n');
+    writeCustom(root, 'skills/agent-dev/append.md', 'EXTRA appended.\n');
+    const dev = renderAll(root).find((o) => o.path === AGENT_DEV);
     // A blank-line separator sits between base and fragment (same as the overlay append).
     assert.match(dev.content, /BASE override\.\n\nEXTRA appended\./);
-    assert.doesNotMatch(dev.content, /Own implementation only\./);
+    assert.doesNotMatch(dev.content, /superpowers:brainstorming/);
   } finally {
     cleanup();
   }
@@ -513,7 +367,7 @@ test('agent-custom override and append combine (override is the base, append fol
 test('an unresolved token in an agent-custom file throws through the pipeline guard', () => {
   const { root, cleanup } = tmpProject();
   try {
-    writeCustom(root, 'agents/developer/append.md', 'Uses {{nope}}.\n');
+    writeCustom(root, 'skills/agent-dev/append.md', 'Uses {{nope}}.\n');
     assert.throws(() => renderAll(root), /no matching token/);
   } finally {
     cleanup();
@@ -524,10 +378,10 @@ test('no agent-custom dir is a no-op: output identical to package-only render', 
   const a = tmpProject();
   const b = tmpProject();
   try {
-    const bare = renderAll(a.root).find((o) => o.path === DEVELOPER).content;
-    writeCustom(b.root, 'agents/developer/append.md', 'x\n');
+    const bare = renderAll(a.root).find((o) => o.path === AGENT_DEV).content;
+    writeCustom(b.root, 'skills/agent-dev/append.md', 'x\n');
     fs.rmSync(path.join(b.root, 'agent-custom'), { recursive: true, force: true });
-    const removed = renderAll(b.root).find((o) => o.path === DEVELOPER).content;
+    const removed = renderAll(b.root).find((o) => o.path === AGENT_DEV).content;
     assert.equal(removed, bare, 'removing agent-custom returns to package defaults');
     assert.doesNotMatch(bare, /agent-custom/);
   } finally {
@@ -543,12 +397,12 @@ test('gitea backend renders the tea-driven ticketing include with the login subs
       project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
       repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
       ticketing: { backend: 'gitea', gitea: { login: 'myserver' } },
-      git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
     const outputs = renderAll(root);
     const include = outputs.find((o) => o.path === '.agents/includes/ticketing.md');
     assert.ok(include, 'the ticketing include should be produced for gitea');
-    assert.match(include.content, /tea issues list/, 'commands should be driven by the tea CLI');
+    assert.match(include.content, /tea issues --login/, 'commands should be driven by the tea CLI');
     assert.match(include.content, /--login "myserver"/, 'the configured tea login should be substituted');
     assert.match(include.content, /status:new/, 'gitea statuses are labels, like GitHub');
     assert.doesNotMatch(include.content, /\bgh issue\b/, 'no leftover gh commands from the GitHub include');
@@ -564,7 +418,7 @@ test('renderAll throws when gitea lacks a login', () => {
       project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
       repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
       ticketing: { backend: 'gitea' },
-      git: { branchPattern: 'x', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
     assert.throws(() => renderAll(root), /ticketing\.gitea\.login is required/);
   } finally {
@@ -580,7 +434,7 @@ test('a gitea login containing a space stays one shell argument in the rendered 
       repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
       // `tea login add` happily accepts spaces in a profile name, and real installs have them.
       ticketing: { backend: 'gitea', gitea: { login: 'gitea ki' } },
-      git: { branchPattern: 'x', prTarget: 'main' },
+      git: { prTarget: 'main' },
     });
     const include = renderAll(root).find((o) => o.path === '.agents/includes/ticketing.md');
     const bare = include.content.match(/--login (?!")\S*/g) || [];
@@ -591,43 +445,3 @@ test('a gitea login containing a space stays one shell argument in the rendered 
   }
 });
 
-// Every backend's status table must name the agent that actually performs each transition; the
-// reviewer and QA bodies own test/failed/acceptance-test, so the table must not defer them.
-test('ticketing includes assign review and QA transitions to the agents that perform them', () => {
-  const dir = path.join(import.meta.dirname, '..', 'includes');
-  for (const file of fs.readdirSync(dir).filter((f) => f.startsWith('ticketing-'))) {
-    const rows = fs.readFileSync(path.join(dir, file), 'utf8').split('\n');
-    const setBy = (state) => rows.find((r) => r.startsWith(`| \`{{status.${state}}}\``))?.split('|').at(-2) ?? '';
-    assert.match(setBy('test'), /Code reviewer/, `${file}: test must be set by the code reviewer`);
-    assert.match(setBy('acceptance-test'), /QA engineer/, `${file}: acceptance-test must be set by QA`);
-    assert.match(setBy('failed'), /Code reviewer or QA engineer/, `${file}: failed must be set by reviewer/QA`);
-  }
-});
-
-// Loop counters, the consumed-handoff marker, and ledger ids must survive an orchestrator restart,
-// so they live in the journal and the failure artifacts carry their iteration.
-test('renderAll persists restart-safe loop state in the journal and failure artifacts', () => {
-  const { root, cleanup } = tmpProject();
-  try {
-    const outputs = renderAll(root);
-    const find = (p) => outputs.find((o) => o.path === p).content;
-    const handoff = find('.agents/includes/handoff.md');
-    const cost = find('.agents/includes/cost.md');
-
-    for (const field of ['Implementation-review iteration:', 'Continuation count:',
-      'Cost ledger ids:', 'Last consumed handoff:']) {
-      assert.ok(handoff.includes(field), `the journal must persist "${field}"`);
-    }
-    assert.match(handoff, /in one journal write\*\*, increment the count and set `Last consumed handoff`/,
-      'a continuation must be marked consumed before it is spawned');
-    assert.match(cost, /every available ledger listed in the journal's `Cost ledger ids`/,
-      'the summary must aggregate ledgers from interrupted runs');
-
-    for (const agent of ['code-reviewer', 'qa-engineer']) {
-      assert.match(find(path.join('.claude', 'agents', `${agent}.md`)), /first line is `Implementation iteration: <number>`/,
-        `${agent} must stamp its artifact with the implementation-review iteration`);
-    }
-  } finally {
-    cleanup();
-  }
-});
