@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import {
-  existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync,
-  symlinkSync, writeFileSync,
+  existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync,
+  rmSync, symlinkSync, unlinkSync, writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -141,11 +141,44 @@ function lstatSafe(file) {
   try { return lstatSync(file); } catch { return undefined; }
 }
 
+// The image provisions language servers read-only under <source>/<Class>/<package>; Serena
+// looks for them below $SERENA_HOME/language_servers/static/<Class>/ and downloads what is
+// missing. Only packages are linked: Serena writes logs into the class directory itself.
+function linkLanguageServers(source, serenaHome) {
+  if (!existsSync(source)) return;
+  const staticRoot = path.join(serenaHome, 'language_servers', 'static');
+  for (const className of readdirSync(source)) {
+    const provisioned = path.join(source, className);
+    const classDir = path.join(staticRoot, className);
+    mkdirSync(classDir, { recursive: true });
+    const packages = new Set(readdirSync(provisioned));
+    for (const entry of readdirSync(classDir)) {
+      const link = path.join(classDir, entry);
+      if (!packages.has(entry) && lstatSync(link).isSymbolicLink() &&
+          readlinkSync(link).startsWith(`${provisioned}${path.sep}`) && !existsSync(link)) {
+        unlinkSync(link);
+      }
+    }
+    for (const entry of packages) {
+      const target = path.join(provisioned, entry);
+      const link = path.join(classDir, entry);
+      const current = lstatSafe(link);
+      if (current && !current.isSymbolicLink()) continue;
+      if (current && readlinkSync(link) === target) continue;
+      const temporary = `${link}.tmp-${process.pid}`;
+      rmSync(temporary, { force: true });
+      symlinkSync(target, temporary, 'dir');
+      renameSync(temporary, link);
+    }
+  }
+}
+
 export function configureRuntime({
   workspace = DEFAULT_WORKSPACE,
   home = DEFAULT_HOME,
   superpowersRoot = DEFAULT_SUPERPOWERS,
   serenaConfigFile = '/opt/serena-runtime/serena_config.yml',
+  serenaLanguageServers = '/opt/serena-runtime/ls',
   registerCodexPlugin = true,
   toolstackOnly = false,
 } = {}) {
@@ -207,6 +240,7 @@ export function configureRuntime({
   mkdirSync(serenaHome, { recursive: true });
   if (!existsSync(serenaConfigFile)) fail(`managed Serena configuration is missing: ${serenaConfigFile}`);
   atomicWrite(path.join(serenaHome, 'serena_config.yml'), readFileSync(serenaConfigFile, 'utf8'));
+  linkLanguageServers(serenaLanguageServers, serenaHome);
   mkdirSync(path.join(home, '.config', 'opencode'), { recursive: true });
   if (registerCodexPlugin) {
     const pluginEnvironment = { ...process.env, HOME: home, CODEX_HOME: path.join(home, '.codex') };

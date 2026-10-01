@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync, lstatSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -189,4 +191,74 @@ test('CLI honors AGENT_TOOLSTACK_ONLY with no ai-project.json on disk', () => {
   const flat = plan.args.join(' ');
   assert.ok(flat.includes('mcp_servers.serena.command'));
   assert.ok(!flat.includes('mcp_servers.ado'));
+});
+
+function serenaFixture(t) {
+  const { root, workspace, home } = bareWorkspace(t);
+  const serenaConfigFile = path.join(root, 'serena_config.yml');
+  writeFileSync(serenaConfigFile, 'projects: []\n');
+  const serenaLanguageServers = path.join(root, 'opt', 'ls');
+  const staticDir = path.join(home, '.cache/ai-dev-workflow/serena/language_servers/static');
+  const configure = () => configureRuntime({
+    workspace, home, serenaConfigFile, serenaLanguageServers,
+    superpowersRoot: path.join(root, 'no-superpowers'), registerCodexPlugin: false, toolstackOnly: true,
+  });
+  return { root, serenaLanguageServers, staticDir, configure };
+}
+
+function provisionPackage(serenaLanguageServers, className, entry) {
+  const directory = path.join(serenaLanguageServers, className, entry);
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(path.join(directory, 'Server.dll'), 'image-owned\n');
+  return directory;
+}
+
+test('links each pre-provisioned language server package into SERENA_HOME, idempotently', t => {
+  const { serenaLanguageServers, staticDir, configure } = serenaFixture(t);
+  const roslyn = provisionPackage(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn-language-server.linux-x64.5.5.0');
+
+  configure();
+  configure();
+
+  const classDir = path.join(staticDir, 'CSharpLanguageServer');
+  const link = path.join(classDir, 'roslyn-language-server.linux-x64.5.5.0');
+  // Serena writes the server logs into the class directory, so only the package is linked.
+  assert.ok(lstatSync(classDir).isDirectory() && !lstatSync(classDir).isSymbolicLink());
+  assert.ok(lstatSync(link).isSymbolicLink());
+  assert.equal(readlinkSync(link), roslyn);
+  assert.equal(readFileSync(path.join(link, 'Server.dll'), 'utf8'), 'image-owned\n');
+  assert.deepEqual(readdirSync(classDir), ['roslyn-language-server.linux-x64.5.5.0']);
+});
+
+test('replaces stale language server links and drops dangling ones from an older image', t => {
+  const { root, serenaLanguageServers, staticDir, configure } = serenaFixture(t);
+  const roslyn = provisionPackage(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.2');
+  const classDir = path.join(staticDir, 'CSharpLanguageServer');
+  mkdirSync(classDir, { recursive: true });
+  symlinkSync(path.join(root, 'elsewhere'), path.join(classDir, 'roslyn.2'), 'dir');
+  symlinkSync(path.join(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.1'), path.join(classDir, 'roslyn.1'), 'dir');
+
+  configure();
+
+  assert.equal(readlinkSync(path.join(classDir, 'roslyn.2')), roslyn);
+  assert.deepEqual(readdirSync(classDir), ['roslyn.2']);
+});
+
+test('never replaces a real language server directory Serena or the user created', t => {
+  const { serenaLanguageServers, staticDir, configure } = serenaFixture(t);
+  provisionPackage(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.2');
+  const downloaded = path.join(staticDir, 'CSharpLanguageServer', 'roslyn.2');
+  mkdirSync(downloaded, { recursive: true });
+  writeFileSync(path.join(downloaded, 'Server.dll'), 'downloaded\n');
+
+  configure();
+
+  assert.ok(!lstatSync(downloaded).isSymbolicLink());
+  assert.equal(readFileSync(path.join(downloaded, 'Server.dll'), 'utf8'), 'downloaded\n');
+});
+
+test('creates no language server links when the image provisions none', t => {
+  const { staticDir, configure } = serenaFixture(t);
+  configure();
+  assert.equal(existsSync(staticDir), false);
 });
