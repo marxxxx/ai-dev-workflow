@@ -26,7 +26,7 @@ agent-src/
   generate.mjs                 # entrypoint: zero-dependency Node CLI (parse argv + dispatch)
   lib/                         # feature modules the entrypoint composes:
     constants.mjs serialize.mjs identity.mjs config.mjs tokens.mjs units.mjs
-    ticketing.mjs cost.mjs renderers.mjs onboard.mjs pipeline.mjs
+    ticketing.mjs cost.mjs renderers.mjs onboard.mjs pipeline.mjs upgrade.mjs
   config/
     ai-workflow.json           # PACKAGE-owned config: ticket states/comment titles + runtime include paths
     ai-project.template.json   # scaffold template copied by `init` when non-interactive

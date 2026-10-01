@@ -1,13 +1,9 @@
 {
   "project": {
-    "name": "ProjectName",
-    "slug": "ProjectSlug",
-    "serenaProject": "ProjectSlug",
-    "description": "Describe your Project in a few words."
+    "name": "ProjectName"
   },
   "repository": {
-    "slug": "RepositoryName",
-    "defaultBranch": "main"
+    "slug": "RepositoryName"
   },
   "ticketing": {
     "backend": "file",

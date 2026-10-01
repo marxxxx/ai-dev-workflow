@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { SRC_DIR, argValue } from './constants.mjs';
-import { kebabCase, detectRepoSlug } from './identity.mjs';
+import { detectRepoSlug } from './identity.mjs';
 import { readJson, buildProjectConfig } from './config.mjs';
 
 /**
@@ -126,14 +126,10 @@ export function createScriptedPrompter(values) {
  */
 export async function runInterview(prompter, { detectRepoSlug, projectRoot }) {
   const name = await prompter.askRequired('Project name', 'name');
-  const slug = await prompter.ask('Project slug', 'slug', kebabCase(name));
-  const serena = await prompter.ask('Serena project name', 'serena', slug);
-  const description = await prompter.ask('Description', 'description', '');
   const repoSlug = await prompter.ask('Repository slug (owner/repo)', 'repoSlug', detectRepoSlug(projectRoot));
-  const defaultBranch = await prompter.ask('Default branch', 'defaultBranch', 'main');
   const backend = await prompter.askChoice('Ticketing backend', 'backend', ['file', 'github', 'gitea', 'azure-devops'], 'file');
 
-  const answers = { name, slug, serena, description, repoSlug, defaultBranch, backend };
+  const answers = { name, repoSlug, backend };
   if (backend === 'file') {
     answers.file = {
       dir: await prompter.ask('Tickets dir', 'file.dir', '.tickets/issues'),
@@ -150,7 +146,7 @@ export async function runInterview(prompter, { detectRepoSlug, projectRoot }) {
       processTemplate: await prompter.askChoice('Process template', 'azure.processTemplate', ['basic', 'scrum'], 'basic'),
     };
   }
-  answers.prTarget = await prompter.ask('PR target branch', 'prTarget', defaultBranch);
+  answers.prTarget = await prompter.ask('PR target branch', 'prTarget', 'main');
   return answers;
 }
 
