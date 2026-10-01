@@ -11,3 +11,5 @@ done
 bash docker/tests/runtime-smoke.sh
 # The .NET image adds a startup hook (dev-certificate trust); run its startup path too.
 AGENT_IMAGE=ai-dev-workflow-dotnet bash docker/tests/runtime-smoke.sh
+# Serena C# through the normal entrypoint: offline, fresh home, pre-provisioned Roslyn.
+AGENT_IMAGE=ai-dev-workflow-dotnet node docker/tests/semantic-csharp.mjs
