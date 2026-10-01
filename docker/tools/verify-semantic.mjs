@@ -126,6 +126,7 @@ function findDirectories(root, name) {
 function restoreFixture(workspace, home) {
   check(findDirectories(workspace, 'obj').length === 0 && findDirectories(workspace, 'bin').length === 0,
     'the project already holds bin/obj assets; it must start without host build output');
+  check(process.env.NUGET_PACKAGES, 'NUGET_PACKAGES is not set');
   check(!existsSync(process.env.NUGET_PACKAGES), `${process.env.NUGET_PACKAGES} exists; restore must start from an empty NuGet cache`);
   const restored = spawnSync('dotnet', ['restore', 'Fixture.slnx', '--configfile', 'nuget.config'], {
     cwd: workspace, encoding: 'utf8',

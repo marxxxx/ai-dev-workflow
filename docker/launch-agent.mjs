@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import {
   existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync,
-  rmSync, symlinkSync, unlinkSync, writeFileSync,
+  rmSync, symlinkSync, writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -47,9 +48,11 @@ function readToml(file, label = file) {
   catch (error) { fail(`${label} is not valid TOML: ${error.message}`); }
 }
 
+// Temporary names are unique: containers sharing the home volume start concurrently, and in
+// separate PID namespaces often with the same pid.
 function atomicWrite(file, content) {
   mkdirSync(path.dirname(file), { recursive: true });
-  const temporary = `${file}.tmp-${process.pid}`;
+  const temporary = `${file}.tmp-${randomUUID()}`;
   writeFileSync(temporary, content, { mode: 0o600 });
   renameSync(temporary, file);
 }
@@ -141,6 +144,10 @@ function lstatSafe(file) {
   try { return lstatSync(file); } catch { return undefined; }
 }
 
+function readlinkSafe(file) {
+  try { return readlinkSync(file); } catch { return undefined; }
+}
+
 // The image provisions language servers read-only under <source>/<Class>/<package>; Serena
 // looks for them below $SERENA_HOME/language_servers/static/<Class>/ and downloads what is
 // missing. Only packages are linked: Serena writes logs into the class directory itself.
@@ -154,9 +161,8 @@ function linkLanguageServers(source, serenaHome) {
     const packages = new Set(readdirSync(provisioned));
     for (const entry of readdirSync(classDir)) {
       const link = path.join(classDir, entry);
-      if (!packages.has(entry) && lstatSync(link).isSymbolicLink() &&
-          readlinkSync(link).startsWith(`${provisioned}${path.sep}`) && !existsSync(link)) {
-        unlinkSync(link);
+      if (!packages.has(entry) && readlinkSafe(link)?.startsWith(`${provisioned}${path.sep}`) && !existsSync(link)) {
+        rmSync(link, { force: true });
       }
     }
     for (const entry of packages) {
@@ -164,9 +170,8 @@ function linkLanguageServers(source, serenaHome) {
       const link = path.join(classDir, entry);
       const current = lstatSafe(link);
       if (current && !current.isSymbolicLink()) continue;
-      if (current && readlinkSync(link) === target) continue;
-      const temporary = `${link}.tmp-${process.pid}`;
-      rmSync(temporary, { force: true });
+      if (current && readlinkSafe(link) === target) continue;
+      const temporary = `${link}.tmp-${randomUUID()}`;
       symlinkSync(target, temporary, 'dir');
       renameSync(temporary, link);
     }

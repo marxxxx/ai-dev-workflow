@@ -5,7 +5,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildLaunchPlan, configureRuntime } from './launch-agent.mjs';
 
@@ -271,4 +271,33 @@ test('creates no language server links when the image provisions none', t => {
   const { staticDir, configure } = serenaFixture(t);
   configure();
   assert.equal(existsSync(staticDir), false);
+});
+
+// Containers on one agent-home volume start concurrently and, in separate PID namespaces,
+// often with the same pid; startup must not trip over another container's links or files.
+test('concurrent starts sharing one home and one pid do not fail', linkTest, async t => {
+  const { root, serenaLanguageServers, staticDir } = serenaFixture(t);
+  provisionPackage(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.2');
+  const link = path.join(staticDir, 'CSharpLanguageServer', 'roslyn.2');
+  const options = {
+    workspace: path.join(root, 'workspace'), home: path.join(root, 'home'),
+    serenaConfigFile: path.join(root, 'serena_config.yml'), serenaLanguageServers,
+    superpowersRoot: path.join(root, 'no-superpowers'), registerCodexPlugin: false, toolstackOnly: true,
+  };
+  const script = `
+    import { rmSync } from 'node:fs';
+    import { configureRuntime } from ${JSON.stringify(new URL('./launch-agent.mjs', import.meta.url).href)};
+    Object.defineProperty(process, 'pid', { value: 7 });
+    for (let i = 0; i < 40; i++) {
+      rmSync(${JSON.stringify(link)}, { force: true });
+      configureRuntime(${JSON.stringify(options)});
+    }`;
+  const children = Array.from({ length: 6 }, () => new Promise(resolve => {
+    const child = spawn(process.execPath, ['--input-type=module', '-e', script], { stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    child.on('exit', code => resolve({ code, stderr }));
+  }));
+  for (const { code, stderr } of await Promise.all(children)) assert.equal(code, 0, stderr);
+  assert.equal(readlinkSync(link), path.join(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.2'));
 });
