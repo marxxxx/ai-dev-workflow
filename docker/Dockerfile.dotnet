@@ -33,6 +33,17 @@ RUN set -eux; \
     chmod -R a+rX /opt/dotnet-tools; \
     node /usr/local/lib/agent-runtime/verify-versions.mjs dotnet
 
+# Serena's C# support downloads the Roslyn language server on first use. Provision the exact
+# package the installed Serena expects, read-only in the image; the launcher links it into
+# SERENA_HOME on every start, so C# semantics work offline and in a fresh home volume.
+COPY tools/serena-roslyn.mjs /tmp/serena-roslyn.mjs
+RUN set -eux; \
+    node /tmp/serena-roslyn.mjs \
+      /opt/uv/tools/serena-agent/lib/python3.12/site-packages/solidlsp/language_servers/csharp_language_server.py \
+      /opt/serena-runtime/ls; \
+    rm /tmp/serena-roslyn.mjs; \
+    chmod -R a+rX,go-w /opt/serena-runtime/ls
+
 # The HTTPS development certificate is trusted per home volume at startup
 # (dotnet dev-certs https --trust): /home/dev is a volume that hides build-time
 # content, and a baked certificate would publish its private key with the image.
