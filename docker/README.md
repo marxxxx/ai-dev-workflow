@@ -25,8 +25,8 @@ The build context is the standalone `docker/` directory. The base includes all
 three agents, local Serena, Playwright MCP and its matching Chromium, Context7,
 Azure DevOps MCP v2, Azure CLI with its `azure-devops` extension, Superpowers and
 ccusage. The Node variant adds native compilation tools, package managers and
-TypeScript semantic tooling; the .NET variant adds an exact SDK version, the matching `dotnet-ef` tool, and trusts
-the ASP.NET Core HTTPS development certificate for `localhost`. Project dependency
+TypeScript semantic tooling; the .NET variant adds an exact SDK version, the matching `dotnet-ef` tool, Serena's C#
+language server, and trusts the ASP.NET Core HTTPS development certificate for `localhost`. Project dependency
 installation remains the consuming project's responsibility.
 
 ### Published images (Docker Hub)
@@ -295,12 +295,25 @@ breaks the build on the host.
 and `NUGET_PACKAGES=/home/dev/.nuget/packages`; MSBuild takes both as global properties, so
 every build in the container writes below the home volume and the project tree stays
 untouched — no `bin`, no `obj`, and the host's `obj/project.assets.json` is never read.
+That includes Serena's C# language server: agents start MCP servers with a reduced
+environment, so the launcher passes both variables to Serena explicitly.
 Output is namespaced per project: `artifacts/bin/<project>/<configuration>/` for build output,
 `artifacts/obj/<project>/` (no configuration segment — restore output such as
 `project.assets.json` lands directly under the project) for intermediate output. Three
 caveats: a `Directory.Build.props` that sets `ArtifactsPath` or `BaseOutputPath` itself wins
 over the environment; scripts with hardcoded paths such as `bin/Debug/net10.0/App.dll` break
 in the container; and non-SDK projects are not covered.
+
+**Serena's C# support works offline, but only on a restored project.** The .NET image ships
+the Roslyn language server Serena expects (the version follows the pinned Serena revision)
+and links it into Serena's home on every start, so the first C# call neither downloads
+anything nor needs a proxy, also in a fresh `agent-home` volume. Serena does not restore
+your project: run `dotnet restore` inside the container (once per volume, again when
+dependencies change) with your package sources reachable, after which C# semantics also work
+offline. A host-side restore does not count; its `obj` assets are ignored (see above).
+The first Serena call of a session waits until Roslyn has loaded the solution, which takes
+over a minute for a large one; later calls are fast. The launcher raises Codex's per-call
+limit for Serena to 300 s (its default of 60 s would cut that first call off).
 
 **Node needs one volume per dependency tree.** npm has no equivalent redirect, so declare a
 named volume for each `node_modules` of your project. Mounted below the bind, it masks the
@@ -425,7 +438,8 @@ Linux CI builds all images and performs credential-free checks: local executable
 MCP/browser startup, configuration precedence, preserved project files, mount
 boundaries, runtime ownership, persistence and startup failures. In the .NET image
 curl and Chromium must load `https://localhost` with the trusted development
-certificate. The runtime smoke suite runs against the base and the .NET image, uses
+certificate, and Serena must resolve cross-project C# references on an offline-restored
+fixture with the network disabled, in a fresh and then a reused home volume. The runtime smoke suite runs against the base and the .NET image, uses
 disposable fixture projects and removes only its own Compose volumes.
 
 Live acceptance is recorded separately: complete Codex and Azure CLI device logins,

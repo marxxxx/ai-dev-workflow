@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync, lstatSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildLaunchPlan, configureRuntime } from './launch-agent.mjs';
 
@@ -189,4 +191,158 @@ test('CLI honors AGENT_TOOLSTACK_ONLY with no ai-project.json on disk', () => {
   const flat = plan.args.join(' ');
   assert.ok(flat.includes('mcp_servers.serena.command'));
   assert.ok(!flat.includes('mcp_servers.ado'));
+});
+
+// The image runs on Linux; Windows grants symlink privilege only under Developer Mode or an
+// elevated shell, so the link tests are skipped there.
+const canSymlink = (() => {
+  const root = mkdtempSync(path.join(tmpdir(), 'agent-symlink-probe-'));
+  try { symlinkSync(root, path.join(root, 'link'), 'dir'); return true; }
+  catch { return false; }
+  finally { rmSync(root, { recursive: true, force: true }); }
+})();
+const linkTest = { skip: canSymlink ? false : 'no symlink privilege on this platform' };
+
+function serenaFixture(t) {
+  const { root, workspace, home } = bareWorkspace(t);
+  const serenaConfigFile = path.join(root, 'serena_config.yml');
+  writeFileSync(serenaConfigFile, 'projects: []\n');
+  const serenaLanguageServers = path.join(root, 'opt', 'ls');
+  const staticDir = path.join(home, '.cache/ai-dev-workflow/serena/language_servers/static');
+  const configure = () => configureRuntime({
+    workspace, home, serenaConfigFile, serenaLanguageServers,
+    superpowersRoot: path.join(root, 'no-superpowers'), registerCodexPlugin: false, toolstackOnly: true,
+  });
+  return { root, serenaLanguageServers, staticDir, configure };
+}
+
+function provisionPackage(serenaLanguageServers, className, entry) {
+  const directory = path.join(serenaLanguageServers, className, entry);
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(path.join(directory, 'Server.dll'), 'image-owned\n');
+  return directory;
+}
+
+test('links each pre-provisioned language server package into SERENA_HOME, idempotently', linkTest, t => {
+  const { serenaLanguageServers, staticDir, configure } = serenaFixture(t);
+  const roslyn = provisionPackage(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn-language-server.linux-x64.5.5.0');
+
+  configure();
+  configure();
+
+  const classDir = path.join(staticDir, 'CSharpLanguageServer');
+  const link = path.join(classDir, 'roslyn-language-server.linux-x64.5.5.0');
+  // Serena writes the server logs into the class directory, so only the package is linked.
+  assert.ok(lstatSync(classDir).isDirectory() && !lstatSync(classDir).isSymbolicLink());
+  assert.ok(lstatSync(link).isSymbolicLink());
+  assert.equal(readlinkSync(link), roslyn);
+  assert.equal(readFileSync(path.join(link, 'Server.dll'), 'utf8'), 'image-owned\n');
+  assert.deepEqual(readdirSync(classDir), ['roslyn-language-server.linux-x64.5.5.0']);
+});
+
+test('replaces stale language server links and drops dangling ones from an older image', linkTest, t => {
+  const { root, serenaLanguageServers, staticDir, configure } = serenaFixture(t);
+  const roslyn = provisionPackage(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.2');
+  const classDir = path.join(staticDir, 'CSharpLanguageServer');
+  mkdirSync(classDir, { recursive: true });
+  symlinkSync(path.join(root, 'elsewhere'), path.join(classDir, 'roslyn.2'), 'dir');
+  symlinkSync(path.join(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.1'), path.join(classDir, 'roslyn.1'), 'dir');
+
+  configure();
+
+  assert.equal(readlinkSync(path.join(classDir, 'roslyn.2')), roslyn);
+  assert.deepEqual(readdirSync(classDir), ['roslyn.2']);
+});
+
+test('never replaces a real language server directory Serena or the user created', linkTest, t => {
+  const { serenaLanguageServers, staticDir, configure } = serenaFixture(t);
+  provisionPackage(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.2');
+  const downloaded = path.join(staticDir, 'CSharpLanguageServer', 'roslyn.2');
+  mkdirSync(downloaded, { recursive: true });
+  writeFileSync(path.join(downloaded, 'Server.dll'), 'downloaded\n');
+
+  configure();
+
+  assert.ok(!lstatSync(downloaded).isSymbolicLink());
+  assert.equal(readFileSync(path.join(downloaded, 'Server.dll'), 'utf8'), 'downloaded\n');
+});
+
+test('creates no language server links when the image provisions none', t => {
+  const { staticDir, configure } = serenaFixture(t);
+  configure();
+  assert.equal(existsSync(staticDir), false);
+});
+
+// Containers on one agent-home volume start concurrently and, in separate PID namespaces,
+// often with the same pid; startup must not trip over another container's links or files.
+test('concurrent starts sharing one home and one pid do not fail', linkTest, async t => {
+  const { root, serenaLanguageServers, staticDir } = serenaFixture(t);
+  provisionPackage(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.2');
+  const link = path.join(staticDir, 'CSharpLanguageServer', 'roslyn.2');
+  const options = {
+    workspace: path.join(root, 'workspace'), home: path.join(root, 'home'),
+    serenaConfigFile: path.join(root, 'serena_config.yml'), serenaLanguageServers,
+    superpowersRoot: path.join(root, 'no-superpowers'), registerCodexPlugin: false, toolstackOnly: true,
+  };
+  const script = `
+    import { rmSync } from 'node:fs';
+    import { configureRuntime } from ${JSON.stringify(new URL('./launch-agent.mjs', import.meta.url).href)};
+    Object.defineProperty(process, 'pid', { value: 7 });
+    for (let i = 0; i < 40; i++) {
+      rmSync(${JSON.stringify(link)}, { force: true });
+      configureRuntime(${JSON.stringify(options)});
+    }`;
+  const children = Array.from({ length: 6 }, () => new Promise(resolve => {
+    const child = spawn(process.execPath, ['--input-type=module', '-e', script], { stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = '';
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    child.on('exit', code => resolve({ code, stderr }));
+  }));
+  for (const { code, stderr } of await Promise.all(children)) assert.equal(code, 0, stderr);
+  assert.equal(readlinkSync(link), path.join(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.2'));
+});
+
+// Agents start MCP servers with a reduced environment, so the .NET image's build redirect
+// (Dockerfile.dotnet ENV) must reach Serena and its Roslyn server through the server env.
+const DOTNET_ENVIRONMENT = {
+  ArtifactsPath: '/home/dev/artifacts',
+  NUGET_PACKAGES: '/home/dev/.nuget/packages',
+  DOTNET_ROOT: '/usr/share/dotnet',
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1',
+};
+
+function serenaEnvironments(workspace, home, environment) {
+  const options = { workspace, home, environment, toolstackOnly: true };
+  const codex = buildLaunchPlan('codex', [], options).args;
+  const claudePlan = buildLaunchPlan('claude', [], options);
+  const claude = JSON.parse(readFileSync(claudePlan.args[claudePlan.args.indexOf('--mcp-config') + 1], 'utf8'));
+  const opencode = JSON.parse(buildLaunchPlan('opencode', [], options).env.OPENCODE_CONFIG_CONTENT);
+  const codexEnv = Object.fromEntries(codex
+    .filter(arg => arg.startsWith('mcp_servers.serena.env.'))
+    .map(arg => { const [key, value] = arg.slice('mcp_servers.serena.env.'.length).split('='); return [key, JSON.parse(value)]; }));
+  return { codex: codexEnv, claude: claude.mcpServers.serena.env, opencode: opencode.mcp.serena.environment };
+}
+
+test('Serena receives the .NET build redirect under every agent', t => {
+  const { workspace, home } = bareWorkspace(t);
+  const expected = { SERENA_HOME: path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena'), ...DOTNET_ENVIRONMENT };
+  for (const [agent, env] of Object.entries(serenaEnvironments(workspace, home, { PATH: '/usr/bin', ...DOTNET_ENVIRONMENT }))) {
+    assert.deepEqual(env, expected, agent);
+  }
+});
+
+test('Serena gets only SERENA_HOME where the image sets no .NET environment', t => {
+  const { workspace, home } = bareWorkspace(t);
+  const expected = { SERENA_HOME: path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena') };
+  for (const [agent, env] of Object.entries(serenaEnvironments(workspace, home, { PATH: '/usr/bin' }))) {
+    assert.deepEqual(env, expected, agent);
+  }
+});
+
+// The first Serena call waits until the language server has loaded the project; a large
+// C# solution measured 78s, past Codex's 60s default per tool call.
+test('Codex allows Serena tool calls longer than its 60s default', t => {
+  const { workspace, home } = bareWorkspace(t);
+  const plan = buildLaunchPlan('codex', [], { workspace, home, toolstackOnly: true });
+  assert.ok(plan.args.includes('mcp_servers.serena.tool_timeout_sec=300'));
 });

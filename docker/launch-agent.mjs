@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import {
-  existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync,
-  symlinkSync, writeFileSync,
+  existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync,
+  rmSync, symlinkSync, writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -19,6 +20,10 @@ const DEFAULT_WORKSPACE = '/workspace';
 const DEFAULT_HOME = '/home/dev';
 const DEFAULT_SUPERPOWERS = '/opt/superpowers';
 const AGENTS = new Set(['codex', 'claude', 'opencode']);
+// Set by the .NET image (Dockerfile.dotnet ENV). Agents start MCP servers with a reduced
+// environment, so Serena's Roslyn server only builds and restores below the home volume, as
+// the shell does, when these are passed explicitly.
+const SERENA_FORWARDED_ENV = ['ArtifactsPath', 'NUGET_PACKAGES', 'DOTNET_ROOT', 'DOTNET_CLI_TELEMETRY_OPTOUT'];
 
 function fail(message) {
   throw new Error(`agent runtime: ${message}`);
@@ -47,9 +52,11 @@ function readToml(file, label = file) {
   catch (error) { fail(`${label} is not valid TOML: ${error.message}`); }
 }
 
+// Temporary names are unique: containers sharing the home volume start concurrently, and in
+// separate PID namespaces often with the same pid.
 function atomicWrite(file, content) {
   mkdirSync(path.dirname(file), { recursive: true });
-  const temporary = `${file}.tmp-${process.pid}`;
+  const temporary = `${file}.tmp-${randomUUID()}`;
   writeFileSync(temporary, content, { mode: 0o600 });
   renameSync(temporary, file);
 }
@@ -78,13 +85,20 @@ function readProjectState(workspace, { toolstackOnly = false } = {}) {
   return { backend, organization: organization?.trim(), projectServers: mcpDocument.mcpServers ?? {} };
 }
 
-function managedServers(agent, project, home) {
+function managedServers(agent, project, home, environment) {
   const context = agent === 'codex' ? 'codex' : agent === 'claude' ? 'claude-code' : 'ide-assistant';
   const servers = {
     serena: {
       command: '/opt/uv/bin/serena',
       args: ['start-mcp-server', '--context', context, '--project', DEFAULT_WORKSPACE, '--enable-web-dashboard', 'false'],
-      env: { SERENA_HOME: path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena') },
+      env: {
+        SERENA_HOME: path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena'),
+        ...Object.fromEntries(SERENA_FORWARDED_ENV.filter(key => environment[key]).map(key => [key, environment[key]])),
+      },
+      // The first call waits until the language server has loaded the project (78s measured on
+      // a 60-project C# solution); Codex cuts tool calls off after 60s by default. Kept above
+      // Serena's own tool_timeout (240s) so Serena reports a real hang itself.
+      codex: { tool_timeout_sec: 300 },
     },
     playwright: {
       command: 'playwright-mcp',
@@ -141,11 +155,46 @@ function lstatSafe(file) {
   try { return lstatSync(file); } catch { return undefined; }
 }
 
+function readlinkSafe(file) {
+  try { return readlinkSync(file); } catch { return undefined; }
+}
+
+// The image provisions language servers read-only under <source>/<Class>/<package>; Serena
+// looks for them below $SERENA_HOME/language_servers/static/<Class>/ and downloads what is
+// missing. Only packages are linked: Serena writes logs into the class directory itself.
+function linkLanguageServers(source, serenaHome) {
+  if (!existsSync(source)) return;
+  const staticRoot = path.join(serenaHome, 'language_servers', 'static');
+  for (const className of readdirSync(source)) {
+    const provisioned = path.join(source, className);
+    const classDir = path.join(staticRoot, className);
+    mkdirSync(classDir, { recursive: true });
+    const packages = new Set(readdirSync(provisioned));
+    for (const entry of readdirSync(classDir)) {
+      const link = path.join(classDir, entry);
+      if (!packages.has(entry) && readlinkSafe(link)?.startsWith(`${provisioned}${path.sep}`) && !existsSync(link)) {
+        rmSync(link, { force: true });
+      }
+    }
+    for (const entry of packages) {
+      const target = path.join(provisioned, entry);
+      const link = path.join(classDir, entry);
+      const current = lstatSafe(link);
+      if (current && !current.isSymbolicLink()) continue;
+      if (current && readlinkSafe(link) === target) continue;
+      const temporary = `${link}.tmp-${randomUUID()}`;
+      symlinkSync(target, temporary, 'dir');
+      renameSync(temporary, link);
+    }
+  }
+}
+
 export function configureRuntime({
   workspace = DEFAULT_WORKSPACE,
   home = DEFAULT_HOME,
   superpowersRoot = DEFAULT_SUPERPOWERS,
   serenaConfigFile = '/opt/serena-runtime/serena_config.yml',
+  serenaLanguageServers = '/opt/serena-runtime/ls',
   registerCodexPlugin = true,
   toolstackOnly = false,
 } = {}) {
@@ -207,6 +256,7 @@ export function configureRuntime({
   mkdirSync(serenaHome, { recursive: true });
   if (!existsSync(serenaConfigFile)) fail(`managed Serena configuration is missing: ${serenaConfigFile}`);
   atomicWrite(path.join(serenaHome, 'serena_config.yml'), readFileSync(serenaConfigFile, 'utf8'));
+  linkLanguageServers(serenaLanguageServers, serenaHome);
   mkdirSync(path.join(home, '.config', 'opencode'), { recursive: true });
   if (registerCodexPlugin) {
     const pluginEnvironment = { ...process.env, HOME: home, CODEX_HOME: path.join(home, '.codex') };
@@ -245,7 +295,7 @@ export function buildLaunchPlan(agent, forwardedArgs, {
   if (project.backend === 'azure-devops' && !checkAzureAuth()) {
     fail('Azure CLI is not authenticated. Run az login --use-device-code --allow-no-subscriptions (and --tenant when required), then retry.');
   }
-  const managed = managedServers(agent, project, home);
+  const managed = managedServers(agent, project, home, environment);
   if (agent === 'codex') {
     const overrides = [];
     for (const [name, definition] of Object.entries(managed)) {
@@ -253,6 +303,9 @@ export function buildLaunchPlan(agent, forwardedArgs, {
       overrides.push('-c', `mcp_servers.${name}.args=${JSON.stringify(definition.args)}`);
       for (const [key, value] of Object.entries(definition.env ?? {})) {
         overrides.push('-c', `mcp_servers.${name}.env.${key}=${JSON.stringify(value)}`);
+      }
+      for (const [key, value] of Object.entries(definition.codex ?? {})) {
+        overrides.push('-c', `mcp_servers.${name}.${key}=${JSON.stringify(value)}`);
       }
     }
     return { command, args: [...overrides, ...forwardedArgs], env: { ...environment } };
