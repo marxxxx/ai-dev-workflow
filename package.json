@@ -25,6 +25,7 @@
     "agent-src/lib/onboard.mjs",
     "agent-src/lib/cost.mjs",
     "agent-src/lib/pipeline.mjs",
+    "agent-src/lib/upgrade.mjs",
     "agent-src/config/ai-workflow.json",
     "agent-src/config/ai-project.template.json",
     "agent-src/README.md",

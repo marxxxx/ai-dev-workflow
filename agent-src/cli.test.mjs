@@ -54,7 +54,7 @@ test('unknown command exits 1 with the usage message', () => {
     const { status, stderr } = runCli(['frobnicate', '--root', root]);
     assert.equal(status, 1);
     assert.match(stderr, /Unknown command/);
-    assert.match(stderr, /generate \| check \| init/);
+    assert.match(stderr, /generate \| check \| init \| upgrade/);
   } finally {
     cleanup();
   }
@@ -205,6 +205,82 @@ test('init --answers rejects a gitea project without a tea login', () => {
     assert.notEqual(status, 0, 'init should fail rather than write a config the generator will reject');
     assert.match(stderr, /gitea\.login/);
     assert.equal(fs.existsSync(path.join(root, 'ai-project.json')), false);
+  } finally {
+    cleanup();
+  }
+});
+
+// A ≤0.22 project: the old subagents/skills/includes on disk plus obsolete ai-project.json keys.
+function seedLegacyProject(root) {
+  const legacy = {
+    '.claude/agents/developer.md': 'agents/developer',
+    '.codex/agents/qa-engineer.toml': 'agents/qa-engineer',
+    '.claude/skills/dev-cycle/SKILL.md': 'skills/dev-cycle',
+    '.agents/skills/product-architect/agents/openai.yaml': 'skills/product-architect',
+    '.agents/includes/handoff.md': 'includes/handoff.md',
+  };
+  for (const [rel, source] of Object.entries(legacy)) {
+    const abs = path.join(root, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, `<!-- DO NOT EDIT — generated from agent-src/${source}; run \`node agent-src/generate.mjs\` -->\n`);
+  }
+  const mine = path.join(root, '.claude', 'skills', 'my-skill', 'SKILL.md');
+  fs.mkdirSync(path.dirname(mine), { recursive: true });
+  fs.writeFileSync(mine, 'mine\n');
+  const config = {
+    ...MINIMAL_PROJECT,
+    project: { ...MINIMAL_PROJECT.project, slug: 'test-project', serenaProject: 'test-project', description: 'A test' },
+    git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
+  };
+  fs.writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(config, null, 2) + '\n');
+  return Object.keys(legacy);
+}
+
+test('upgrade removes the legacy files and config keys, keeps other skills, and generates', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const legacy = seedLegacyProject(root);
+    const { status, stdout, stderr } = runCli(['upgrade', '--root', root]);
+    assert.equal(status, 0, stderr);
+    for (const rel of legacy) assert.ok(!fs.existsSync(path.join(root, rel)), `${rel} should be deleted`);
+    assert.ok(fs.existsSync(path.join(root, '.claude', 'skills', 'my-skill', 'SKILL.md')));
+    const config = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+    assert.deepEqual(config.git, { prTarget: 'main' });
+    assert.equal(config.project.slug, undefined);
+    assert.match(stdout, /git\.branchPattern/);
+    assert.equal(runCli(['check', '--root', root]).status, 0, 'upgrade leaves the project up to date');
+  } finally {
+    cleanup();
+  }
+});
+
+test('upgrade --dry-run reports the changes and writes nothing', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const legacy = seedLegacyProject(root);
+    const before = fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8');
+    const { status, stdout } = runCli(['upgrade', '--dry-run', '--root', root]);
+    assert.equal(status, 0);
+    for (const rel of legacy) assert.ok(fs.existsSync(path.join(root, rel)), `${rel} must survive`);
+    assert.equal(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'), before);
+    assert.ok(!fs.existsSync(path.join(root, '.claude', 'skills', 'agent-dev')), 'dry run generates nothing');
+    assert.match(stdout, /developer\.md/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('upgrade fails before deleting anything when the config cannot be rendered', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const legacy = seedLegacyProject(root);
+    const broken = { ...MINIMAL_PROJECT, ticketing: { backend: 'gitea', gitea: {} }, git: { branchPattern: 'x', prTarget: 'main' } };
+    fs.writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(broken, null, 2) + '\n');
+    const { status, stderr } = runCli(['upgrade', '--root', root]);
+    assert.equal(status, 1);
+    assert.match(stderr, /gitea\.login/);
+    for (const rel of legacy) assert.ok(fs.existsSync(path.join(root, rel)), `${rel} must survive`);
+    assert.match(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'), /branchPattern/);
   } finally {
     cleanup();
   }

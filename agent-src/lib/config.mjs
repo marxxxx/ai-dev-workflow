@@ -81,8 +81,8 @@ export function buildProjectConfig(a) {
     };
   }
   return {
-    project: { name: a.name, slug: a.slug, serenaProject: a.serena, description: a.description },
-    repository: { slug: a.repoSlug, defaultBranch: a.defaultBranch },
+    project: { name: a.name },
+    repository: { slug: a.repoSlug },
     ticketing,
     git: { prTarget: a.prTarget },
   };
@@ -99,12 +99,7 @@ export function buildGlobalTokens(config) {
   const put = (k, v) => { if (v != null) t[k] = String(v); };
 
   put('project.name', c.project?.name);
-  put('project.slug', c.project?.slug);
-  put('project.serena', c.project?.serenaProject);
-  put('project.description', c.project?.description);
-
   put('repo.slug', c.repository?.slug);
-  put('repo.defaultBranch', c.repository?.defaultBranch);
 
   const backend = c.ticketing?.backend || 'github';
   put('ticketing.backend', backend);

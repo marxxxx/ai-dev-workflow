@@ -79,7 +79,8 @@ and logged in — see [Gitea backend setup](docs/gitea-backend-setup.md).
 |---|---|
 | `generate` (default) | Render all platform files to the project root |
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
-| `init` | Interactive onboarding: prompts for project identity, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), then writes `ai-project.json` — the only file it creates. It prints the [tooling](#tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
+| `upgrade` | Delete the files the pre-v0.23 workflow generated and strip obsolete keys from `ai-project.json`, then `generate`. Only deletes files carrying the generator's banner for a removed unit; other skills and subagents are never touched. `--dry-run` lists the changes without writing anything. See [Updating](#updating). |
+| `init` | Interactive onboarding: prompts for project name, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), then writes `ai-project.json` — the only file it creates. It prints the [tooling](#tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
 
@@ -199,7 +200,8 @@ Add it as a dev dependency with an exact version, and wire up scripts:
 npx @strobl_dev/adw@<new-version> generate   # or bump the pinned version, then `generate`
 ```
 
-Review the diff in `.claude/`/`.codex/`/etc. and commit. `ai-project.json` is never touched. Run
+Review the diff in `.claude/`/`.codex/`/etc. and commit. `generate` never touches `ai-project.json`;
+`upgrade` only removes keys that are obsolete. Run
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
 
@@ -212,23 +214,37 @@ works as an alias.
 skill. `dev-cycle`, `product-architect`, the `developer` / `code-reviewer` / `qa-engineer` agents,
 the developer journal/handoff, and the e2e include are gone; ticket states shrink to
 `new → in-progress → review`. **superpowers is now required.** `generate` does not delete files it no
-longer produces, so remove these yourself:
+longer produces; run `upgrade` instead, which removes them and then generates:
+
+```bash
+npx @strobl_dev/adw@<new-version> upgrade --dry-run   # list what would change
+npx @strobl_dev/adw@<new-version> upgrade
+```
+
+It deletes these files, but only where they still carry the generator's `DO NOT EDIT` banner (a
+hand-written file with the same name is kept and reported), plus the unit directories left empty:
 
 ```
 .claude/agents/{developer,code-reviewer,qa-engineer}.md
 .codex/agents/{developer,code-reviewer,qa-engineer}.toml
 .opencode/agents/{developer,code-reviewer,qa-engineer}.md
-.claude/skills/{dev-cycle,product-architect}/
-.agents/skills/{dev-cycle,product-architect}/
-.opencode/skills/{dev-cycle,product-architect}/
+.claude/skills/{dev-cycle,product-architect}/SKILL.md
+.agents/skills/{dev-cycle,product-architect}/{SKILL.md,agents/openai.yaml}
+.opencode/skills/{dev-cycle,product-architect}/SKILL.md
 .agents/includes/{handoff,e2e-runtime}.md
 ```
 
-`agent-custom/` files for the removed units are ignored; move anything you still need to
-`agent-custom/skills/agent-dev/append.md`. `git.branchPattern` is no longer read — branch and PR
-names now derive from the ticket — so delete it from `ai-project.json`. Old `stateMapping` keys
-(`test`, `failed`, `acceptance-test`) in `ai-project.json` are harmless and can be deleted. Tickets
-left in retired states (`test`, `failed`, `acceptance-test`) need a manual move.
+It also removes the keys nothing reads anymore from `ai-project.json`: `git.branchPattern` (branch
+and PR names now derive from the ticket), `ticketing.azureDevOps.stateMapping.{test,failed,acceptance-test}`,
+`project.{slug,serenaProject,description}`, `repository.defaultBranch`, and the older `ticketing.itemNoun`,
+`e2e`, `app` and `handoff` blocks. If a project's `tokens` or `agent-custom/` files used
+`{{project.slug}}`, `{{project.serena}}`, `{{project.description}}` or `{{repo.defaultBranch}}`,
+generation now fails on that token; replace it, or define it under `tokens` in `ai-project.json`.
+
+`agent-custom/` files for the removed units and the `scripts/e2e-up` / `scripts/e2e-down` scaffolded
+by early versions are project-owned: `upgrade` reports them but leaves them in place. Move anything
+you still need to `agent-custom/skills/agent-dev/append.md`. Tickets left in retired states
+(`test`, `failed`, `acceptance-test`) need a manual move.
 
 **Upgrading to v0.20.0.** The generator now requires **Node >= 24** (previously `>=18`). Upgrade Node
 on dev boxes and CI runners before bumping the pinned tag — older runtimes are unsupported and only get
