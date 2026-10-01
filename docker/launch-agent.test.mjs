@@ -338,3 +338,11 @@ test('Serena gets only SERENA_HOME where the image sets no .NET environment', t 
     assert.deepEqual(env, expected, agent);
   }
 });
+
+// The first Serena call waits until the language server has loaded the project; a large
+// C# solution measured 78s, past Codex's 60s default per tool call.
+test('Codex allows Serena tool calls longer than its 60s default', t => {
+  const { workspace, home } = bareWorkspace(t);
+  const plan = buildLaunchPlan('codex', [], { workspace, home, toolstackOnly: true });
+  assert.ok(plan.args.includes('mcp_servers.serena.tool_timeout_sec=300'));
+});

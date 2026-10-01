@@ -95,6 +95,10 @@ function managedServers(agent, project, home, environment) {
         SERENA_HOME: path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena'),
         ...Object.fromEntries(SERENA_FORWARDED_ENV.filter(key => environment[key]).map(key => [key, environment[key]])),
       },
+      // The first call waits until the language server has loaded the project (78s measured on
+      // a 60-project C# solution); Codex cuts tool calls off after 60s by default. Kept above
+      // Serena's own tool_timeout (240s) so Serena reports a real hang itself.
+      codex: { tool_timeout_sec: 300 },
     },
     playwright: {
       command: 'playwright-mcp',
@@ -299,6 +303,9 @@ export function buildLaunchPlan(agent, forwardedArgs, {
       overrides.push('-c', `mcp_servers.${name}.args=${JSON.stringify(definition.args)}`);
       for (const [key, value] of Object.entries(definition.env ?? {})) {
         overrides.push('-c', `mcp_servers.${name}.env.${key}=${JSON.stringify(value)}`);
+      }
+      for (const [key, value] of Object.entries(definition.codex ?? {})) {
+        overrides.push('-c', `mcp_servers.${name}.${key}=${JSON.stringify(value)}`);
       }
     }
     return { command, args: [...overrides, ...forwardedArgs], env: { ...environment } };

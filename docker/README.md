@@ -311,6 +311,9 @@ anything nor needs a proxy, also in a fresh `agent-home` volume. Serena does not
 your project: run `dotnet restore` inside the container (once per volume, again when
 dependencies change) with your package sources reachable, after which C# semantics also work
 offline. A host-side restore does not count; its `obj` assets are ignored (see above).
+The first Serena call of a session waits until Roslyn has loaded the solution, which takes
+over a minute for a large one; later calls are fast. The launcher raises Codex's per-call
+limit for Serena to 300 s (its default of 60 s would cut that first call off).
 
 **Node needs one volume per dependency tree.** npm has no equivalent redirect, so declare a
 named volume for each `node_modules` of your project. Mounted below the bind, it masks the
