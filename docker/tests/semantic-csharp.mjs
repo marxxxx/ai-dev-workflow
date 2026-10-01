@@ -4,7 +4,7 @@
 // that the restore assets persist.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,19 +21,12 @@ function docker(args) {
   return result;
 }
 
-// Linux bind mounts keep host ownership; let the runtime user write .serena into the copy.
-function openUp(directory) {
-  chmodSync(directory, 0o777);
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const file = path.join(directory, entry.name);
-    if (entry.isDirectory()) openUp(file);
-    else chmodSync(file, 0o666);
-  }
-}
+// Linux bind mounts keep ownership: map the runtime user to this user, as the launch scripts
+// do, so Serena can write .serena into the copy and the cleanup can remove it again.
+const hostIds = process.getuid?.() > 0 ? ['-e', `HOST_UID=${process.getuid()}`, '-e', `HOST_GID=${process.getgid()}`] : [];
 
 cpSync(fixture, project, { recursive: true });
 writeFileSync(path.join(project, 'ai-project.json'), `${JSON.stringify({ ticketing: { backend: 'github' } })}\n`);
-openUp(project);
 try {
   assert.equal(docker(['volume', 'create', volume]).status, 0);
   for (const options of [['--restore'], []]) {
@@ -42,7 +35,7 @@ try {
       'run', '--rm', '--init', '--network', 'none',
       '--cap-drop', 'ALL', '--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE', '--cap-add', 'FOWNER',
       '--cap-add', 'SETUID', '--cap-add', 'SETGID', '--security-opt', 'no-new-privileges:true',
-      '-e', `PROJECT_ROOT=${project}`,
+      '-e', `PROJECT_ROOT=${project}`, ...hostIds,
       '--mount', `type=bind,source=${project},target=/workspace`,
       '--mount', `type=volume,source=${volume},target=/home/dev`,
       image, 'node', '/usr/local/lib/agent-runtime/verify-semantic.mjs', 'csharp', ...options,
