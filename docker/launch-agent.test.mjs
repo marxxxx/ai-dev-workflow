@@ -193,6 +193,16 @@ test('CLI honors AGENT_TOOLSTACK_ONLY with no ai-project.json on disk', () => {
   assert.ok(!flat.includes('mcp_servers.ado'));
 });
 
+// The image runs on Linux; Windows grants symlink privilege only under Developer Mode or an
+// elevated shell, so the link tests are skipped there.
+const canSymlink = (() => {
+  const root = mkdtempSync(path.join(tmpdir(), 'agent-symlink-probe-'));
+  try { symlinkSync(root, path.join(root, 'link'), 'dir'); return true; }
+  catch { return false; }
+  finally { rmSync(root, { recursive: true, force: true }); }
+})();
+const linkTest = { skip: canSymlink ? false : 'no symlink privilege on this platform' };
+
 function serenaFixture(t) {
   const { root, workspace, home } = bareWorkspace(t);
   const serenaConfigFile = path.join(root, 'serena_config.yml');
@@ -213,7 +223,7 @@ function provisionPackage(serenaLanguageServers, className, entry) {
   return directory;
 }
 
-test('links each pre-provisioned language server package into SERENA_HOME, idempotently', t => {
+test('links each pre-provisioned language server package into SERENA_HOME, idempotently', linkTest, t => {
   const { serenaLanguageServers, staticDir, configure } = serenaFixture(t);
   const roslyn = provisionPackage(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn-language-server.linux-x64.5.5.0');
 
@@ -230,7 +240,7 @@ test('links each pre-provisioned language server package into SERENA_HOME, idemp
   assert.deepEqual(readdirSync(classDir), ['roslyn-language-server.linux-x64.5.5.0']);
 });
 
-test('replaces stale language server links and drops dangling ones from an older image', t => {
+test('replaces stale language server links and drops dangling ones from an older image', linkTest, t => {
   const { root, serenaLanguageServers, staticDir, configure } = serenaFixture(t);
   const roslyn = provisionPackage(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.2');
   const classDir = path.join(staticDir, 'CSharpLanguageServer');
@@ -244,7 +254,7 @@ test('replaces stale language server links and drops dangling ones from an older
   assert.deepEqual(readdirSync(classDir), ['roslyn.2']);
 });
 
-test('never replaces a real language server directory Serena or the user created', t => {
+test('never replaces a real language server directory Serena or the user created', linkTest, t => {
   const { serenaLanguageServers, staticDir, configure } = serenaFixture(t);
   provisionPackage(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.2');
   const downloaded = path.join(staticDir, 'CSharpLanguageServer', 'roslyn.2');
