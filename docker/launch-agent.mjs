@@ -20,6 +20,10 @@ const DEFAULT_WORKSPACE = '/workspace';
 const DEFAULT_HOME = '/home/dev';
 const DEFAULT_SUPERPOWERS = '/opt/superpowers';
 const AGENTS = new Set(['codex', 'claude', 'opencode']);
+// Set by the .NET image (Dockerfile.dotnet ENV). Agents start MCP servers with a reduced
+// environment, so Serena's Roslyn server only builds and restores below the home volume, as
+// the shell does, when these are passed explicitly.
+const SERENA_FORWARDED_ENV = ['ArtifactsPath', 'NUGET_PACKAGES', 'DOTNET_ROOT', 'DOTNET_CLI_TELEMETRY_OPTOUT'];
 
 function fail(message) {
   throw new Error(`agent runtime: ${message}`);
@@ -81,13 +85,16 @@ function readProjectState(workspace, { toolstackOnly = false } = {}) {
   return { backend, organization: organization?.trim(), projectServers: mcpDocument.mcpServers ?? {} };
 }
 
-function managedServers(agent, project, home) {
+function managedServers(agent, project, home, environment) {
   const context = agent === 'codex' ? 'codex' : agent === 'claude' ? 'claude-code' : 'ide-assistant';
   const servers = {
     serena: {
       command: '/opt/uv/bin/serena',
       args: ['start-mcp-server', '--context', context, '--project', DEFAULT_WORKSPACE, '--enable-web-dashboard', 'false'],
-      env: { SERENA_HOME: path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena') },
+      env: {
+        SERENA_HOME: path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena'),
+        ...Object.fromEntries(SERENA_FORWARDED_ENV.filter(key => environment[key]).map(key => [key, environment[key]])),
+      },
     },
     playwright: {
       command: 'playwright-mcp',
@@ -284,7 +291,7 @@ export function buildLaunchPlan(agent, forwardedArgs, {
   if (project.backend === 'azure-devops' && !checkAzureAuth()) {
     fail('Azure CLI is not authenticated. Run az login --use-device-code --allow-no-subscriptions (and --tenant when required), then retry.');
   }
-  const managed = managedServers(agent, project, home);
+  const managed = managedServers(agent, project, home, environment);
   if (agent === 'codex') {
     const overrides = [];
     for (const [name, definition] of Object.entries(managed)) {

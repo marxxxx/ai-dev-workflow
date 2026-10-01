@@ -295,6 +295,8 @@ breaks the build on the host.
 and `NUGET_PACKAGES=/home/dev/.nuget/packages`; MSBuild takes both as global properties, so
 every build in the container writes below the home volume and the project tree stays
 untouched — no `bin`, no `obj`, and the host's `obj/project.assets.json` is never read.
+That includes Serena's C# language server: agents start MCP servers with a reduced
+environment, so the launcher passes both variables to Serena explicitly.
 Output is namespaced per project: `artifacts/bin/<project>/<configuration>/` for build output,
 `artifacts/obj/<project>/` (no configuration segment — restore output such as
 `project.assets.json` lands directly under the project) for intermediate output. Three

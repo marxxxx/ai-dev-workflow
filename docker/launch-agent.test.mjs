@@ -301,3 +301,40 @@ test('concurrent starts sharing one home and one pid do not fail', linkTest, asy
   for (const { code, stderr } of await Promise.all(children)) assert.equal(code, 0, stderr);
   assert.equal(readlinkSync(link), path.join(serenaLanguageServers, 'CSharpLanguageServer', 'roslyn.2'));
 });
+
+// Agents start MCP servers with a reduced environment, so the .NET image's build redirect
+// (Dockerfile.dotnet ENV) must reach Serena and its Roslyn server through the server env.
+const DOTNET_ENVIRONMENT = {
+  ArtifactsPath: '/home/dev/artifacts',
+  NUGET_PACKAGES: '/home/dev/.nuget/packages',
+  DOTNET_ROOT: '/usr/share/dotnet',
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1',
+};
+
+function serenaEnvironments(workspace, home, environment) {
+  const options = { workspace, home, environment, toolstackOnly: true };
+  const codex = buildLaunchPlan('codex', [], options).args;
+  const claudePlan = buildLaunchPlan('claude', [], options);
+  const claude = JSON.parse(readFileSync(claudePlan.args[claudePlan.args.indexOf('--mcp-config') + 1], 'utf8'));
+  const opencode = JSON.parse(buildLaunchPlan('opencode', [], options).env.OPENCODE_CONFIG_CONTENT);
+  const codexEnv = Object.fromEntries(codex
+    .filter(arg => arg.startsWith('mcp_servers.serena.env.'))
+    .map(arg => { const [key, value] = arg.slice('mcp_servers.serena.env.'.length).split('='); return [key, JSON.parse(value)]; }));
+  return { codex: codexEnv, claude: claude.mcpServers.serena.env, opencode: opencode.mcp.serena.environment };
+}
+
+test('Serena receives the .NET build redirect under every agent', t => {
+  const { workspace, home } = bareWorkspace(t);
+  const expected = { SERENA_HOME: path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena'), ...DOTNET_ENVIRONMENT };
+  for (const [agent, env] of Object.entries(serenaEnvironments(workspace, home, { PATH: '/usr/bin', ...DOTNET_ENVIRONMENT }))) {
+    assert.deepEqual(env, expected, agent);
+  }
+});
+
+test('Serena gets only SERENA_HOME where the image sets no .NET environment', t => {
+  const { workspace, home } = bareWorkspace(t);
+  const expected = { SERENA_HOME: path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena') };
+  for (const [agent, env] of Object.entries(serenaEnvironments(workspace, home, { PATH: '/usr/bin' }))) {
+    assert.deepEqual(env, expected, agent);
+  }
+});

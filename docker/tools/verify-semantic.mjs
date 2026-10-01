@@ -140,6 +140,26 @@ function restoreFixture(workspace, home) {
   console.log('C# fixture restored offline into ArtifactsPath');
 }
 
+// Agents start MCP servers with a few variables of their own plus the server's env block, not
+// with the full container environment; Serena must work from what the launcher passes.
+const AGENT_PASSED_ENV = ['HOME', 'PATH', 'USER', 'LOGNAME', 'SHELL', 'TERM'];
+
+function agentEnvironment(serverEnv) {
+  const passed = AGENT_PASSED_ENV.filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]);
+  return { ...Object.fromEntries(passed), ...serverEnv };
+}
+
+function roslynEnvironment() {
+  for (const pid of readdirSync('/proc').filter(entry => /^\d+$/.test(entry))) {
+    let cmdline;
+    try { cmdline = readFileSync(`/proc/${pid}/cmdline`, 'utf8'); } catch { continue; }
+    if (!cmdline.includes('Microsoft.CodeAnalysis.LanguageServer.dll')) continue;
+    return Object.fromEntries(readFileSync(`/proc/${pid}/environ`, 'utf8').split('\0').filter(Boolean)
+      .map(entry => [entry.slice(0, entry.indexOf('=')), entry.slice(entry.indexOf('=') + 1)]));
+  }
+  return undefined;
+}
+
 async function verifyCSharp({ restore }) {
   const workspace = '/workspace';
   const home = process.env.HOME;
@@ -160,7 +180,7 @@ async function verifyCSharp({ restore }) {
 
   if (restore) restoreFixture(workspace, home);
 
-  await withSerena({ ...serena, env: { ...process.env, ...serena.env }, timeoutMs: 240_000 }, async call => {
+  await withSerena({ ...serena, env: agentEnvironment(serena.env), timeoutMs: 240_000 }, async call => {
     // File-scoped namespaces put the types one level below the namespace symbol.
     for (const [file, namespace, kind, name] of [
       ['Core/IGreeter.cs', 'Fixture.Core', 'Interface', 'IGreeter'],
@@ -190,7 +210,17 @@ async function verifyCSharp({ restore }) {
     const consumers = Object.values(references['App/Consumer.cs']).flat().map(symbol => symbol.name_path);
     check(consumers.length > 0 && consumers.every(name => name === 'Fixture.App/Consumer'),
       `cross-project references in App/Consumer.cs are not attributed to Fixture.App/Consumer: ${rendered}`);
+
+    // Roslyn must build and restore where the shell does, never into the project tree.
+    const roslyn = roslynEnvironment();
+    check(roslyn, 'no running Roslyn language server process found');
+    for (const key of ['ArtifactsPath', 'NUGET_PACKAGES']) {
+      check(process.env[key], `${key} is not set in the image`);
+      check(roslyn[key] === process.env[key], `Roslyn runs with ${key}=${roslyn[key]}, not ${process.env[key]}`);
+    }
   });
+  check(findDirectories(workspace, 'obj').length === 0 && findDirectories(workspace, 'bin').length === 0,
+    'Serena wrote bin/obj into the project tree');
   console.log('Serena C# semantics: ok');
 }
 
