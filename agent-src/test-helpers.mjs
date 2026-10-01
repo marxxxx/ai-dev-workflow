@@ -17,8 +17,8 @@ const GENERATE = path.join(SRC_DIR, 'generate.mjs');
 
 /** A minimal, valid file-backend ai-project.json used by most CLI/e2e tests. */
 export const MINIMAL_PROJECT = {
-  project: { name: 'Test Project', slug: 'test-project', serenaProject: 'test-project', description: 'A test' },
-  repository: { slug: 'me/test-project', defaultBranch: 'main' },
+  project: { name: 'Test Project' },
+  repository: { slug: 'me/test-project' },
   ticketing: { backend: 'file', file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' } },
   git: { prTarget: 'main' },
 };

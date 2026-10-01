@@ -9,28 +9,28 @@ import { cmdInit, createScriptedPrompter, buildProjectConfig } from '../generate
 import { makeTmpRoot } from '../test-helpers.mjs';
 
 const FILE_ANSWERS = {
-  name: 'File Demo', slug: 'file-demo', serena: 'file-demo', description: 'A file project',
-  repoSlug: 'me/file-demo', defaultBranch: 'main', backend: 'file',
+  name: 'File Demo',
+  repoSlug: 'me/file-demo', backend: 'file',
   file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' },
   prTarget: 'main',
 };
 
 const GITHUB_ANSWERS = {
-  name: 'GH Demo', slug: 'gh-demo', serena: 'gh-demo', description: '',
-  repoSlug: 'me/gh-demo', defaultBranch: 'main', backend: 'github',
+  name: 'GH Demo',
+  repoSlug: 'me/gh-demo', backend: 'github',
   prTarget: 'main',
 };
 
 const AZURE_ANSWERS = {
-  name: 'ADO Demo', slug: 'ado-demo', serena: 'ado-demo', description: '',
-  repoSlug: 'ado-demo', defaultBranch: 'main', backend: 'azure-devops',
+  name: 'ADO Demo',
+  repoSlug: 'ado-demo', backend: 'azure-devops',
   azure: { organization: 'acme', project: 'widgets', processTemplate: 'scrum' },
   prTarget: 'main',
 };
 
 const GITEA_ANSWERS = {
-  name: 'Gitea Demo', slug: 'gitea-demo', serena: 'gitea-demo', description: '',
-  repoSlug: 'me/gitea-demo', defaultBranch: 'main', backend: 'gitea',
+  name: 'Gitea Demo',
+  repoSlug: 'me/gitea-demo', backend: 'gitea',
   gitea: { login: 'myserver' },
   prTarget: 'main',
 };
@@ -94,6 +94,20 @@ test('cmdInit overwrites an existing ai-project.json when overwrite is accepted'
     const code = await cmdInit(root, { prompter: createScriptedPrompter({ ...FILE_ANSWERS, overwrite: 'y' }) });
     assert.equal(code, 0);
     assert.deepEqual(JSON.parse(fs.readFileSync(dest, 'utf8')), buildProjectConfig(FILE_ANSWERS));
+  } finally {
+    cleanup();
+  }
+});
+
+test('cmdInit asks only for name and repository slug as identity; the PR target defaults to main', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const answers = { name: 'Min', repoSlug: 'me/min', backend: 'github' };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    const written = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+    assert.deepEqual(written.project, { name: 'Min' });
+    assert.deepEqual(written.repository, { slug: 'me/min' });
+    assert.deepEqual(written.git, { prTarget: 'main' });
   } finally {
     cleanup();
   }

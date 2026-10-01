@@ -30,8 +30,8 @@ test('azure-devops backend emits .mcp.json with the pinned ADO server', () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     writeProject(root, {
-      project: { name: 'ADO', slug: 'ado', serenaProject: 'ado', description: '' },
-      repository: { slug: 'ado', defaultBranch: 'main' },
+      project: { name: 'ADO' },
+      repository: { slug: 'ado' },
       ticketing: {
         backend: 'azure-devops',
         azureDevOps: {
@@ -114,8 +114,8 @@ test('the cost include totals the unified ccusage report over a time window, inc
 const BACKENDS = {
   file: {
     project: {
-      project: { name: 'File Demo', slug: 'file-demo', serenaProject: 'file-demo', description: '' },
-      repository: { slug: 'me/file-demo', defaultBranch: 'main' },
+      project: { name: 'File Demo' },
+      repository: { slug: 'me/file-demo' },
       ticketing: { backend: 'file', file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' } },
       git: { prTarget: 'main' },
     },
@@ -126,8 +126,8 @@ const BACKENDS = {
   },
   github: {
     project: {
-      project: { name: 'GH Demo', slug: 'gh-demo', serenaProject: 'gh-demo', description: '' },
-      repository: { slug: 'me/gh-demo', defaultBranch: 'main' },
+      project: { name: 'GH Demo' },
+      repository: { slug: 'me/gh-demo' },
       ticketing: { backend: 'github' },
       git: { prTarget: 'main' },
     },
@@ -138,8 +138,8 @@ const BACKENDS = {
   },
   gitea: {
     project: {
-      project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
-      repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
+      project: { name: 'Gitea Demo' },
+      repository: { slug: 'me/gitea-demo' },
       ticketing: { backend: 'gitea', gitea: { login: 'myserver' } },
       git: { prTarget: 'main' },
     },
@@ -150,8 +150,8 @@ const BACKENDS = {
   },
   'azure-devops': {
     project: {
-      project: { name: 'ADO Demo', slug: 'ado-demo', serenaProject: 'ado-demo', description: '' },
-      repository: { slug: 'ado-repo', defaultBranch: 'main' },
+      project: { name: 'ADO Demo' },
+      repository: { slug: 'ado-repo' },
       ticketing: { backend: 'azure-devops', azureDevOps: { organization: 'contoso', project: 'widgets' } },
       git: { prTarget: 'main' },
     },
@@ -190,8 +190,8 @@ test('azure-devops backend emits Codex project-local ADO MCP config', () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     writeProject(root, {
-      project: { name: 'ADO', slug: 'ado', serenaProject: 'ado', description: '' },
-      repository: { slug: 'ado', defaultBranch: 'main' },
+      project: { name: 'ADO' },
+      repository: { slug: 'ado' },
       ticketing: {
         backend: 'azure-devops',
         azureDevOps: {
@@ -219,8 +219,8 @@ test('azure-devops Codex MCP config preserves unrelated TOML and replaces ado on
   const { root, cleanup } = makeTmpRoot();
   try {
     writeProject(root, {
-      project: { name: 'ADO', slug: 'ado', serenaProject: 'ado', description: '' },
-      repository: { slug: 'ado', defaultBranch: 'main' },
+      project: { name: 'ADO' },
+      repository: { slug: 'ado' },
       ticketing: {
         backend: 'azure-devops',
         azureDevOps: {
@@ -266,8 +266,8 @@ test('renderAll throws when azure-devops lacks an organization', () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     writeProject(root, {
-      project: { name: 'ADO', slug: 'ado', serenaProject: 'ado', description: '' },
-      repository: { slug: 'ado', defaultBranch: 'main' },
+      project: { name: 'ADO' },
+      repository: { slug: 'ado' },
       ticketing: { backend: 'azure-devops', azureDevOps: { project: 'widgets' } },
       git: { prTarget: 'main' },
     });
@@ -283,7 +283,7 @@ test('loadConfig merges package workflow + includePath over the project file', (
     const cfg = loadConfig(root);
     // project-owned
     assert.equal(cfg.ticketing.backend, 'file');
-    assert.equal(cfg.project.slug, 'test-project');
+    assert.equal(cfg.project.name, 'Test Project');
     // package-owned (from agent-src/config/ai-workflow.json)
     assert.ok(cfg.workflow, 'workflow states/artifacts come from the package');
     assert.equal(cfg.ticketing.includePath, '.agents/includes/ticketing.md');
@@ -394,8 +394,8 @@ test('gitea backend renders the tea-driven ticketing include with the login subs
   const { root, cleanup } = makeTmpRoot();
   try {
     writeProject(root, {
-      project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
-      repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
+      project: { name: 'Gitea Demo' },
+      repository: { slug: 'me/gitea-demo' },
       ticketing: { backend: 'gitea', gitea: { login: 'myserver' } },
       git: { prTarget: 'main' },
     });
@@ -415,8 +415,8 @@ test('renderAll throws when gitea lacks a login', () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     writeProject(root, {
-      project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
-      repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
+      project: { name: 'Gitea Demo' },
+      repository: { slug: 'me/gitea-demo' },
       ticketing: { backend: 'gitea' },
       git: { prTarget: 'main' },
     });
@@ -430,8 +430,8 @@ test('a gitea login containing a space stays one shell argument in the rendered 
   const { root, cleanup } = makeTmpRoot();
   try {
     writeProject(root, {
-      project: { name: 'Gitea Demo', slug: 'gitea-demo', serenaProject: 'gitea-demo', description: '' },
-      repository: { slug: 'me/gitea-demo', defaultBranch: 'main' },
+      project: { name: 'Gitea Demo' },
+      repository: { slug: 'me/gitea-demo' },
       // `tea login add` happily accepts spaces in a profile name, and real installs have them.
       ticketing: { backend: 'gitea', gitea: { login: 'gitea ki' } },
       git: { prTarget: 'main' },

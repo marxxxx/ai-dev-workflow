@@ -67,8 +67,8 @@ import { buildProjectConfig } from './generate.mjs';
 
 test('buildProjectConfig (file backend) omits azureDevOps', () => {
   const cfg = buildProjectConfig({
-    name: 'Demo', slug: 'demo', serena: 'demo', description: 'A demo',
-    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file',
+    name: 'Demo',
+    repoSlug: 'me/demo', backend: 'file',
     prTarget: 'main',
     file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' },
   });
@@ -80,8 +80,8 @@ test('buildProjectConfig (file backend) omits azureDevOps', () => {
 
 test('buildProjectConfig (azure scrum) fills types + stateMapping', () => {
   const cfg = buildProjectConfig({
-    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'demo', defaultBranch: 'main', backend: 'azure-devops',
+    name: 'Demo',
+    repoSlug: 'demo', backend: 'azure-devops',
     prTarget: 'main',
     azure: { organization: 'myorg', project: 'myproj', processTemplate: 'scrum' },
   });
@@ -97,8 +97,8 @@ test('buildProjectConfig (azure scrum) fills types + stateMapping', () => {
 
 test('buildProjectConfig (github backend) omits both file and azureDevOps', () => {
   const cfg = buildProjectConfig({
-    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'github',
+    name: 'Demo',
+    repoSlug: 'me/demo', backend: 'github',
     prTarget: 'main',
   });
   assert.equal(cfg.ticketing.backend, 'github');
@@ -108,10 +108,29 @@ test('buildProjectConfig (github backend) omits both file and azureDevOps', () =
 
 test('buildProjectConfig writes only the PR target under git — naming is fixed, not configurable', () => {
   const cfg = buildProjectConfig({
-    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'github', prTarget: 'main',
+    name: 'Demo',
+    repoSlug: 'me/demo', backend: 'github', prTarget: 'main',
   });
   assert.deepEqual(cfg.git, { prTarget: 'main' });
+});
+
+test('buildProjectConfig writes only the project name and repository slug as identity', () => {
+  const cfg = buildProjectConfig({ name: 'Demo', repoSlug: 'me/demo', backend: 'github', prTarget: 'main' });
+  assert.deepEqual(cfg.project, { name: 'Demo' });
+  assert.deepEqual(cfg.repository, { slug: 'me/demo' });
+});
+
+test('buildGlobalTokens ignores the legacy project slug/serena/description and default branch', () => {
+  const tokens = buildGlobalTokens({
+    project: { name: 'Demo', slug: 'demo', serenaProject: 'demo', description: 'x' },
+    repository: { slug: 'me/demo', defaultBranch: 'main' },
+    workflow: WORKFLOW,
+  });
+  for (const key of ['project.slug', 'project.serena', 'project.description', 'repo.defaultBranch']) {
+    assert.ok(!(key in tokens), `${key} is no longer a token`);
+  }
+  assert.equal(tokens['project.name'], 'Demo');
+  assert.equal(tokens['repo.slug'], 'me/demo');
 });
 
 test('buildGlobalTokens ignores a legacy git.branchPattern', () => {
@@ -122,8 +141,8 @@ test('buildGlobalTokens ignores a legacy git.branchPattern', () => {
 
 test('buildProjectConfig writes no e2e block', () => {
   const base = {
-    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'file',
+    name: 'Demo',
+    repoSlug: 'me/demo', backend: 'file',
     prTarget: 'main', file: { dir: 'd', metadataFile: 'm' },
   };
   assert.ok(!('e2e' in buildProjectConfig(base)), 'no e2e block — e2e setup lives in AGENTS.md prose');
@@ -167,8 +186,8 @@ test('cmdScaffold leaves an existing ai-project.json untouched', () => {
 
 test('buildProjectConfig (gitea backend) records the tea login and omits file + azureDevOps', () => {
   const cfg = buildProjectConfig({
-    name: 'Demo', slug: 'demo', serena: 'demo', description: '',
-    repoSlug: 'me/demo', defaultBranch: 'main', backend: 'gitea',
+    name: 'Demo',
+    repoSlug: 'me/demo', backend: 'gitea',
     prTarget: 'main',
     gitea: { login: 'myserver' },
   });

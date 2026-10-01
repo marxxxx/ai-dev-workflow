@@ -24,6 +24,7 @@ node --test --test-name-pattern "azure" agent-src/lib/*.test.mjs          # sing
 node agent-src/generate.mjs init     --root <project>  # interactive; --answers <file.json> for non-interactive
 node agent-src/generate.mjs generate --root <project>  # render all platform files into the project
 node agent-src/generate.mjs check    --root <project>  # render in memory, diff against disk, exit 1 on drift
+node agent-src/generate.mjs upgrade  --root <project>  # delete pre-0.23 generated files + obsolete ai-project.json keys, then generate (--dry-run)
 ```
 
 ## Rule 1: never hand-edit generated files
@@ -62,6 +63,10 @@ pipeline: **config → tokens → units → renderers → outputs**.
   once to `.agents/includes/*.md` and read at runtime, never inlined** into bodies.
   `includes/ticketing-<backend>.md` (github | gitea | file | azure-devops) is where a new backend
   goes. azure-devops also merges an `ado` MCP server into `.mcp.json` / `.codex/config.toml`.
+- **`upgrade.mjs`** — the `upgrade` command's explicit list of generated files and `ai-project.json`
+  keys that earlier versions wrote and the current one no longer does. It deletes a file only if the
+  file carries the banner of that exact unit. When you remove or rename a unit, include, or project
+  key, add the old one there.
 - **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` only; recommended tooling is
   *printed*, never installed or documented with install steps.
 
