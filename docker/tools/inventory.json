@@ -4,14 +4,14 @@
     "node": "24.21.0"
   },
   "npmPackages": {
-    "@anthropic-ai/claude-code": "2.1.285",
+    "@anthropic-ai/claude-code": "2.1.287",
     "@azure-devops/mcp": "2.10.0",
-    "@openai/codex": "0.159.2",
+    "@openai/codex": "0.160.0",
     "@playwright/mcp": "0.0.83",
     "@upstash/context7-mcp": "4.1.1",
     "ccusage": "20.0.26",
     "jsonc-parser": "3.3.1",
-    "opencode-ai": "1.18.33",
+    "opencode-ai": "1.18.34",
     "playwright": "1.64.0-alpha-1790635538000",
     "pnpm": "12.8.1",
     "smol-toml": "1.9.0",
@@ -23,10 +23,10 @@
   "systemTools": {
     "azureCliDebianPackage": "2.90.0-1~bookworm",
     "azureDevOpsCliExtension": "1.0.8",
-    "uv": "0.12.21"
+    "uv": "0.12.22"
   },
   "sourceRevisions": {
-    "serena": "8a3ce35cae29a93748842ba463231d6c78d181e7",
+    "serena": "d0f7f92631c23dc4c5ed0b5ccd35bc623b19a809",
     "superpowers": "8ca22dba9a94f28898bbce59f2537ff4d87c747d"
   },
   "derivedImages": {
