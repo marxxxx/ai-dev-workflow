@@ -28,8 +28,9 @@ export function runPreflight({ config, harnesses, exec = defaultExec, probe = (h
   const tryExec = (cmd, args) => {
     try { return exec(cmd, args).trim(); } catch (e) { problems.push(`${cmd} ${args[0]}: ${e.message.split('\n')[0]}`); return null; }
   };
-  const harbor = tryExec('harbor', ['--version']);
-  if (harbor && harbor !== config.harbor.version) problems.push(`harbor ${harbor} installed, ${config.harbor.version} required (uv tool install harbor==${config.harbor.version})`);
+  const harborOut = tryExec('harbor', ['--version']);
+  const harbor = harborOut?.match(/\d+\.\d+\.\d+/)?.[0] ?? harborOut;
+  if (harborOut && harbor !== config.harbor.version) problems.push(`harbor ${harbor} installed, ${config.harbor.version} required (uv tool install harbor==${config.harbor.version})`);
   tryExec('docker', ['info', '--format', '{{.ServerVersion}}']);
   if (tryExec('docker', ['image', 'inspect', '--format', '{{.Id}}', config.image])) {
     const out = tryExec('docker', ['run', '--rm', '-e', 'AGENT_TOOLSTACK_ONLY=1', '--entrypoint', 'bash', config.image, '-lc',

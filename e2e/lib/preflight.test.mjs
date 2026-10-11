@@ -38,3 +38,12 @@ test('preflight reports version drift, missing auth and failing model probes', (
   assert.ok(r.problems.some((p) => /claude-code: login missing/.test(p)));
   assert.ok(r.problems.some((p) => /codex: model probe failed: model not supported/.test(p)));
 });
+
+test('preflight extracts the version from a prefixed harbor --version output', () => {
+  const ok = (cmd, args) => (cmd === 'harbor' ? 'harbor 0.24.0' : exec(cmd, args));
+  const r = runPreflight({ config, harnesses: ['codex'], exec: ok, probe: () => null, authPresent: () => true, platform: 'linux', root: '/home/u/adw' });
+  assert.deepEqual(r.problems, []);
+  const drift = (cmd, args) => (cmd === 'harbor' ? 'harbor 0.25.0' : exec(cmd, args));
+  const d = runPreflight({ config, harnesses: ['codex'], exec: drift, probe: () => null, authPresent: () => true, platform: 'linux', root: '/home/u/adw' });
+  assert.ok(d.problems.some((p) => /harbor 0.25.0 installed/.test(p)));
+});

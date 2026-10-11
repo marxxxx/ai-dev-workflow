@@ -32,3 +32,28 @@ test('scanForSecrets finds leaked values', () => {
     assert.deepEqual(scanForSecrets(dir, ['tok-123']), [path.join(dir, 'e/b.txt')]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('stageSecrets collects OpenCode OAuth access and refresh tokens, not the type label', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
+  try {
+    const shape = { anthropic: { type: 'oauth', access: 'acc-token-111', refresh: 'ref-token-222', expires: 1790000000000 } };
+    writeFileSync(path.join(dir, 'oc.json'), JSON.stringify(shape));
+    const config = { root: dir, auth: { claudeEnvFile: '.env', codexAuthJson: path.join(dir, 'missing.json'), opencodeAuthJson: path.join(dir, 'oc.json') } };
+    const s = stageSecrets({ config, invocationDir: path.join(dir, 'inv') });
+    assert.ok(s.values.includes('acc-token-111'));
+    assert.ok(s.values.includes('ref-token-222'));
+    assert.ok(!s.values.includes('oauth'));
+    s.cleanup();
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('stageSecrets removes its staging dir when an auth file is not valid JSON', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
+  try {
+    writeFileSync(path.join(dir, 'bad.json'), '{not json');
+    const config = { root: dir, auth: { claudeEnvFile: '.env', codexAuthJson: path.join(dir, 'bad.json'), opencodeAuthJson: path.join(dir, 'missing.json') } };
+    const inv = path.join(dir, 'inv');
+    assert.throws(() => stageSecrets({ config, invocationDir: inv }), SyntaxError);
+    assert.equal(existsSync(path.join(inv, '.secrets')), false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

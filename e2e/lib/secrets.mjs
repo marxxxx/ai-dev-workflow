@@ -5,11 +5,10 @@ import { walk } from './fsutil.mjs';
 
 const expand = (p, root) => (p.startsWith('~/') ? path.join(homedir(), p.slice(2)) : path.resolve(root, p));
 
-const SECRET_KEY = /token|key|secret|password/i;
-
-// Secret-looking leaf strings only: labels such as "type":"api" must not become scan needles.
+// Every non-empty string leaf of an auth file is a secret except labels under a `type` key
+// (e.g. "type":"api" or "type":"oauth"), which would otherwise be scan needles.
 function secretLeaves(value, key = '') {
-  if (typeof value === 'string') return SECRET_KEY.test(key) && value.length > 0 ? [value] : [];
+  if (typeof value === 'string') return key !== 'type' && value.length > 0 ? [value] : [];
   if (value && typeof value === 'object') {
     return Object.entries(value).flatMap(([k, v]) => secretLeaves(v, k));
   }
@@ -19,26 +18,32 @@ function secretLeaves(value, key = '') {
 export function stageSecrets({ config, invocationDir }) {
   const dir = path.join(invocationDir, '.secrets');
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const env = { CLAUDE_FORCE_OAUTH: '1' };
-  const values = [];
-  const envFile = expand(config.auth.claudeEnvFile, config.root);
-  const token = existsSync(envFile)
-    ? readFileSync(envFile, 'utf8').match(/^CLAUDE_CODE_OAUTH_TOKEN=(.+)$/m)?.[1].trim()
-    : process.env.CLAUDE_CODE_OAUTH_TOKEN;
-  if (token) { env.CLAUDE_CODE_OAUTH_TOKEN = token; values.push(token); }
-  for (const [key, src, name] of [
-    ['CODEX_AUTH_JSON_PATH', config.auth.codexAuthJson, 'codex-auth.json'],
-    ['OPENCODE_AUTH_JSON_PATH', config.auth.opencodeAuthJson, 'opencode-auth.json'],
-  ]) {
-    const from = expand(src, config.root);
-    if (!existsSync(from)) continue;
-    const to = path.join(dir, name);
-    copyFileSync(from, to);
-    chmodSync(to, 0o600);
-    env[key] = to;
-    values.push(...secretLeaves(JSON.parse(readFileSync(to, 'utf8'))));
+  const cleanup = () => rmSync(dir, { recursive: true, force: true });
+  try {
+    const env = { CLAUDE_FORCE_OAUTH: '1' };
+    const values = [];
+    const envFile = expand(config.auth.claudeEnvFile, config.root);
+    const token = existsSync(envFile)
+      ? readFileSync(envFile, 'utf8').match(/^CLAUDE_CODE_OAUTH_TOKEN=(.+)$/m)?.[1].trim()
+      : process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    if (token) { env.CLAUDE_CODE_OAUTH_TOKEN = token; values.push(token); }
+    for (const [key, src, name] of [
+      ['CODEX_AUTH_JSON_PATH', config.auth.codexAuthJson, 'codex-auth.json'],
+      ['OPENCODE_AUTH_JSON_PATH', config.auth.opencodeAuthJson, 'opencode-auth.json'],
+    ]) {
+      const from = expand(src, config.root);
+      if (!existsSync(from)) continue;
+      const to = path.join(dir, name);
+      copyFileSync(from, to);
+      chmodSync(to, 0o600);
+      env[key] = to;
+      values.push(...secretLeaves(JSON.parse(readFileSync(to, 'utf8'))));
+    }
+    return { env, values, cleanup };
+  } catch (e) {
+    cleanup();
+    throw e;
   }
-  return { env, values, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
 export function scanForSecrets(dir, values) {

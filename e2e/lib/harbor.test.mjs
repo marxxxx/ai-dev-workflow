@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildHarborArgs } from './harbor.mjs';
+import { buildHarborArgs, runHarbor } from './harbor.mjs';
 import { loadConfig } from './config.mjs';
 
 test('harbor args pin agent, model, version and the constrained simulated user', () => {
@@ -20,4 +20,14 @@ test('harbor args pin agent, model, version and the constrained simulated user',
   assert.equal(pair('--job-name'), 'codex-1');
   assert.equal(pair('-o'), '/j');
   assert.match(pair('-p'), /e2e\/tasks\/demo-todo$/);
+});
+
+test('runHarbor resolves 1 when the child emits error (e.g. harbor not installed)', async () => {
+  const { EventEmitter } = await import('node:events');
+  const fakeSpawn = () => {
+    const child = new EventEmitter();
+    queueMicrotask(() => child.emit('error', new Error('spawn harbor ENOENT')));
+    return child;
+  };
+  assert.equal(await runHarbor({ args: ['run'], env: {}, cwd: '/tmp', spawn: fakeSpawn }), 1);
 });

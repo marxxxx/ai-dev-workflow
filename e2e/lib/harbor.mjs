@@ -21,6 +21,7 @@ export function runHarbor({ args, env, cwd, spawn = nodeSpawn, logStream }) {
     const child = spawn('harbor', args, { cwd, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout?.pipe(logStream ?? process.stdout, { end: false });
     child.stderr?.pipe(logStream ?? process.stderr, { end: false });
+    child.on('error', () => resolve(1));
     child.on('close', (code) => resolve(code ?? 1));
   });
 }
