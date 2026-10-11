@@ -16,11 +16,24 @@ test('claude tokens dedupe message ids and include subagents', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('codex tokens use the last token_count event', () => {
+test('codex tokens use the last token_count event of a rollout', () => {
   const dir = makeCodexTrial(tmp());
   try {
     assert.deepEqual(targetTokens('codex', dir),
       { input: 100, output: 50, cacheRead: 900, cacheWrite: 0, total: 1050 });
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('codex tokens sum the last token_count of every rollout file (subagent sessions)', () => {
+  const dir = makeCodexTrial(tmp());
+  try {
+    const total = { input_tokens: 200, cached_input_tokens: 150, output_tokens: 5, total_tokens: 205 };
+    const line = (o) => `${JSON.stringify(o)}\n`;
+    writeFileSync(path.join(dir, 'agent/sessions/2026/10/10/rollout-2.jsonl'),
+      line({ type: 'session_meta', payload: { source: { subagent: {} } } }) +
+      line({ type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: total } } }));
+    assert.deepEqual(targetTokens('codex', dir),
+      { input: 150, output: 55, cacheRead: 1050, cacheWrite: 0, total: 1255 });
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

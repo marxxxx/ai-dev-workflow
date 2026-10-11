@@ -39,12 +39,18 @@ export function targetTokens(harness, trialDir) {
     return finish(t);
   }
   if (harness === 'codex') {
-    const last = codexEvents(trialDir)
-      .filter((e) => e.type === 'event_msg' && e.payload?.type === 'token_count' && e.payload.info)
-      .at(-1)?.payload.info.total_token_usage;
-    if (!last) return null;
-    return finish({ input: last.input_tokens - last.cached_input_tokens, output: last.output_tokens,
-      cacheRead: last.cached_input_tokens, cacheWrite: 0 });
+    // One rollout per session; subagents get their own file, so sum the last cumulative total of each.
+    const t = zero(); let any = false;
+    for (const f of walk(path.join(trialDir, 'agent/sessions')).filter((f) => /rollout-.*\.jsonl$/.test(f))) {
+      const last = readJsonl(f)
+        .filter((e) => e.type === 'event_msg' && e.payload?.type === 'token_count' && e.payload.info)
+        .at(-1)?.payload.info.total_token_usage;
+      if (!last) continue;
+      any = true;
+      t.input += last.input_tokens - last.cached_input_tokens; t.output += last.output_tokens;
+      t.cacheRead += last.cached_input_tokens;
+    }
+    return any ? finish(t) : null;
   }
   if (harness === 'opencode') {
     const msgs = openCodeRows(trialDir, 'message').filter((m) => m.role === 'assistant');
