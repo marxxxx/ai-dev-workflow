@@ -1,4 +1,4 @@
-"""Spike: Harbor's Claude Code agent with subscription OAuth (CLAUDE_CODE_OAUTH_TOKEN) as ACP target.
+"""Harbor's Claude Code agent with subscription OAuth (CLAUDE_CODE_OAUTH_TOKEN) as ACP target.
 
 The simulated user (also Claude Code) starts the target adapter from its Bash tool, and Claude
 Code does not pass its own OAuth token to tool subprocesses. So the target adapter would start

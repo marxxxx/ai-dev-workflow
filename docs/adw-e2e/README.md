@@ -48,6 +48,9 @@ Raw Harbor output: `e2e/jobs/<ts>/` (inspect with `harbor view e2e/jobs/<ts>`).
 
 `summary.md` puts the harnesses side by side.
 
+To re-render a `report.md` from its `run.json` (e.g. after a report template change), run
+`node e2e/run.mjs report <harnessDir>`.
+
 | Signal | Meaning |
 |---|---|
 | reward | All `agent-dev` contract checks, own tests and hidden acceptance (API + UI) passed |
@@ -62,5 +65,5 @@ Variance is large between identical runs. Compare rates and medians, never singl
 
 - `e2e/config.json`: models, repetitions, thresholds, rubric. Any change shows in the fingerprint,
   so treat it as a deliberate comparison.
-- Hidden tests may only check what the briefing (`instruction.md`) actively communicates.
+- Hidden tests may only check what the briefing (`instruction.md`) actively communicates, or what follows unambiguously from the ticket.
 - Never add checks on superpowers internals: path names, worktrees, TDD order, review steps.

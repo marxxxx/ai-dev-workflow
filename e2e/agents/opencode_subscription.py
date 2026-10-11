@@ -1,4 +1,4 @@
-"""Spike: Harbor's OpenCode agent using the host's OpenCode login (OAuth or API key) as ACP target.
+"""Harbor's OpenCode agent using the host's OpenCode login (OAuth or API key) as ACP target.
 
 - Copies only the model provider's entry of OPENCODE_AUTH_JSON_PATH into the target's XDG data dir.
 - Passes the model via an OPENCODE_CONFIG file: the image's launch-agent wrapper overwrites

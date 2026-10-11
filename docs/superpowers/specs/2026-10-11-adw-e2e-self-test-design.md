@@ -327,7 +327,7 @@ using the measured spread.
 - **Bridge health.** The first `acpx prompt` must return a target reply. If the user ends with
   `BRIDGE FAILURE`, the trial is marked `errors.bridge` and the runner moves on, instead of letting
   a dead session run to the timeout. This is what happened in spike run claude-2.
-- **Budgets:** an agent timeout per trial (`config.json`, default 30 min) and Claude
+- **Budgets:** the agent timeout per trial lives in the task's `task.toml` (default 30 min) and Claude
   `max_budget_usd`.
 - **Cleanup.** Harbor tears down the compose project. After every trial the runner also removes any
   leftover `demo-todo__*` compose projects, including after a crash or Ctrl-C.

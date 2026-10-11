@@ -1,4 +1,4 @@
-"""Spike: Harbor's Codex agent with ChatGPT/Business device-login auth (auth.json) in ACP mode.
+"""Harbor's Codex agent with ChatGPT/Business device-login auth (auth.json) in ACP mode.
 
 Harbor refuses auth.json for ACP targets only because the adapter gets a fresh CODEX_HOME
 (/tmp/codex-acp-home) that nobody copies the credentials into. This subclass does that copy.
