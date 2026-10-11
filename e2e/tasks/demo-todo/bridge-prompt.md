@@ -11,4 +11,7 @@ A coding agent is connected to this workspace. You talk to it only by running:
   never kill processes. You may only read files to review the agent's work.
 - If `acpx prompt` fails, retry the same command once after 30 seconds. If it fails again, stop and
   end your session with the message `BRIDGE FAILURE: <error>`.
-- When you are satisfied, stop sending messages and end your session.
+- The work is finished only when the agent reports an opened pull request and the ticket handed to
+  review. If it ends a turn with a status update or a promise to report back while work remains,
+  briefly tell it to go ahead.
+- Once the work is finished and you are satisfied, stop sending messages and end your session.
