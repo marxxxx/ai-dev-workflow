@@ -5,6 +5,12 @@ const { chromium } = createRequire('/opt/agent-tools/package.json')('playwright'
 
 const base = process.argv[2];
 const day = (o) => new Date(Date.now() + o * 864e5).toISOString().slice(0, 10);
+// The briefing names no date format: accept ISO (YYYY-MM-DD) or German dotted (DD.MM.YYYY, D.M.YYYY).
+const dateRe = (iso) => {
+  const [y, m, d] = iso.split('-');
+  const n = (v) => String(Number(v));
+  return new RegExp(`${iso}|\\b(?:${d}|${n(d)})\\.(?:${m}|${n(m)})\\.${y}`);
+};
 const post = (b) => fetch(`${base}/todos`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) });
 await post({ title: 'Rechnung zahlen', dueDate: day(-2) });
 await post({ title: 'Urlaub planen', dueDate: day(10) });
@@ -20,8 +26,8 @@ try {
   await page.goto(base);
   const item = (title) => page.getByRole('listitem').filter({ hasText: title });
   await check('due dates are shown', async () => {
-    await item('Rechnung zahlen').getByText(day(-2)).waitFor({ timeout: 5000 });
-    await item('Urlaub planen').getByText(day(10)).waitFor({ timeout: 5000 });
+    await item('Rechnung zahlen').getByText(dateRe(day(-2))).waitFor({ timeout: 5000 });
+    await item('Urlaub planen').getByText(dateRe(day(10))).waitFor({ timeout: 5000 });
   });
   await check('overdue todo is marked "überfällig", others are not', async () => {
     await item('Rechnung zahlen').getByText(/überfällig/i).waitFor({ timeout: 5000 });
