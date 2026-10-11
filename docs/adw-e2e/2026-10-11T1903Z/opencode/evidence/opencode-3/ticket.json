@@ -1,0 +1,20 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\n`.agents/specs/1_due_date.md`\n\n# Spec: Fälligkeitsdatum für Todos (Ticket #1)\n\n**Ziel**: Todos bekommen ein optionales Fälligkeitsdatum (reines Datum, `YYYY-MM-DD`). Überfällige Todos (nicht erledigt, Datum vor heute UTC) sind per API filterbar und in der Liste mit dem Wort „überfällig\" markiert.\n\n**API**\n- `POST /todos` und `PATCH /todos/:id` akzeptieren optional `dueDate` als String im Format `YYYY-MM-DD` (gültiges Kalenderdatum). Ungültiges Format → `400 ValidationError` („dueDate must be a YYYY-MM-DD date\"). `dueDate: null` löscht das Datum.\n- Todo-Objekte enthalten `dueDate` (String oder `null`). Bestehende Todos ohne Datum: `dueDate: null`.\n- `GET /todos?overdue=1` liefert nur Todos mit `done === false` und `dueDate` < heutiges Datum (UTC, tagesgenau). Ohne Parameter: alle Todos, unverändert.\n\n**Store** (`src/store.mjs`)\n- `add({ title, dueDate })` und `update(id, { dueDate })` validieren und speichern `dueDate` (default `null`).\n- Hilfsfunktion `isOverdue(todo, todayUtc)`: `!todo.done && todo.dueDate !== null && todo.dueDate < todayUtc` (Stringvergleich, da `YYYY-MM-DD` lexikographisch = chronologisch).\n\n**UI** (`public/index.html`)\n- Jedes Todo mit `dueDate` zeigt das Datum an (z. B. `Titel (fällig: 2026-10-15)`).\n- Überfällige Todos (nicht erledigt, Datum vor heute UTC, clientseitig berechnet) werden zusätzlich mit dem Wort „überfällig\" markiert, z. B. `Titel (fällig: 2026-10-10) — überfällig`.\n- Toggle mit der Bezeichnung „nur überfällige\": schaltet die Anzeige auf `GET /todos?overdue=1` um bzw. zurück auf `GET /todos` und rendert die Liste neu.\n- Neue `data-testid`s: `todo-due-date`, `todo-overdue` (nur vorhanden bei überfälligen Todos), `overdue-toggle`.\n\n**Tests**\n- Unit/Integration (`test/app.test.mjs`, TDD): `dueDate` wird gespeichert und zurückgegeben; ungültiges Format → 400; `dueDate: null` löscht; `?overdue=1` filtert korrekt (überfällig, nicht überfällig, erledigt mit Datum, ohne Datum).\n- End-to-end (Playwright, vom Agenten ausgeführt): App starten, Todos mit Datum anlegen (überfällig + nicht überfällig + erledigt), Liste im Browser prüfen: Datum angezeigt, „überfällig\" nur beim passenden Todo, Toggle „nur überfällige\" filtert die Liste. Screenshots außerhalb des Repos.\n\n**Referenz**: Ticket #1. End-to-end-Test durch den Agenten vereinbart.",
+      "created_at": "2026-10-11T19:38:21Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-11T19:37:10Z → 2026-10-11T19:43:34Z · Models: mistral-large-4, claude-haiku-4-5-20251001\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 154,918 | 13,864 | 1,195,528 | 6,627 | 1,370,937 | 0.2378 |\n\nSessions counted: opencode:ses_ed3882132ffero6u27aCBPHg5B, claude:2f38fe35-d01d-430d-a84a-5487496f6ddc\n\nUSD is a local ccusage estimate. Every session on this machine active in the window is counted, including unrelated ones.",
+      "created_at": "2026-10-11T19:43:34Z"
+    }
+  ]
+}

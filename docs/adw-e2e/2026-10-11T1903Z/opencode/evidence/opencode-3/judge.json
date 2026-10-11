@@ -1,0 +1,15 @@
+{
+  "scores": {
+    "requirements": 3,
+    "scope": 5,
+    "tests": 4,
+    "readability": 5
+  },
+  "reasons": {
+    "requirements": "Almost every requirement is in the diff, including optional dueDate, PATCH clearing, 400 for impossible dates, the UTC overdue rule, the due date shown in the list, the „überfällig“ marker and the „nur überfällige“ toggle, but the briefing asked for `GET /todos?overdue=true` and the spec and code only accept `?overdue=1`, so `?overdue=true` returns the unfiltered list.",
+    "scope": "The changes cover only the requested feature plus the workflow's spec and plan files, with no sorting, reminders or styling.",
+    "tests": "Store and API tests cover validation (including impossible dates and non-strings), setting and clearing via PATCH, and all overdue edge cases, but no automated test covers the UI and the Playwright end-to-end check was not committed.",
+    "readability": "The code is small and idiomatic and follows the existing style: the validation helper and `render`/`load` refactor are clean, `data-testid` naming is consistent, and the only nit is a missing trailing newline in the spec file."
+  },
+  "error": null
+}

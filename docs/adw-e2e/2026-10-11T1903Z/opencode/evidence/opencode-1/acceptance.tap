@@ -1,0 +1,59 @@
+TAP version 13
+# Subtest: acceptance: dueDate is stored on create
+ok 1 - acceptance: dueDate is stored on create
+  ---
+  duration_ms: 34.199113
+  type: 'test'
+  ...
+# Subtest: acceptance: invalid dates are rejected
+ok 2 - acceptance: invalid dates are rejected
+  ---
+  duration_ms: 14.325917
+  type: 'test'
+  ...
+# Subtest: acceptance: PATCH sets and clears dueDate
+ok 3 - acceptance: PATCH sets and clears dueDate
+  ---
+  duration_ms: 11.324273
+  type: 'test'
+  ...
+# Subtest: acceptance: overdue filter
+not ok 4 - acceptance: overdue filter
+  ---
+  duration_ms: 12.671837
+  type: 'test'
+  location: '/tmp/acc-9ymfNM/test/zz-acceptance.test.mjs:50:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+        'past',
+    +   'past-done'
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 'past'
+  actual:
+    0: 'past'
+    1: 'past-done'
+  operator: 'deepStrictEqual'
+  stack: |-
+    file:///tmp/acc-9ymfNM/test/zz-acceptance.test.mjs:59:12
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async withServer (file:///tmp/acc-9ymfNM/test/zz-acceptance.test.mjs:11:5)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 3
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 182.568971

@@ -1,0 +1,15 @@
+{
+  "scores": {
+    "requirements": 4,
+    "scope": 5,
+    "tests": 4,
+    "readability": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover every briefing item: optional `dueDate`, create/patch/clear, 400 on bad formats and impossible dates, the overdue filter, the due-date display, the „überfällig“ marker and the „nur überfällige“ toggle; however, the spec says „heute“ is the server's day instead of UTC (the code does use UTC).",
+    "scope": "No sorting, reminders or styling were added, and the only extra files are the spec and plan that the workflow itself produces.",
+    "tests": "The API tests are thorough (valid and invalid dates, including 2026-02-30, PATCH set/clear, and an overdue filter with done, future and undated todos), but the UI test only greps the HTML for testids, so the UI behaviour rests on the agent's Playwright run, which is not committed.",
+    "readability": "The code is clean, small and matches the repo's style, but the overdue rule is written twice (server filter and client `isOverdue`), and the summary first calls the date the server's \"local\" date before saying it is UTC-based."
+  },
+  "error": null
+}

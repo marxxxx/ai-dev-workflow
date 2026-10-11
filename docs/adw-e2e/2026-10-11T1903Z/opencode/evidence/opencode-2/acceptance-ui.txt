@@ -1,0 +1,3 @@
+ok - due dates are shown
+ok - overdue todo is marked "überfällig", others are not
+ok - "nur überfällige" toggle filters the list

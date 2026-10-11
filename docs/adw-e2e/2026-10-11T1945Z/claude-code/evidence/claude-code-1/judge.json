@@ -1,0 +1,15 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 3,
+    "tests": 4,
+    "readability": 5
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover every briefing bullet: an optional `YYYY-MM-DD` dueDate on POST and PATCH (including clearing with null), 400 for bad formats and impossible dates, `?overdue=true` using UTC with no-date todos excluded, the date shown next to the title, the 'überfällig' marker and the 'nur überfällige' toggle.",
+    "scope": "Several things were added that nobody asked for: an `overdue` field in every response, a `?overdue=false` filter, 400 errors for other filter values, red colouring despite 'no styling work', and an atomic-PATCH refactor of existing update behaviour.",
+    "tests": "Store and HTTP tests thoroughly cover validation edge cases (leap days, impossible dates, wrong types), clearing via null, overdue logic at the UTC boundary and the filter, but the UI is only checked by regex on the HTML source, with real behaviour left to the agent's E2E run.",
+    "readability": "The code is small and idiomatic, matches the existing style of the repo, separates concerns cleanly (a pure isOverdue, an injectable clock, a readListFilter helper) and keeps comments short and useful."
+  },
+  "error": null
+}
