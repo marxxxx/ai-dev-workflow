@@ -33,3 +33,35 @@ test('deviation above 1% produces a warning; opencode is skipped', () => {
     assert.deepEqual(ccusageCrossCheck('opencode', dir, { total: 1 }, { run }), { ccusageTotal: null, deviation: null, warning: null });
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('a trial without session logs returns a warning instead of throwing', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
+  let called = false;
+  const run = () => { called = true; return { status: 0, stdout: '{}' }; };
+  try {
+    const r = ccusageCrossCheck('claude-code', dir, { total: 1801 }, { run });
+    assert.equal(r.ccusageTotal, null);
+    assert.equal(r.deviation, null);
+    assert.match(r.warning, /ENOENT|no such file/i);
+    assert.equal(called, false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('malformed ccusage output returns a warning instead of throwing', () => {
+  const dir = makeClaudeTrial(mkdtempSync(path.join(tmpdir(), 'adw-e2e-')));
+  try {
+    const r = ccusageCrossCheck('claude-code', dir, { total: 1801 }, { run: () => ({ status: 0, stdout: 'not json' }) });
+    assert.equal(r.ccusageTotal, null);
+    assert.match(r.warning, /ccusage cross-check failed/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a zero session-log total against a nonzero ccusage total is a full deviation', () => {
+  const dir = makeClaudeTrial(mkdtempSync(path.join(tmpdir(), 'adw-e2e-')));
+  try {
+    const r = ccusageCrossCheck('claude-code', dir, { total: 0 }, { run: () => ({ status: 0, stdout: JSON.stringify({ totals: { totalTokens: 500 } }) }) });
+    assert.equal(r.ccusageTotal, 500);
+    assert.equal(r.deviation, 1);
+    assert.match(r.warning, /deviation/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
