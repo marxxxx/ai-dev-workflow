@@ -21,6 +21,8 @@ export function buildFingerprint({ config, harness, demoRepo,
       inventory: sha256File(inventory), harnessVersion: harnessVersion(config, harness, inventory),
       superpowers: inv.sourceRevisions.superpowers },
     harbor: { version: exec('harbor', ['--version']).trim(), ...ACP_VERSIONS },
+    code: { agents: sha256Dir(path.join(root, 'e2e/agents'), { exclude: /__pycache__/ }),
+      lib: sha256Dir(path.join(root, 'e2e/lib'), { exclude: /(^|\/)fixtures\/|\.test\.mjs$/ }) },
     config: configHash(config),
     task: sha256Dir(path.join(root, 'e2e', config.task), { exclude: /(^|\/)(\.claude|\.agents|\.opencode|\.codex)\/|\.mcp\.json$/ }),
   };

@@ -107,7 +107,7 @@ export function errors(harness, trialDir, result) {
 
 export function e2ePerformed(harness, trialDir, port) {
   return toolCalls(harness, trialDir)
-    .some((c) => /browser_navigate/.test(c.name + c.text) && c.text.includes(`:${port}`)) ? 1 : 0;
+    .some((c) => /browser_navigate/.test(c.name + c.text) && new RegExp(`(localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0):${port}(?!\\d)`).test(c.text)) ? 1 : 0;
 }
 
 export function softSignals(harness, trialDir) {

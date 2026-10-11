@@ -34,6 +34,8 @@ test('fingerprint records versions, hashes and image', () => {
     assert.equal(fp.harbor.version, '0.24.0');
     assert.match(fp.skill.claude, /^[0-9a-f]{64}$/);
     assert.match(fp.image.harnessVersion, /^\d+\.\d+\.\d+/);
+    assert.match(fp.code.agents, /^[0-9a-f]{64}$/);
+    assert.match(fp.code.lib, /^[0-9a-f]{64}$/);
     assert.match(fp.image.superpowers, /^[0-9a-f]{40}$/);
   } finally { rmSync(repo, { recursive: true, force: true }); }
 });

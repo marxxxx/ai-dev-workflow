@@ -41,7 +41,7 @@ if (pr) try {
   const api = run(dir, 'node', ['--test', '--test-reporter=tap', 'test/zz-acceptance.test.mjs']);
   write('acceptance.tap', api.out);
   const apiPass = Number(/^# pass (\d+)/m.exec(api.out)?.[1] ?? 0);
-  const apiTotal = Number(/^# tests (\d+)/m.exec(api.out)?.[1] ?? 0);
+  const apiTotal = Math.max(4, Number(/^# tests (\d+)/m.exec(api.out)?.[1] ?? 0));
   const server = spawn('node', ['src/server.mjs'], { cwd: dir, env: { ...process.env, PORT: '3100' }, stdio: 'ignore' });
   for (let i = 0; i < 50 && !(await listening('http://127.0.0.1:3100/health')); i++) await new Promise((r) => setTimeout(r, 200));
   const ui = run(dir, 'node', ['/tests/acceptance-ui.mjs', 'http://127.0.0.1:3100']);
