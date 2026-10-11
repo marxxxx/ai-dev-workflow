@@ -1,0 +1,50 @@
+import { copyFileSync, chmodSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { homedir } from 'node:os';
+import path from 'node:path';
+import { walk } from './fsutil.mjs';
+
+const expand = (p, root) => (p.startsWith('~/') ? path.join(homedir(), p.slice(2)) : path.resolve(root, p));
+
+const SECRET_KEY = /token|key|secret|password/i;
+
+// Secret-looking leaf strings only: labels such as "type":"api" must not become scan needles.
+function secretLeaves(value, key = '') {
+  if (typeof value === 'string') return SECRET_KEY.test(key) && value.length > 0 ? [value] : [];
+  if (value && typeof value === 'object') {
+    return Object.entries(value).flatMap(([k, v]) => secretLeaves(v, k));
+  }
+  return [];
+}
+
+export function stageSecrets({ config, invocationDir }) {
+  const dir = path.join(invocationDir, '.secrets');
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const env = { CLAUDE_FORCE_OAUTH: '1' };
+  const values = [];
+  const envFile = expand(config.auth.claudeEnvFile, config.root);
+  const token = existsSync(envFile)
+    ? readFileSync(envFile, 'utf8').match(/^CLAUDE_CODE_OAUTH_TOKEN=(.+)$/m)?.[1].trim()
+    : process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  if (token) { env.CLAUDE_CODE_OAUTH_TOKEN = token; values.push(token); }
+  for (const [key, src, name] of [
+    ['CODEX_AUTH_JSON_PATH', config.auth.codexAuthJson, 'codex-auth.json'],
+    ['OPENCODE_AUTH_JSON_PATH', config.auth.opencodeAuthJson, 'opencode-auth.json'],
+  ]) {
+    const from = expand(src, config.root);
+    if (!existsSync(from)) continue;
+    const to = path.join(dir, name);
+    copyFileSync(from, to);
+    chmodSync(to, 0o600);
+    env[key] = to;
+    values.push(...secretLeaves(JSON.parse(readFileSync(to, 'utf8'))));
+  }
+  return { env, values, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+}
+
+export function scanForSecrets(dir, values) {
+  const needles = values.filter((v) => v.length > 0);
+  return walk(dir).filter((f) => {
+    const text = readFileSync(f, 'utf8');
+    return needles.some((n) => text.includes(n));
+  });
+}
