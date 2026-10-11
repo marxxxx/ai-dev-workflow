@@ -293,6 +293,9 @@ Behind a TLS-inspecting corporate proxy, mount the company root certificates wit
 install them at startup, so no per-company image build is needed. See
 [`docker/README.md`](docker/README.md) → *Corporate TLS inspection*.
 
+**End-to-end self-test.** `node e2e/run.mjs run` exercises the whole workflow in Claude Code, Codex
+and OpenCode and compares the result with the previous run — see `docs/adw-e2e/README.md`.
+
 ## License
 
 Apache-2.0
