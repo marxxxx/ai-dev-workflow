@@ -19,3 +19,9 @@ test('summary computes rates, medians and error classes', () => {
   assert.deepEqual(s.judgeMedian, { requirements: 4 });
   assert.deepEqual(s.errorClasses, ['bridge']);
 });
+
+test('a failed judge surfaces as the judge error class', () => {
+  const s = summarizeTrials([{ reward: 1, checks: {}, acceptance: 1, ownTests: 1, judge: null, judgeError: 'exit 1',
+    errors: { harbor: null, bridge: null, tool: 0, timeout: false } }]);
+  assert.deepEqual(s.errorClasses, ['judge']);
+});

@@ -50,3 +50,10 @@ test('findBaseline picks the newest earlier run whose sha is on main', () => {
     assert.equal(findBaseline({ resultsDir: dir, harness: 'opencode', before: 'z', isAncestor: () => true }), null);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('a candidate whose judge always fails is worse, not same', () => {
+  const failed = trial({ judge: null, judgeError: 'judge exited 1' });
+  const r = compareRuns(run([trial()]), run([failed, failed]), TH);
+  assert.equal(r.verdict, 'worse');
+  assert.ok(r.signals.some((s) => s.signal === 'error:judge' && s.kind === 'regression'));
+});

@@ -12,7 +12,7 @@ export const CONTRACT_CHECKS = ['ticket_open', 'ticket_review', 'spec_comment', 
 const DEFAULT_DEPS = { ...metrics, ccusageCrossCheck, runJudge };
 const readJson = (f) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null);
 const readText = (f) => (existsSync(f) ? readFileSync(f, 'utf8') : '');
-const section = (comments, title) => comments.filter((c) => c.body.trimStart().startsWith(`## ${title}`)).map((c) => c.body).join('\n\n');
+const section = (comments = [], title) => comments.filter((c) => c.body.trimStart().startsWith(`## ${title}`)).map((c) => c.body).join('\n\n');
 
 export function buildTrialRecord({ id, harness, trialDir, config, briefing, deps = DEFAULT_DEPS }) {
   const result = readJson(path.join(trialDir, 'result.json')) ?? {};

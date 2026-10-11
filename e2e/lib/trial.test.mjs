@@ -51,3 +51,16 @@ test('a trial without verifier output scores zero instead of throwing', () => {
     assert.equal(t.judge, null);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('a verifier ticket without comments does not throw', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
+  try {
+    mkdirSync(path.join(dir, 'verifier'));
+    writeFileSync(path.join(dir, 'verifier/ticket.json'), JSON.stringify({}));
+    const deps = { targetTokens: () => null, userTokens: () => ({ total: 0 }), durations: () => ({}), e2ePerformed: () => 0,
+      errors: () => ({}), softSignals: () => ({}), ccusageCrossCheck: () => ({}),
+      runJudge: () => ({ scores: {}, reasons: {}, error: null }) };
+    const t = buildTrialRecord({ id: 'x-2', harness: 'codex', trialDir: dir, config: { app: { port: 3000 } }, briefing: '', deps });
+    assert.equal(t.reward, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
