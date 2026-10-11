@@ -1,0 +1,30 @@
+// Cross-checks our session-log token sum against ccusage, run with an isolated HOME. Without the
+// isolation, ccusage would also count every session on the host.
+import { spawnSync } from 'node:child_process';
+import { cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+const LAYOUT = {
+  'claude-code': { from: 'agent/sessions/projects', to: '.claude/projects', env: (h) => ({ CLAUDE_CONFIG_DIR: path.join(h, '.claude') }) },
+  codex: { from: 'agent/sessions', to: '.codex/sessions', env: (h) => ({ CODEX_HOME: path.join(h, '.codex') }) },
+};
+
+export function ccusageCrossCheck(harness, trialDir, tokens, { run = spawnSync } = {}) {
+  const layout = LAYOUT[harness];
+  if (!layout || !tokens) return { ccusageTotal: null, deviation: null, warning: null };
+  const home = mkdtempSync(path.join(tmpdir(), 'adw-ccusage-'));
+  try {
+    cpSync(path.join(trialDir, layout.from), path.join(home, layout.to), { recursive: true });
+    const r = run('npx', ['-y', 'ccusage@20', 'session', '--json', '--offline'],
+      { env: { ...process.env, HOME: home, ...layout.env(home) }, encoding: 'utf8' });
+    if (r.status !== 0) return { ccusageTotal: null, deviation: null, warning: `ccusage failed (exit ${r.status})` };
+    const total = JSON.parse(r.stdout).totals?.totalTokens ?? null;
+    if (total === null) return { ccusageTotal: null, deviation: null, warning: 'ccusage returned no totals' };
+    const deviation = tokens.total ? Math.abs(total - tokens.total) / tokens.total : 0;
+    return { ccusageTotal: total, deviation: Number(deviation.toFixed(4)),
+      warning: deviation > 0.01 ? `token deviation ${(deviation * 100).toFixed(1)}% vs ccusage` : null };
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+}
