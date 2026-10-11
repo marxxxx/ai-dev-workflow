@@ -27,7 +27,8 @@ test('trial record merges verifier rewards, host e2e check, metrics and judge', 
       ccusageCrossCheck: () => ({ ccusageTotal: 10, deviation: 0, warning: null }),
       runJudge: (a) => { judged = a; return { scores: { requirements: 5 }, reasons: { requirements: 'ok' }, error: null }; },
     };
-    const t = buildTrialRecord({ id: 'codex-1', harness: 'codex', trialDir: dir, config: { app: { port: 3000 } }, briefing: 'BRIEF', deps });
+    const t = buildTrialRecord({ id: 'codex-1', harness: 'codex', trialDir: dir, config: { app: { port: 3000 } }, briefing: 'BRIEF', env: { X: '1' }, deps });
+    assert.deepEqual(judged.env, { X: '1' });
     assert.equal(t.checks.e2e_performed, 0);
     assert.equal(t.contract, Number(((CONTRACT_CHECKS.length - 1) / CONTRACT_CHECKS.length).toFixed(4)));
     assert.equal(t.reward, 0, 'missing e2e makes reward 0');

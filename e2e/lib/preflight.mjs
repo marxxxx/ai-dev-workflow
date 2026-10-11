@@ -4,19 +4,19 @@ import { harnessVersion } from './config.mjs';
 const defaultExec = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
 // One-line model probe through the host CLI of each harness; returns an error string or null.
-export function defaultProbe(harness, config) {
-  const h = config.harnesses[harness];
+export function defaultProbe(harness, config, { env = {}, model } = {}) {
+  const h = { ...config.harnesses[harness], ...(model ? { model } : {}) };
   const [cmd, args] = harness === 'claude-code' ? ['claude', ['-p', '--model', h.model, 'Antworte nur mit OK']]
     : harness === 'codex' ? ['codex', ['exec', '--skip-git-repo-check', '-m', h.model.split('/').pop(), 'Antworte nur mit OK']]
       : ['opencode', ['run', '-m', h.model, 'Antworte nur mit OK']];
-  const r = spawnSync(cmd, args, { encoding: 'utf8', timeout: 180000 });
+  const r = spawnSync(cmd, args, { encoding: 'utf8', timeout: 180000, env: { ...process.env, ...env } });
   if (r.error) return r.error.message;
   const out = `${r.stdout}${r.stderr}`;
   return r.status === 0 && /OK/.test(out) && !/not supported|error/i.test(out.split('OK')[1] ?? '') ? null
     : (out.match(/"message":"([^"]+)"/)?.[1] ?? out.trim().split('\n').at(-1) ?? `exit ${r.status}`);
 }
 
-export function runPreflight({ config, harnesses, exec = defaultExec, probe = (h) => defaultProbe(h, config), authPresent,
+export function runPreflight({ config, harnesses, exec = defaultExec, env = {}, probe = (h, model) => defaultProbe(h, config, { env, model }), authPresent,
   platform = process.platform, root = config.root }) {
   if (platform === 'win32') {
     return { ok: false, problems: ['native Windows is not supported: run the E2E self-test inside WSL2 (see docs/adw-e2e/README.md)'], warnings: [] };
@@ -40,7 +40,17 @@ export function runPreflight({ config, harnesses, exec = defaultExec, probe = (h
       if (!out.includes(v)) problems.push(`${h}: image does not carry pinned ${v} (rebuild with node docker/build.mjs)`);
     }
   }
+  // The simulated user and the judge always run on Claude, whichever harnesses are selected.
+  const claudeOk = authPresent('claude-code');
+  if (!claudeOk) problems.push('claude: login missing (needed by simulated user and judge)');
+  else {
+    for (const [label, model] of [['simulated user', config.simulatedUser.model], ['judge', config.judge.model]]) {
+      const err = probe('claude-code', model);
+      if (err) problems.push(`${label} model ${model}: probe failed: ${err}`);
+    }
+  }
   for (const h of harnesses) {
+    if (h === 'claude-code' && !claudeOk) continue;
     if (!authPresent(h)) { problems.push(`${h}: login missing`); continue; }
     const err = probe(h);
     if (err) problems.push(`${h}: model probe failed: ${err}`);

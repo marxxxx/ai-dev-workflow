@@ -5,10 +5,10 @@ import { walk } from './fsutil.mjs';
 
 const expand = (p, root) => (p.startsWith('~/') ? path.join(homedir(), p.slice(2)) : path.resolve(root, p));
 
-// Every non-empty string leaf of an auth file is a secret except labels under a `type` key
+// Every non-empty string leaf of an auth file is a secret except labels under a `type` or `auth_mode` key
 // (e.g. "type":"api" or "type":"oauth"), which would otherwise be scan needles.
 function secretLeaves(value, key = '') {
-  if (typeof value === 'string') return key !== 'type' && value.length > 0 ? [value] : [];
+  if (typeof value === 'string') return key !== 'type' && key !== 'auth_mode' && value.length > 0 ? [value] : [];
   if (value && typeof value === 'object') {
     return Object.entries(value).flatMap(([k, v]) => secretLeaves(v, k));
   }
@@ -23,9 +23,10 @@ export function stageSecrets({ config, invocationDir }) {
     const env = { CLAUDE_FORCE_OAUTH: '1' };
     const values = [];
     const envFile = expand(config.auth.claudeEnvFile, config.root);
-    const token = existsSync(envFile)
-      ? readFileSync(envFile, 'utf8').match(/^CLAUDE_CODE_OAUTH_TOKEN=(.+)$/m)?.[1].trim()
-      : process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    const fromFile = existsSync(envFile)
+      ? readFileSync(envFile, 'utf8').match(/^(?:export\s+)?CLAUDE_CODE_OAUTH_TOKEN=(.+)$/m)?.[1].trim().replace(/^(["'])(.*)\1$/, '$2')
+      : undefined;
+    const token = fromFile || process.env.CLAUDE_CODE_OAUTH_TOKEN;
     if (token) { env.CLAUDE_CODE_OAUTH_TOKEN = token; values.push(token); }
     for (const [key, src, name] of [
       ['CODEX_AUTH_JSON_PATH', config.auth.codexAuthJson, 'codex-auth.json'],

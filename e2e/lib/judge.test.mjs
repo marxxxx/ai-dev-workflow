@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildJudgePrompt, parseJudgeOutput, runJudge } from './judge.mjs';
+import { tmpdir } from 'node:os';
 import { loadConfig } from './config.mjs';
 
 const config = loadConfig();
@@ -29,10 +30,15 @@ test('parse rejects missing criteria and out-of-range scores', () => {
 });
 
 test('runJudge calls claude -p with the judge model and returns null scores on failure', () => {
-  let args;
-  const ok = runJudge({ config, ...input, run: (cmd, a) => { args = [cmd, ...a]; return { status: 0, stdout: JSON.stringify({ result: JSON.stringify(good) }) }; } });
+  let args; let opts;
+  const ok = runJudge({ config, ...input, env: { CLAUDE_CODE_OAUTH_TOKEN: 'tok' }, run: (cmd, a, o) => { args = [cmd, ...a]; opts = o; return { status: 0, stdout: JSON.stringify({ result: JSON.stringify(good) }) }; } });
   assert.equal(args[0], 'claude');
   assert.deepEqual(args.slice(1, 5), ['-p', '--model', 'claude-opus-5-5', '--output-format']);
+  assert.equal(args[args.indexOf('--disallowedTools') + 1], 'Bash,Edit,Write,Read,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit');
+  assert.equal(opts.env.CLAUDE_CODE_OAUTH_TOKEN, 'tok');
+  assert.ok(opts.env.PATH);
+  assert.equal(opts.cwd, tmpdir());
+  assert.equal(opts.timeout, 600000);
   assert.equal(ok.scores.requirements, 5);
   assert.equal(ok.error, null);
   const bad = runJudge({ config, ...input, run: () => ({ status: 1, stdout: '', stderr: 'boom' }) });

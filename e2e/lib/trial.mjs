@@ -14,7 +14,7 @@ const readJson = (f) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : n
 const readText = (f) => (existsSync(f) ? readFileSync(f, 'utf8') : '');
 const section = (comments = [], title) => comments.filter((c) => c.body.trimStart().startsWith(`## ${title}`)).map((c) => c.body).join('\n\n');
 
-export function buildTrialRecord({ id, harness, trialDir, config, briefing, deps = DEFAULT_DEPS }) {
+export function buildTrialRecord({ id, harness, trialDir, config, briefing, env, deps = DEFAULT_DEPS }) {
   const result = readJson(path.join(trialDir, 'result.json')) ?? {};
   const reward = readJson(path.join(trialDir, 'verifier/reward.json'));
   const ticket = readJson(path.join(trialDir, 'verifier/ticket.json'));
@@ -26,7 +26,7 @@ export function buildTrialRecord({ id, harness, trialDir, config, briefing, deps
   const tokens = deps.targetTokens(harness, trialDir);
   let judge = null; let judgeReasons = null; let judgeError = null;
   if (ticket) {
-    const j = deps.runJudge({ config, briefing, spec: section(ticket.comments, 'Approved Spec'),
+    const j = deps.runJudge({ config, briefing, env, spec: section(ticket.comments, 'Approved Spec'),
       diff: readText(path.join(trialDir, 'verifier/pr.diff')), summary: section(ticket.comments, 'Implementation Summary') });
     judge = j.scores; judgeReasons = j.reasons; judgeError = j.error;
   }

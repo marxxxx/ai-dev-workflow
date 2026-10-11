@@ -35,7 +35,7 @@ test('preflight reports version drift, missing auth and failing model probes', (
     probe: (h) => (h === 'codex' ? 'model not supported' : null), authPresent: (h) => h !== 'claude-code' });
   assert.equal(r.ok, false);
   assert.ok(r.problems.some((p) => /harbor 0.25.0/.test(p)));
-  assert.ok(r.problems.some((p) => /claude-code: login missing/.test(p)));
+  assert.ok(r.problems.some((p) => /claude: login missing \(needed by simulated user and judge\)/.test(p)));
   assert.ok(r.problems.some((p) => /codex: model probe failed: model not supported/.test(p)));
 });
 
@@ -46,4 +46,20 @@ test('preflight extracts the version from a prefixed harbor --version output', (
   const drift = (cmd, args) => (cmd === 'harbor' ? 'harbor 0.25.0' : exec(cmd, args));
   const d = runPreflight({ config, harnesses: ['codex'], exec: drift, probe: () => null, authPresent: () => true, platform: 'linux', root: '/home/u/adw' });
   assert.ok(d.problems.some((p) => /harbor 0.25.0 installed/.test(p)));
+});
+
+test('preflight always requires Claude login, even for a codex-only run', () => {
+  const r = runPreflight({ config, harnesses: ['codex'], exec, platform: 'linux', root: '/home/u/adw',
+    probe: () => null, authPresent: (h) => h !== 'claude-code' });
+  assert.equal(r.ok, false);
+  assert.ok(r.problems.includes('claude: login missing (needed by simulated user and judge)'));
+});
+
+test('preflight probes the simulated-user and judge models through Claude', () => {
+  const calls = [];
+  const r = runPreflight({ config, harnesses: ['codex'], exec, platform: 'linux', root: '/home/u/adw',
+    probe: (h, model) => { calls.push([h, model]); return model === config.judge.model ? 'no access' : null; }, authPresent: () => true });
+  assert.ok(calls.some(([h, m]) => h === 'claude-code' && m === config.simulatedUser.model));
+  assert.ok(calls.some(([h, m]) => h === 'claude-code' && m === config.judge.model));
+  assert.ok(r.problems.some((p) => /judge.*no access/.test(p)));
 });

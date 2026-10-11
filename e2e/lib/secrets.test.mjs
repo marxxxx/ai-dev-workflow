@@ -63,3 +63,44 @@ test('redactSecrets replaces every occurrence of each value and ignores empty va
   assert.equal(redactSecrets('nothing here', []), 'nothing here');
   assert.equal(redactSecrets('abc-long abc', ['abc', 'abc-long']), '*** ***');
 });
+
+test('stageSecrets strips export and quotes from the env-file token', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
+  try {
+    const config = { root: dir, auth: { claudeEnvFile: '.env', codexAuthJson: path.join(dir, 'm1.json'), opencodeAuthJson: path.join(dir, 'm2.json') } };
+    for (const line of ['export CLAUDE_CODE_OAUTH_TOKEN="tok-q"', "CLAUDE_CODE_OAUTH_TOKEN='tok-q'", 'export CLAUDE_CODE_OAUTH_TOKEN=tok-q']) {
+      writeFileSync(path.join(dir, '.env'), `${line}\n`);
+      const s = stageSecrets({ config, invocationDir: path.join(dir, 'inv') });
+      assert.equal(s.env.CLAUDE_CODE_OAUTH_TOKEN, 'tok-q', line);
+      s.cleanup();
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('stageSecrets falls back to the process env when the env file lacks the key', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
+  const prev = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  try {
+    writeFileSync(path.join(dir, '.env'), 'OTHER=1\n');
+    process.env.CLAUDE_CODE_OAUTH_TOKEN = 'tok-env';
+    const config = { root: dir, auth: { claudeEnvFile: '.env', codexAuthJson: path.join(dir, 'm1.json'), opencodeAuthJson: path.join(dir, 'm2.json') } };
+    const s = stageSecrets({ config, invocationDir: path.join(dir, 'inv') });
+    assert.equal(s.env.CLAUDE_CODE_OAUTH_TOKEN, 'tok-env');
+    s.cleanup();
+  } finally {
+    if (prev === undefined) delete process.env.CLAUDE_CODE_OAUTH_TOKEN; else process.env.CLAUDE_CODE_OAUTH_TOKEN = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('stageSecrets does not treat auth_mode labels as secrets', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
+  try {
+    writeFileSync(path.join(dir, 'cx.json'), '{"auth_mode":"chatgpt","tokens":{"access_token":"cx-9"}}');
+    const config = { root: dir, auth: { claudeEnvFile: '.env', codexAuthJson: path.join(dir, 'cx.json'), opencodeAuthJson: path.join(dir, 'm.json') } };
+    const s = stageSecrets({ config, invocationDir: path.join(dir, 'inv') });
+    assert.ok(s.values.includes('cx-9'));
+    assert.ok(!s.values.includes('chatgpt'));
+    s.cleanup();
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
