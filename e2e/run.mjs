@@ -8,7 +8,7 @@ import { loadConfig } from './lib/config.mjs';
 import { buildFingerprint } from './lib/fingerprint.mjs';
 import { buildHarborArgs, cleanupCompose, runHarbor } from './lib/harbor.mjs';
 import { runPreflight } from './lib/preflight.mjs';
-import { stageSecrets, scanForSecrets, redactSecrets } from './lib/secrets.mjs';
+import { stageSecrets, scanForSecrets, redactSecrets, scrubSecretsInTree, removeOpenCodeAuthCopies } from './lib/secrets.mjs';
 import { buildTrialRecord } from './lib/trial.mjs';
 import { summarizeTrials } from './lib/summary.mjs';
 import { compareRuns, findBaseline } from './lib/compare.mjs';
@@ -66,9 +66,10 @@ function compareDirs(baseDir, candDir) {
 // Last line of defence: no staged secret value may stay under the jobs dir (e.g. in agent logs).
 function scrubJobs(jobsDir, values) {
   try {
-    const hits = scanForSecrets(jobsDir, values);
-    for (const f of hits) writeFileSync(f, redactSecrets(readFileSync(f, 'utf8'), values));
-    if (hits.length) console.warn(`! redacted secrets in:\n${hits.join('\n')}`);
+    const { redacted, skippedWithSecret } = scrubSecretsInTree(jobsDir, values,
+      { skip: (f) => path.relative(jobsDir, f).split(path.sep)[0] === '.secrets' });
+    if (redacted.length) console.warn(`! redacted secrets in:\n${redacted.join('\n')}`);
+    if (skippedWithSecret.length) console.warn(`! secrets in binary/db files left untouched (remove manually):\n${skippedWithSecret.join('\n')}`);
   } catch (e) { console.warn(`! jobs secret scan failed: ${e.message}`); }
 }
 
@@ -86,9 +87,17 @@ async function run() {
   const repetitions = Number(opts.repetitions ?? config.repetitions);
   const runs = {};
   let staged;
-  const onExit = () => { staged?.cleanup(); safeCleanupCompose(); };
-  process.on('SIGINT', () => { onExit(); process.exit(130); });
-  process.on('SIGTERM', () => { onExit(); process.exit(143); });
+  let cleanedUp = false;
+  const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    try { removeOpenCodeAuthCopies(jobsDir); } catch (e) { console.warn(`! auth copy removal failed: ${e.message}`); }
+    if (staged) scrubJobs(jobsDir, staged.values);
+    staged?.cleanup();
+    safeCleanupCompose();
+  };
+  process.on('SIGINT', () => { cleanup(); process.exit(130); });
+  process.on('SIGTERM', () => { cleanup(); process.exit(143); });
   try {
     staged = stageSecrets({ config, invocationDir: jobsDir });
     secretValues = staged.values;
@@ -102,6 +111,7 @@ async function run() {
         let trial;
         try {
           const log = createWriteStream(path.join(jobsDir, `${id}.log`));
+          log.on('error', (e) => console.warn(`! log stream error: ${e.message}`));
           const code = await runHarbor({ args: buildHarborArgs({ config, harness, jobName: id, jobsDir }), cwd: config.root, logStream: log,
             timeoutMs: 7_200_000,
             env: { ...staged.env, PYTHONPATH: path.join(config.root, 'e2e'), E2E_CLAUDE_SUBAGENT_MODEL: config.harnesses[harness].subagentModel ?? '' } });
@@ -149,8 +159,7 @@ async function run() {
     }
     console.log(`results: ${outRoot}`);
   } finally {
-    if (staged) scrubJobs(jobsDir, staged.values);
-    onExit();
+    cleanup();
   }
 }
 

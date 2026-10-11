@@ -1,4 +1,4 @@
-import { copyFileSync, chmodSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { walk } from './fsutil.mjs';
@@ -59,4 +59,32 @@ export function redactSecrets(text, values) {
   // Longest first so a value that contains another is redacted whole.
   return [...new Set(values.filter((v) => v.length > 0))].sort((a, b) => b.length - a.length)
     .reduce((t, v) => t.replaceAll(v, '***'), text);
+}
+
+const DB_FILE = /\.db(-wal|-shm|-journal)?$/;
+const isBinary = (buf) => buf.subarray(0, 8192).includes(0);
+
+// Redacts secret values in text files under dir. Binary and SQLite files are never rewritten
+// (a utf8 round-trip would corrupt them); those that contain a secret are reported instead.
+export function scrubSecretsInTree(dir, values, { skip } = {}) {
+  const needles = values.filter((v) => v.length > 0).map((v) => Buffer.from(v));
+  const redacted = [];
+  const skippedWithSecret = [];
+  for (const f of walk(dir)) {
+    if (skip?.(f)) continue;
+    const buf = readFileSync(f);
+    if (!needles.some((n) => buf.includes(n))) continue;
+    if (DB_FILE.test(f) || isBinary(buf)) { skippedWithSecret.push(f); continue; }
+    writeFileSync(f, redactSecrets(buf.toString('utf8'), values));
+    redacted.push(f);
+  }
+  return { redacted, skippedWithSecret };
+}
+
+// The OpenCode adapter uploads its auth.json into the bind-mounted logs dir: never keep it.
+export function removeOpenCodeAuthCopies(jobsDir) {
+  const suffix = path.join('agent', 'opencode', 'xdg-data', 'opencode', 'auth.json');
+  const found = walk(jobsDir).filter((f) => f.endsWith(path.sep + suffix));
+  for (const f of found) rmSync(f, { force: true });
+  return found;
 }

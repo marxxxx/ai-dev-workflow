@@ -43,3 +43,30 @@ test('runHarbor kills the child with SIGTERM and resolves 124 when timeoutMs is 
   assert.equal(await runHarbor({ args: ['run'], env: {}, cwd: '/tmp', spawn: fakeSpawn, timeoutMs: 20 }), 124);
   assert.equal(killed, 'SIGTERM');
 });
+
+test('runHarbor on timeout unpipes the log stream, sends SIGTERM, then SIGKILL if the child does not close', async () => {
+  const { EventEmitter } = await import('node:events');
+  const kills = [];
+  const unpiped = [];
+  const stream = (name) => ({ pipe() {}, unpipe(dest) { unpiped.push([name, dest]); } });
+  const child = new EventEmitter();
+  child.stdout = stream('out'); child.stderr = stream('err');
+  child.kill = (sig) => { kills.push(sig); };
+  const logStream = { tag: 'log' };
+  const code = await runHarbor({ args: ['run'], env: {}, cwd: '/tmp', spawn: () => child, logStream, timeoutMs: 10, killGraceMs: 30 });
+  assert.equal(code, 124);
+  assert.deepEqual(unpiped, [['out', logStream], ['err', logStream]]);
+  assert.deepEqual(kills, ['SIGTERM']);
+  await new Promise((r) => setTimeout(r, 60));
+  assert.deepEqual(kills, ['SIGTERM', 'SIGKILL']);
+});
+
+test('runHarbor does not escalate to SIGKILL when the child closes after SIGTERM', async () => {
+  const { EventEmitter } = await import('node:events');
+  const kills = [];
+  const child = new EventEmitter();
+  child.kill = (sig) => { kills.push(sig); queueMicrotask(() => child.emit('close', null)); };
+  assert.equal(await runHarbor({ args: ['run'], env: {}, cwd: '/tmp', spawn: () => child, timeoutMs: 10, killGraceMs: 30 }), 124);
+  await new Promise((r) => setTimeout(r, 60));
+  assert.deepEqual(kills, ['SIGTERM']);
+});

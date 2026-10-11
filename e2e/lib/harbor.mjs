@@ -16,14 +16,22 @@ export function buildHarborArgs({ config, harness, jobName, jobsDir }) {
     '-o', jobsDir, '--job-name', jobName];
 }
 
-export function runHarbor({ args, env, cwd, spawn = nodeSpawn, logStream, timeoutMs }) {
+export function runHarbor({ args, env, cwd, spawn = nodeSpawn, logStream, timeoutMs, killGraceMs = 10_000 }) {
   return new Promise((resolve) => {
     const child = spawn('harbor', args, { cwd, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout?.pipe(logStream ?? process.stdout, { end: false });
     child.stderr?.pipe(logStream ?? process.stderr, { end: false });
-    const timer = timeoutMs ? setTimeout(() => { child.kill('SIGTERM'); resolve(124); }, timeoutMs) : null;
-    child.on('error', () => { clearTimeout(timer); resolve(1); });
-    child.on('close', (code) => { clearTimeout(timer); resolve(code ?? 1); });
+    let killTimer;
+    const timer = timeoutMs ? setTimeout(() => {
+      // Stop feeding the log first: the caller ends it as soon as we resolve.
+      child.stdout?.unpipe?.(logStream ?? process.stdout);
+      child.stderr?.unpipe?.(logStream ?? process.stderr);
+      child.kill('SIGTERM');
+      killTimer = setTimeout(() => child.kill('SIGKILL'), killGraceMs);
+      resolve(124);
+    }, timeoutMs) : null;
+    child.on('error', () => { clearTimeout(timer); clearTimeout(killTimer); resolve(1); });
+    child.on('close', (code) => { clearTimeout(timer); clearTimeout(killTimer); resolve(code ?? 1); });
   });
 }
 

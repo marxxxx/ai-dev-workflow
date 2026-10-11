@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, statSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { stageSecrets, scanForSecrets, redactSecrets } from './secrets.mjs';
+import { stageSecrets, scanForSecrets, redactSecrets, scrubSecretsInTree, removeOpenCodeAuthCopies } from './secrets.mjs';
 
 test('stageSecrets copies auth files 0600, exposes env and cleans up', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
@@ -103,4 +103,36 @@ test('stageSecrets does not treat auth_mode labels as secrets', () => {
     assert.ok(!s.values.includes('chatgpt'));
     s.cleanup();
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('scrubSecretsInTree redacts text files, never rewrites binary/db files, honors skip', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'scrub-'));
+  const secret = 'sk-very-secret-value';
+  writeFileSync(path.join(dir, 'a.log'), `token ${secret} end`);
+  writeFileSync(path.join(dir, 'clean.log'), 'nothing');
+  const bin = Buffer.concat([Buffer.from([0, 1, 2]), Buffer.from(secret), Buffer.from([255, 254])]);
+  writeFileSync(path.join(dir, 'blob.bin'), bin);
+  const db = Buffer.from(`SQLite ${secret}`);
+  for (const n of ['opencode.db', 'opencode.db-wal', 'opencode.db-shm']) writeFileSync(path.join(dir, n), db);
+  mkdirSync(path.join(dir, '.secrets'));
+  writeFileSync(path.join(dir, '.secrets', 'x.json'), secret);
+  const r = scrubSecretsInTree(dir, [secret], { skip: (f) => f.split(path.sep).includes('.secrets') });
+  assert.deepEqual(r.redacted, [path.join(dir, 'a.log')]);
+  assert.deepEqual(r.skippedWithSecret.sort(), ['blob.bin', 'opencode.db', 'opencode.db-shm', 'opencode.db-wal'].map((n) => path.join(dir, n)).sort());
+  assert.equal(readFileSync(path.join(dir, 'a.log'), 'utf8'), 'token *** end');
+  assert.deepEqual(readFileSync(path.join(dir, 'blob.bin')), bin);
+  assert.deepEqual(readFileSync(path.join(dir, 'opencode.db')), db);
+  assert.equal(readFileSync(path.join(dir, '.secrets', 'x.json'), 'utf8'), secret);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('removeOpenCodeAuthCopies deletes only OpenCode auth.json copies under the jobs dir', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'oc-'));
+  const auth = path.join(dir, 'opencode-1/demo-todo__x/agent/opencode/xdg-data/opencode/auth.json');
+  const other = path.join(dir, 'opencode-1/demo-todo__x/agent/auth.json');
+  for (const f of [auth, other]) { mkdirSync(path.dirname(f), { recursive: true }); writeFileSync(f, '{}'); }
+  assert.deepEqual(removeOpenCodeAuthCopies(dir), [auth]);
+  assert.equal(existsSync(auth), false);
+  assert.equal(existsSync(other), true);
+  rmSync(dir, { recursive: true, force: true });
 });
