@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { targetTokens, userTokens, durations, errors } from './metrics.mjs';
+import { targetTokens, userTokens, durations, errors, e2ePerformed, softSignals } from './metrics.mjs';
 import { makeClaudeTrial, makeCodexTrial, makeOpenCodeTrial, RESULT } from './fixtures/make.mjs';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
@@ -56,4 +56,24 @@ test('errors count tool errors and detect bridge failure', () => {
     assert.equal(e.timeout, true);
     assert.equal(e.harbor, 'AgentTimeoutError');
   } finally { rmSync(c, { recursive: true, force: true }); rmSync(o, { recursive: true, force: true }); }
+});
+
+test('e2ePerformed detects Playwright navigation to the app port in every harness', () => {
+  const dirs = [['claude-code', makeClaudeTrial(tmp())], ['codex', makeCodexTrial(tmp())], ['opencode', makeOpenCodeTrial(tmp())]];
+  try {
+    for (const [h, d] of dirs) {
+      assert.equal(e2ePerformed(h, d, 3000), 1, h);
+      assert.equal(e2ePerformed(h, d, 4000), 0, h);
+    }
+  } finally { for (const [, d] of dirs) rmSync(d, { recursive: true, force: true }); }
+});
+
+test('softSignals reports the superpowers bootstrap', () => {
+  const dir = makeClaudeTrial(tmp());
+  try {
+    assert.deepEqual(softSignals('claude-code', dir), { superpowersActive: false });
+    appendFileSync(path.join(dir, 'agent/sessions/projects/-workspace/abc.jsonl'),
+      `${JSON.stringify({ type: 'user', message: { content: [{ type: 'text', text: 'skills/using-superpowers/SKILL.md' }] } })}\n`);
+    assert.deepEqual(softSignals('claude-code', dir), { superpowersActive: true });
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

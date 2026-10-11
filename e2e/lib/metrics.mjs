@@ -104,3 +104,15 @@ export function errors(harness, trialDir, result) {
   const type = result.exception_info?.exception_type ?? null;
   return { harbor: type, bridge, tool: toolErrorCount(harness, trialDir), timeout: /Timeout/i.test(type ?? '') };
 }
+
+export function e2ePerformed(harness, trialDir, port) {
+  return toolCalls(harness, trialDir)
+    .some((c) => /browser_navigate/.test(c.name + c.text) && c.text.includes(`:${port}`)) ? 1 : 0;
+}
+
+export function softSignals(harness, trialDir) {
+  const blob = harness === 'opencode'
+    ? JSON.stringify([openCodeRows(trialDir, 'message'), openCodeRows(trialDir, 'part')])
+    : JSON.stringify(harness === 'codex' ? codexEvents(trialDir) : claudeEvents(trialDir));
+  return { superpowersActive: blob.includes('using-superpowers') };
+}
