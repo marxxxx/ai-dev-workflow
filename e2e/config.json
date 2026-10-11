@@ -3,7 +3,6 @@
   "harbor": { "version": "0.24.0" },
   "task": "tasks/demo-todo",
   "repetitions": 3,
-  "agentTimeoutSec": 1800,
   "app": { "port": 3000 },
   "harnesses": {
     "claude-code": {

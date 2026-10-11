@@ -19,7 +19,7 @@ export function ccusageCrossCheck(harness, trialDir, tokens, { run = spawnSync }
     home = mkdtempSync(path.join(tmpdir(), 'adw-ccusage-'));
     cpSync(path.join(trialDir, layout.from), path.join(home, layout.to), { recursive: true });
     const r = run('npx', ['-y', 'ccusage@20', 'session', '--json', '--offline'],
-      { env: { ...process.env, HOME: home, ...layout.env(home) }, encoding: 'utf8' });
+      { env: { ...process.env, HOME: home, ...layout.env(home) }, encoding: 'utf8', timeout: 300000 });
     if (r.status !== 0) return { ccusageTotal: null, deviation: null, warning: `ccusage failed (exit ${r.status})` };
     const total = JSON.parse(r.stdout).totals?.totalTokens ?? null;
     if (total === null) return { ccusageTotal: null, deviation: null, warning: 'ccusage returned no totals' };

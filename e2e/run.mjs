@@ -44,7 +44,7 @@ function preflight() {
   const has = { 'claude-code': 'CLAUDE_CODE_OAUTH_TOKEN', codex: 'CODEX_AUTH_JSON_PATH', opencode: 'OPENCODE_AUTH_JSON_PATH' };
   let r;
   try {
-    r = runPreflight({ config, harnesses, authPresent: (h) => Boolean(staged.env[has[h]]) });
+    r = runPreflight({ config, harnesses, env: staged.env, authPresent: (h) => Boolean(staged.env[has[h]]) });
   } finally {
     staged.cleanup();
   }
@@ -61,6 +61,15 @@ function compareDirs(baseDir, candDir) {
   writeResult(path.join(candDir, 'compare.md'), renderCompare({ harness: cand.harness, base: baseDir, cand: candDir, result }));
   console.log(`${cand.harness}: ${result.verdict} (${path.join(candDir, 'compare.md')})`);
   return result;
+}
+
+// Last line of defence: no staged secret value may stay under the jobs dir (e.g. in agent logs).
+function scrubJobs(jobsDir, values) {
+  try {
+    const hits = scanForSecrets(jobsDir, values);
+    for (const f of hits) writeFileSync(f, redactSecrets(readFileSync(f, 'utf8'), values));
+    if (hits.length) console.warn(`! redacted secrets in:\n${hits.join('\n')}`);
+  } catch (e) { console.warn(`! jobs secret scan failed: ${e.message}`); }
 }
 
 async function run() {
@@ -94,15 +103,19 @@ async function run() {
         try {
           const log = createWriteStream(path.join(jobsDir, `${id}.log`));
           const code = await runHarbor({ args: buildHarborArgs({ config, harness, jobName: id, jobsDir }), cwd: config.root, logStream: log,
+            timeoutMs: 7_200_000,
             env: { ...staged.env, PYTHONPATH: path.join(config.root, 'e2e'), E2E_CLAUDE_SUBAGENT_MODEL: config.harnesses[harness].subagentModel ?? '' } });
           log.end();
           safeCleanupCompose();
           const jobDir = path.join(jobsDir, id);
           const trialDir = existsSync(jobDir) ? readdirSync(jobDir).map((d) => path.join(jobDir, d)).find((d) => path.basename(d).startsWith('demo-todo__')) : null;
-          trial = trialDir ? buildTrialRecord({ id, harness, trialDir, config, briefing }) : failed(`harbor exit ${code}`);
+          trial = trialDir ? buildTrialRecord({ id, harness, trialDir, config, briefing, env: staged.env }) : failed(`harbor exit ${code}`);
+          if (trialDir && code !== 0 && !trial.errors.harbor) trial.errors.harbor = `harbor exit ${code}`;
+          // The OpenCode adapter uploads its auth.json into the bind-mounted logs dir: never keep it.
+          if (trialDir) rmSync(path.join(trialDir, 'agent/opencode/xdg-data/opencode/auth.json'), { force: true });
           if (trialDir && existsSync(path.join(trialDir, 'verifier'))) {
             const ev = path.join(outRoot, harness, 'evidence', id);
-            for (const f of ['ticket.json', 'pulls.json', 'pr.diff', 'pr-commits.txt', 'acceptance.tap', 'acceptance-ui.txt', 'notes.txt']) {
+            for (const f of ['ticket.json', 'pulls.json', 'pr.diff', 'pr-commits.txt', 'acceptance.tap', 'acceptance-ui.txt', 'notes.txt', 'clone-error.txt']) {
               const src = path.join(trialDir, 'verifier', f);
               if (existsSync(src)) writeResult(path.join(ev, f), readFileSync(src, 'utf8'));
             }
@@ -122,11 +135,11 @@ async function run() {
       writeResult(path.join(dir, 'run.json'), `${JSON.stringify(runRecord, null, 2)}\n`);
       writeResult(path.join(dir, 'report.md'), renderRunReport(runRecord));
       runs[harness] = runRecord;
-      const baseline = findBaseline({ resultsDir: path.join(config.root, config.resultsDir), harness, before: ts,
-        isAncestor: (sha) => { try { git('merge-base', '--is-ancestor', sha, 'main'); return true; } catch { return false; } } });
-      if (baseline) {
-        try { compareDirs(baseline, dir); } catch (e) { console.warn(`! compare against ${baseline} failed: ${e.message}`); }
-      }
+      try {
+        const baseline = findBaseline({ resultsDir: path.join(config.root, config.resultsDir), harness, before: ts,
+          isAncestor: (sha) => { try { git('merge-base', '--is-ancestor', sha, 'main'); return true; } catch { return false; } } });
+        if (baseline) compareDirs(baseline, dir);
+      } catch (e) { console.warn(`! baseline compare failed: ${e.message}`); }
     }
     writeResult(path.join(outRoot, 'summary.md'), renderSummary(runs));
     const leaks = scanForSecrets(outRoot, staged.values);
@@ -136,6 +149,7 @@ async function run() {
     }
     console.log(`results: ${outRoot}`);
   } finally {
+    if (staged) scrubJobs(jobsDir, staged.values);
     onExit();
   }
 }

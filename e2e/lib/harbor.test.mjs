@@ -31,3 +31,15 @@ test('runHarbor resolves 1 when the child emits error (e.g. harbor not installed
   };
   assert.equal(await runHarbor({ args: ['run'], env: {}, cwd: '/tmp', spawn: fakeSpawn }), 1);
 });
+
+test('runHarbor kills the child with SIGTERM and resolves 124 when timeoutMs is exceeded', async () => {
+  const { EventEmitter } = await import('node:events');
+  let killed;
+  const fakeSpawn = () => {
+    const child = new EventEmitter();
+    child.kill = (sig) => { killed = sig; };
+    return child;
+  };
+  assert.equal(await runHarbor({ args: ['run'], env: {}, cwd: '/tmp', spawn: fakeSpawn, timeoutMs: 20 }), 124);
+  assert.equal(killed, 'SIGTERM');
+});

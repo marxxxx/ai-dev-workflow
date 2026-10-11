@@ -16,13 +16,14 @@ export function buildHarborArgs({ config, harness, jobName, jobsDir }) {
     '-o', jobsDir, '--job-name', jobName];
 }
 
-export function runHarbor({ args, env, cwd, spawn = nodeSpawn, logStream }) {
+export function runHarbor({ args, env, cwd, spawn = nodeSpawn, logStream, timeoutMs }) {
   return new Promise((resolve) => {
     const child = spawn('harbor', args, { cwd, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout?.pipe(logStream ?? process.stdout, { end: false });
     child.stderr?.pipe(logStream ?? process.stderr, { end: false });
-    child.on('error', () => resolve(1));
-    child.on('close', (code) => resolve(code ?? 1));
+    const timer = timeoutMs ? setTimeout(() => { child.kill('SIGTERM'); resolve(124); }, timeoutMs) : null;
+    child.on('error', () => { clearTimeout(timer); resolve(1); });
+    child.on('close', (code) => { clearTimeout(timer); resolve(code ?? 1); });
   });
 }
 
