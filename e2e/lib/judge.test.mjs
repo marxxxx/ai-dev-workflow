@@ -44,4 +44,7 @@ test('runJudge calls claude -p with the judge model and returns null scores on f
   const bad = runJudge({ config, ...input, run: () => ({ status: 1, stdout: '', stderr: 'boom' }) });
   assert.deepEqual(bad.scores, { requirements: null, scope: null, tests: null, readability: null });
   assert.match(bad.error, /boom/);
+  const limited = runJudge({ config, ...input, run: () => ({ status: 1, stderr: '',
+    stdout: JSON.stringify({ is_error: true, api_error: 'usage_limit_reached', result: "You've hit your session limit" }) }) });
+  assert.match(limited.error, /usage_limit_reached: You've hit your session limit/);
 });

@@ -46,8 +46,9 @@ export function findBaseline({ resultsDir, harness, before, isAncestor }) {
   for (const ts of readdirSync(resultsDir).filter((d) => d < before).sort().reverse()) {
     const file = path.join(resultsDir, ts, harness, 'run.json');
     if (!existsSync(file)) continue;
-    const sha = JSON.parse(readFileSync(file, 'utf8')).fingerprint?.adw?.sha;
-    if (sha && isAncestor(sha)) return path.dirname(file);
+    const run = JSON.parse(readFileSync(file, 'utf8'));
+    const sha = run.fingerprint?.adw?.sha;
+    if (!run.aborted && sha && isAncestor(sha)) return path.dirname(file);
   }
   return null;
 }

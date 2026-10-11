@@ -4,6 +4,7 @@ export function renderRunReport(run) {
   const s = run.summary;
   const lines = [`# E2E ${run.harness}`, '',
     `Model: \`${run.config.model}\` · adw ${run.fingerprint.adw.version} (${String(run.fingerprint.adw.sha).slice(0, 7)}) · trials: ${run.trials.length}`, '',
+    ...(run.aborted ? [`> **Aborted (${run.aborted})** — incomplete run, never used as a baseline.`, ''] : []),
     '## Summary', '', '| Signal | Value |', '|---|---|',
     `| reward rate | ${s.rewardRate} |`, `| median tokens | ${n(s.median.tokens)} |`, `| median agent time (s) | ${n(s.median.agent)} |`,
     ...Object.entries(s.judgeMedian).map(([k, v]) => `| judge ${k} (median) | ${n(v)} |`),
@@ -22,7 +23,7 @@ export function renderRunReport(run) {
 }
 
 export function renderSummary(runs) {
-  const rows = Object.values(runs).map((r) => `| ${r.harness} | ${r.summary.rewardRate} | ${n(r.summary.median.tokens)} | ${n(r.summary.median.agent)} | ${Object.values(r.summary.judgeMedian).map(n).join(' / ')} | ${r.summary.errorClasses.join(', ') || 'none'} |`);
+  const rows = Object.values(runs).map((r) => `| ${r.harness}${r.aborted ? ` (aborted: ${r.aborted})` : ''} | ${r.summary.rewardRate} | ${n(r.summary.median.tokens)} | ${n(r.summary.median.agent)} | ${Object.values(r.summary.judgeMedian).map(n).join(' / ')} | ${r.summary.errorClasses.join(', ') || 'none'} |`);
   return `# E2E summary\n\n| Harness | Reward rate | Median tokens | Median agent s | Judge medians | Errors |\n|---|---|---|---|---|---|\n${rows.join('\n')}\n`;
 }
 

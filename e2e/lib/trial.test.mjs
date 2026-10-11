@@ -35,6 +35,10 @@ test('trial record merges verifier rewards, host e2e check, metrics and judge', 
     assert.deepEqual([judged.spec, judged.summary, judged.diff, judged.briefing], ['## Approved Spec\nSPEC', '## Implementation Summary\nSUM', 'DIFF', 'BRIEF']);
     assert.equal(t.judge.requirements, 5);
     assert.equal(t.tokens.total, 10);
+    assert.equal(t.errors.quota, false);
+    const limited = buildTrialRecord({ id: 'codex-1', harness: 'codex', trialDir: dir, config: { app: { port: 3000 } }, briefing: 'BRIEF',
+      deps: { ...deps, runJudge: () => ({ scores: { requirements: null }, reasons: {}, error: 'judge exit 1: usage_limit_reached: limit' }) } });
+    assert.equal(limited.errors.quota, true, 'a usage-limited judge voids the trial too');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

@@ -25,3 +25,9 @@ test('a failed judge surfaces as the judge error class', () => {
     errors: { harbor: null, bridge: null, tool: 0, timeout: false } }]);
   assert.deepEqual(s.errorClasses, ['judge']);
 });
+
+test('a quota rejection surfaces as the quota error class', () => {
+  const s = summarizeTrials([{ reward: 0, checks: {}, acceptance: 0, ownTests: 0, judge: null,
+    errors: { harbor: 'NonZeroAgentExitCodeError', bridge: null, tool: 0, timeout: false, quota: true } }]);
+  assert.deepEqual(s.errorClasses, ['harbor', 'quota']);
+});

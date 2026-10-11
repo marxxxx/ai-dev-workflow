@@ -62,13 +62,22 @@ test('userTokens reads agent_result', () => {
 test('errors count tool errors and detect bridge failure', () => {
   const c = makeClaudeTrial(tmp()), o = makeOpenCodeTrial(tmp());
   try {
-    assert.deepEqual(errors('claude-code', c, RESULT), { harbor: null, bridge: null, tool: 1, timeout: false });
+    assert.deepEqual(errors('claude-code', c, RESULT), { harbor: null, bridge: null, tool: 1, timeout: false, quota: false });
     const e = errors('opencode', o, { ...RESULT, exception_info: { exception_type: 'AgentTimeoutError', exception_message: 'x' } });
     assert.equal(e.bridge, 'BRIDGE FAILURE: Token refresh failed: 401');
     assert.equal(e.tool, 1);
     assert.equal(e.timeout, true);
     assert.equal(e.harbor, 'AgentTimeoutError');
   } finally { rmSync(c, { recursive: true, force: true }); rmSync(o, { recursive: true, force: true }); }
+});
+
+test('errors flag a usage-limit rejection of the subscription as quota', () => {
+  const c = makeClaudeTrial(tmp());
+  try {
+    appendFileSync(path.join(c, 'user-agent/claude-code.txt'),
+      `${JSON.stringify({ type: 'result', is_error: true, api_error_status: 429, api_error: 'usage_limit_reached', result: "You've hit your session limit" })}\n`);
+    assert.equal(errors('claude-code', c, RESULT).quota, true);
+  } finally { rmSync(c, { recursive: true, force: true }); }
 });
 
 test('e2ePerformed detects Playwright navigation to the app port in every harness', () => {

@@ -15,6 +15,12 @@ test('run report shows summary, checks, trials and judge reasons', () => {
     assert.ok(md.includes(s), s);
 });
 
+test('an aborted run is flagged as not a valid baseline in report and summary', () => {
+  const aborted = { ...run, aborted: 'quota' };
+  assert.match(renderRunReport(aborted), /Aborted \(quota\)/);
+  assert.match(renderSummary({ codex: aborted }), /\| codex \(aborted: quota\) \|/);
+});
+
 test('summary puts harnesses side by side', () => {
   const md = renderSummary({ codex: run, opencode: { ...run, harness: 'opencode' } });
   assert.match(md, /\| codex \| 1 \|/);

@@ -20,7 +20,7 @@ export function summarizeTrials(trials) {
     median: { tokens: median(trials.map((t) => t.tokens?.total)), agent: median(trials.map((t) => t.durations?.agent)) },
     judgeMedian: Object.fromEntries(criteria.map((c) => [c, median(trials.map((t) => t.judge?.[c]))])),
     errorClasses: [...new Set([
-      ...trials.flatMap((t) => ['harbor', 'bridge', 'timeout'].filter((k) => t.errors?.[k])),
+      ...trials.flatMap((t) => ['harbor', 'bridge', 'timeout', 'quota'].filter((k) => t.errors?.[k])),
       ...(trials.some((t) => t.judgeError) ? ['judge'] : []),
     ])].sort(),
   };

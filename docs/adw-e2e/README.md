@@ -34,6 +34,11 @@ Run the self-test inside **WSL2**. Native Windows is not supported, and the pref
     node e2e/run.mjs run --harness codex --repetitions 1
     node e2e/run.mjs compare docs/adw-e2e/<old>/codex docs/adw-e2e/<new>/codex
 
+The simulated user, the judge and the claude-code harness all draw on the one Claude subscription.
+A full run can exhaust its 5-hour limit: split it per harness across limit windows. A trial that hits
+the limit (`quota` error class) aborts the run; the partial result is marked `aborted` and never
+used as a baseline. Delete it and rerun after the reset.
+
 Raw Harbor output: `e2e/jobs/<ts>/` (inspect with `harbor view e2e/jobs/<ts>`).
 
 `npm test` runs the e2e unit tests (`e2e/lib/*.test.mjs` and the verifier's `checks.test.mjs`).

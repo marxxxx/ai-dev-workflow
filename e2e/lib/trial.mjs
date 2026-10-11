@@ -30,10 +30,12 @@ export function buildTrialRecord({ id, harness, trialDir, config, briefing, env,
       diff: readText(path.join(trialDir, 'verifier/pr.diff')), summary: section(ticket.comments, 'Implementation Summary') });
     judge = j.scores; judgeReasons = j.reasons; judgeError = j.error;
   }
+  const errors = deps.errors(harness, trialDir, result);
+  errors.quota = Boolean(errors.quota || /usage_limit_reached/.test(judgeError ?? ''));
   return {
     id, reward: contract === 1 && ownTests === 1 && acceptance === 1 ? 1 : 0, contract, checks, acceptance, ownTests,
     judge, judgeReasons, judgeError, durations: deps.durations(result), tokens,
     ccusage: deps.ccusageCrossCheck(harness, trialDir, tokens), userTokens: deps.userTokens(result),
-    errors: deps.errors(harness, trialDir, result), soft: deps.softSignals(harness, trialDir),
+    errors, soft: deps.softSignals(harness, trialDir),
   };
 }

@@ -86,6 +86,7 @@ async function run() {
   const briefing = readFileSync(path.join(task, 'instruction.md'), 'utf8');
   const repetitions = Number(opts.repetitions ?? config.repetitions);
   const runs = {};
+  let aborted = null;
   let staged;
   let cleanedUp = false;
   const cleanup = () => {
@@ -102,12 +103,13 @@ async function run() {
     staged = stageSecrets({ config, invocationDir: jobsDir });
     secretValues = staged.values;
     for (const harness of harnesses) {
+      if (aborted) break;
       const fingerprint = buildFingerprint({ config, harness, demoRepo });
       const trials = [];
       for (let i = 1; i <= repetitions; i++) {
         const id = `${harness}-${i}`;
         console.log(`▶ ${id}`);
-        const failed = (harbor) => ({ id, reward: 0, contract: 0, checks: {}, acceptance: 0, ownTests: 0, judge: null, errors: { harbor, bridge: null, tool: 0, timeout: false } });
+        const failed = (harbor) => ({ id, reward: 0, contract: 0, checks: {}, acceptance: 0, ownTests: 0, judge: null, errors: { harbor, bridge: null, tool: 0, timeout: false, quota: false } });
         let trial;
         try {
           const log = createWriteStream(path.join(jobsDir, `${id}.log`));
@@ -137,9 +139,15 @@ async function run() {
         }
         trials.push(trial);
         console.log(`  reward ${trial.reward} · contract ${trial.contract} · acceptance ${trial.acceptance}`);
+        // Every later trial would fail the same way and poison the comparison: stop here.
+        if (trial.errors?.quota) {
+          aborted = 'quota';
+          console.error('✗ Claude subscription usage limit reached: run aborted, results are not a valid baseline');
+          break;
+        }
       }
       const h = config.harnesses[harness];
-      const runRecord = { schema: 1, harness, fingerprint, config: { model: h.model, subagentModel: h.subagentModel ?? null, agentKwargs: h.agentKwargs, repetitions },
+      const runRecord = { schema: 1, harness, ...(aborted ? { aborted } : {}), fingerprint, config: { model: h.model, subagentModel: h.subagentModel ?? null, agentKwargs: h.agentKwargs, repetitions },
         trials, summary: summarizeTrials(trials) };
       const dir = path.join(outRoot, harness);
       writeResult(path.join(dir, 'run.json'), `${JSON.stringify(runRecord, null, 2)}\n`);
@@ -148,7 +156,7 @@ async function run() {
       try {
         const baseline = findBaseline({ resultsDir: path.join(config.root, config.resultsDir), harness, before: ts,
           isAncestor: (sha) => { try { git('merge-base', '--is-ancestor', sha, 'main'); return true; } catch { return false; } } });
-        if (baseline) compareDirs(baseline, dir);
+        if (baseline && !aborted) compareDirs(baseline, dir);
       } catch (e) { console.warn(`! baseline compare failed: ${e.message}`); }
     }
     writeResult(path.join(outRoot, 'summary.md'), renderSummary(runs));
@@ -157,6 +165,7 @@ async function run() {
       console.error(`✗ secrets found in results despite redaction:\n${leaks.join('\n')}`);
       process.exitCode = 1;
     }
+    if (aborted) process.exitCode = 1;
     console.log(`results: ${outRoot}`);
   } finally {
     cleanup();

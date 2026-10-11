@@ -47,6 +47,14 @@ export function parseJudgeOutput(stdout, criteria) {
   return { scores, reasons };
 }
 
+// claude -p --output-format json reports API errors (e.g. usage limits) on stdout, not stderr.
+function cliError(stdout) {
+  try {
+    const j = JSON.parse(stdout);
+    return [j.api_error, j.result].filter(Boolean).join(': ');
+  } catch { return String(stdout ?? ''); }
+}
+
 export function runJudge({ config, briefing, spec, diff, summary, env = {}, run = spawnSync }) {
   const { model, criteria } = config.judge;
   const nulls = Object.fromEntries(Object.keys(criteria).map((k) => [k, null]));
@@ -54,7 +62,7 @@ export function runJudge({ config, briefing, spec, diff, summary, env = {}, run 
     const r = run('claude', ['-p', '--model', model, '--output-format', 'json', '--disallowedTools', JUDGE_DENIED_TOOLS],
       { input: buildJudgePrompt({ criteria, briefing, spec, diff, summary }), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
         cwd: tmpdir(), timeout: 600000, env: { ...process.env, ...env } });
-    if (r.status !== 0) throw new Error(`judge exit ${r.status}: ${String(r.stderr ?? '').slice(0, 300)}`);
+    if (r.status !== 0) throw new Error(`judge exit ${r.status}: ${(String(r.stderr ?? '') || cliError(r.stdout)).slice(0, 300)}`);
     return { ...parseJudgeOutput(r.stdout, criteria), error: null };
   } catch (err) {
     return { scores: nulls, reasons: {}, error: err.message };

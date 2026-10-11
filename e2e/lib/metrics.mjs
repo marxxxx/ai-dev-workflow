@@ -106,9 +106,12 @@ function toolErrorCount(harness, trialDir) {
 
 export function errors(harness, trialDir, result) {
   const log = path.join(trialDir, 'user-agent/claude-code.txt');
-  const bridge = existsSync(log) ? readFileSync(log, 'utf8').match(/BRIDGE FAILURE:[^"\\]*/)?.[0].trim() ?? null : null;
+  const text = existsSync(log) ? readFileSync(log, 'utf8') : '';
+  const bridge = text.match(/BRIDGE FAILURE:[^"\\]*/)?.[0].trim() ?? null;
   const type = result.exception_info?.exception_type ?? null;
-  return { harbor: type, bridge, tool: toolErrorCount(harness, trialDir), timeout: /Timeout/i.test(type ?? '') };
+  // The simulated user shares the Claude subscription: a usage-limit rejection voids the trial.
+  const quota = text.includes('"api_error":"usage_limit_reached"');
+  return { harbor: type, bridge, tool: toolErrorCount(harness, trialDir), timeout: /Timeout/i.test(type ?? ''), quota };
 }
 
 export function e2ePerformed(harness, trialDir, port) {

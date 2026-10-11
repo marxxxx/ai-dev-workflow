@@ -48,6 +48,10 @@ test('findBaseline picks the newest earlier run whose sha is on main', () => {
     const found = findBaseline({ resultsDir: dir, harness: 'codex', before: '2026-10-03T0900Z', isAncestor: (s) => s === 'old' });
     assert.equal(found, path.join(dir, '2026-10-01T0900Z', 'codex'));
     assert.equal(findBaseline({ resultsDir: dir, harness: 'opencode', before: 'z', isAncestor: () => true }), null);
+    mkdirSync(path.join(dir, '2026-10-02T1000Z', 'codex'), { recursive: true });
+    writeFileSync(path.join(dir, '2026-10-02T1000Z', 'codex', 'run.json'), JSON.stringify({ aborted: 'quota', fingerprint: { adw: { sha: 'old' } } }));
+    assert.equal(findBaseline({ resultsDir: dir, harness: 'codex', before: '2026-10-03T0900Z', isAncestor: (s) => s === 'old' }),
+      path.join(dir, '2026-10-01T0900Z', 'codex'), 'an aborted run is never a baseline');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
