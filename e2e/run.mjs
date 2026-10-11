@@ -142,7 +142,7 @@ async function run() {
         // Every later trial would fail the same way and poison the comparison: stop here.
         if (trial.errors?.quota) {
           aborted = 'quota';
-          console.error('✗ Claude subscription usage limit reached: run aborted, results are not a valid baseline');
+          console.error(`✗ subscription usage limit reached in ${id}: run aborted, results are not a valid baseline`);
           break;
         }
       }

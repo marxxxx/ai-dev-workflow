@@ -80,6 +80,16 @@ test('errors flag a usage-limit rejection of the subscription as quota', () => {
   } finally { rmSync(c, { recursive: true, force: true }); }
 });
 
+test('errors flag a Codex usage-limit rejection in the ACP bridge trajectory as quota', () => {
+  const c = makeCodexTrial(tmp());
+  try {
+    assert.equal(errors('codex', c, RESULT).quota, false);
+    writeFileSync(path.join(c, 'agent/bridge-trajectory.json'), JSON.stringify([{ jsonrpc: '2.0', id: 3, error: { code: -32603,
+      message: 'Internal error', data: { message: 'Your workspace is out of credits.', codexErrorInfo: 'usageLimitExceeded' } } }], null, 2));
+    assert.equal(errors('codex', c, RESULT).quota, true);
+  } finally { rmSync(c, { recursive: true, force: true }); }
+});
+
 test('e2ePerformed detects Playwright navigation to the app port in every harness', () => {
   const dirs = [['claude-code', makeClaudeTrial(tmp())], ['codex', makeCodexTrial(tmp())], ['opencode', makeOpenCodeTrial(tmp())]];
   try {

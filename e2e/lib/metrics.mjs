@@ -109,8 +109,11 @@ export function errors(harness, trialDir, result) {
   const text = existsSync(log) ? readFileSync(log, 'utf8') : '';
   const bridge = text.match(/BRIDGE FAILURE:[^"\\]*/)?.[0].trim() ?? null;
   const type = result.exception_info?.exception_type ?? null;
-  // The simulated user shares the Claude subscription: a usage-limit rejection voids the trial.
-  const quota = text.includes('"api_error":"usage_limit_reached"');
+  // A usage-limit rejection of a subscription (the simulated user's Claude one, or the target
+  // agent's via the ACP bridge) voids the trial.
+  const trajectory = path.join(trialDir, 'agent/bridge-trajectory.json');
+  const quota = text.includes('"api_error":"usage_limit_reached"')
+    || (existsSync(trajectory) && /"codexErrorInfo":\s*"usageLimitExceeded"/.test(readFileSync(trajectory, 'utf8')));
   return { harbor: type, bridge, tool: toolErrorCount(harness, trialDir), timeout: /Timeout/i.test(type ?? ''), quota };
 }
 
