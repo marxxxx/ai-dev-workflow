@@ -1,0 +1,1 @@
+{ "name": "demo-todo", "repoSlug": "adw/demo-todo", "backend": "gitea", "gitea": { "login": "e2e" }, "prTarget": "main" }

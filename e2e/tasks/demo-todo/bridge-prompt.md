@@ -1,0 +1,14 @@
+## How to talk to the coding agent
+
+A coding agent is connected to this workspace. You talk to it only by running:
+
+    acpx prompt "<your message>"
+
+- Your first action must send the opening message with that command. Send exactly one message per
+  command; it blocks until the agent finishes its turn (long waits are normal — use a long timeout).
+- Never edit, create or delete files, never change `.acpxrc.json`, never start other agents or
+  sessions (`acpx <name> ...`, `sessions new`), never run `claude`/`codex`/`opencode` yourself, and
+  never kill processes. You may only read files to review the agent's work.
+- If `acpx prompt` fails, retry the same command once after 30 seconds. If it fails again, stop and
+  end your session with the message `BRIDGE FAILURE: <error>`.
+- When you are satisfied, stop sending messages and end your session.

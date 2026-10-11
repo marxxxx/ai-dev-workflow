@@ -1,0 +1,32 @@
+schema_version = "1.4"
+artifacts = []
+
+[task]
+name = "adw/demo-todo"
+version = "1.0.0"
+description = "agent-dev end-to-end: due dates in API and list page via a Gitea ticket"
+authors = []
+keywords = ["adw", "e2e", "spike"]
+
+[metadata]
+
+[verifier]
+timeout_sec = 600.0
+collect = []
+
+[verifier.env]
+
+[agent]
+timeout_sec = 3600.0
+user = "dev"
+
+[environment]
+network_mode = "public"
+build_timeout_sec = 1200.0
+os = "linux"
+workdir = "/workspace"
+mcp_servers = []
+
+[environment.env]
+
+[solution.env]
