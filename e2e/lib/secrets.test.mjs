@@ -136,3 +136,15 @@ test('removeOpenCodeAuthCopies deletes only OpenCode auth.json copies under the 
   assert.equal(existsSync(other), true);
   rmSync(dir, { recursive: true, force: true });
 });
+
+test('stageSecrets does not treat account ids or last_refresh as secrets', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
+  try {
+    writeFileSync(path.join(dir, 'codex.json'), JSON.stringify({ last_refresh: '2026-10-10T10:00:00Z', tokens: { access_token: 'cx-9', account_id: 'acct-123' } }));
+    writeFileSync(path.join(dir, 'oc.json'), JSON.stringify({ openai: { type: 'oauth', access: 'oc-acc', accountId: 'acct-456' } }));
+    const config = { root: dir, auth: { claudeEnvFile: 'none.env', codexAuthJson: path.join(dir, 'codex.json'), opencodeAuthJson: path.join(dir, 'oc.json') } };
+    const s = stageSecrets({ config, invocationDir: path.join(dir, 'inv') });
+    assert.deepEqual(s.values.sort(), ['cx-9', 'oc-acc']);
+    s.cleanup();
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

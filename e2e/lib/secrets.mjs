@@ -6,9 +6,11 @@ import { walk } from './fsutil.mjs';
 const expand = (p, root) => (p.startsWith('~/') ? path.join(homedir(), p.slice(2)) : path.resolve(root, p));
 
 // Every non-empty string leaf of an auth file is a secret except labels under a `type` or `auth_mode` key
-// (e.g. "type":"api" or "type":"oauth"), which would otherwise be scan needles.
+// (e.g. "type":"api" or "type":"oauth"), account identifiers and refresh timestamps; those are not
+// credentials and show up legitimately in session logs, so they would be false scan hits.
+const NON_SECRET_KEYS = new Set(['type', 'auth_mode', 'account_id', 'accountId', 'last_refresh']);
 function secretLeaves(value, key = '') {
-  if (typeof value === 'string') return key !== 'type' && key !== 'auth_mode' && value.length > 0 ? [value] : [];
+  if (typeof value === 'string') return !NON_SECRET_KEYS.has(key) && value.length > 0 ? [value] : [];
   if (value && typeof value === 'object') {
     return Object.entries(value).flatMap(([k, v]) => secretLeaves(v, k));
   }
