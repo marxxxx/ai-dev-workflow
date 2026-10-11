@@ -88,8 +88,8 @@ Ticket 1."* Everything else must be elicited in the interview.
 - Invalid dates (wrong format, impossible dates such as `2026-02-30`) → HTTP 400.
 - `GET /todos?overdue=true` returns only todos that are not done and are due before today (UTC).
   Todos without a date are never overdue.
-- The list page shows each todo's due date, marks overdue todos visibly, and offers a "nur
-  überfällige" toggle that uses the filter.
+- The list page shows each todo's due date, marks overdue todos with the word "überfällig", and
+  offers a toggle labelled "nur überfällige" that uses the filter.
 - Nothing else: no sorting, reminders or styling work.
 
 **Fixed process answers:**
@@ -145,14 +145,10 @@ environment with `agent-src/generate.mjs`, so every run tests the current genera
   - adds `.acpxrc.json` to `.git/info/exclude`;
   - signals readiness through the healthcheck.
 - **`gitea` service:** a self-seeding Gitea (admin user and token written to a shared volume).
-- **Image changes,** made through `docker/tools/inventory.json`, never by hand-editing derived files:
-  - pin `tea` (#53), `acpx`, `@zed-industries/claude-code-acp` and
-    `@agentclientprotocol/codex-acp` at the versions Harbor 0.24.0 pins (`acpx` 0.11.2, `claude-code-acp` 0.16.2, `codex-acp` 1.12.0);
-  - make Harbor's runtime `npm install -g` of these a no-op for the agent user (preinstalled at the
-    pinned version);
-  - force Codex under ACP to use the pinned `/opt/superpowers` plugin rather than OpenAI's curated
-    remote marketplace. The exact mechanism is decided in the plan; the acceptance criterion is that
-    the session shows the plugin loaded from the pinned path.
+- **Image changes:** E2E-only tooling (`tea` 0.15.1, `acpx` 0.11.2, `@zed-industries/claude-code-acp`
+  0.16.2, `@agentclientprotocol/codex-acp` 1.12.0, agent-user write access to the global npm prefix,
+  so Harbor's runtime `npm install -g` is a no-op) lives in the task Dockerfile; the product image
+  is unchanged (`tea` for the product image: #53). Harness versions still come from `inventory.json`.
 
 ### Custom agents (Python, from the spike)
 
@@ -197,11 +193,11 @@ The verifier writes `reward.json` (one metric per check) and the evidence files:
   - API tests (`node:test`);
   - a headless Playwright UI test (`acceptance-ui.mjs`, using the image's Playwright). It creates a
     past-due and a future todo, opens `/`, and asserts that the dates are visible, that the past-due
-    todo is marked overdue, and that the toggle filters.
+    todo shows the word "überfällig", and that the toggle labelled "nur überfällige" filters.
 
   Hidden tests may only cover requirements that the briefing actively communicates, or that follow
-  unambiguously from the ticket. UI assertions use only the `data-testid` locators documented in
-  `AGENTS.md` and the visible text, never markup details.
+  unambiguously from the ticket. Hidden UI tests use only visible text and roles, never
+  markup details.
 
 Derived values: `contract` = the share of contract checks passed. `reward` = 1 only if
 `contract == 1`, `own_tests_pass == 1` and `acceptance == 1`.
@@ -223,8 +219,8 @@ Derived values: `contract` = the share of contract checks passed. `reward` = 1 o
   - `BRIDGE FAILURE` from the user;
   - target tool errors (non-zero exits, tool-result errors), counted;
   - the agent hitting the timeout or budget.
-- **Soft signals** (not scored): superpowers bootstrap present in the target session; the number of
-  user turns before the spec comment.
+- **Soft signal** (not scored): superpowers bootstrap present in the target session
+  (`superpowersActive`).
 
 ### Judge (`e2e/lib/judge.mjs`, on the host)
 
@@ -245,14 +241,15 @@ Implementation Summary. Its output is JSON, validated against a schema in `confi
 | `readability` | Clear, idiomatic, consistent with the repo's conventions? |
 
 Each criterion gets a short justification, stored in `evidence/judge.json`. If the judge fails, the
-trial is kept and the scores are marked `null` with the error.
+trial is kept and the scores are marked `null` with the error. A failed judge call counts as the
+error class `judge`, so compare reports it as a regression instead of silently skipping null scores.
 
 ### Fingerprint (`e2e/lib/fingerprint.mjs`)
 
 Every trial records:
 - adw `package.json` version and git SHA, plus a dirty flag;
 - a hash of the rendered `SKILL.md` per platform and of `.agents/includes/*.md`;
-- the image ID and digest, the `inventory.json` hash, and the harness versions and superpowers
+- the image ID (no repo digest, the image is built locally), the `inventory.json` hash, and the harness versions and superpowers
   revision read from it;
 - Harbor version and ACP package versions;
 - the config hash (models, efforts, repetitions, rubric);
@@ -276,7 +273,7 @@ Every trial records:
       "tokens": { "input": 130, "output": 25199, "cacheRead": 4040283, "cacheWrite": 68608, "total": 4134220 },
       "userTokens": { "total": 210000 },
       "errors": { "harbor": null, "bridge": null, "tool": 2, "timeout": false },
-      "soft": { "superpowersActive": true, "userTurnsBeforeSpec": 6 } }
+      "soft": { "superpowersActive": true } }
   ],
   "summary": { "rewardRate": 0.67, "checkRates": { "spec_comment": 0.67 }, "median": { "tokens": 4134220, "agent": 325 },
                "judgeMedian": { "requirements": 5 } }
@@ -336,7 +333,8 @@ using the measured spread.
   leftover `demo-todo__*` compose projects, including after a crash or Ctrl-C.
 - **Secrets.** Auth copies live in a temp dir under `e2e/jobs/.secrets/` (git-ignored, 0600) and are
   deleted after the invocation. `evidence/` must never contain tokens: the verifier redacts the
-  Gitea token, and the runner scans evidence for known secret values before writing it.
+  Gitea token in all evidence it writes, and the runner redacts known secret values in every file it
+  writes under `docs/adw-e2e/` before writing it (a report-only backstop scan runs afterwards).
 - **Login drift.** Codex refresh tokens rotate. Trials run in sequence, from one copy per invocation.
   The host's own `auth.json` is never written.
 
@@ -357,8 +355,9 @@ with secrets redacted.
 The Python agent classes stay thin and are exercised by the live verification below. No live E2E
 runs in CI.
 
-`npm test` stays as it is. The e2e tests run via `node --test e2e/lib/*.test.mjs`, and CI may add
-that line because it needs no credentials.
+`npm test` includes `e2e/lib/*.test.mjs` and the verifier unit tests. It lists the verifier's test
+explicitly (`e2e/tasks/demo-todo/tests/checks.test.mjs`), because the hidden acceptance tests in that
+directory run only inside the verifier. CI needs no credentials for them.
 
 ## Verification (acceptance of this sub-project)
 
@@ -369,7 +368,7 @@ that line because it needs no credentials.
    `worse` and the skill-hash change in the fingerprint diff. The degradation is removing the
    instruction to post the approved spec.
 4. Evidence contains no secret: grep for the token values.
-5. `node --test e2e/lib/*.test.mjs` and `npm test` pass. `npm pack --dry-run` shows no `e2e/` files.
+5. `npm test` (including `e2e/lib` and the verifier unit tests) passes. `npm pack --dry-run` shows no `e2e/` files.
 
 ## Risks
 
@@ -385,8 +384,11 @@ that line because it needs no credentials.
 
 ## Open questions for the plan
 
-- How exactly to force the pinned superpowers for Codex under ACP (config override vs. a
-  marketplace entry in the ACP `CODEX_HOME`).
+- Forcing the pinned superpowers for Codex under ACP. Mechanism used, in `CodexSubscription.acp_install`:
+  register the image's managed marketplace `~/.cache/ai-dev-workflow/codex-marketplace` in the ACP
+  `CODEX_HOME` via `codex plugin marketplace add` and `codex plugin add superpowers@<name>`, and
+  append `[plugins."superpowers@openai-curated-remote"] enabled = false` to its `config.toml`.
+  Outcome: pending live verification (Task 14).
 - Whether Codex exposes a separate subagent reasoning effort.
 - Why OpenCode does not activate the superpowers bootstrap under ACP (#55). This affects only the
   soft signal, not scoring.
