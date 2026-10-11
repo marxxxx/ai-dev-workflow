@@ -7,7 +7,7 @@ RUN curl -fsSL -o /usr/local/bin/tea "https://dl.gitea.com/tea/${TEA_VERSION}/te
     # versions Harbor 0.24.0 pins and let the agent user own the global prefix.
     && npm install -g acpx@0.11.2 @zed-industries/claude-code-acp@0.16.2 @agentclientprotocol/codex-acp@1.12.0 \
     && chown -R 1000:1000 /usr/local/lib/node_modules /usr/local/bin \
-    && mkdir -p /opt/e2e
+    && mkdir -p /workspace /opt/e2e && chown 1000:1000 /workspace
 COPY --chown=1000:1000 seed/repo /workspace
 COPY seed/issue.md /opt/e2e/issue.md
 COPY seed/seed.sh /usr/local/lib/agent-runtime/startup.d/50-e2e-seed
