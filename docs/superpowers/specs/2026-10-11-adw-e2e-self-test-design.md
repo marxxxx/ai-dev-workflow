@@ -67,6 +67,44 @@ it.
 Model availability depends on how fresh the login is: `gpt-6.1-sol` was refused until a re-login.
 The preflight therefore probes every configured model before any trial starts.
 
+## Test task
+
+**Start state.**
+- A throwaway Gitea holds `adw/demo-todo` on `main`. `demo-todo` is a zero-dependency Node 24 todo
+  app:
+  - a JSON API for creating, listing, updating and deleting todos, with 3 existing tests;
+  - a minimal vanilla-HTML list page served at `/`, using `data-testid` locators.
+- Ticket #1, "Fälligkeitsdatum für Todos", has deliberately vague content: *"Todos sollen ein
+  Fälligkeitsdatum bekommen, damit man sieht, was überfällig ist – in der API und in der Liste."*
+- The demo repo's `AGENTS.md` has an "End-to-end testing" section: start command, readiness URL,
+  base URL, the `data-testid` locator attribute, and the stop command.
+
+**Opening message from the simulated user ("Petra", PO):** *"Nutze den agent-dev Skill für
+Ticket 1."* Everything else must be elicited in the interview.
+
+**Hidden requirements in the briefing.** Petra reveals them only when asked, one topic at a time:
+- Optional `dueDate` (`YYYY-MM-DD`, no time), settable on `POST`, changeable via `PATCH`, and
+  cleared with `null`.
+- Invalid dates (wrong format, impossible dates such as `2026-02-30`) → HTTP 400.
+- `GET /todos?overdue=true` returns only todos that are not done and are due before today (UTC).
+  Todos without a date are never overdue.
+- The list page shows each todo's due date, marks overdue todos visibly, and offers a "nur
+  überfällige" toggle that uses the filter.
+- Nothing else: no sorting, reminders or styling work.
+
+**Fixed process answers:**
+- The agent tests end to end itself, so the visible change must trigger `agent-dev`'s Playwright
+  path.
+- No new ticket.
+- Design and plan are approved when they match the requirements.
+
+**Why this task:**
+- It is small enough for about 7–13 min per trial.
+- It is vague enough that the interview matters.
+- It has testable edge cases (invalid dates, clearing with `null`, overdue logic).
+- It covers the whole `agent-dev` flow, including the browser-based end-to-end step that the
+  API-only spike task never exercised.
+
 ## Layout
 
 ```
@@ -84,7 +122,7 @@ e2e/
     persona.md
     bridge-prompt.md      # strict channel rules for the simulated user
     environment/          # Dockerfile (FROM our image), docker-compose.yaml (gitea), seed hook, demo repo
-    tests/                # test.sh, verify.mjs, acceptance.test.mjs
+    tests/                # test.sh, verify.mjs, acceptance.test.mjs (API), acceptance-ui.mjs (Playwright)
   jobs/                   # git-ignored Harbor output
 docs/adw-e2e/<timestamp>/<harness>/
   run.json  report.md  evidence/
@@ -149,11 +187,21 @@ The verifier writes `reward.json` (one metric per check) and the evidence files:
 | `pr_draft` | exactly one PR, `WIP:` title (Gitea draft), base `main`, not merged |
 | `branch_naming` | `^1_[a-z0-9_]+$` |
 | `pr_title_naming` | `^WIP:\s*1: \S` |
+| `e2e_performed` | the target session contains Playwright MCP tool calls against the app's base URL. Computed on the host from the session logs by the metrics module (tool names differ per harness), then merged into the contract. |
+| `app_stopped` | nothing listens on the app port after the run (`agent-dev`: shut the app down) |
+| `no_screenshots_in_repo` | the PR diff adds no image files (`agent-dev`: screenshots outside the repo) |
 
 **Outcome checks:**
 - `own_tests_pass`: `npm test` on the PR head.
-- `acceptance`: the hidden tests' pass ratio on the PR head. Hidden tests may only cover requirements
-  that the briefing actively communicates, or that follow unambiguously from the ticket.
+- `acceptance`: the hidden tests' pass ratio on the PR head. It covers both:
+  - API tests (`node:test`);
+  - a headless Playwright UI test (`acceptance-ui.mjs`, using the image's Playwright). It creates a
+    past-due and a future todo, opens `/`, and asserts that the dates are visible, that the past-due
+    todo is marked overdue, and that the toggle filters.
+
+  Hidden tests may only cover requirements that the briefing actively communicates, or that follow
+  unambiguously from the ticket. UI assertions use only the `data-testid` locators documented in
+  `AGENTS.md` and the visible text, never markup details.
 
 Derived values: `contract` = the share of contract checks passed. `reward` = 1 only if
 `contract == 1`, `own_tests_pass == 1` and `acceptance == 1`.
@@ -299,7 +347,7 @@ with secrets redacted.
 
 | Unit | Tests |
 |---|---|
-| `metrics` | token extraction per harness from fixture sessions; ccusage cross-check deviation; duration parsing; error counting |
+| `metrics` | token extraction per harness from fixture sessions; ccusage cross-check deviation; duration parsing; error counting; `e2e_performed` detection (Playwright MCP calls) per harness |
 | `fingerprint` | stable hashes; dirty flag; missing image is reported |
 | `compare` | rates and medians; each regression rule; `inconclusive`; fingerprint diff |
 | `judge` | prompt assembly; schema validation; failure gives `null` scores |
@@ -332,7 +380,7 @@ that line because it needs no credentials.
   `compare` must catch.
 - **Simulated-user role breaks.** Mitigated by tool restrictions and the bridge prompt. Residual
   risk is visible as `BRIDGE FAILURE` or as a contract failure.
-- **Quota.** One full invocation is 9 trials of about 5–10 min each, plus the judge. It is triggered
+- **Quota.** One full invocation is 9 trials of about 7–13 min each, plus the judge. It is triggered
   deliberately.
 
 ## Open questions for the plan
