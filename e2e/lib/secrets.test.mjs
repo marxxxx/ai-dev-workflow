@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, statSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { stageSecrets, scanForSecrets } from './secrets.mjs';
+import { stageSecrets, scanForSecrets, redactSecrets } from './secrets.mjs';
 
 test('stageSecrets copies auth files 0600, exposes env and cleans up', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
@@ -56,4 +56,10 @@ test('stageSecrets removes its staging dir when an auth file is not valid JSON',
     assert.throws(() => stageSecrets({ config, invocationDir: inv }), SyntaxError);
     assert.equal(existsSync(path.join(inv, '.secrets')), false);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('redactSecrets replaces every occurrence of each value and ignores empty values', () => {
+  assert.equal(redactSecrets('a SECRET b SECRET c tok-2', ['SECRET', '', 'tok-2']), 'a *** b *** c ***');
+  assert.equal(redactSecrets('nothing here', []), 'nothing here');
+  assert.equal(redactSecrets('abc-long abc', ['abc', 'abc-long']), '*** ***');
 });

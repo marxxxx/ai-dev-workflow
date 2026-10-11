@@ -53,3 +53,9 @@ export function scanForSecrets(dir, values) {
     return needles.some((n) => text.includes(n));
   });
 }
+
+export function redactSecrets(text, values) {
+  // Longest first so a value that contains another is redacted whole.
+  return [...new Set(values.filter((v) => v.length > 0))].sort((a, b) => b.length - a.length)
+    .reduce((t, v) => t.replaceAll(v, '***'), text);
+}
