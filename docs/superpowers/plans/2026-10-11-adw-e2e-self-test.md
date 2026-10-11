@@ -1911,7 +1911,10 @@ git commit -m "feat(e2e): add Harbor subscription agents with pinned superpowers
   - `buildHarborArgs({config, harness, jobName, jobsDir}) => string[]`.
   - `runHarbor({args, env, cwd, spawn?}) => Promise<number>`: the exit code.
   - `cleanupCompose({exec?})`: removes `demo-todo__*` compose projects.
-  - `runPreflight({config, harnesses, exec?, probe?}) => {ok: boolean, problems: string[]}`.
+  - `runPreflight({config, harnesses, exec?, probe?, authPresent, platform?, root?}) => {ok: boolean, problems: string[], warnings: string[]}`.
+    - `platform` defaults to `process.platform` and `root` to `config.root`.
+    - On native Windows (`win32`) it returns only the problem "run in WSL2" and skips every other check.
+    - A repo under `/mnt/<drive>/` adds a warning (file modes and CRLF line endings break the task).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2002,13 +2005,23 @@ const exec = (cmd, args) => {
 };
 
 test('preflight passes when everything matches', () => {
-  const r = runPreflight({ config, harnesses: ['codex'], exec, probe: () => null, authPresent: () => true });
-  assert.deepEqual(r, { ok: true, problems: [] });
+  const r = runPreflight({ config, harnesses: ['codex'], exec, probe: () => null, authPresent: () => true, platform: 'linux', root: '/home/u/src/adw' });
+  assert.deepEqual(r, { ok: true, problems: [], warnings: [] });
+});
+
+test('preflight refuses native Windows and warns for a repo on a Windows drive under WSL', () => {
+  const win = runPreflight({ config, harnesses: ['codex'], exec: () => { throw new Error('must not run'); },
+    probe: () => null, authPresent: () => true, platform: 'win32', root: 'C:\\src\\adw' });
+  assert.equal(win.ok, false);
+  assert.deepEqual(win.problems, ['native Windows is not supported: run the E2E self-test inside WSL2 (see docs/adw-e2e/README.md)']);
+  const mnt = runPreflight({ config, harnesses: ['codex'], exec, probe: () => null, authPresent: () => true, platform: 'linux', root: '/mnt/c/src/adw' });
+  assert.equal(mnt.ok, true);
+  assert.match(mnt.warnings[0], /\/mnt\/c/);
 });
 
 test('preflight reports version drift, missing auth and failing model probes', () => {
   const bad = (cmd, args) => (cmd === 'harbor' ? '0.25.0' : exec(cmd, args));
-  const r = runPreflight({ config, harnesses: ['codex', 'claude-code'], exec: bad,
+  const r = runPreflight({ config, harnesses: ['codex', 'claude-code'], exec: bad, platform: 'linux', root: '/home/u/adw',
     probe: (h) => (h === 'codex' ? 'model not supported' : null), authPresent: (h) => h !== 'claude-code' });
   assert.equal(r.ok, false);
   assert.ok(r.problems.some((p) => /harbor 0.25.0/.test(p)));
@@ -2122,8 +2135,14 @@ export function defaultProbe(harness, config) {
     : (out.match(/"message":"([^"]+)"/)?.[1] ?? out.trim().split('\n').at(-1) ?? `exit ${r.status}`);
 }
 
-export function runPreflight({ config, harnesses, exec = defaultExec, probe = (h) => defaultProbe(h, config), authPresent }) {
-  const problems = [];
+export function runPreflight({ config, harnesses, exec = defaultExec, probe = (h) => defaultProbe(h, config), authPresent,
+  platform = process.platform, root = config.root }) {
+  if (platform === 'win32') {
+    return { ok: false, problems: ['native Windows is not supported: run the E2E self-test inside WSL2 (see docs/adw-e2e/README.md)'], warnings: [] };
+  }
+  const problems = []; const warnings = [];
+  const drive = root.match(/^\/mnt\/[a-z](\/|$)/i)?.[0];
+  if (drive) warnings.push(`repo lives on a Windows drive (${drive.replace(/\/$/, '')}): clone it inside the WSL filesystem — file modes and CRLF line endings break the task`);
   const tryExec = (cmd, args) => { try { return exec(cmd, args).trim(); } catch (e) { problems.push(`${cmd} ${args[0]}: ${e.message.split('\n')[0]}`); return null; } };
   const harbor = tryExec('harbor', ['--version']);
   if (harbor && harbor !== config.harbor.version) problems.push(`harbor ${harbor} installed, ${config.harbor.version} required (uv tool install harbor==${config.harbor.version})`);
@@ -2141,14 +2160,14 @@ export function runPreflight({ config, harnesses, exec = defaultExec, probe = (h
     const err = probe(h);
     if (err) problems.push(`${h}: model probe failed: ${err}`);
   }
-  return { ok: problems.length === 0, problems };
+  return { ok: problems.length === 0, problems, warnings };
 }
 ```
 
 - [ ] **Step 6: Run the tests and verify that they pass**
 
 Run: `node --test e2e/lib/secrets.test.mjs e2e/lib/harbor.test.mjs e2e/lib/preflight.test.mjs`
-Expected: PASS (5 tests).
+Expected: PASS (6 tests).
 
 - [ ] **Step 7: Commit**
 
@@ -2293,6 +2312,7 @@ function preflight() {
   const has = { 'claude-code': 'CLAUDE_CODE_OAUTH_TOKEN', codex: 'CODEX_AUTH_JSON_PATH', opencode: 'OPENCODE_AUTH_JSON_PATH' };
   const r = runPreflight({ config, harnesses, authPresent: (h) => Boolean(staged.env[has[h]]) });
   staged.cleanup();
+  for (const w of r.warnings ?? []) console.warn(`! ${w}`);
   for (const p of r.problems) console.error(`✗ ${p}`);
   console.log(r.ok ? 'preflight ok' : 'preflight failed');
   return r.ok;
@@ -2433,6 +2453,20 @@ compares result sets. Design: `docs/superpowers/specs/2026-10-11-adw-e2e-self-te
   - Claude: `claude setup-token`, then put `CLAUDE_CODE_OAUTH_TOKEN=<token>` into `e2e/.env`
   - Codex: `codex login --device-auth` (refresh it if a model is refused)
   - OpenCode: `opencode auth login` for the configured provider
+
+### Windows
+
+Run the self-test inside **WSL2**. Native Windows is not supported, and the preflight refuses it.
+- Install Ubuntu (`wsl --install -d Ubuntu`) and Docker Desktop with WSL integration for that
+  distribution. Give Docker 8 GB of RAM: Gitea, the agent container and headless Chromium run per
+  trial.
+- Clone the repo **inside** the WSL filesystem (`~/src/...`), not under `/mnt/c/...`. File modes,
+  CRLF line endings and I/O speed break the task there, and the preflight warns about it.
+- Install Node 24, uv, Harbor and the `claude`/`codex`/`opencode` CLIs inside WSL, then log in
+  again there. Windows logins are not visible to WSL. Device-login links open in the Windows
+  browser.
+- Build the image inside WSL (`node docker/build.mjs`). Results can be reached from Windows under
+  `\\wsl$\Ubuntu\home\<user>\src\ai-dev-workflow`.
 
 ## Run
 
