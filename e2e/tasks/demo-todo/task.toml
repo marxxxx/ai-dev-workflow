@@ -6,7 +6,7 @@ name = "adw/demo-todo"
 version = "1.0.0"
 description = "agent-dev end-to-end: due dates in API and list page via a Gitea ticket"
 authors = []
-keywords = ["adw", "e2e", "spike"]
+keywords = ["adw", "e2e"]
 
 [metadata]
 
