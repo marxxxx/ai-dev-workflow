@@ -388,7 +388,8 @@ directory run only inside the verifier. CI needs no credentials for them.
   register the image's managed marketplace `~/.cache/ai-dev-workflow/codex-marketplace` in the ACP
   `CODEX_HOME` via `codex plugin marketplace add` and `codex plugin add superpowers@<name>`, and
   append `[plugins."superpowers@openai-curated-remote"] enabled = false` to its `config.toml`.
-  Outcome: pending live verification (Task 14).
+  Outcome (first live run, 2026-10-11): Codex accepted the config; the rollouts reference the
+  managed `codex-marketplace` and no `openai-curated-remote/superpowers` path.
 - Whether Codex exposes a separate subagent reasoning effort.
 - Why OpenCode does not activate the superpowers bootstrap under ACP (#55). This affects only the
   soft signal, not scoring.
