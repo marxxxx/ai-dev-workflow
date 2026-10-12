@@ -7,7 +7,7 @@ export function renderRunReport(run) {
     ...(run.aborted ? [`> **Aborted (${run.aborted})** — incomplete run, never used as a baseline.`, ''] : []),
     '## Summary', '', '| Signal | Value |', '|---|---|',
     `| reward rate | ${s.rewardRate} |`, `| median tokens | ${n(s.median.tokens)} |`, `| median agent time (s) | ${n(s.median.agent)} |`,
-    ...Object.entries(s.judgeMedian).map(([k, v]) => `| judge ${k} (median) | ${n(v)} |`),
+    ...Object.entries(s.reviewMedian).map(([k, v]) => `| review ${k} (median) | ${n(v)} |`),
     `| error classes | ${s.errorClasses.join(', ') || 'none'} |`, '',
     '## Check pass rates', '', '| Check | Rate |', '|---|---|',
     ...Object.entries(s.checkRates).map(([k, v]) => `| ${k} | ${v} |`), '', '## Trials', ''];
@@ -16,14 +16,14 @@ export function renderRunReport(run) {
       `reward ${t.reward} · contract ${t.contract} · acceptance ${t.acceptance} · own tests ${t.ownTests} · tokens ${n(t.tokens?.total)} · agent ${n(t.durations?.agent)} s · tool errors ${t.errors?.tool ?? 0}${t.errors?.bridge ? ` · ${t.errors.bridge}` : ''}${t.errors?.harbor ? ` · harbor: ${t.errors.harbor}` : ''}`,
       `superpowers active: ${t.soft?.superpowersActive ? 'yes' : 'no'}`, '',
       `Failed checks: ${Object.entries(t.checks).filter(([, v]) => v !== 1).map(([k]) => k).join(', ') || 'none'}`, '');
-    for (const [k, r] of Object.entries(t.judgeReasons ?? {})) lines.push(`- judge ${k} ${t.judge?.[k]}: ${r}`);
+    for (const [k, r] of Object.entries(t.reviewReasons ?? {})) lines.push(`- review ${k} ${t.review?.[k]}: ${r}`);
     lines.push('');
   }
   return `${lines.join('\n').trimEnd()}\n`;
 }
 
 export function renderSummary(runs) {
-  const rows = Object.values(runs).map((r) => `| ${r.harness}${r.aborted ? ` (aborted: ${r.aborted})` : ''} | ${r.summary.rewardRate} | ${n(r.summary.median.tokens)} | ${n(r.summary.median.agent)} | ${Object.values(r.summary.judgeMedian).map(n).join(' / ')} | ${r.summary.errorClasses.join(', ') || 'none'} |`);
+  const rows = Object.values(runs).map((r) => `| ${r.harness}${r.aborted ? ` (aborted: ${r.aborted})` : ''} | ${r.summary.rewardRate} | ${n(r.summary.median.tokens)} | ${n(r.summary.median.agent)} | ${Object.values(r.summary.reviewMedian).map(n).join(' / ')} | ${r.summary.errorClasses.join(', ') || 'none'} |`);
   return `# E2E summary\n\n| Harness | Reward rate | Median tokens | Median agent s | Judge medians | Errors |\n|---|---|---|---|---|---|\n${rows.join('\n')}\n`;
 }
 

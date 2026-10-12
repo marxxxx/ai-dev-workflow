@@ -4,7 +4,7 @@ import { renderRunReport, renderSummary, renderCompare } from './report.mjs';
 import { summarizeTrials } from './summary.mjs';
 
 const trial = { id: 'codex-1', reward: 1, contract: 1, checks: { spec_comment: 1, e2e_performed: 1 }, acceptance: 1, ownTests: 1,
-  judge: { requirements: 5 }, judgeReasons: { requirements: 'all captured' }, durations: { agent: 225, total: 287 },
+  review: { requirements: 5 }, reviewReasons: { requirements: 'all captured' }, durations: { agent: 225, total: 287 },
   tokens: { total: 916414 }, errors: { harbor: null, bridge: null, tool: 1, timeout: false }, soft: { superpowersActive: true } };
 const run = { harness: 'codex', config: { model: 'openai/gpt-6.1-sol' }, fingerprint: { adw: { version: '0.24.0', sha: 'abc' } },
   trials: [trial], summary: summarizeTrials([trial]) };
