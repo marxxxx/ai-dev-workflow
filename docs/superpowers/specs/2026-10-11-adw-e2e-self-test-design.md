@@ -1,7 +1,7 @@
 # ADW E2E self-test (sub-project 1 of 3)
 
 **Date:** 2026-10-11
-**Status:** Approved design, pending implementation
+**Status:** Implemented. The hidden acceptance tests and the judge are superseded by `2026-10-12-adw-e2e-agentic-verification-design.md`.
 **Builds on:** `docs/superpowers/specs/2026-10-10-adw-e2e-spike-findings.md`
 
 ## Problem
