@@ -20,6 +20,13 @@ test('resultJson prefers the last fenced block over braces in the prose before i
   assert.throws(() => resultJson(answer('only {prose} here')), /answer holds no JSON object/);
 });
 
+test('resultJson pairs fences by their info string: a block in another language does not shift the pairing', () => {
+  const answer = (result) => JSON.stringify({ type: 'result', result });
+  assert.deepEqual(resultJson(answer('I ran:\n```bash\ncurl -d \'{ }\' http://x\n```\nThen the answer:\n```json\n{"a":6}\n```')), { a: 6 });
+  assert.deepEqual(resultJson(answer('```json\n{"a":7}\n```\nand then\n```bash\n{"a":8}\n```')), { a: 7 }, 'a JSON-looking block in another language is no answer');
+  assert.deepEqual(resultJson(answer('```JSON\n{"a":9}\n```')), { a: 9 });
+});
+
 test('cliError reads api_error and result from the JSON line, else returns the raw text', () => {
   assert.equal(cliError(`noise\n${JSON.stringify({ api_error: 'usage_limit_reached', result: 'x' })}`), 'usage_limit_reached: x');
   assert.equal(cliError('boom\n'), 'boom');

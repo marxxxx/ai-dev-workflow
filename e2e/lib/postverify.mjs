@@ -3,7 +3,7 @@
 // with `run.mjs verify` and `run.mjs calibrate`.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { checkoutBundle } from './bundle.mjs';
@@ -32,8 +32,13 @@ export function verifierHash({ config, criteria }) {
 }
 
 // The coding agent authored this tree: its Claude settings (hooks, env, apiKeyHelper) must neither run nor steer a judge.
+// A committed `.claude` symlink (to e.g. ~/.claude) is removed itself, never followed.
 function stripAgentSettings(dir) {
-  for (const f of ['settings.json', 'settings.local.json']) rmSync(path.join(dir, '.claude', f), { force: true });
+  const claude = path.join(dir, '.claude');
+  const st = lstatSync(claude, { throwIfNoEntry: false });
+  if (!st) return;
+  if (!st.isDirectory()) { unlinkSync(claude); return; } // unlink never follows a symlink
+  for (const f of ['settings.json', 'settings.local.json']) rmSync(path.join(claude, f), { force: true });
 }
 
 const DEFAULT_DEPS = { checkoutBundle, runVerifier, runReview };

@@ -26,7 +26,9 @@ export function resultJson(stdout) {
   if (!j) throw new Error('no claude -p JSON result');
   if (j.is_error) throw new Error(cliError(stdout));
   const text = String(j.result ?? '');
-  const fenced = [...text.matchAll(/```(?:json)?[ \t]*\n([\s\S]*?)```/g)].map((m) => parseObject(m[1])).filter(Boolean);
+  // Fences are paired by their info string, so a block in another language (```bash) cannot shift the pairing.
+  const fenced = [...text.matchAll(/```([^\n`]*)\n([\s\S]*?)```/g)]
+    .filter((m) => ['', 'json'].includes(m[1].trim().toLowerCase())).map((m) => parseObject(m[2])).filter(Boolean);
   const answer = fenced.at(-1) ?? parseObject(text.trim()) ?? parseObject(text.match(/\{[\s\S]*\}/)?.[0]);
   if (!answer) throw new Error('answer holds no JSON object');
   return answer;

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { InterruptError } from './claude.mjs';
 import { loadConfig } from './config.mjs';
@@ -52,6 +53,24 @@ test('agent-authored Claude settings are removed from both checkouts before the 
   postVerify({ config, bundle: 'b', criteria, image: 'img', deps });
   assert.deepEqual(seen.verifierSettings, ['keep.md']);
   assert.deepEqual(seen.reviewSettings, ['keep.md']);
+});
+
+test('a checkout whose .claude is a symlink loses the link, never the file it points to', () => {
+  const target = mkdtempSync(path.join(tmpdir(), 'adw-pv-target-'));
+  writeFileSync(path.join(target, 'settings.json'), '{"host":true}');
+  try {
+    const { seen, deps } = fakes({ checkoutBundle: (bundle, dir) => {
+      mkdirSync(dir, { recursive: true });
+      symlinkSync(target, path.join(dir, '.claude'));
+      seen.checkouts.push(dir);
+      return { branch: '1_x', diff: 'DIFF' };
+    } });
+    seen.linkSeen = [];
+    deps.runVerifier = (a) => { seen.linkSeen.push(lstatSync(path.join(a.checkout, '.claude'), { throwIfNoEntry: false }) ?? null); return { criteria: null, error: 'x' }; };
+    postVerify({ config, bundle: 'b', criteria, image: 'img', deps });
+    assert.equal(readFileSync(path.join(target, 'settings.json'), 'utf8'), '{"host":true}', 'the host file survives');
+    assert.deepEqual(seen.linkSeen, [null], 'the link is gone from the checkout');
+  } finally { rmSync(target, { recursive: true, force: true }); }
 });
 
 test('a failed verifier gives null acceptance, and a usage limit skips the review', () => {
