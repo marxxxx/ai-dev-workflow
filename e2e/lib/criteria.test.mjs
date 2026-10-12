@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { loadConfig } from './config.mjs';
+import { taskDir } from './tasks.mjs';
 import { loadCriteria, parseCriteria } from './criteria.mjs';
 
 test('parses the AC rows of a criteria table and ignores the header', () => {
@@ -16,7 +17,7 @@ test('rejects a table without criteria or with a duplicate id', () => {
 
 test('demo-todo has AC1 to AC7 and names no endpoint, query parameter or field', () => {
   const config = loadConfig();
-  const criteria = loadCriteria(path.join(config.root, 'e2e', config.task, 'acceptance-criteria.md'));
+  const criteria = loadCriteria(path.join(taskDir(config, 'demo-todo'), 'acceptance-criteria.md'));
   assert.deepEqual(criteria.map((c) => c.id), ['AC1', 'AC2', 'AC3', 'AC4', 'AC5', 'AC6', 'AC7']);
   for (const { id, text } of criteria) assert.doesNotMatch(text, /\/todos|\?|dueDate|YYYY/, id);
 });

@@ -9,15 +9,16 @@ import path from 'node:path';
 import { checkoutBundle } from './bundle.mjs';
 import { isInterrupt, isQuota } from './claude.mjs';
 import { REVIEW_ALLOWED_TOOLS, REVIEW_DENIED_TOOLS, buildReviewPrompt, runReview } from './review.mjs';
+import { taskDir } from './tasks.mjs';
 import { VERIFIER_ALLOWED_TOOLS, VERIFIER_DENIED_TOOLS, buildVerifierPrompt, runVerifier } from './verifier.mjs';
 
-export const taskImage = (config) => `adw-e2e-${path.basename(config.task)}`;
+export const taskImage = (task) => `adw-e2e-${task}`;
 
 // The verifier and the review judge run in the task's own image; the Docker layer cache makes rebuilding cheap.
-export function buildTaskImage({ config, exec = (cmd, args) => execFileSync(cmd, args, { stdio: ['ignore', 'ignore', 'inherit'] }) }) {
-  const dir = path.join(config.root, 'e2e', config.task, 'environment');
-  exec('docker', ['build', '-t', taskImage(config), '-f', path.join(dir, 'Dockerfile'), dir]);
-  return taskImage(config);
+export function buildTaskImage({ config, task, exec = (cmd, args) => execFileSync(cmd, args, { stdio: ['ignore', 'ignore', 'inherit'] }) }) {
+  const dir = path.join(taskDir(config, task), 'environment');
+  exec('docker', ['build', '-t', taskImage(task), '-f', path.join(dir, 'Dockerfile'), dir]);
+  return taskImage(task);
 }
 
 // Changes whenever anything that shapes a verdict changes: prompts, tools, models, rubric, criteria.

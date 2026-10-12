@@ -12,7 +12,7 @@ function calibrationLine(run) {
 export function renderRunReport(run) {
   const s = run.summary;
   const m = run.fingerprint.models ?? {};
-  const lines = [`# E2E ${run.harness}`, '',
+  const lines = [`# E2E ${run.task} · ${run.harness}`, '',
     `Model: \`${run.config.model}\` · verifier \`${m.verifier}\` · review \`${m.review}\` · adw ${run.fingerprint.adw.version} (${String(run.fingerprint.adw.sha).slice(0, 7)}) · trials: ${run.trials.length}`, '',
     ...(run.aborted ? [`> **Aborted (${run.aborted})** — incomplete run, never used as a baseline.`, ''] : []),
     calibrationLine(run), '',
@@ -37,12 +37,12 @@ export function renderRunReport(run) {
 }
 
 export function renderSummary(runs) {
-  const rows = Object.values(runs).map((r) => `| ${r.harness}${r.aborted ? ` (aborted: ${r.aborted})` : ''} | ${n(r.summary.rewardRate)} | ${n(r.summary.median.tokens)} | ${n(r.summary.median.agent)} | ${Object.values(r.summary.reviewMedian).map(n).join(' / ')} | ${r.summary.errorClasses.join(', ') || 'none'} |`);
-  return `# E2E summary\n\n| Harness | Reward rate | Median tokens | Median agent s | Review medians | Errors |\n|---|---|---|---|---|---|\n${rows.join('\n')}\n`;
+  const rows = runs.map((r) => `| ${r.task} | ${r.harness}${r.aborted ? ` (aborted: ${r.aborted})` : ''} | ${n(r.summary.rewardRate)} | ${n(r.summary.median.tokens)} | ${n(r.summary.median.agent)} | ${Object.values(r.summary.reviewMedian).map(n).join(' / ')} | ${r.summary.errorClasses.join(', ') || 'none'} |`);
+  return `# E2E summary\n\n| Task | Harness | Reward rate | Median tokens | Median agent s | Review medians | Errors |\n|---|---|---|---|---|---|---|\n${rows.join('\n')}\n`;
 }
 
-export function renderCompare({ harness, base, cand, result, calibrated }) {
-  return [`# Compare ${harness}: **${result.verdict}**`, '', `Baseline: \`${base}\``, `Candidate: \`${cand}\``, '',
+export function renderCompare({ task, harness, base, cand, result, calibrated }) {
+  return [`# Compare ${task} · ${harness}: **${result.verdict}**`, '', `Baseline: \`${base}\``, `Candidate: \`${cand}\``, '',
     ...(calibrated === false ? [`${UNCALIBRATED} for the candidate: acceptance and review signals may be verifier noise.`, ''] : []),
     '## Signals', '', '| Signal | Baseline | Candidate | Kind |', '|---|---|---|---|',
     ...(result.signals.length ? result.signals.map((s) => `| ${s.signal} | ${n(s.base)} | ${n(s.cand)} | ${s.kind} |`) : ['| — | | | |']), '',

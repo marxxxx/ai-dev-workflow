@@ -1,7 +1,9 @@
 {
   "schema": 1,
   "harbor": { "version": "0.24.0" },
-  "task": "tasks/demo-todo",
+  "tasks": {
+    "demo-todo": { "baseImage": "ai-dev-workflow-node:latest" }
+  },
   "repetitions": 3,
   "app": { "port": 3000 },
   "harnesses": {
@@ -50,7 +52,6 @@
     "codexAuthJson": "~/.codex/auth.json",
     "opencodeAuthJson": "~/.local/share/opencode/auth.json"
   },
-  "image": "ai-dev-workflow-node:latest",
   "resultsDir": "docs/adw-e2e",
   "jobsDir": "e2e/jobs"
 }

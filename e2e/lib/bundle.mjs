@@ -30,7 +30,7 @@ export function checkoutBundle(bundle, dir, git = defaultGit) {
   return { branch, diff: git(['-C', target, 'diff', ...DIFF, 'origin/main...HEAD']) };
 }
 
-export function createCalibrationBundle({ root, seedRepo, patch, out, git = defaultGit }) {
+export function createCalibrationBundle({ root, seedRepo, patch, out, name, git = defaultGit }) {
   const repo = path.resolve(root);
   const seed = path.resolve(seedRepo);
   const patchFile = path.resolve(patch);
@@ -45,7 +45,7 @@ export function createCalibrationBundle({ root, seedRepo, patch, out, git = defa
     }
     git(['init', '-q', '--template=', '-b', 'main', dir]);
     git(['-C', dir, 'add', '-A']);
-    git([...COMMIT, '-C', dir, 'commit', '-qm', 'Initial demo-todo']);
+    git([...COMMIT, '-C', dir, 'commit', '-qm', `Initial ${name}`]);
     git(['-C', dir, 'checkout', '-qb', '1_calibration']);
     git(['-C', dir, 'apply', patchFile]);
     git(['-C', dir, 'add', '-A']);

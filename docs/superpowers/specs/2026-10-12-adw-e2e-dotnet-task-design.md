@@ -77,9 +77,9 @@ e2e/tasks/
 
 ## Runner
 
-- **Config:** `config.json` replaces `task` with `"tasks": ["tasks/demo-todo", "tasks/demo-todo-dotnet"]`.
-  `image` (the preflight's pinned-tools check) becomes the list of base images the tasks need:
-  `ai-dev-workflow-node:latest` and `ai-dev-workflow-dotnet:latest`.
+- **Config:** `config.json` replaces `task` and `image` with one map, `"tasks": { "demo-todo": { "baseImage":
+  "ai-dev-workflow-node:latest" }, "demo-todo-dotnet": { "baseImage": "ai-dev-workflow-dotnet:latest" } }`.
+  The base image is per task because the fingerprint and the preflight's pinned-tools check need it per task.
 - **Commands:**
   - `run [--harness h]... [--task t]... [--repetitions n]`: all tasks × harnesses unless narrowed.
   - `calibrate [--task t]... [--runs n]`: each selected task gets its own calibration.
