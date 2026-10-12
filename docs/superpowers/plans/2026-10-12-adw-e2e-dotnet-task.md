@@ -1303,7 +1303,7 @@ docker run --rm --network none -e E2E_VERIFY=1 -e AGENT_TOOLSTACK_ONLY=1 -e HOST
 git status --short
 ```
 
-Expected: `16`; `adw-e2e-demo-todo-dotnet`; a `Passed!  - Failed: 0, Passed: 9` line; `status: <>` (build output is git-ignored); `no shared artifacts`; and `git status --short` lists only the new task files (no mirrored copies, no `bin/`/`obj/`).
+Expected: `16`; `adw-e2e-demo-todo-dotnet`; a `Passed!` line with `Failed: 0` and `Passed: 9` (the numbers are space-padded); `status: <>` (build output is git-ignored); `no shared artifacts`; and `git status --short` lists only the new task files (no mirrored copies, no `bin/`/`obj/`).
 
 - [ ] **Step 7: Run the suite** — `npm test`: all green (the repository checks do not see the task until Task 6 adds it to `config.tasks`).
 
@@ -1356,7 +1356,7 @@ node $S/extract.mjs docs/superpowers/plans/2026-10-12-adw-e2e-dotnet-task.md "Ap
 bash $S/verify-dotnet.sh
 ```
 
-It (1) runs the seed's tests in `ai-dev-workflow-dotnet:latest`, (2) builds the task image from the task's Dockerfile and seed and proves offline per-checkout build output, (3) builds each variant with the real `createCalibrationBundle` + `checkoutBundle`, runs its own tests offline in the task image, tests two checkouts in parallel, runs the oracle, and (4) compares. Expected last lines, exactly:
+It (1) runs the seed's tests in `ai-dev-workflow-dotnet:latest`, (2) builds the task image from the task's Dockerfile and seed and proves offline per-checkout build output, (3) builds each variant with the real `createCalibrationBundle` + `checkoutBundle`, runs its own tests offline in the task image, tests two checkouts in parallel, runs the oracle, and (4) compares. Expected verdict lines, exactly (each is followed by two `[oracle]` log lines, and the script ends with `ALL VARIANTS AS EXPECTED`):
 
 ```
 reference {"AC1":true,"AC2":true,"AC3":true,"AC4":true,"AC5":true,"AC6":true,"AC7":true}
@@ -1365,7 +1365,6 @@ broken-ui {"AC1":true,"AC2":true,"AC3":true,"AC4":true,"AC5":true,"AC6":false,"A
 messy {"AC1":true,"AC2":true,"AC3":true,"AC4":true,"AC5":true,"AC6":true,"AC7":true}
 alt-interface {"AC1":true,"AC2":true,"AC3":true,"AC4":true,"AC5":true,"AC6":true,"AC7":true}
 seed-oracle {"AC1":false,"AC2":false,"AC3":false,"AC4":false,"AC5":false,"AC6":false,"AC7":false}
-ALL VARIANTS AS EXPECTED
 ```
 
 and per-variant test counts reference 26, broken-done 21, broken-ui 21, alt-interface 14, messy 9 (all passed); parallel rounds 9 and 26. Record the full output in the report. The oracle and script are throwaway and are not committed. (The Node patches are unchanged by this plan, so the Node oracle is not re-run.)
@@ -1380,7 +1379,7 @@ scores every trial and compares result sets.` (re-wrap at ~100 columns), and add
 spec reference: `.NET task: \`docs/superpowers/specs/2026-10-12-adw-e2e-dotnet-task-design.md\`.` Under "Prerequisites"
 replace `Docker, and the local image: \`node docker/build.mjs\`` with `Docker, and the local images: \`node docker/build.mjs\` (builds \`ai-dev-workflow-node\` and \`ai-dev-workflow-dotnet\`)`.
 
-`AGENTS.md` — in the "E2E self-test (`e2e/`)" paragraph replace `on every task in \`config.tasks\`` with `on every task in \`config.tasks\` (\`demo-todo\` in Node, \`demo-todo-dotnet\` in Blazor Server)` and re-wrap.
+`AGENTS.md` — in the "E2E self-test (`e2e/`)" paragraph (re-wrapped in Task 4, so the phrase may span a line break) replace `on every task in \`config.tasks\`` with `on every task in \`config.tasks\` (\`demo-todo\` in Node, \`demo-todo-dotnet\` in Blazor Server)` and re-wrap.
 
 - [ ] **Step 5: Run the suite** — `npm test`: all green. The repository checks now cover `demo-todo-dotnet` (task files, five patches, Dockerfile `FROM ai-dev-workflow-dotnet:latest`, mirrored copies ignored).
 
