@@ -1,4 +1,17 @@
-// One `claude -p --output-format json` call, shared by the E2E verifier and the review judge.
+// One `claude -p --output-format json` call in a fresh task container, shared by the E2E verifier and the review judge.
+
+// Named only: docker copies their values from its own environment, so they never reach argv.
+const AUTH_ENV = ['CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_FORCE_OAUTH'];
+
+// E2E_VERIFY=1 skips the task image's Gitea seed hook (environment/seed/seed.sh). AGENT_TOOLSTACK_ONLY=1
+// configures only the tool stack: a calibration checkout has no ai-project.json, and a judge needs no ticketing.
+// `mounts` are extra `-v` specs after the checkout; `claudeArgs` follow the common claude flags.
+export function buildClaudeDockerArgs({ image, name, checkout, model, uid, gid, mounts = [], claudeArgs }) {
+  return ['run', '--rm', '-i', '--name', name,
+    '-e', `HOST_UID=${uid}`, '-e', `HOST_GID=${gid}`, '-e', 'E2E_VERIFY=1', '-e', 'AGENT_TOOLSTACK_ONLY=1', ...AUTH_ENV.flatMap((k) => ['-e', k]),
+    '-v', `${checkout}:/workspace`, ...mounts.flatMap((m) => ['-v', m]), image,
+    'claude', '-p', '--model', model, '--output-format', 'json', '--setting-sources', 'user', '--strict-mcp-config', ...claudeArgs];
+}
 
 // The CLI prints one JSON line; anything before it (e.g. container start-up output) is noise.
 function cliJson(stdout) {

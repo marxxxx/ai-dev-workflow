@@ -40,6 +40,7 @@ test('verifier and review get separate fresh checkouts; verdicts become per-crit
   assert.deepEqual(seen.verifier.env, { T: '1' });
   assert.ok(!('spec' in seen.verifier) && !('summary' in seen.verifier), 'the verifier never sees spec or summary');
   assert.equal(seen.review.checkout, seen.checkouts[1]);
+  assert.equal(seen.review.image, 'img');
   assert.equal(path.dirname(seen.review.diffPath), path.join(path.dirname(seen.checkouts[0]), 'diff'));
   assert.equal(seen.review.diffText, 'DIFF');
   assert.deepEqual([seen.review.spec, seen.review.summary], ['S', 'U']);

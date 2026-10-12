@@ -1,5 +1,5 @@
-// Post-verification of one PR head, on the host: fresh checkouts of its bundle, then the E2E
-// verifier and the review judge, independently of each other. Runs after each trial, and again
+// Post-verification of one PR head: fresh checkouts of its bundle on the host, then the E2E verifier and
+// the review judge, each in its own task container, independently of each other. Runs after each trial, and again
 // with `run.mjs verify` and `run.mjs calibrate`.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -13,7 +13,7 @@ import { VERIFIER_ALLOWED_TOOLS, VERIFIER_DENIED_TOOLS, buildVerifierPrompt, run
 
 export const taskImage = (config) => `adw-e2e-${path.basename(config.task)}`;
 
-// The verifier runs in the task's own image; the Docker layer cache makes rebuilding cheap.
+// The verifier and the review judge run in the task's own image; the Docker layer cache makes rebuilding cheap.
 export function buildTaskImage({ config, exec = (cmd, args) => execFileSync(cmd, args, { stdio: ['ignore', 'ignore', 'inherit'] }) }) {
   const dir = path.join(config.root, 'e2e', config.task, 'environment');
   exec('docker', ['build', '-t', taskImage(config), '-f', path.join(dir, 'Dockerfile'), dir]);
@@ -25,7 +25,7 @@ export function verifierHash({ config, criteria }) {
   const material = {
     verifierPrompt: buildVerifierPrompt({ criteria }), verifierTools: [VERIFIER_ALLOWED_TOOLS, VERIFIER_DENIED_TOOLS],
     reviewPrompt: buildReviewPrompt({ rubric: config.review.criteria, criteria, spec: '', summary: '', diffPath: '' }),
-    reviewTools: [REVIEW_ALLOWED_TOOLS, REVIEW_DENIED_TOOLS],
+    reviewTools: [REVIEW_ALLOWED_TOOLS, REVIEW_DENIED_TOOLS], reviewRuntime: 'container',
     models: { verifier: config.verifier.model, review: config.review.model },
   };
   return createHash('sha256').update(JSON.stringify(material)).digest('hex');
@@ -60,7 +60,7 @@ export function postVerify({ config, bundle, criteria, spec, summary, env = {}, 
       writeFileSync(diffPath, diff);
       verdict = deps.runVerifier({ config, checkout: path.join(work, 'verify'), criteria, env, image });
       review = isQuota(verdict.error) ? { scores: nulls, reasons: {}, error: verdict.error }
-        : deps.runReview({ config, checkout: path.join(work, 'review'), diffPath, criteria, spec, summary, env });
+        : deps.runReview({ config, checkout: path.join(work, 'review'), diffPath, criteria, spec, summary, env, image });
     } catch (err) {
       if (isInterrupt(err)) throw err; // Ctrl-C ends the command; it is no verdict
       const error = `checkout: ${err.message}`;

@@ -1,13 +1,11 @@
 // Agentic E2E verifier: one claude -p run in a fresh task container exercises the PR head and
 // judges it against the task's acceptance criteria only.
 import { spawnSync } from 'node:child_process';
-import { callClaude, isInterrupt } from './claude.mjs';
+import { buildClaudeDockerArgs, callClaude, isInterrupt } from './claude.mjs';
 
 export const VERIFIER_ALLOWED_TOOLS = 'Bash,Read,Grep,Glob,mcp__playwright';
 export const VERIFIER_DENIED_TOOLS = 'Edit,Write,NotebookEdit,Task,WebFetch,WebSearch';
 const PLAYWRIGHT_MCP = JSON.stringify({ mcpServers: { playwright: { command: 'playwright-mcp', args: ['--headless', '--browser', 'chromium', '--isolated'] } } });
-// Named only: docker copies their values from its own environment, so they never reach argv.
-const AUTH_ENV = ['CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_FORCE_OAUTH'];
 
 export function buildVerifierPrompt({ criteria }) {
   return `You are an acceptance tester. A coding agent changed the application in your current directory (/workspace, a git checkout of its pull request; the base branch is origin/main). Decide for each acceptance criterion below whether the running application meets it.
@@ -44,14 +42,9 @@ export function validateVerifierAnswer(answer, ids) {
   return out;
 }
 
-// E2E_VERIFY=1 skips the task image's Gitea seed hook (environment/seed/seed.sh). AGENT_TOOLSTACK_ONLY=1
-// configures only the tool stack: a calibration checkout has no ai-project.json, and the verifier needs no ticketing.
 export function buildVerifierDockerArgs({ image, name, checkout, model, uid, gid }) {
-  return ['run', '--rm', '-i', '--name', name,
-    '-e', `HOST_UID=${uid}`, '-e', `HOST_GID=${gid}`, '-e', 'E2E_VERIFY=1', '-e', 'AGENT_TOOLSTACK_ONLY=1', ...AUTH_ENV.flatMap((k) => ['-e', k]),
-    '-v', `${checkout}:/workspace`, image,
-    'claude', '-p', '--model', model, '--output-format', 'json', '--setting-sources', 'user', '--strict-mcp-config', '--mcp-config', PLAYWRIGHT_MCP,
-    '--allowedTools', VERIFIER_ALLOWED_TOOLS, '--disallowedTools', VERIFIER_DENIED_TOOLS];
+  return buildClaudeDockerArgs({ image, name, checkout, model, uid, gid,
+    claudeArgs: ['--mcp-config', PLAYWRIGHT_MCP, '--allowedTools', VERIFIER_ALLOWED_TOOLS, '--disallowedTools', VERIFIER_DENIED_TOOLS] });
 }
 
 export function runVerifier({ config, checkout, criteria, env = {}, image, name = `adw-verify-${process.pid}-${Date.now()}`,

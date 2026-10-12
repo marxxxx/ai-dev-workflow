@@ -1,8 +1,9 @@
-// Code-review judge: one claude -p run on the host, read-only in a fresh checkout of the PR head.
+// Code-review judge: one claude -p run in a fresh task container (like the verifier), read-only on a fresh
+// checkout of the PR head at /workspace and the diff at /diff.
 // It derives conventions and architecture from AGENTS.md and the code; the prompt holds no stack knowledge.
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { callClaude, isInterrupt } from './claude.mjs';
+import { buildClaudeDockerArgs, callClaude, isInterrupt } from './claude.mjs';
 
 export const REVIEW_ALLOWED_TOOLS = 'Read,Grep,Glob';
 export const REVIEW_DENIED_TOOLS = 'Bash,Edit,Write,NotebookEdit,Task,WebFetch,WebSearch';
@@ -43,16 +44,20 @@ export function validateReviewAnswer(answer, rubric) {
   return { scores, reasons };
 }
 
-export function runReview({ config, checkout, diffPath, criteria, spec, summary, env = {}, run = spawnSync }) {
+export function runReview({ config, checkout, diffPath, criteria, spec, summary, env = {}, image, name = `adw-review-${process.pid}-${Date.now()}`,
+  run = spawnSync, uid = process.getuid(), gid = process.getgid() }) {
   const { model, criteria: rubric, timeoutSec } = config.review;
   try {
-    const answer = callClaude({ cmd: 'claude', cwd: checkout, env, run, label: 'review', timeoutMs: timeoutSec * 1000,
-      args: ['-p', '--model', model, '--output-format', 'json', '--setting-sources', 'user', '--strict-mcp-config', '--add-dir', path.dirname(diffPath),
-        '--allowedTools', REVIEW_ALLOWED_TOOLS, '--disallowedTools', REVIEW_DENIED_TOOLS],
-      input: buildReviewPrompt({ rubric, criteria, spec, summary, diffPath }) });
+    const answer = callClaude({ cmd: 'docker', env, run, label: 'review', timeoutMs: timeoutSec * 1000,
+      args: buildClaudeDockerArgs({ image, name, checkout, model, uid, gid, mounts: [`${path.dirname(diffPath)}:/diff:ro`],
+        claudeArgs: ['--add-dir', '/diff', '--allowedTools', REVIEW_ALLOWED_TOOLS, '--disallowedTools', REVIEW_DENIED_TOOLS] }),
+      input: buildReviewPrompt({ rubric, criteria, spec, summary, diffPath: `/diff/${path.basename(diffPath)}` }) });
     return { ...validateReviewAnswer(answer, rubric), error: null };
   } catch (err) {
     if (isInterrupt(err)) throw err;
     return { scores: Object.fromEntries(Object.keys(rubric).map((k) => [k, null])), reasons: {}, error: err.message };
+  } finally {
+    // A timeout kills only the docker client; the container would keep running.
+    run('docker', ['rm', '-f', name], { encoding: 'utf8', stdio: 'ignore' });
   }
 }

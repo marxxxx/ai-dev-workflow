@@ -38,7 +38,7 @@ legitimately make, not behaviour:
 |---|---|
 | Hidden tests | Removed. Replaced by acceptance criteria and an agentic E2E verifier. |
 | What the verifier may know | **Discover, judge against the criteria.** It may read the PR (diff, code, `AGENTS.md`) to learn *how* to exercise a feature, but it judges only against the fixed acceptance criteria. It never sees the agent's spec, ticket or summary. |
-| Where verification runs | On the host, after the trial, from a `git bundle` of the PR head. It is re-runnable with `run.mjs verify`. |
+| Where verification runs | Driven from the host after the trial, from a `git bundle` of the PR head; the verifier and the review judge each run in a fresh task container. It is re-runnable with `run.mjs verify`. |
 | Separation | The E2E verifier and the review judge are two independent runs. Neither sees the other's result. |
 | Models | Configurable per role in `e2e/config.json`: target, subagents, simulated user, verifier, review. The default for verifier and review is `claude-sonnet-5-5`. Every role model is part of the fingerprint. |
 | Calibration | Full calibration: five known variants, 2 runs each, and a `verifierHash` gate that warns and does not block. |
@@ -54,8 +54,8 @@ legitimately make, not behaviour:
    - It writes the evidence: `ticket.json`, `pulls.json`, `pr.diff`, `pr-commits.txt`.
    - **New:** it writes `pr-head.bundle`, a `git bundle` containing `main` and the PR branch.
    - **Removed:** the hidden API and UI tests and the app start.
-3. **Post-verification** (host, `e2e/lib/postverify.mjs`): it checks out the bundle fresh and then
-   runs:
+3. **Post-verification** (`e2e/lib/postverify.mjs`, driven from the host): it checks out the bundle
+   fresh and then runs, each in its own task container:
    - the E2E verifier, which writes `evidence/<trial>/acceptance.json`;
    - the review judge, which writes `evidence/<trial>/review.json` (it replaces `judge.json`).
 
@@ -127,8 +127,10 @@ the ticket.
 
 ## Review judge
 
-- **Call:** `claude -p --model <review.model> --output-format json`, run on the host with the fresh
-  checkout as cwd.
+- **Call:** `claude -p --model <review.model> --output-format json`, run in a fresh task container
+  (the same image and plumbing as the verifier), so the host's Claude config, plugins and global
+  `CLAUDE.md` do not shape the verdict and agent-authored files never reach the host `claude`. The
+  PR-head checkout is mounted at `/workspace`, the diff directory read-only at `/diff`.
   - Allowed tools: Read, Grep and Glob only.
   - It reads `AGENTS.md`, the surrounding code and existing patterns itself.
 - **Prompt input:** the acceptance criteria (as the requirements yardstick), the posted `Approved
