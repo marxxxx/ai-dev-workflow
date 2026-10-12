@@ -10,6 +10,16 @@ test('resultJson takes the last JSON line and accepts a fenced answer', () => {
   assert.throws(() => resultJson(JSON.stringify({ is_error: true, api_error: 'usage_limit_reached', result: 'limit' })), /usage_limit_reached: limit/);
 });
 
+test('resultJson prefers the last fenced block over braces in the prose before it', () => {
+  const answer = (result) => JSON.stringify({ type: 'result', result });
+  assert.deepEqual(resultJson(answer('I ran `curl -d {"curl": 1}` and saw {"x": 2} first.\n```json\n{"criteria": []}\n```\nDone {.')), { criteria: [] });
+  assert.deepEqual(resultJson(answer('```json\n{"a":1}\n```\nCorrection:\n```\n{"a":2}\n```')), { a: 2 }, 'the last block wins');
+  assert.deepEqual(resultJson(answer('```json\nnot json\n```\n{"a":3}')), { a: 3 }, 'an unparsable block is skipped');
+  assert.deepEqual(resultJson(answer('  {"a":4}\n')), { a: 4 });
+  assert.deepEqual(resultJson(answer('Here you go: {"a":5} - hope it helps')), { a: 5 }, 'greedy match as the last resort');
+  assert.throws(() => resultJson(answer('only {prose} here')), /answer holds no JSON object/);
+});
+
 test('cliError reads api_error and result from the JSON line, else returns the raw text', () => {
   assert.equal(cliError(`noise\n${JSON.stringify({ api_error: 'usage_limit_reached', result: 'x' })}`), 'usage_limit_reached: x');
   assert.equal(cliError('boom\n'), 'boom');

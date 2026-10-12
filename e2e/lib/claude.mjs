@@ -15,14 +15,21 @@ export function cliError(stdout) {
   return String(stdout ?? '').trim();
 }
 
-// The JSON object in the model's answer text, fenced or not.
+const parseObject = (text) => {
+  try { const v = JSON.parse(text); return v && typeof v === 'object' && !Array.isArray(v) ? v : null; } catch { return null; }
+};
+
+// The JSON object in the model's answer text: the last fenced block that parses, else the whole text,
+// else the span from the first { to the last }. Braces in the prose before a fenced answer do not matter.
 export function resultJson(stdout) {
   const j = cliJson(stdout);
   if (!j) throw new Error('no claude -p JSON result');
   if (j.is_error) throw new Error(cliError(stdout));
-  const json = String(j.result ?? '').match(/\{[\s\S]*\}/)?.[0];
-  if (!json) throw new Error('answer holds no JSON object');
-  return JSON.parse(json);
+  const text = String(j.result ?? '');
+  const fenced = [...text.matchAll(/```(?:json)?[ \t]*\n([\s\S]*?)```/g)].map((m) => parseObject(m[1])).filter(Boolean);
+  const answer = fenced.at(-1) ?? parseObject(text.trim()) ?? parseObject(text.match(/\{[\s\S]*\}/)?.[0]);
+  if (!answer) throw new Error('answer holds no JSON object');
+  return answer;
 }
 
 export const isQuota = (error) => /usage_limit_reached/.test(error ?? '');
