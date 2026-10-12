@@ -20,6 +20,16 @@ test('resultJson prefers the last fenced block over braces in the prose before i
   assert.throws(() => resultJson(answer('only {prose} here')), /answer holds no JSON object/);
 });
 
+test('resultJson says what the answer was when it holds no JSON object', () => {
+  const answer = (result) => JSON.stringify({ type: 'result', result });
+  assert.throws(() => resultJson(answer('I could not\n  decide.\n\nThe  criteria are unclear.')),
+    (e) => e.message === 'answer holds no JSON object; answer ends: "I could not decide. The criteria are unclear."');
+  const long = `HEAD-${'x'.repeat(600)}-TAIL`;
+  assert.throws(() => resultJson(answer(long)), (e) => e.message.endsWith(`answer ends: "${long.slice(-500)}"`) && !e.message.includes('HEAD-'));
+  assert.throws(() => resultJson(answer(' \n ')), (e) => e.message === 'answer holds no JSON object; answer was empty');
+  assert.throws(() => resultJson(JSON.stringify({ type: 'result' })), (e) => e.message === 'answer holds no JSON object; answer was empty');
+});
+
 test('resultJson pairs fences by their info string: a block in another language does not shift the pairing', () => {
   const answer = (result) => JSON.stringify({ type: 'result', result });
   assert.deepEqual(resultJson(answer('I ran:\n```bash\ncurl -d \'{ }\' http://x\n```\nThen the answer:\n```json\n{"a":6}\n```')), { a: 6 });

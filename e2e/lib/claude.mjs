@@ -43,7 +43,11 @@ export function resultJson(stdout) {
   const fenced = [...text.matchAll(/```([^\n`]*)\n([\s\S]*?)```/g)]
     .filter((m) => ['', 'json'].includes(m[1].trim().toLowerCase())).map((m) => parseObject(m[2])).filter(Boolean);
   const answer = fenced.at(-1) ?? parseObject(text.trim()) ?? parseObject(text.match(/\{[\s\S]*\}/)?.[0]);
-  if (!answer) throw new Error('answer holds no JSON object');
+  if (!answer) {
+    // The tail says what the model answered instead, so a calibration.json / run.json failure can be diagnosed.
+    const tail = text.replace(/\s+/g, ' ').trim().slice(-500);
+    throw new Error(`answer holds no JSON object; ${tail ? `answer ends: "${tail}"` : 'answer was empty'}`);
+  }
   return answer;
 }
 
