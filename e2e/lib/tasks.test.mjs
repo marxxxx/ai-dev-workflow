@@ -1,9 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { prepareTaskDir, seedRepo, selectTasks, sharedFiles, syncShared, taskDir, taskNames } from './tasks.mjs';
+import { prepareTaskDir, SHARED, seedRepo, selectTasks, sharedFiles, syncShared, taskDir, taskNames, tasksRoot } from './tasks.mjs';
+import { execFileSync } from 'node:child_process';
+import { loadConfig } from './config.mjs';
 
 function fixture() {
   const root = mkdtempSync(path.join(tmpdir(), 'adw-tasks-'));
@@ -64,4 +66,36 @@ test('a missing _shared dir is an error', () => {
     rmSync(path.join(root, 'e2e/tasks/_shared'), { recursive: true });
     assert.throws(() => prepareTaskDir(config, 'a', { tracked: new Set() }), /_shared is missing/);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+const repo = loadConfig();
+const gitIn = (...a) => execFileSync('git', ['-C', repo.root, ...a], { encoding: 'utf8' });
+const ignored = (p) => { try { gitIn('check-ignore', '-q', '--no-index', p); return true; } catch { return false; } };
+const rel = (p) => path.relative(repo.root, p);
+
+test('every configured task has its stack-specific files, and its Dockerfile builds on the configured base image', () => {
+  const expected = JSON.parse(readFileSync(path.join(tasksRoot(repo), SHARED, 'calibration/expected.json'), 'utf8'));
+  for (const name of taskNames(repo)) {
+    const dir = taskDir(repo, name);
+    for (const f of ['task.toml', 'environment/Dockerfile', ...Object.keys(expected).map((v) => `calibration/${v}.patch`)]) {
+      assert.ok(existsSync(path.join(dir, f)), `${name}: ${f}`);
+    }
+    assert.ok(existsSync(seedRepo(repo, name)), `${name}: seed repo`);
+    const from = readFileSync(path.join(dir, 'environment/Dockerfile'), 'utf8').match(/^FROM\s+(\S+)/m)?.[1];
+    assert.equal(from, repo.tasks[name].baseImage, `${name}: Dockerfile FROM`);
+  }
+});
+
+test('shared files are tracked only in _shared/, and their mirrored copies are git-ignored in every task', () => {
+  const shared = sharedFiles(path.join(tasksRoot(repo), SHARED));
+  assert.ok(shared.includes('acceptance-criteria.md') && shared.includes('tests/verify.mjs'));
+  for (const name of taskNames(repo)) {
+    const dir = rel(taskDir(repo, name));
+    const tracked = new Set(gitIn('ls-files', '-z', '--', dir).split('\0').filter(Boolean).map((f) => path.relative(dir, f)));
+    for (const f of shared) {
+      assert.ok(!tracked.has(f), `${name}/${f} is tracked: keep the only copy in _shared/`);
+      assert.ok(ignored(path.join(dir, f)), `${name}/${f} must be git-ignored`);
+    }
+  }
+  for (const f of shared) assert.ok(!ignored(rel(path.join(tasksRoot(repo), SHARED, f))), `_shared/${f} must not be ignored`);
 });

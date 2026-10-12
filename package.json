@@ -32,7 +32,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test agent-src/*.test.mjs agent-src/lib/*.test.mjs e2e/lib/*.test.mjs e2e/tasks/demo-todo/tests/checks.test.mjs"
+    "test": "node --test agent-src/*.test.mjs agent-src/lib/*.test.mjs e2e/lib/*.test.mjs e2e/tasks/_shared/tests/checks.test.mjs"
   },
   "engines": {
     "node": ">=24"
