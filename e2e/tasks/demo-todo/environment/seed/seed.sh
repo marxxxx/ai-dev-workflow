@@ -2,6 +2,8 @@
 # Startup hook (runs as dev in /workspace): seeds Gitea with the demo repo + ticket #1,
 # clones it into /workspace and registers the `e2e` tea login. Idempotent per container.
 set -euo pipefail
+# Post-verification (e2e/lib/postverify.mjs) reuses this image without Gitea: nothing to seed.
+[[ "${E2E_VERIFY:-}" == 1 ]] && exit 0
 [[ -f /tmp/e2e-ready ]] && exit 0
 until [[ -s /shared/token ]]; do sleep 1; done
 TOKEN="$(cat /shared/token)"

@@ -15,6 +15,7 @@ timeout_sec = 600.0
 collect = []
 
 [verifier.env]
+TEST_COMMAND = "npm test"
 
 [agent]
 timeout_sec = 1800.0

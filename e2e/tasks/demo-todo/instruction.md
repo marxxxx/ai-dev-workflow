@@ -9,22 +9,22 @@ workflow. Your opening message must be exactly:
 What you actually want (the ticket only says "Todos sollen ein Fälligkeitsdatum bekommen") — reveal
 it only when the agent asks, in your own words, one topic at a time:
 
-- A todo gets an optional field `dueDate`, a calendar date in the form `YYYY-MM-DD` (no time).
-- It can be set when creating (`POST /todos`) and changed or cleared (`null`) via `PATCH /todos/:id`.
-- An invalid date (wrong format or impossible date like `2026-02-30`) is rejected with HTTP 400.
-- `GET /todos?overdue=true` returns only todos that are not done and whose `dueDate` is before
-  today (UTC). Todos without `dueDate` are never overdue.
+- A todo can optionally get a due date: a calendar date without a time.
+- The due date can be set when a todo is created, and changed or removed later.
+- An invalid date (wrong format, or an impossible date such as 30 February) is rejected with HTTP 400.
+- The API can filter for overdue todos: todos that are not done and whose due date is before today
+  (UTC). Todos without a due date are never overdue.
 - The list page shows each todo's due date next to its title.
 - Overdue todos are visibly marked with the word "überfällig".
-- The list page has a toggle labelled "nur überfällige" that shows only overdue todos (using the
-  filter).
+- The list page has a control labelled "nur überfällige" that shows only overdue todos.
 - Nothing else: no sorting, no reminders, no styling work.
+
+How endpoints, parameters, fields and page elements are named is the agent's choice.
 
 Process answers:
 - When asked whether the agent should test end to end or you test manually: the agent should test
   end to end.
-- When asked to approve a design or written spec: read it; approve it if it matches the bullets
-  above, otherwise name the deviation and ask for a correction.
+- When asked to approve a design or written spec: read it; approve it if it covers the bullets above (naming is the agent's choice), otherwise name the deviation and ask for a correction.
 - Approve the implementation plan and any isolation/worktree choice with the agent's recommended
   option.
 - If the agent asks about creating a ticket: no — ticket 1 already exists.

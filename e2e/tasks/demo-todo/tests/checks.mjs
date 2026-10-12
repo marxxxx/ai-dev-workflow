@@ -24,3 +24,16 @@ export function evaluateContract({ issue, comments, pulls, prDiff, appListening 
     no_screenshots_in_repo: ok(!/^diff --git a\/\S+\.(png|jpe?g|webp|gif) /mi.test(prDiff)),
   };
 }
+
+// The task's own test command (task.toml [verifier.env] TEST_COMMAND): no stack is assumed here.
+export function testCommand(env) {
+  const command = env.TEST_COMMAND?.trim();
+  if (!command) throw new Error('TEST_COMMAND is not set (task.toml [verifier.env])');
+  return command;
+}
+
+// Runs the agent's own tests on the PR head; run(cwd, cmd, args) returns { ok, out }.
+export function runOwnTests(dir, command, run) {
+  const r = run(dir, 'bash', ['-c', command]);
+  return { pass: r.ok ? 1 : 0, out: r.out };
+}

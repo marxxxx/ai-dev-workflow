@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateContract } from './checks.mjs';
+import { evaluateContract, runOwnTests, testCommand } from './checks.mjs';
 
 const spec = `## Approved Spec\n${'x'.repeat(420)}`;
 const good = {
@@ -33,4 +33,14 @@ test('each deviation fails exactly its check', () => {
     const c = evaluateContract({ ...good, ...patch });
     assert.equal(c[check], 0, check);
   }
+});
+
+test('own tests run the task TEST_COMMAND in the PR checkout', () => {
+  const calls = [];
+  const r = runOwnTests('/tmp/pr', testCommand({ TEST_COMMAND: ' npm test ' }), (cwd, cmd, args) => { calls.push([cwd, cmd, args]); return { ok: false, out: 'boom' }; });
+  assert.deepEqual(calls, [['/tmp/pr', 'bash', ['-c', 'npm test']]]);
+  assert.deepEqual(r, { pass: 0, out: 'boom' });
+  assert.equal(runOwnTests('/tmp/pr', 'dotnet test', () => ({ ok: true, out: '' })).pass, 1);
+  assert.throws(() => testCommand({}), /TEST_COMMAND/);
+  assert.throws(() => testCommand({ TEST_COMMAND: '  ' }), /TEST_COMMAND/);
 });
