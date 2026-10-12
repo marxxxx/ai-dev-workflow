@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from './config.mjs';
 import { buildTaskImage, postVerify, taskImage, verifierHash } from './postverify.mjs';
@@ -10,12 +10,19 @@ const criteria = [{ id: 'AC1', text: 'a' }, { id: 'AC2', text: 'b' }];
 const scores = Object.fromEntries(Object.keys(config.review.criteria).map((k) => [k, 4]));
 const nulls = Object.fromEntries(Object.keys(config.review.criteria).map((k) => [k, null]));
 
+const settingsIn = (dir) => ['settings.json', 'settings.local.json', 'keep.md'].filter((f) => existsSync(path.join(dir, '.claude', f)));
+
 function fakes(over = {}) {
   const seen = { checkouts: [] };
   const deps = {
-    checkoutBundle: (bundle, dir) => { seen.checkouts.push(dir); return { branch: '1_x', diff: 'DIFF' }; },
-    runVerifier: (a) => { seen.verifier = a; return { criteria: { AC1: { pass: true, evidence: 'e1' }, AC2: { pass: false, evidence: 'e2' } }, error: null }; },
-    runReview: (a) => { seen.review = { ...a, diffText: readFileSync(a.diffPath, 'utf8') }; return { scores, reasons: { scope: 'ok' }, error: null }; },
+    checkoutBundle: (bundle, dir) => {
+      seen.checkouts.push(dir);
+      mkdirSync(path.join(dir, '.claude'), { recursive: true });
+      for (const f of ['settings.json', 'settings.local.json', 'keep.md']) writeFileSync(path.join(dir, '.claude', f), '{}');
+      return { branch: '1_x', diff: 'DIFF' };
+    },
+    runVerifier: (a) => { seen.verifier = a; seen.verifierSettings = settingsIn(a.checkout); return { criteria: { AC1: { pass: true, evidence: 'e1' }, AC2: { pass: false, evidence: 'e2' } }, error: null }; },
+    runReview: (a) => { seen.reviewSettings = settingsIn(a.checkout); seen.review = { ...a, diffText: readFileSync(a.diffPath, 'utf8') }; return { scores, reasons: { scope: 'ok' }, error: null }; },
     ...over,
   };
   return { seen, deps };
@@ -37,6 +44,13 @@ test('verifier and review get separate fresh checkouts; verdicts become per-crit
   assert.deepEqual(pv, { acceptanceCriteria: { AC1: 'pass', AC2: 'fail' }, acceptanceEvidence: { AC1: 'e1', AC2: 'e2' }, acceptance: 0.5,
     verifierError: null, review: scores, reviewReasons: { scope: 'ok' }, reviewError: null });
   assert.equal(existsSync(path.dirname(seen.checkouts[0])), false, 'work dir removed');
+});
+
+test('agent-authored Claude settings are removed from both checkouts before the judges run', () => {
+  const { seen, deps } = fakes();
+  postVerify({ config, bundle: 'b', criteria, image: 'img', deps });
+  assert.deepEqual(seen.verifierSettings, ['keep.md']);
+  assert.deepEqual(seen.reviewSettings, ['keep.md']);
 });
 
 test('a failed verifier gives null acceptance, and a usage limit skips the review', () => {

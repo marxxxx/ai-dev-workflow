@@ -31,6 +31,11 @@ export function verifierHash({ config, criteria }) {
   return createHash('sha256').update(JSON.stringify(material)).digest('hex');
 }
 
+// The coding agent authored this tree: its Claude settings (hooks, env, apiKeyHelper) must neither run nor steer a judge.
+function stripAgentSettings(dir) {
+  for (const f of ['settings.json', 'settings.local.json']) rmSync(path.join(dir, '.claude', f), { force: true });
+}
+
 const DEFAULT_DEPS = { checkoutBundle, runVerifier, runReview };
 
 export function postVerify({ config, bundle, criteria, spec, summary, env = {}, image, deps = DEFAULT_DEPS }) {
@@ -42,6 +47,8 @@ export function postVerify({ config, bundle, criteria, spec, summary, env = {}, 
       // Separate checkouts: the verifier runs the app in its tree, the review reads a pristine one.
       const { diff } = deps.checkoutBundle(bundle, path.join(work, 'verify'));
       deps.checkoutBundle(bundle, path.join(work, 'review'));
+      stripAgentSettings(path.join(work, 'verify'));
+      stripAgentSettings(path.join(work, 'review'));
       // The diff gets its own directory: the review's --add-dir exposes only the diff, never the checkouts.
       mkdirSync(path.join(work, 'diff'));
       const diffPath = path.join(work, 'diff', 'pr.diff');

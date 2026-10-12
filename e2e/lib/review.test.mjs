@@ -39,6 +39,7 @@ test('runReview runs read-only in the checkout with the review model, and fails 
   assert.equal(seen.args[seen.args.indexOf('--disallowedTools') + 1], 'Bash,Edit,Write,NotebookEdit,Task,WebFetch,WebSearch');
   assert.equal(seen.args[seen.args.indexOf('--add-dir') + 1], '/tmp/pv');
   assert.ok(seen.args.includes('--strict-mcp-config'));
+  assert.equal(seen.args[seen.args.indexOf('--setting-sources') + 1], 'user', 'agent-authored project settings are not loaded');
   assert.equal(seen.timeout, config.review.timeoutSec * 1000);
   assert.equal(seen.env.CLAUDE_CODE_OAUTH_TOKEN, 't');
   assert.equal(ok.error, null);

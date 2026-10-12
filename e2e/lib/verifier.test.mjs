@@ -35,6 +35,7 @@ test('docker args pass auth by name only, skip the Gitea seed and mount the chec
   assert.ok(args.includes('/tmp/co:/workspace'));
   assert.equal(args[args.indexOf('claude') - 1], 'adw-e2e-demo-todo');
   assert.equal(args[args.indexOf('--model') + 1], 'm');
+  assert.equal(args[args.indexOf('--setting-sources') + 1], 'user', 'agent-authored project settings are not loaded');
   assert.equal(args[args.indexOf('--allowedTools') + 1], 'Bash,Read,Grep,Glob,mcp__playwright');
   assert.equal(args[args.indexOf('--disallowedTools') + 1], 'Edit,Write,NotebookEdit,Task,WebFetch,WebSearch');
   assert.match(args[args.indexOf('--mcp-config') + 1], /"command":"playwright-mcp"/);

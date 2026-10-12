@@ -50,7 +50,7 @@ export function buildVerifierDockerArgs({ image, name, checkout, model, uid, gid
   return ['run', '--rm', '-i', '--name', name,
     '-e', `HOST_UID=${uid}`, '-e', `HOST_GID=${gid}`, '-e', 'E2E_VERIFY=1', '-e', 'AGENT_TOOLSTACK_ONLY=1', ...AUTH_ENV.flatMap((k) => ['-e', k]),
     '-v', `${checkout}:/workspace`, image,
-    'claude', '-p', '--model', model, '--output-format', 'json', '--strict-mcp-config', '--mcp-config', PLAYWRIGHT_MCP,
+    'claude', '-p', '--model', model, '--output-format', 'json', '--setting-sources', 'user', '--strict-mcp-config', '--mcp-config', PLAYWRIGHT_MCP,
     '--allowedTools', VERIFIER_ALLOWED_TOOLS, '--disallowedTools', VERIFIER_DENIED_TOOLS];
 }
 

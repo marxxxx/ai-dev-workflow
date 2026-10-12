@@ -47,7 +47,7 @@ export function runReview({ config, checkout, diffPath, criteria, spec, summary,
   const { model, criteria: rubric, timeoutSec } = config.review;
   try {
     const answer = callClaude({ cmd: 'claude', cwd: checkout, env, run, label: 'review', timeoutMs: timeoutSec * 1000,
-      args: ['-p', '--model', model, '--output-format', 'json', '--strict-mcp-config', '--add-dir', path.dirname(diffPath),
+      args: ['-p', '--model', model, '--output-format', 'json', '--setting-sources', 'user', '--strict-mcp-config', '--add-dir', path.dirname(diffPath),
         '--allowedTools', REVIEW_ALLOWED_TOOLS, '--disallowedTools', REVIEW_DENIED_TOOLS],
       input: buildReviewPrompt({ rubric, criteria, spec, summary, diffPath }) });
     return { ...validateReviewAnswer(answer, rubric), error: null };
