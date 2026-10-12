@@ -3,7 +3,7 @@
 Runs the full `agent-dev` workflow headlessly in Claude Code, Codex and OpenCode against the
 `demo-todo` task (a todo API + list page, ticket #1 in a throwaway Gitea), scores every trial and
 compares result sets. Design: `docs/superpowers/specs/2026-10-11-adw-e2e-self-test-design.md`.
-Agentic verification: docs/superpowers/specs/2026-10-12-adw-e2e-agentic-verification-design.md.
+Agentic verification: `docs/superpowers/specs/2026-10-12-adw-e2e-agentic-verification-design.md`.
 
 ## Prerequisites (host)
 
@@ -48,12 +48,12 @@ Raw Harbor output: `e2e/jobs/<ts>/` (inspect with `harbor view e2e/jobs/<ts>`).
 `docs/adw-e2e/<ts>/<harness>/`:
 - `run.json`: fingerprint (incl. verifier hash and role models), calibration, per-trial checks, acceptance criteria, metrics and review, plus the summary.
 - `report.md`: the same data for humans.
-- `evidence/<trial>/`: ticket comments, PR diff, own test output, `pr-head.bundle` (the PR head, re-verifiable), `acceptance.json` (per-criterion verdicts with evidence), `review.json` (scores and reasons)
+- `evidence/<trial>/`: ticket comments, PR diff, own test output, `pr-head.bundle` (the PR head, re-verifiable), `acceptance.json` (per-criterion verdicts with evidence), `review.json` (scores and reasons).
 - `compare.md`: the verdict against the baseline. The baseline is the newest earlier result on `main`.
 
 `summary.md` puts the harnesses side by side.
 
-`docs/adw-e2e/calibration/<ts>/`: calibration verdicts (`report.md`, `calibration.json`)
+- `docs/adw-e2e/calibration/<ts>/`: calibration verdicts (`report.md`, `calibration.json`).
 
 To re-render a `report.md` from its `run.json` (e.g. after a report template change), run
 `node e2e/run.mjs report <harnessDir>`.
