@@ -55,7 +55,8 @@ test('diffFingerprints lists changed dotted keys only', () => {
 
 test('generated agent files and local build output are no part of the task hash', () => {
   for (const p of ['environment/seed/repo/.claude/skills/agent-dev/SKILL.md', 'environment/seed/repo/.mcp.json',
-    'environment/seed/repo/src/DemoTodo/bin/Debug/net10.0/DemoTodo.dll', 'environment/seed/repo/obj/project.assets.json']) {
+    'environment/seed/repo/src/DemoTodo/bin/Debug/net10.0/DemoTodo.dll', 'environment/seed/repo/obj/project.assets.json',
+    'environment/seed/repo/artifacts/bin/x.dll', 'environment/seed/repo/tests/DemoTodo.Tests/TestResults/r.trx']) {
     assert.ok(TASK_EXCLUDE.test(p), p);
   }
   for (const p of ['environment/seed/repo/src/app.mjs', 'environment/seed/repo/src/DemoTodo/Program.cs', 'environment/Dockerfile']) {

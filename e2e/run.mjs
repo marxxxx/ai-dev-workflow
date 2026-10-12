@@ -155,8 +155,8 @@ function hasPull(file) {
 }
 
 async function run() {
-  if (!preflight()) process.exit(1);
   const selected = tasks.map(loadTask);
+  if (!preflight()) process.exit(1);
   for (const t of selected) {
     rmSync(path.join(t.seed, 'ai-project.json'), { force: true }); // init --answers needs a fresh tree
     execFileSync('node', ['agent-src/generate.mjs', 'init', '--answers', path.join(t.dir, 'environment/seed/answers.json'), '--root', t.seed],

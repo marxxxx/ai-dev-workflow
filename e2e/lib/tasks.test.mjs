@@ -32,6 +32,7 @@ test('selectTasks defaults to all tasks, keeps a requested subset and rejects un
   const config = { tasks: { a: {}, b: {} } };
   assert.deepEqual(selectTasks(config, []), ['a', 'b']);
   assert.deepEqual(selectTasks(config, ['b']), ['b']);
+  assert.deepEqual(selectTasks(config, ['b', 'a', 'b']), ['b', 'a']);
   assert.throws(() => selectTasks(config, ['b', 'nope']), /unknown task: nope \(known: a, b\)/);
 });
 

@@ -8,7 +8,7 @@ import { seedRepo, taskDir } from './tasks.mjs';
 
 export const ACP_VERSIONS = { acpx: '0.11.2', claudeCodeAcp: '0.16.2', codexAcp: '1.12.0' };
 // Generated agent files and local build output are no part of the task.
-export const TASK_EXCLUDE = /(^|\/)(\.claude|\.agents|\.opencode|\.codex|bin|obj)\/|\.mcp\.json$/;
+export const TASK_EXCLUDE = /(^|\/)(\.claude|\.agents|\.opencode|\.codex|bin|obj|artifacts|TestResults)\/|\.mcp\.json$/;
 
 export function buildFingerprint({ config, harness, task, verifierHash, seed = seedRepo(config, task),
   exec = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8', cwd: config.root }) }) {

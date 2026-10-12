@@ -16,7 +16,7 @@ export function selectTasks(config, requested = []) {
   const known = taskNames(config);
   const unknown = requested.filter((t) => !known.includes(t));
   if (unknown.length) throw new Error(`unknown task: ${unknown.join(', ')} (known: ${known.join(', ')})`);
-  return requested.length ? requested : known;
+  return requested.length ? [...new Set(requested)] : known;
 }
 
 export function sharedFiles(sharedDir) {
