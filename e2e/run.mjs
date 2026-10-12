@@ -19,30 +19,41 @@ import { buildTaskImage, postVerify, verifierHash } from './lib/postverify.mjs';
 import { bundleLeaks, createCalibrationBundle } from './lib/bundle.mjs';
 import { evaluateCalibration, findCalibration, renderCalibrationReport } from './lib/calibration.mjs';
 import { isInterrupt, isQuota } from './lib/claude.mjs';
+import { prepareTaskDir, seedRepo, selectTasks, taskDir } from './lib/tasks.mjs';
 
 const config = loadConfig();
 const { positionals, values: opts } = parseArgs({ allowPositionals: true,
-  options: { harness: { type: 'string', multiple: true }, repetitions: { type: 'string' }, trial: { type: 'string' }, runs: { type: 'string' } } });
+  options: { harness: { type: 'string', multiple: true }, task: { type: 'string', multiple: true }, repetitions: { type: 'string' },
+    trial: { type: 'string' }, runs: { type: 'string' } } });
 const [command, ...rest] = positionals;
 const harnesses = opts.harness?.length ? opts.harness : Object.keys(config.harnesses);
-const task = path.join(config.root, 'e2e', config.task);
-const demoRepo = path.join(task, 'environment/seed/repo');
 const fail = (msg) => { console.error(`✗ ${msg}`); process.exit(2); };
 const unknown = harnesses.filter((h) => !Object.hasOwn(config.harnesses, h));
 if (unknown.length) fail(`unknown harness: ${unknown.join(', ')} (known: ${Object.keys(config.harnesses).join(', ')})`);
+let tasks;
+try { tasks = selectTasks(config, opts.task ?? []); } catch (e) { fail(e.message); }
 for (const name of ['repetitions', 'runs']) {
   if (opts[name] !== undefined && !/^[1-9]\d*$/.test(opts[name])) fail(`--${name} must be a positive integer, got "${opts[name]}"`);
 }
 const git = (...a) => execFileSync('git', a, { cwd: config.root, encoding: 'utf8' }).trim();
 const timestamp = () => new Date().toISOString().replace(/:\d\d\.\d+Z$/, 'Z').replace(/:/g, '');
-const criteria = loadCriteria(path.join(task, 'acceptance-criteria.md'));
-const hash = verifierHash({ config, criteria });
-const calibrationDir = path.join(config.root, config.resultsDir, 'calibration');
-const calibration = () => findCalibration({ dir: calibrationDir, hash });
+const resultsDir = path.join(config.root, config.resultsDir);
 // postVerify blocks the event loop (spawnSync), so a Ctrl-C handler cannot run during it: yield once
 // afterwards, before anything is written, so a pending signal handler gets its turn first.
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 const acLine = (x) => Object.entries(x.acceptanceCriteria).map(([id, v]) => `${id} ${v ?? '—'}`).join(' · ');
+
+// Mirrors _shared/ into the task directory, then reads what the task is judged against. Every task has
+// its own calibrations: the verifier hash is the same for tasks with the same criteria, the stack is not.
+function loadTask(name) {
+  try { prepareTaskDir(config, name); } catch (e) { fail(e.message); }
+  const dir = taskDir(config, name);
+  const criteria = loadCriteria(path.join(dir, 'acceptance-criteria.md'));
+  const hash = verifierHash({ config, criteria });
+  const calibrationDir = path.join(resultsDir, 'calibration', name);
+  return { name, dir, seed: seedRepo(config, name), criteria, hash, calibrationDir,
+    calibration: () => findCalibration({ dir: calibrationDir, hash }) };
+}
 
 // Every text file under the results dir goes through here so known secret values never reach disk.
 let secretValues = [];
@@ -55,15 +66,16 @@ function writeRun(dir, record) {
   writeResult(path.join(dir, 'run.json'), `${JSON.stringify(record, null, 2)}\n`);
   writeResult(path.join(dir, 'report.md'), renderRunReport(record));
 }
-// summary.md covers every harness of one result set.
+// summary.md covers every task × harness of one result set (<ts>/<task>/<harness>/run.json).
 function writeSummary(outRoot) {
-  const runs = Object.fromEntries(readdirSync(outRoot).filter((h) => existsSync(path.join(outRoot, h, 'run.json')))
-    .map((h) => [h, readRun(path.join(outRoot, h))]));
+  const runs = readdirSync(outRoot, { withFileTypes: true }).filter((t) => t.isDirectory())
+    .flatMap((t) => readdirSync(path.join(outRoot, t.name)).map((h) => path.join(outRoot, t.name, h)))
+    .filter((d) => existsSync(path.join(d, 'run.json'))).map(readRun);
   writeResult(path.join(outRoot, 'summary.md'), renderSummary(runs));
 }
 
 function safeCleanupCompose() {
-  try { cleanupCompose(); } catch (e) { console.warn(`! compose cleanup failed: ${e.message}`); }
+  try { cleanupCompose({ prefixes: tasks }); } catch (e) { console.warn(`! compose cleanup failed: ${e.message}`); }
 }
 
 function preflight() {
@@ -71,7 +83,7 @@ function preflight() {
   const has = { 'claude-code': 'CLAUDE_CODE_OAUTH_TOKEN', codex: 'CODEX_AUTH_JSON_PATH', opencode: 'OPENCODE_AUTH_JSON_PATH' };
   let r;
   try {
-    r = runPreflight({ config, harnesses, env: staged.env, authPresent: (h) => Boolean(staged.env[has[h]]) });
+    r = runPreflight({ config, harnesses, tasks, env: staged.env, authPresent: (h) => Boolean(staged.env[has[h]]) });
   } finally {
     staged.cleanup();
   }
@@ -93,9 +105,9 @@ function stageClaude(name, onExit = () => {}) {
 }
 
 // The E2E verifier and the review judge on one PR head (e2e/lib/postverify.mjs).
-function postVerifyTrial(bundle, evidenceDir, env, image) {
+function postVerifyTrial(task, bundle, evidenceDir, env, image) {
   const ticket = JSON.parse(readFileSync(path.join(evidenceDir, 'ticket.json'), 'utf8'));
-  return postVerify({ config, bundle, criteria, env, image,
+  return postVerify({ config, bundle, criteria: task.criteria, env, image,
     spec: section(ticket.comments, 'Approved Spec'), summary: section(ticket.comments, 'Implementation Summary') });
 }
 function writeVerdicts(evidenceDir, pv) {
@@ -109,9 +121,13 @@ function compareDirs(baseDir, candDir) {
   for (const [dir, r] of [[baseDir, base], [candDir, cand]]) {
     if (r.schema !== 2) fail(`${dir}: schema ${r.schema ?? 1} runs cannot be compared (no bundles to re-verify)`);
   }
+  if (!base.task || base.task !== cand.task) {
+    fail(`only runs of the same task can be compared: ${baseDir} is ${base.task ?? '(no task)'}, ${candDir} is ${cand.task ?? '(no task)'}`);
+  }
   const result = compareRuns(base, cand, config.thresholds);
-  writeResult(path.join(candDir, 'compare.md'), renderCompare({ harness: cand.harness, base: baseDir, cand: candDir, result, calibrated: Boolean(cand.calibration) }));
-  console.log(`${cand.harness}: ${result.verdict} (${path.join(candDir, 'compare.md')})`);
+  writeResult(path.join(candDir, 'compare.md'), renderCompare({ task: cand.task, harness: cand.harness, base: baseDir, cand: candDir, result,
+    calibrated: Boolean(cand.calibration) }));
+  console.log(`${cand.task} · ${cand.harness}: ${result.verdict} (${path.join(candDir, 'compare.md')})`);
   return result;
 }
 
@@ -140,16 +156,19 @@ function hasPull(file) {
 
 async function run() {
   if (!preflight()) process.exit(1);
-  rmSync(path.join(demoRepo, 'ai-project.json'), { force: true }); // init --answers needs a fresh tree
-  execFileSync('node', ['agent-src/generate.mjs', 'init', '--answers', path.join(task, 'environment/seed/answers.json'), '--root', demoRepo],
-    { cwd: config.root, stdio: 'inherit', input: '' });
-  execFileSync('node', ['agent-src/generate.mjs', 'generate', '--root', demoRepo], { cwd: config.root, stdio: 'inherit' });
-  const image = buildTaskImage({ config });
-  const calibrated = calibration();
-  if (!calibrated) console.warn('! verifier not calibrated for this verifier hash: run node e2e/run.mjs calibrate');
+  const selected = tasks.map(loadTask);
+  for (const t of selected) {
+    rmSync(path.join(t.seed, 'ai-project.json'), { force: true }); // init --answers needs a fresh tree
+    execFileSync('node', ['agent-src/generate.mjs', 'init', '--answers', path.join(t.dir, 'environment/seed/answers.json'), '--root', t.seed],
+      { cwd: config.root, stdio: 'inherit', input: '' });
+    execFileSync('node', ['agent-src/generate.mjs', 'generate', '--root', t.seed], { cwd: config.root, stdio: 'inherit' });
+    t.image = buildTaskImage({ config, task: t.name });
+    t.calibrated = t.calibration();
+    if (!t.calibrated) console.warn(`! ${t.name}: verifier not calibrated for this verifier hash: run node e2e/run.mjs calibrate --task ${t.name}`);
+  }
   const ts = timestamp();
   const jobsDir = path.join(config.root, config.jobsDir, ts);
-  const outRoot = path.join(config.root, config.resultsDir, ts);
+  const outRoot = path.join(resultsDir, ts);
   mkdirSync(jobsDir, { recursive: true });
   const repetitions = Number(opts.repetitions ?? config.repetitions);
   let aborted = null;
@@ -168,93 +187,99 @@ async function run() {
   try {
     staged = stageSecrets({ config, invocationDir: jobsDir });
     secretValues = staged.values;
+    // Harness outside, task inside: one limit window can run one harness over every task.
     for (const harness of harnesses) {
-      if (aborted) break;
-      const fingerprint = buildFingerprint({ config, harness, demoRepo, verifierHash: hash });
-      const trials = [];
-      for (let i = 1; i <= repetitions; i++) {
-        const id = `${harness}-${i}`;
-        console.log(`▶ ${id}`);
-        const failed = (harbor) => ({ id, reward: 0, contract: 0, checks: {}, ownTests: 0, ...emptyOutcome(criteria),
-          errors: { harbor, bridge: null, tool: 0, timeout: false, quota: false } });
-        let trial;
-        try {
-          const log = createWriteStream(path.join(jobsDir, `${id}.log`));
-          log.on('error', (e) => console.warn(`! log stream error: ${e.message}`));
-          const code = await runHarbor({ args: buildHarborArgs({ config, harness, jobName: id, jobsDir }), cwd: config.root, logStream: log,
-            timeoutMs: 7_200_000,
-            env: { ...staged.env, PYTHONPATH: path.join(config.root, 'e2e'), E2E_CLAUDE_SUBAGENT_MODEL: config.harnesses[harness].subagentModel ?? '' } });
-          log.end();
-          safeCleanupCompose();
-          const jobDir = path.join(jobsDir, id);
-          const trialDir = existsSync(jobDir) ? readdirSync(jobDir).map((d) => path.join(jobDir, d)).find((d) => path.basename(d).startsWith('demo-todo__')) : null;
-          trial = trialDir ? buildTrialRecord({ id, harness, trialDir, config, criteria }) : failed(`harbor exit ${code}`);
-          if (trialDir && code !== 0 && !trial.errors.harbor) trial.errors.harbor = `harbor exit ${code}`;
-          // The OpenCode adapter uploads its auth.json into the bind-mounted logs dir: never keep it.
-          if (trialDir) rmSync(path.join(trialDir, 'agent/opencode/xdg-data/opencode/auth.json'), { force: true });
-          if (trialDir && existsSync(path.join(trialDir, 'verifier'))) {
-            const ev = path.join(outRoot, harness, 'evidence', id);
-            mkdirSync(ev, { recursive: true });
-            for (const f of ['ticket.json', 'pulls.json', 'pr.diff', 'pr-commits.txt', 'own-tests.txt', 'notes.txt', 'clone-error.txt']) {
-              const src = path.join(trialDir, 'verifier', f);
-              if (existsSync(src)) writeResult(path.join(ev, f), readFileSync(src, 'utf8'));
-            }
-            const bundle = path.join(trialDir, 'verifier/pr-head.bundle');
-            if (existsSync(bundle)) {
-              try {
-                if (bundleLeaks(bundle, staged.values)) {
-                  console.error(`✗ ${id}: a secret occurs in the PR history: bundle not stored, the trial cannot be re-verified`);
+      for (const t of selected) {
+        if (aborted) break;
+        const fingerprint = buildFingerprint({ config, harness, task: t.name, verifierHash: t.hash });
+        const taskJobs = path.join(jobsDir, t.name);
+        mkdirSync(taskJobs, { recursive: true });
+        const trials = [];
+        for (let i = 1; i <= repetitions; i++) {
+          const id = `${harness}-${i}`;
+          console.log(`▶ ${t.name} · ${id}`);
+          const failed = (harbor) => ({ id, reward: 0, contract: 0, checks: {}, ownTests: 0, ...emptyOutcome(t.criteria),
+            errors: { harbor, bridge: null, tool: 0, timeout: false, quota: false } });
+          let trial;
+          try {
+            const log = createWriteStream(path.join(taskJobs, `${id}.log`));
+            log.on('error', (e) => console.warn(`! log stream error: ${e.message}`));
+            const code = await runHarbor({ args: buildHarborArgs({ config, task: t.name, harness, jobName: id, jobsDir: taskJobs }), cwd: config.root,
+              logStream: log, timeoutMs: 7_200_000,
+              env: { ...staged.env, PYTHONPATH: path.join(config.root, 'e2e'), E2E_CLAUDE_SUBAGENT_MODEL: config.harnesses[harness].subagentModel ?? '' } });
+            log.end();
+            safeCleanupCompose();
+            const jobDir = path.join(taskJobs, id);
+            const trialDir = existsSync(jobDir) ? readdirSync(jobDir).map((d) => path.join(jobDir, d)).find((d) => path.basename(d).startsWith(`${t.name}__`)) : null;
+            trial = trialDir ? buildTrialRecord({ id, harness, trialDir, config, criteria: t.criteria }) : failed(`harbor exit ${code}`);
+            if (trialDir && code !== 0 && !trial.errors.harbor) trial.errors.harbor = `harbor exit ${code}`;
+            // The OpenCode adapter uploads its auth.json into the bind-mounted logs dir: never keep it.
+            if (trialDir) rmSync(path.join(trialDir, 'agent/opencode/xdg-data/opencode/auth.json'), { force: true });
+            if (trialDir && existsSync(path.join(trialDir, 'verifier'))) {
+              const ev = path.join(outRoot, t.name, harness, 'evidence', id);
+              mkdirSync(ev, { recursive: true });
+              for (const f of ['ticket.json', 'pulls.json', 'pr.diff', 'pr-commits.txt', 'own-tests.txt', 'notes.txt', 'clone-error.txt']) {
+                const src = path.join(trialDir, 'verifier', f);
+                if (existsSync(src)) writeResult(path.join(ev, f), readFileSync(src, 'utf8'));
+              }
+              const bundle = path.join(trialDir, 'verifier/pr-head.bundle');
+              if (existsSync(bundle)) {
+                try {
+                  if (bundleLeaks(bundle, staged.values)) {
+                    console.error(`✗ ${t.name} · ${id}: a secret occurs in the PR history: bundle not stored, the trial cannot be re-verified`);
+                    process.exitCode = 1;
+                  } else copyFileSync(bundle, path.join(ev, 'pr-head.bundle'));
+                } catch (e) {
+                  console.error(`✗ ${t.name} · ${id}: bundle could not be scanned for secrets (${e.message}): not stored, the trial cannot be re-verified`);
                   process.exitCode = 1;
-                } else copyFileSync(bundle, path.join(ev, 'pr-head.bundle'));
-              } catch (e) {
-                console.error(`✗ ${id}: bundle could not be scanned for secrets (${e.message}): not stored, the trial cannot be re-verified`);
-                process.exitCode = 1;
+                }
+                console.log('  post-verifying (E2E verifier, review)');
+                try {
+                  const pv = postVerifyTrial(t, bundle, ev, staged.env, t.image);
+                  await tick();
+                  writeVerdicts(ev, pv);
+                  trial = applyPostVerification(trial, pv);
+                } catch (e) {
+                  if (isInterrupt(e)) throw e; // Ctrl-C is no verdict
+                  // A broken verifier is no agent failure: keep the trial, leave it unjudged.
+                  const error = `post-verification: ${e.message}`;
+                  console.error(`✗ ${t.name} · ${id}: ${error}`);
+                  trial = applyPostVerification(trial, unjudgedOutcome(t.criteria, config, error));
+                }
+                console.log(`  ${acLine(trial)}`);
+              } else if (hasPull(path.join(trialDir, 'verifier/pulls.json'))) {
+                // A PR exists but its head could not be bundled: a verifier failure, not an agent failure.
+                trial = applyPostVerification(trial, unjudgedOutcome(t.criteria, config, 'no PR-head bundle (see clone-error.txt)'));
+                console.log(`  ${acLine(trial)}`);
               }
-              console.log('  post-verifying (E2E verifier, review)');
-              try {
-                const pv = postVerifyTrial(bundle, ev, staged.env, image);
-                await tick();
-                writeVerdicts(ev, pv);
-                trial = applyPostVerification(trial, pv);
-              } catch (e) {
-                if (isInterrupt(e)) throw e; // Ctrl-C is no verdict
-                // A broken verifier is no agent failure: keep the trial, leave it unjudged.
-                const error = `post-verification: ${e.message}`;
-                console.error(`✗ ${id}: ${error}`);
-                trial = applyPostVerification(trial, unjudgedOutcome(criteria, config, error));
-              }
-              console.log(`  ${acLine(trial)}`);
-            } else if (hasPull(path.join(trialDir, 'verifier/pulls.json'))) {
-              // A PR exists but its head could not be bundled: a verifier failure, not an agent failure.
-              trial = applyPostVerification(trial, unjudgedOutcome(criteria, config, 'no PR-head bundle (see clone-error.txt)'));
-              console.log(`  ${acLine(trial)}`);
             }
+          } catch (e) {
+            if (isInterrupt(e)) throw e;
+            trial = failed(`runner error: ${e.message}`);
+            safeCleanupCompose();
           }
-        } catch (e) {
-          if (isInterrupt(e)) throw e;
-          trial = failed(`runner error: ${e.message}`);
-          safeCleanupCompose();
+          trials.push(trial);
+          console.log(`  reward ${trial.reward} · contract ${trial.contract} · acceptance ${trial.acceptance}`);
+          // Every later trial would fail the same way and poison the comparison: stop here.
+          if (trial.errors?.quota) {
+            aborted = 'quota';
+            console.error(`✗ subscription usage limit reached in ${t.name} · ${id}: run aborted, results are not a valid baseline`);
+            break;
+          }
         }
-        trials.push(trial);
-        console.log(`  reward ${trial.reward} · contract ${trial.contract} · acceptance ${trial.acceptance}`);
-        // Every later trial would fail the same way and poison the comparison: stop here.
-        if (trial.errors?.quota) {
-          aborted = 'quota';
-          console.error(`✗ subscription usage limit reached in ${id}: run aborted, results are not a valid baseline`);
-          break;
-        }
+        const h = config.harnesses[harness];
+        const runRecord = { schema: 2, task: t.name, harness, ...(aborted ? { aborted } : {}), fingerprint, calibration: t.calibrated,
+          config: { model: h.model, subagentModel: h.subagentModel ?? null, agentKwargs: h.agentKwargs, repetitions },
+          trials, summary: summarizeTrials(trials) };
+        const dir = path.join(outRoot, t.name, harness);
+        writeRun(dir, runRecord);
+        try {
+          const baseline = findBaseline({ resultsDir, task: t.name, harness, before: ts,
+            isAncestor: (sha) => { try { git('merge-base', '--is-ancestor', sha, 'main'); return true; } catch { return false; } } });
+          if (baseline && !aborted) compareDirs(baseline, dir);
+        } catch (e) { console.warn(`! baseline compare failed: ${e.message}`); }
       }
-      const h = config.harnesses[harness];
-      const runRecord = { schema: 2, harness, ...(aborted ? { aborted } : {}), fingerprint, calibration: calibrated,
-        config: { model: h.model, subagentModel: h.subagentModel ?? null, agentKwargs: h.agentKwargs, repetitions },
-        trials, summary: summarizeTrials(trials) };
-      const dir = path.join(outRoot, harness);
-      writeRun(dir, runRecord);
-      try {
-        const baseline = findBaseline({ resultsDir: path.join(config.root, config.resultsDir), harness, before: ts,
-          isAncestor: (sha) => { try { git('merge-base', '--is-ancestor', sha, 'main'); return true; } catch { return false; } } });
-        if (baseline && !aborted) compareDirs(baseline, dir);
-      } catch (e) { console.warn(`! baseline compare failed: ${e.message}`); }
+      if (aborted) break;
     }
     writeSummary(outRoot);
     reportLeaks(outRoot, staged.values);
@@ -267,11 +292,15 @@ async function run() {
 
 // Re-runs post-verification from the committed bundles, then rewrites run.json, report.md and summary.md.
 async function verify(harnessDir, trialId) {
-  if (!existsSync(path.join(harnessDir, 'run.json'))) fail(`${harnessDir}: no run.json — pass a harness dir, e.g. docs/adw-e2e/<ts>/<harness>`);
+  if (!existsSync(path.join(harnessDir, 'run.json'))) fail(`${harnessDir}: no run.json — pass a harness dir, e.g. docs/adw-e2e/<ts>/<task>/<harness>`);
   const record = readRun(harnessDir);
   if (record.schema !== 2) fail(`${harnessDir}: schema ${record.schema ?? 1} runs have no bundles to re-verify`);
+  const name = path.basename(path.dirname(harnessDir));
+  if (record.task !== name) fail(`${harnessDir}: run.json records task ${record.task ?? '(none)'}, but the path says ${name}`);
+  if (!Object.hasOwn(config.tasks, name)) fail(`${harnessDir}: task ${name} is not in config.tasks`);
   if (trialId && !record.trials.some((t) => t.id === trialId)) fail(`no trial ${trialId} in ${harnessDir}`);
-  const image = buildTaskImage({ config });
+  const task = loadTask(name);
+  const image = buildTaskImage({ config, task: name });
   const staged = stageClaude(`verify-${timestamp()}`);
   try {
     const verified = new Map();
@@ -280,8 +309,8 @@ async function verify(harnessDir, trialId) {
       const ev = path.join(harnessDir, 'evidence', t.id);
       const bundle = path.join(ev, 'pr-head.bundle');
       if (!existsSync(bundle)) { console.log(`- ${t.id}: no bundle (no PR head), kept as is`); continue; }
-      console.log(`▶ verify ${t.id}`);
-      const pv = postVerifyTrial(bundle, ev, staged.env, image);
+      console.log(`▶ verify ${name} · ${t.id}`);
+      const pv = postVerifyTrial(task, bundle, ev, staged.env, image);
       await tick();
       if (isQuota(pv.verifierError) || isQuota(pv.reviewError)) {
         console.error(`✗ subscription usage limit reached in ${t.id}: nothing written, rerun after the reset`);
@@ -293,10 +322,10 @@ async function verify(harnessDir, trialId) {
     }
     for (const [id, pv] of verified) writeVerdicts(path.join(harnessDir, 'evidence', id), pv);
     const trials = record.trials.map((t) => (verified.has(t.id) ? applyPostVerification(t, verified.get(t.id)) : t));
-    writeRun(harnessDir, { ...record, calibration: calibration(), trials, summary: summarizeTrials(trials),
-      fingerprint: { ...record.fingerprint, verifierHash: hash,
+    writeRun(harnessDir, { ...record, calibration: task.calibration(), trials, summary: summarizeTrials(trials),
+      fingerprint: { ...record.fingerprint, verifierHash: task.hash,
         models: { ...record.fingerprint.models, verifier: config.verifier.model, review: config.review.model } } });
-    writeSummary(path.dirname(harnessDir));
+    writeSummary(path.dirname(path.dirname(harnessDir)));
     reportLeaks(harnessDir, staged.values);
     console.log(`verified: ${harnessDir}`);
   } finally {
@@ -304,48 +333,58 @@ async function verify(harnessDir, trialId) {
   }
 }
 
-// Judges the known patch variants (e2e/tasks/<task>/calibration) and compares with expected.json.
-async function calibrate() {
-  const runs = Number(opts.runs ?? 2);
-  const calDir = path.join(task, 'calibration');
+// Judges one task's known patch variants (e2e/tasks/<task>/calibration) against expected.json.
+// Returns false when a usage limit stopped it (nothing written for this task).
+async function calibrateTask(task, { runs, ts, work, staged }) {
+  const calDir = path.join(task.dir, 'calibration');
   const expected = JSON.parse(readFileSync(path.join(calDir, 'expected.json'), 'utf8'));
   const spec = readFileSync(path.join(calDir, 'spec.md'), 'utf8');
   const summary = readFileSync(path.join(calDir, 'summary.md'), 'utf8');
-  const image = buildTaskImage({ config });
+  const bundles = Object.fromEntries(Object.keys(expected).map((variant) => {
+    const out = path.join(work, `${task.name}-${variant}.bundle`);
+    createCalibrationBundle({ root: config.root, seedRepo: task.seed, patch: path.join(calDir, `${variant}.patch`), out, name: task.name });
+    return [variant, out];
+  }));
+  const results = Object.fromEntries(Object.keys(expected).map((v) => [v, []]));
+  for (let i = 1; i <= runs; i++) {
+    for (const [variant, bundle] of Object.entries(bundles)) {
+      console.log(`▶ ${task.name} · ${variant} (run ${i}/${runs})`);
+      const pv = postVerify({ config, bundle, criteria: task.criteria, spec, summary, env: staged.env, image: task.image });
+      await tick();
+      if (isQuota(pv.verifierError) || isQuota(pv.reviewError)) {
+        console.error(`✗ subscription usage limit reached: calibration of ${task.name} aborted, nothing written for it`);
+        process.exitCode = 1;
+        return false;
+      }
+      results[variant].push(pv);
+      console.log(`  ${acLine(pv)}${pv.verifierError ? ` · verifier: ${pv.verifierError}` : ''}${pv.reviewError ? ` · review: ${pv.reviewError}` : ''}`);
+    }
+  }
+  const evaluation = evaluateCalibration({ expected, results, criteria: task.criteria, rubric: config.review.criteria });
+  const cal = { schema: 1, task: task.name, ts, hash: task.hash, pass: evaluation.pass, runs,
+    models: { verifier: config.verifier.model, review: config.review.model },
+    findings: evaluation.findings, reviewMedians: evaluation.reviewMedians, variants: results };
+  const out = path.join(task.calibrationDir, ts);
+  writeResult(path.join(out, 'calibration.json'), `${JSON.stringify(cal, null, 2)}\n`);
+  writeResult(path.join(out, 'report.md'), renderCalibrationReport(cal));
+  reportLeaks(out, staged.values);
+  console.log(`calibration of ${task.name} ${cal.pass ? 'passed' : 'FAILED'}: ${out}`);
+  if (!cal.pass) process.exitCode = 1;
+  return true;
+}
+
+async function calibrate() {
+  const runs = Number(opts.runs ?? 2);
+  const selected = tasks.map(loadTask);
+  for (const t of selected) t.image = buildTaskImage({ config, task: t.name });
   const ts = timestamp();
   let work;
   const staged = stageClaude(`calibrate-${ts}`, () => work && rmSync(work, { recursive: true, force: true }));
   work = mkdtempSync(path.join(tmpdir(), 'adw-calibrate-'));
   try {
-    const bundles = Object.fromEntries(Object.keys(expected).map((variant) => {
-      const out = path.join(work, `${variant}.bundle`);
-      createCalibrationBundle({ root: config.root, seedRepo: demoRepo, patch: path.join(calDir, `${variant}.patch`), out });
-      return [variant, out];
-    }));
-    const results = Object.fromEntries(Object.keys(expected).map((v) => [v, []]));
-    for (let i = 1; i <= runs; i++) {
-      for (const [variant, bundle] of Object.entries(bundles)) {
-        console.log(`▶ ${variant} (run ${i}/${runs})`);
-        const pv = postVerify({ config, bundle, criteria, spec, summary, env: staged.env, image });
-        await tick();
-        if (isQuota(pv.verifierError) || isQuota(pv.reviewError)) {
-          console.error('✗ subscription usage limit reached: calibration aborted, nothing written');
-          process.exitCode = 1;
-          return;
-        }
-        results[variant].push(pv);
-        console.log(`  ${acLine(pv)}${pv.verifierError ? ` · verifier: ${pv.verifierError}` : ''}${pv.reviewError ? ` · review: ${pv.reviewError}` : ''}`);
-      }
+    for (const t of selected) {
+      if (!(await calibrateTask(t, { runs, ts, work, staged }))) return;
     }
-    const evaluation = evaluateCalibration({ expected, results, criteria, rubric: config.review.criteria });
-    const cal = { schema: 1, ts, hash, pass: evaluation.pass, runs, models: { verifier: config.verifier.model, review: config.review.model },
-      findings: evaluation.findings, reviewMedians: evaluation.reviewMedians, variants: results };
-    const out = path.join(calibrationDir, ts);
-    writeResult(path.join(out, 'calibration.json'), `${JSON.stringify(cal, null, 2)}\n`);
-    writeResult(path.join(out, 'report.md'), renderCalibrationReport(cal));
-    reportLeaks(out, staged.values);
-    console.log(`calibration ${cal.pass ? 'passed' : 'FAILED'}: ${out}`);
-    if (!cal.pass) process.exitCode = 1;
   } finally {
     staged.cleanup();
     rmSync(work, { recursive: true, force: true });
@@ -364,7 +403,7 @@ try {
     const r = JSON.parse(readFileSync(path.join(rest[0], 'run.json'), 'utf8'));
     writeFileSync(path.join(rest[0], 'report.md'), renderRunReport(r));
   } else {
-    console.error('usage: node e2e/run.mjs preflight | run [--harness h]... [--repetitions n] | verify <harnessDir> [--trial id] | calibrate [--runs n] | compare <baseDir> <candDir> | report <harnessDir>');
+    console.error('usage: node e2e/run.mjs preflight [--task t]... | run [--harness h]... [--task t]... [--repetitions n] | verify <harnessDir> [--trial id] | calibrate [--task t]... [--runs n] | compare <baseDir> <candDir> | report <harnessDir>');
     process.exit(2);
   }
 } catch (e) {
