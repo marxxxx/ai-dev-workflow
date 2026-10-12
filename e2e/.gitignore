@@ -1,0 +1,9 @@
+jobs/
+.env
+tasks/demo-todo/environment/seed/repo/.claude/
+tasks/demo-todo/environment/seed/repo/.agents/
+tasks/demo-todo/environment/seed/repo/.opencode/
+tasks/demo-todo/environment/seed/repo/.mcp.json
+tasks/demo-todo/environment/seed/repo/.codex/
+tasks/demo-todo/environment/seed/repo/ai-project.json
+__pycache__/

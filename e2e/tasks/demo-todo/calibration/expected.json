@@ -1,0 +1,7 @@
+{
+  "reference": { "fail": [], "reviewMin": 4 },
+  "alt-interface": { "fail": [] },
+  "broken-done": { "fail": ["AC4"] },
+  "broken-ui": { "fail": ["AC6", "AC7"] },
+  "messy": { "fail": [], "reviewBelowReference": { "conventions": 2, "architecture": 2, "tests": 2 } }
+}

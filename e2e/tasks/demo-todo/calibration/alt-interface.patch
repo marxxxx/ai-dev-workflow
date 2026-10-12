@@ -1,0 +1,201 @@
+diff --git a/public/index.html b/public/index.html
+index de8f94a..bf10c05 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -3,19 +3,37 @@
+ <head><meta charset="utf-8"><title>demo-todo</title></head>
+ <body>
+   <h1>Todos</h1>
+-  <ul data-testid="todo-list"></ul>
++  <button type="button" data-testid="only-overdue" aria-pressed="false">nur überfällige</button>
++  <table>
++    <thead><tr><th>Aufgabe</th><th>Fällig am</th><th>Status</th></tr></thead>
++    <tbody data-testid="todo-list"></tbody>
++  </table>
+   <script type="module">
+-    const list = document.querySelector('[data-testid="todo-list"]');
+-    const todos = await (await fetch('/todos')).json();
+-    for (const todo of todos) {
+-      const li = document.createElement('li');
+-      li.dataset.testid = 'todo-item';
+-      const title = document.createElement('span');
+-      title.dataset.testid = 'todo-title';
+-      title.textContent = todo.title + (todo.done ? ' ✓' : '');
+-      li.append(title);
+-      list.append(li);
++    const body = document.querySelector('[data-testid="todo-list"]');
++    const toggle = document.querySelector('[data-testid="only-overdue"]');
++    const german = (iso) => iso.split('-').reverse().join('.');
++    const cell = (text, testid) => {
++      const td = document.createElement('td');
++      if (testid) td.dataset.testid = testid;
++      td.textContent = text;
++      return td;
++    };
++    async function load() {
++      const onlyOverdue = toggle.getAttribute('aria-pressed') === 'true';
++      const todos = await (await fetch(onlyOverdue ? '/todos?overdue=1' : '/todos')).json();
++      body.replaceChildren(...todos.map((todo) => {
++        const tr = document.createElement('tr');
++        tr.dataset.testid = 'todo-item';
++        tr.append(cell(todo.title + (todo.done ? ' ✓' : ''), 'todo-title'), cell(todo.due ? german(todo.due) : '', 'todo-due'),
++          cell(todo.isOverdue ? 'überfällig' : '', 'todo-status'));
++        return tr;
++      }));
+     }
++    toggle.addEventListener('click', () => {
++      toggle.setAttribute('aria-pressed', String(toggle.getAttribute('aria-pressed') !== 'true'));
++      load();
++    });
++    load();
+   </script>
+ </body>
+ </html>
+diff --git a/src/app.mjs b/src/app.mjs
+index 9db56cc..033582f 100644
+--- a/src/app.mjs
++++ b/src/app.mjs
+@@ -15,7 +15,9 @@ export function createApp(store = createStore()) {
+         return res.end(await readFile(new URL('../public/index.html', import.meta.url)));
+       }
+       if (url.pathname === '/health') return send(200, { ok: true });
+-      if (url.pathname === '/todos' && req.method === 'GET') return send(200, store.list());
++      if (url.pathname === '/todos' && req.method === 'GET') {
++        return send(200, store.list({ onlyOverdue: url.searchParams.get('overdue') === '1' }));
++      }
+       if (url.pathname === '/todos' && req.method === 'POST') {
+         return send(201, store.add(await readJson(req)));
+       }
+diff --git a/src/store.mjs b/src/store.mjs
+index 3caed3c..b7886fe 100644
+--- a/src/store.mjs
++++ b/src/store.mjs
+@@ -1,21 +1,26 @@
+ // In-memory todo store.
+-export function createStore() {
++const todayUtc = () => new Date().toISOString().slice(0, 10);
++
++export function createStore({ clock = todayUtc } = {}) {
+   const todos = new Map();
+   let nextId = 1;
++  const withStatus = (todo) => ({ ...todo, isOverdue: !todo.done && todo.due !== null && todo.due < clock() });
+   return {
+-    list() {
+-      return [...todos.values()];
++    list({ onlyOverdue = false } = {}) {
++      const all = [...todos.values()].map(withStatus);
++      return onlyOverdue ? all.filter((todo) => todo.isOverdue) : all;
+     },
+     get(id) {
+-      return todos.get(id);
++      const todo = todos.get(id);
++      return todo && withStatus(todo);
+     },
+-    add({ title }) {
++    add({ title, due = null }) {
+       if (typeof title !== 'string' || title.trim() === '') {
+         throw new ValidationError('title is required');
+       }
+-      const todo = { id: nextId++, title: title.trim(), done: false };
++      const todo = { id: nextId++, title: title.trim(), done: false, due: checkDue(due) };
+       todos.set(todo.id, todo);
+-      return todo;
++      return withStatus(todo);
+     },
+     update(id, patch) {
+       const todo = todos.get(id);
+@@ -30,7 +35,8 @@ export function createStore() {
+         if (typeof patch.done !== 'boolean') throw new ValidationError('done must be a boolean');
+         todo.done = patch.done;
+       }
+-      return todo;
++      if ('due' in patch) todo.due = checkDue(patch.due);
++      return withStatus(todo);
+     },
+     remove(id) {
+       return todos.delete(id);
+@@ -38,4 +44,17 @@ export function createStore() {
+   };
+ }
+ 
++// `due` is an ISO calendar date without time, or null for "no due date".
++function checkDue(due) {
++  if (due === null) return null;
++  const m = typeof due === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(due) : null;
++  if (!m) throw new ValidationError('Fälligkeit muss ein Datum JJJJ-MM-TT sein');
++  const [y, mo, d] = m.slice(1).map(Number);
++  const date = new Date(Date.UTC(y, mo - 1, d));
++  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) {
++    throw new ValidationError('Fälligkeit ist kein gültiges Datum');
++  }
++  return due;
++}
++
+ export class ValidationError extends Error {}
+diff --git a/test/app.test.mjs b/test/app.test.mjs
+index 2ce65b0..ba6fce8 100644
+--- a/test/app.test.mjs
++++ b/test/app.test.mjs
+@@ -25,7 +25,7 @@ test('creates and lists todos', () =>
+     const created = await fetch(`${base}/todos`, json('POST', { title: 'Milch kaufen' }));
+     assert.equal(created.status, 201);
+     const list = await (await fetch(`${base}/todos`)).json();
+-    assert.deepEqual(list, [{ id: 1, title: 'Milch kaufen', done: false }]);
++    assert.deepEqual(list, [{ id: 1, title: 'Milch kaufen', done: false, due: null, isOverdue: false }]);
+   }));
+ 
+ test('rejects an empty title', () =>
+@@ -47,3 +47,18 @@ test('serves the list page', () =>
+     assert.equal(res.status, 200);
+     assert.match(await res.text(), /data-testid="todo-list"/);
+   }));
++
++test('GET /todos?overdue=1 lists overdue todos only', () =>
++  withServer(async (base) => {
++    await fetch(`${base}/todos`, json('POST', { title: 'old', due: '2001-01-01' }));
++    await fetch(`${base}/todos`, json('POST', { title: 'new', due: '2999-01-01' }));
++    const res = await fetch(`${base}/todos?overdue=1`);
++    assert.deepEqual((await res.json()).map((t) => t.title), ['old']);
++  }));
++
++test('an impossible due date is a 400', () =>
++  withServer(async (base) => {
++    await fetch(`${base}/todos`, json('POST', { title: 'A' }));
++    const res = await fetch(`${base}/todos/1`, json('PATCH', { due: '2026-04-31' }));
++    assert.equal(res.status, 400);
++  }));
+diff --git a/test/due-date.test.mjs b/test/due-date.test.mjs
+new file mode 100644
+index 0000000..fa40268
+--- /dev/null
++++ b/test/due-date.test.mjs
+@@ -0,0 +1,29 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { createStore, ValidationError } from '../src/store.mjs';
++
++const at = (day) => createStore({ clock: () => day });
++
++test('due is optional, can be set, changed and removed', () => {
++  const s = at('2026-05-10');
++  assert.equal(s.add({ title: 'A' }).due, null);
++  const { id } = s.add({ title: 'B', due: '2026-05-20' });
++  assert.equal(s.update(id, { due: '2026-06-01' }).due, '2026-06-01');
++  assert.equal(s.update(id, { due: null }).due, null);
++});
++
++test('invalid due dates are validation errors', () => {
++  for (const due of ['2026-02-30', '01.05.2026', '2026-13-01', 5]) {
++    assert.throws(() => at('2026-05-10').add({ title: 'A', due }), ValidationError, String(due));
++  }
++});
++
++test('only open todos due before today are overdue', () => {
++  const s = at('2026-05-10');
++  s.add({ title: 'late', due: '2026-05-09' });
++  const done = s.add({ title: 'done', due: '2026-05-01' });
++  s.update(done.id, { done: true });
++  s.add({ title: 'today', due: '2026-05-10' });
++  s.add({ title: 'none' });
++  assert.deepEqual(s.list({ onlyOverdue: true }).map((t) => t.title), ['late']);
++});

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><title>demo-todo</title></head>
+<body>
+  <h1>Todos</h1>
+  <ul data-testid="todo-list"></ul>
+  <script type="module">
+    const list = document.querySelector('[data-testid="todo-list"]');
+    const todos = await (await fetch('/todos')).json();
+    for (const todo of todos) {
+      const li = document.createElement('li');
+      li.dataset.testid = 'todo-item';
+      const title = document.createElement('span');
+      title.dataset.testid = 'todo-title';
+      title.textContent = todo.title + (todo.done ? ' ✓' : '');
+      li.append(title);
+      list.append(li);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+services:
+  main:
+    environment:
+      PROJECT_ROOT: /workspace
+    volumes:
+      - gitea-shared:/shared:ro
+    depends_on:
+      gitea:
+        condition: service_healthy
+  gitea:
+    image: gitea/gitea:1.24
+    environment:
+      GITEA__security__INSTALL_LOCK: "true"
+      GITEA__database__DB_TYPE: sqlite3
+      GITEA__server__ROOT_URL: http://gitea:3000/
+      GITEA__server__DOMAIN: gitea
+      GITEA__service__DISABLE_REGISTRATION: "true"
+    volumes:
+      - gitea-shared:/shared
+      - ./gitea-init.sh:/gitea-init.sh:ro
+    entrypoint: ["/bin/sh", "/gitea-init.sh"]
+    healthcheck:
+      test: ["CMD", "test", "-s", "/shared/token"]
+      interval: 3s
+      retries: 100
+volumes:
+  gitea-shared:

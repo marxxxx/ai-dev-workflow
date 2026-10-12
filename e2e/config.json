@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "harbor": { "version": "0.24.0" },
+  "task": "tasks/demo-todo",
+  "repetitions": 3,
+  "app": { "port": 3000 },
+  "harnesses": {
+    "claude-code": {
+      "agent": "agents.claude_subscription:ClaudeSubscription",
+      "inventoryPackage": "@anthropic-ai/claude-code",
+      "model": "claude-opus-5-5",
+      "subagentModel": "claude-sonnet-5-5",
+      "agentKwargs": { "max_budget_usd": "20" }
+    },
+    "codex": {
+      "agent": "agents.codex_subscription:CodexSubscription",
+      "inventoryPackage": "@openai/codex",
+      "model": "openai/gpt-6.1-sol",
+      "agentKwargs": { "reasoning_effort": "high" }
+    },
+    "opencode": {
+      "agent": "agents.opencode_subscription:OpenCodeSubscription",
+      "inventoryPackage": "opencode-ai",
+      "model": "mistral/mistral-large-4",
+      "agentKwargs": {}
+    }
+  },
+  "simulatedUser": {
+    "agent": "claude-code",
+    "model": "claude-sonnet-5-5",
+    "disallowedTools": "Skill,Edit,Write,NotebookEdit,Task",
+    "appendSystemPrompt": "You are only the human user. You never do the engineering work yourself: no skills, no ticket commands, no code edits. Your only channel to the coding agent is acpx prompt."
+  },
+  "verifier": { "model": "claude-sonnet-5-5", "timeoutSec": 900 },
+  "review": {
+    "model": "claude-sonnet-5-5",
+    "timeoutSec": 600,
+    "criteria": {
+      "requirements": "Do the posted spec and the diff capture every acceptance criterion? (measures interview quality by its outcome)",
+      "scope": "No unrequested features and no unrelated changes?",
+      "tests": "Do the agent's new tests meaningfully cover the new behaviour? Were existing tests deleted or weakened?",
+      "conventions": "Does the code follow AGENTS.md and the repository's idioms (naming, error handling, test style)?",
+      "architecture": "Does the change fit the existing structure (where logic lives, layering, reuse instead of duplication)?",
+      "codeQuality": "Is the code readable and correct at the edges, without needless complexity?"
+    }
+  },
+  "thresholds": { "tokensMedianRise": 0.5, "agentTimeMedianRise": 0.5, "judgeMedianDrop": 1 },
+  "auth": {
+    "claudeEnvFile": "e2e/.env",
+    "codexAuthJson": "~/.codex/auth.json",
+    "opencodeAuthJson": "~/.local/share/opencode/auth.json"
+  },
+  "image": "ai-dev-workflow-node:latest",
+  "resultsDir": "docs/adw-e2e",
+  "jobsDir": "e2e/jobs"
+}

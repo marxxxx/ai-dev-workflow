@@ -1,0 +1,111 @@
+diff --git a/public/index.html b/public/index.html
+index de8f94a..7db0ce5 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -3,19 +3,38 @@
+ <head><meta charset="utf-8"><title>demo-todo</title></head>
+ <body>
+   <h1>Todos</h1>
++  <label><input type="checkbox" data-testid="overdue-filter"> nur überfällige</label>
+   <ul data-testid="todo-list"></ul>
+   <script type="module">
+     const list = document.querySelector('[data-testid="todo-list"]');
++    const filter = document.querySelector('[data-testid="overdue-filter"]');
+     const todos = await (await fetch('/todos')).json();
+-    for (const todo of todos) {
+-      const li = document.createElement('li');
+-      li.dataset.testid = 'todo-item';
+-      const title = document.createElement('span');
+-      title.dataset.testid = 'todo-title';
+-      title.textContent = todo.title + (todo.done ? ' ✓' : '');
+-      li.append(title);
+-      list.append(li);
++    function render() {
++      list.replaceChildren();
++      for (const todo of todos.filter((t) => !filter.checked || t.overdue)) {
++        const li = document.createElement('li');
++        li.dataset.testid = 'todo-item';
++        const title = document.createElement('span');
++        title.dataset.testid = 'todo-title';
++        title.textContent = todo.title + (todo.done ? ' ✓' : '');
++        li.append(title);
++        if (todo.dueDate) {
++          const due = document.createElement('span');
++          due.dataset.testid = 'todo-due';
++          due.textContent = ` ${todo.dueDate}`;
++          li.append(due);
++        }
++        if (todo.overdue) {
++          const mark = document.createElement('strong');
++          mark.dataset.testid = 'todo-overdue';
++          mark.textContent = ' überfällig';
++          li.append(mark);
++        }
++        list.append(li);
++      }
+     }
++    filter.addEventListener('change', render);
++    render();
+   </script>
+ </body>
+ </html>
+diff --git a/src/app.mjs b/src/app.mjs
+index 9db56cc..7cd3860 100644
+--- a/src/app.mjs
++++ b/src/app.mjs
+@@ -15,9 +15,24 @@ export function createApp(store = createStore()) {
+         return res.end(await readFile(new URL('../public/index.html', import.meta.url)));
+       }
+       if (url.pathname === '/health') return send(200, { ok: true });
+-      if (url.pathname === '/todos' && req.method === 'GET') return send(200, store.list());
++      if (url.pathname === '/todos' && req.method === 'GET') {
++        let todos = store.list().map((t) => ({ ...t, dueDate: t.dueDate ?? null, overdue: !t.done && !!t.dueDate && t.dueDate < new Date().toISOString().slice(0, 10) }));
++        if (url.searchParams.get('overdue') === 'true') {
++          const today = new Date().toISOString().slice(0, 10);
++          todos = todos.filter((t) => !t.done && t.dueDate && t.dueDate < today);
++        }
++        return send(200, todos);
++      }
+       if (url.pathname === '/todos' && req.method === 'POST') {
+-        return send(201, store.add(await readJson(req)));
++        const body = await readJson(req);
++        if (body.dueDate !== undefined && body.dueDate !== null) {
++          if (typeof body.dueDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.dueDate) || isNaN(new Date(body.dueDate)) || new Date(body.dueDate).toISOString().slice(0, 10) !== body.dueDate) {
++            return send(400, { error: 'bad date' });
++          }
++        }
++        const todo = store.add(body);
++        todo.dueDate = body.dueDate ?? null;
++        return send(201, todo);
+       }
+       const match = url.pathname.match(/^\/todos\/(\d+)$/);
+       if (match) {
+@@ -27,7 +42,14 @@ export function createApp(store = createStore()) {
+           return todo ? send(200, todo) : send(404, { error: 'not found' });
+         }
+         if (req.method === 'PATCH') {
+-          const todo = store.update(id, await readJson(req));
++          const body = await readJson(req);
++          if (body.dueDate !== undefined && body.dueDate !== null) {
++            if (typeof body.dueDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.dueDate) || isNaN(new Date(body.dueDate)) || new Date(body.dueDate).toISOString().slice(0, 10) !== body.dueDate) {
++              return send(400, { error: 'invalid date!!' });
++            }
++          }
++          const todo = store.update(id, body);
++          if (todo && 'dueDate' in body) todo.dueDate = body.dueDate;
+           return todo ? send(200, todo) : send(404, { error: 'not found' });
+         }
+         if (req.method === 'DELETE') {
+diff --git a/test/app.test.mjs b/test/app.test.mjs
+index 2ce65b0..ced71a7 100644
+--- a/test/app.test.mjs
++++ b/test/app.test.mjs
+@@ -25,7 +25,7 @@ test('creates and lists todos', () =>
+     const created = await fetch(`${base}/todos`, json('POST', { title: 'Milch kaufen' }));
+     assert.equal(created.status, 201);
+     const list = await (await fetch(`${base}/todos`)).json();
+-    assert.deepEqual(list, [{ id: 1, title: 'Milch kaufen', done: false }]);
++    assert.equal(list[0].title, 'Milch kaufen');
+   }));
+ 
+ test('rejects an empty title', () =>

@@ -96,6 +96,18 @@ Hand-maintained, not generated. `docker/tools/inventory.json` is the single sour
 `docker/tools/package.json`, its lockfile and Dockerfile `FROM`/`ARG` pins are derived — never
 hand-edit them (`node docker/tools/inventory.mjs update | sync | check`). See `docker/README.md`.
 
+## E2E self-test (`e2e/`)
+
+Hand-maintained, not generated, not shipped in the npm package. `node e2e/run.mjs run` runs the full
+`agent-dev` workflow through Harbor (pinned in `e2e/config.json`) in all three harnesses with a
+simulated user and a throwaway Gitea; results land in `docs/adw-e2e/<ts>/`. An agentic verifier
+judges each trial's PR head against `acceptance-criteria.md`, and a review judge with read access
+scores the code; `node e2e/run.mjs calibrate` checks both on known variants. Runs use subscription
+logins and are triggered locally, never in CI; the `e2e/lib` and verifier unit tests run in
+`npm test`. Checks cover only `agent-dev`'s own contract and observable outcomes — never
+superpowers internals. Python is allowed only in `e2e/agents/` (Harbor custom agents). See
+`docs/adw-e2e/README.md`.
+
 ## Conventions
 
 - **Zero runtime dependencies** — don't add packages.
