@@ -1,0 +1,456 @@
+{
+  "schema": 1,
+  "ts": "2026-10-12T1323Z",
+  "hash": "c217fe8111b358af0d972c527e98d37a8996510f651e4748af4dd68897a471a0",
+  "pass": true,
+  "runs": 2,
+  "models": {
+    "verifier": "claude-sonnet-5-5",
+    "review": "claude-sonnet-5-5"
+  },
+  "findings": [],
+  "reviewMedians": {
+    "reference": {
+      "requirements": 5,
+      "scope": 4.5,
+      "tests": 4,
+      "conventions": 4.5,
+      "architecture": 4.5,
+      "codeQuality": 4
+    },
+    "alt-interface": {
+      "requirements": 4,
+      "scope": 3,
+      "tests": 3,
+      "conventions": 3.5,
+      "architecture": 4,
+      "codeQuality": 4
+    },
+    "broken-done": {
+      "requirements": 3.5,
+      "scope": 5,
+      "tests": 3,
+      "conventions": 4.5,
+      "architecture": 3,
+      "codeQuality": 2
+    },
+    "broken-ui": {
+      "requirements": 2.5,
+      "scope": 4.5,
+      "tests": 3,
+      "conventions": 4,
+      "architecture": 4,
+      "codeQuality": 4
+    },
+    "messy": {
+      "requirements": 3.5,
+      "scope": 4,
+      "tests": 1,
+      "conventions": 2,
+      "architecture": 2,
+      "codeQuality": 2
+    }
+  },
+  "variants": {
+    "reference": [
+      {
+        "acceptanceCriteria": {
+          "AC1": "pass",
+          "AC2": "pass",
+          "AC3": "pass",
+          "AC4": "pass",
+          "AC5": "pass",
+          "AC6": "pass",
+          "AC7": "pass"
+        },
+        "acceptanceEvidence": {
+          "AC1": "POST /todos {\"title\":\"past\",\"dueDate\":\"2026-10-11\"} returned 201 with dueDate \"2026-10-11\". POST without dueDate returned 201 with dueDate null. The date is stored as a plain YYYY-MM-DD string.",
+          "AC2": "PATCH /todos/4 {\"dueDate\":\"2026-10-01\"} returned 200 with dueDate \"2026-10-01\". PATCH /todos/4 {\"dueDate\":null} returned 200 with dueDate null.",
+          "AC3": "POST with dueDate \"2026-02-30\" returned 400. POST with \"12/10/2026\" returned 400. POST with \"2026-10-12T10:00:00Z\" returned 400. PATCH with \"2026-13-01\" returned 400.",
+          "AC4": "Today is 2026-10-12. I created todos due yesterday, today, in the future, with no due date, and a done todo due 2020-01-01. GET /todos?overdue=true returned only the todo due 2026-10-11. The done past-due todo, the todo due today, the future todo and the todo with no date were all excluded.",
+          "AC5": "The page at / showed each todo's due date next to its title: \"past 2026-10-11\", \"today 2026-10-12\", \"future 2026-12-01\", \"donepast ✓ 2020-01-01\". The todo with no due date showed only its title.",
+          "AC6": "In the page snapshot only the \"past\" todo (due 2026-10-11) carried the text \"überfällig\". The today, future, no-date and done-past-due todos had no marker.",
+          "AC7": "The page has a checkbox labelled \"nur überfällige\". After I clicked it, the list showed only the \"past\" todo with the \"überfällig\" marker. The other four todos were hidden."
+        },
+        "acceptance": 1,
+        "verifierError": null,
+        "review": {
+          "requirements": 5,
+          "scope": 5,
+          "tests": 4,
+          "conventions": 5,
+          "architecture": 4,
+          "codeQuality": 4
+        },
+        "reviewReasons": {
+          "requirements": "All seven acceptance criteria are covered by the diff, including create, change, clear, 400 on invalid dates, the overdue API filter, due date display, the 'überfällig' marker and the 'nur überfällige' control.",
+          "scope": "Only due-date and overdue behaviour was added; the one edit to an existing test only adds the new fields to the expected output.",
+          "tests": "The API and store tests are thorough (invalid dates, done todos, clearing the date, an injected clock), but the UI is checked only by regexes on the HTML source, with no behavioural test of the filter or marker.",
+          "conventions": "It uses ValidationError for 400s, adds data-testid to every new element, has no dependencies, and matches the existing style and test layout.",
+          "architecture": "Validation and overdue logic sit in the store with an injectable clock, but the UI filters client-side rather than using the new ?overdue=true API, and the overdue field is derived in a view helper.",
+          "codeQuality": "The date parsing is correct (round-trip check) and the code is readable, but PATCH applies title and done before validating dueDate, so a bad dueDate can leave a partial update."
+        },
+        "reviewError": null
+      },
+      {
+        "acceptanceCriteria": {
+          "AC1": "pass",
+          "AC2": "pass",
+          "AC3": "pass",
+          "AC4": "pass",
+          "AC5": "pass",
+          "AC6": "pass",
+          "AC7": "pass"
+        },
+        "acceptanceEvidence": {
+          "AC1": "POST /todos {\"title\":\"past\",\"dueDate\":\"2026-10-11\"} returned 201 with dueDate \"2026-10-11\". A todo created without dueDate returned dueDate null. The date is stored as a plain YYYY-MM-DD string with no time.",
+          "AC2": "PATCH /todos/6 {\"dueDate\":\"2026-12-25\"} returned 200 with the new date. PATCH {\"dueDate\":null} returned 200 with dueDate null. A following GET confirmed null.",
+          "AC3": "All four invalid values returned HTTP 400. POST with dueDate \"2026-02-30\" gave 400. POST with \"12/10/2026\" gave 400. POST with the number 20261012 gave 400. PATCH with \"2026-13-01\" gave 400.",
+          "AC4": "Today is 2026-10-12 UTC. I created todos due 2026-10-11 (not done), 2026-10-12 (today), 2026-12-01 (future), one with no due date, and one due 2026-01-01 then marked done. GET /todos?overdue=true returned only the 2026-10-11 todo. The no-date, done, today and future todos were all excluded.",
+          "AC5": "The page at / showed each todo's due date in the list, e.g. \"past 2026-10-11\", \"today 2026-10-12\", \"future 2026-12-01\" and \"pastdone ✓ 2026-01-01\". Todos without a due date showed no date.",
+          "AC6": "In the page snapshot only the \"past 2026-10-11\" item carried the word \"überfällig\". The today, future, no-date and done-with-past-date items had no marker.",
+          "AC7": "The page has a checkbox labelled \"nur überfällige\". Before clicking, the list showed 6 items. After clicking it, the list showed only \"past 2026-10-11 überfällig\"."
+        },
+        "acceptance": 1,
+        "verifierError": null,
+        "review": {
+          "requirements": 5,
+          "scope": 4,
+          "tests": 4,
+          "conventions": 4,
+          "architecture": 5,
+          "codeQuality": 4
+        },
+        "reviewReasons": {
+          "requirements": "All seven acceptance criteria are covered in the diff, and the spec restates them faithfully.",
+          "scope": "The change stays on due dates. The extra `overdue` field on every todo is a reasonable addition that the UI needs.",
+          "tests": "Store and API tests are thorough, covering invalid dates, patch and clear, done todos, and an injected clock. UI tests only regex-match the HTML source, and one existing assertion was updated for the new fields rather than weakened.",
+          "conventions": "The change uses ValidationError, which maps to 400, with no new dependencies, and the new UI elements carry data-testid attributes. The API test for `?overdue=true` relies on far-past and far-future dates, a minor style gap.",
+          "architecture": "Date parsing and the overdue rule live in the store with an injectable clock, and the app layer only passes the query parameter through.",
+          "codeQuality": "The code is clean, validates dates by round-tripping through ISO, and compares dates as strings. The page fetches once and filters client-side, so it does not use the API's overdue filter."
+        },
+        "reviewError": null
+      }
+    ],
+    "alt-interface": [
+      {
+        "acceptanceCriteria": {
+          "AC1": "pass",
+          "AC2": "pass",
+          "AC3": "pass",
+          "AC4": "pass",
+          "AC5": "pass",
+          "AC6": "pass",
+          "AC7": "pass"
+        },
+        "acceptanceEvidence": {
+          "AC1": "POST /todos {\"title\":\"past\",\"due\":\"2026-10-11\"} returned 201 with due \"2026-10-11\". A POST with no due field returned 201 with due null. The 2024-02-29 leap date was accepted, and due is a plain YYYY-MM-DD string with no time.",
+          "AC2": "PATCH /todos/3 {\"due\":\"2026-10-01\"} returned 200 and the due date changed from 2026-12-01 to 2026-10-01; a later GET /todos/3 showed the new value. PATCH /todos/1 {\"due\":null} returned 200 with due null, so the date was removed.",
+          "AC3": "POST with due \"2026-02-30\" returned 400. POST with \"12/10/2026\" returned 400. POST with \"2026-10-12T10:00:00Z\" returned 400. PATCH with due \"2026-02-30\" returned 400. PATCH with due \"bad\" returned 400.",
+          "AC4": "Today is 2026-10-12 (UTC). GET /todos?overdue=1 returned only the undone todos with an earlier due date: id 3 (due 2026-10-01) and id 9 (due 2024-02-29). Not returned: the todo due today, the todo due in the future, the todo with no due date, and id 5 (due 2026-01-01) after PATCH done:true. isOverdue was true for id 5 before it was marked done and false afterwards.",
+          "AC5": "The page at / has a 'Fällig am' column. It showed 12.10.2026 for 'today', 01.10.2026 for 'future', 01.01.2026 for 'pastdone' and 29.02.2024 for 'leap'. The cells for todos without a due date were empty.",
+          "AC6": "In the page snapshot, only the 'future' row (due 01.10.2026) and the 'leap' row (due 29.02.2024) had 'überfällig' in the Status column. The no-due, due-today and done-with-past-due ('pastdone ✓') rows had an empty status.",
+          "AC7": "The page has a button 'nur überfällige'. Clicking it left only the 'future' and 'leap' rows in the list, both marked überfällig."
+        },
+        "acceptance": 1,
+        "verifierError": null,
+        "review": {
+          "requirements": 4,
+          "scope": 3,
+          "tests": 3,
+          "conventions": 3,
+          "architecture": 4,
+          "codeQuality": 4
+        },
+        "reviewReasons": {
+          "requirements": "All seven acceptance criteria are implemented, including the UI marker, the toggle and the 400 on invalid dates. The spec leaves the API filter format (`?overdue=1`) and the display date format unspecified.",
+          "scope": "The `<ul>` list was rewritten as a table with a status column, and dates are reformatted to German dd.mm.yyyy. An extra `isOverdue` field is also added to every API response, none of which was requested.",
+          "tests": "Store tests cover set, change, remove, invalid dates and the overdue rules, with an injectable clock. The UI (due date, 'überfällig', filter button) has no test. Creating a todo with an invalid due date over HTTP is untested, and only one 400 case goes through the API. The one existing assertion was updated for the new fields.",
+          "conventions": "It uses `ValidationError`, data-testids and zero dependencies. The new validation messages are German while the existing ones are English. There is no evidence of test-first TDD.",
+          "architecture": "Validation and overdue logic sit in the store, the app only passes the query parameter through, and the clock is injectable. Overdue is computed centrally by `withStatus`.",
+          "codeQuality": "The code is compact and correct: date validation round-trips through `Date.UTC`, and overdue is derived on read. The `due` filter only accepts exactly `overdue=1`, and the UI fetch has no error handling."
+        },
+        "reviewError": null
+      },
+      {
+        "acceptanceCriteria": {
+          "AC1": "pass",
+          "AC2": "pass",
+          "AC3": "pass",
+          "AC4": "pass",
+          "AC5": "pass",
+          "AC6": "pass",
+          "AC7": "pass"
+        },
+        "acceptanceEvidence": {
+          "AC1": "POST /todos {\"title\":\"past\",\"due\":\"2026-10-11\"} returned 201 with due \"2026-10-11\". A POST without due returned 201 with due null. The date has no time part, and a datetime string is rejected with 400.",
+          "AC2": "PATCH /todos/3 {\"due\":\"2026-01-01\"} returned 200 and changed the date. PATCH /todos/3 {\"due\":null} returned 200 with due null, so the date is removed. A later GET /todos/3 showed due null.",
+          "AC3": "POST with due \"2026-02-30\" returned 400. POST with due \"12/10/2026\" returned 400. POST with due \"2026-10-12T10:00:00Z\" returned 400. POST with due 5 returned 400. PATCH with due \"2026-02-30\" returned 400. PATCH with due \"bad\" returned 400.",
+          "AC4": "Today is 2026-10-12. GET /todos?overdue=1 returned only the todo due 2026-10-11 when the other todos were: due today (not overdue), no due date, due in the future, and done with a past due date. After I set the future todo's due to 2026-01-01, it became overdue and appeared in the filter. The done todo with a past due date had isOverdue false.",
+          "AC5": "The page at / has a table with a 'Fällig am' column. It showed 11.10.2026, 12.10.2026 and 01.01.2026 for the todos with those dates. The cell is empty for the todo with no due date.",
+          "AC6": "In the page snapshot, 'überfällig' appeared in the Status cell for the todo due 11.10.2026 and the todo due 01.01.2026 (not done). It did not appear for the todo due today, the todo with no due date, or the done todo with a past due date.",
+          "AC7": "The page has a button 'nur überfällige'. After I clicked it, the list showed only 2 rows, 'past' and 'future' (due 01.01.2026), both marked überfällig. The other todos were hidden."
+        },
+        "acceptance": 1,
+        "verifierError": null,
+        "review": {
+          "requirements": 4,
+          "scope": 3,
+          "tests": 3,
+          "conventions": 4,
+          "architecture": 4,
+          "codeQuality": 4
+        },
+        "reviewReasons": {
+          "requirements": "All seven acceptance criteria are implemented, including a UTC 'today' and the 'überfällig' marker. The spec added little beyond the ACs, and the done-todo exclusion is only implied by 'not done'.",
+          "scope": "The list became a table, with a German-formatted date and a new Status column. The API response also gained an `isOverdue` field. The table and the date reformatting go beyond what the ACs asked for.",
+          "tests": "Store-level tests cover set, change and remove, invalid dates, and overdue rules with an injected clock. There is no UI test for the due date, the 'überfällig' marker or the filter control. POST with an invalid date is not tested over HTTP. The existing list test was updated for the new fields rather than weakened.",
+          "conventions": "It uses ValidationError, adds data-testid on the new elements, has no dependencies, and matches the existing test style. Some lines are long, and the validation messages are in German while the existing title message is in English.",
+          "architecture": "Validation and overdue logic sit in the store, and the injectable clock makes it testable. The app only adds the query parameter. A computed `withStatus` is applied consistently across get, add, update and list.",
+          "codeQuality": "The date validation is correct, including round-trip checking for impossible dates, and null handling is sound. Two small flaws: the UI fetches asynchronously with no error handling, and the overdue filter accepts only `overdue=1`."
+        },
+        "reviewError": null
+      }
+    ],
+    "broken-done": [
+      {
+        "acceptanceCriteria": {
+          "AC1": "pass",
+          "AC2": "pass",
+          "AC3": "pass",
+          "AC4": "fail",
+          "AC5": "pass",
+          "AC6": "pass",
+          "AC7": "pass"
+        },
+        "acceptanceEvidence": {
+          "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-01\"} returned 201 with dueDate \"2026-10-01\". Without a dueDate it returned 201 with dueDate null.",
+          "AC2": "PATCH /todos/3 {\"dueDate\":\"2026-12-25\"} returned 200 and dueDate changed to 2026-12-25. PATCH {\"dueDate\":null} returned 200 and dueDate became null.",
+          "AC3": "POST /todos returned 400 for dueDate \"2026-02-30\", \"10/12/2026\", \"2026-13-01\", 123 and \"\". PATCH with \"2026-02-30\" also returned 400.",
+          "AC4": "Setup: todos 2 and 4 were both due 2026-10-01, and todo 4 was then marked done. GET /todos?overdue=true returned both todo 2 and todo 4. Todo 4 is done:true with overdue:false, so a done todo is wrongly included in the overdue-only list. Todos without a due date were correctly excluded.",
+          "AC5": "The list page at / showed the due date next to each todo that has one: 'past 2026-10-01', 'pastdone ✓ 2026-10-01' and 'today 2026-10-12'. Todos without a due date showed none.",
+          "AC6": "In the unfiltered list, only 'past' (due 2026-10-01, not done) carried the word 'überfällig'. The no-due-date, future, done-past and due-today todos had no marker.",
+          "AC7": "The page has a checkbox labelled 'nur überfällige'. Checking it left only the 'past' todo with 'überfällig' in the list. Unchecking it restored all five todos."
+        },
+        "acceptance": 0.8571,
+        "verifierError": null,
+        "review": {
+          "requirements": 3,
+          "scope": 5,
+          "tests": 3,
+          "conventions": 5,
+          "architecture": 3,
+          "codeQuality": 2
+        },
+        "reviewReasons": {
+          "requirements": "Spec and diff cover every AC on paper, but the API overdue filter ignores the 'done' condition from AC4, so done todos are wrongly returned.",
+          "scope": "Only due-date, overdue and UI changes were made, with no extras.",
+          "tests": "Tests cover validation, update/clear and the filter, but never test a done todo being excluded, which hides the bug. There are no UI tests, and the one existing assertion was updated only to match the new fields.",
+          "conventions": "Uses ValidationError for 400s, adds data-testid on the new elements, has no dependencies, and tests were written alongside the code.",
+          "architecture": "The store has a clean, injectable today(), but list() duplicates the overdue logic inline instead of reusing isOverdue or the computed view.overdue, which caused the divergence.",
+          "codeQuality": "list({overdue:true}) returns done todos with past due dates, which is a correctness bug caused by duplicated logic. The rest is readable, and today() is called per item."
+        },
+        "reviewError": null
+      },
+      {
+        "acceptanceCriteria": {
+          "AC1": "pass",
+          "AC2": "pass",
+          "AC3": "pass",
+          "AC4": "fail",
+          "AC5": "pass",
+          "AC6": "pass",
+          "AC7": "pass"
+        },
+        "acceptanceEvidence": {
+          "AC1": "POST /todos {\"title\":\"past\",\"dueDate\":\"2026-10-01\"} returned 201 with dueDate \"2026-10-01\". A todo created without dueDate returned 201 with dueDate null.",
+          "AC2": "PATCH /todos/2 {\"dueDate\":\"2026-10-02\"} returned 200 with the new date. PATCH {\"dueDate\":null} returned 200 with dueDate null, so the date was removed.",
+          "AC3": "POST with dueDate \"2026-02-30\" returned 400. POST with \"10/01/2026\" returned 400. PATCH with \"2026-13-01\" returned 400.",
+          "AC4": "Todo 4 had dueDate 2026-09-01 and was marked done via PATCH. Its own overdue field was false. GET /todos?overdue=true still returned it, along with the two genuinely overdue todos. Done todos are therefore included in the overdue-only list. Todos without a due date were correctly excluded.",
+          "AC5": "The list page at / showed 'past 2026-10-01', 'future 2026-10-02' and 'donepast ✓ 2026-09-01'. The todo without a due date showed no date.",
+          "AC6": "In the page snapshot, 'past' and 'future' (due 2026-10-02, before today 2026-10-12) each had the strong text 'überfällig'. The no-date todo and the done todo had no marker.",
+          "AC7": "The page has a checkbox labelled 'nur überfällige'. After clicking it, the list showed only 'past' and 'future'. The none and donepast todos were hidden."
+        },
+        "acceptance": 0.8571,
+        "verifierError": null,
+        "review": {
+          "requirements": 4,
+          "scope": 5,
+          "tests": 3,
+          "conventions": 4,
+          "architecture": 3,
+          "codeQuality": 2
+        },
+        "reviewReasons": {
+          "requirements": "The spec and diff cover all seven ACs, but the spec never states that done todos are excluded from overdue, and the code then misses that case.",
+          "scope": "The change is focused on due dates, with only small supporting exports (parseDueDate, isOverdue) and an injectable `today`.",
+          "tests": "Tests cover create, change, clear, invalid dates and the overdue boundary. None covers a done todo being excluded from overdue (which the code gets wrong), and there are no UI tests or PATCH-endpoint 400 tests. The one existing test was updated for the new fields, not weakened.",
+          "conventions": "It uses ValidationError, zero dependencies, data-testid on new elements and the existing test style, though the 'todo-overdue' and 'todo-due' ids are not added to AGENTS.md.",
+          "architecture": "Logic lives in the store and the app stays thin, but list({overdue:true}) re-implements the overdue rule instead of reusing isOverdue or the view's overdue flag, so the two have diverged.",
+          "codeQuality": "Real bug: the overdue filter in store.list checks only `dueDate < today` and ignores `done`, so done past-due todos are returned by ?overdue=true and the UI filter, violating AC4. It also calls today() repeatedly."
+        },
+        "reviewError": null
+      }
+    ],
+    "broken-ui": [
+      {
+        "acceptanceCriteria": {
+          "AC1": "pass",
+          "AC2": "pass",
+          "AC3": "pass",
+          "AC4": "pass",
+          "AC5": "pass",
+          "AC6": "fail",
+          "AC7": "fail"
+        },
+        "acceptanceEvidence": {
+          "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-11\"} returned 201 with dueDate \"2026-10-11\". POST without dueDate returned 201 with dueDate null. The date is a plain YYYY-MM-DD string with no time.",
+          "AC2": "PATCH /todos/4 {\"dueDate\":\"2026-11-11\"} returned 200 with dueDate 2026-11-11. PATCH {\"dueDate\":null} then returned 200 with dueDate null.",
+          "AC3": "POST with dueDate \"2026-02-30\" returned 400. POST with \"12/01/2026\" returned 400. PATCH with \"2026-13-01\" returned 400.",
+          "AC4": "Today is 2026-10-12 (UTC). I created todos due yesterday, today, in the future, with no date, and one due 2026-01-01 that I then marked done. GET /todos?overdue=true returned only the todo due yesterday. Today's, future, undated and done todos were excluded.",
+          "AC5": "The page at / showed each due date in the list: 'past 2026-10-11', 'today 2026-10-12', 'future 2026-12-01', 'donepast ✓ 2026-01-01'. The undated todo showed no date.",
+          "AC6": "The list page showed the overdue todo 'past 2026-10-11' with no 'überfällig' text. The page snapshot contains no such word anywhere.",
+          "AC7": "The page snapshot has no control labelled 'nur überfällige'. It has only the heading and the list."
+        },
+        "acceptance": 0.7143,
+        "verifierError": null,
+        "review": {
+          "requirements": 2,
+          "scope": 5,
+          "tests": 3,
+          "conventions": 4,
+          "architecture": 4,
+          "codeQuality": 4
+        },
+        "reviewReasons": {
+          "requirements": "The spec lists the UI requirements, but the diff never implements AC6 (the \"überfällig\" marker) or AC7 (the \"nur überfällige\" control).",
+          "scope": "The changes are limited to due dates and the overdue filter, with no unrelated additions.",
+          "tests": "The tests cover the store logic and the API well, including a 400 for an invalid date, but nothing covers the UI, and the PATCH route and the overdue marker in the page are untested.",
+          "conventions": "The code uses ValidationError for the 400 case, has no dependencies, and gives the new due-date element a data-testid, but there is no test-id for the overdue marker or the control because those were never built.",
+          "architecture": "Validation and the overdue logic sit in the store, the injectable today makes the logic testable, and the API only passes the filter through.",
+          "codeQuality": "The date validation is solid, including the round-trip check for impossible dates, but the code adds an overdue field to every response, and the missing UI half leaves the feature incomplete."
+        },
+        "reviewError": null
+      },
+      {
+        "acceptanceCriteria": {
+          "AC1": "pass",
+          "AC2": "pass",
+          "AC3": "pass",
+          "AC4": "pass",
+          "AC5": "pass",
+          "AC6": "fail",
+          "AC7": "fail"
+        },
+        "acceptanceEvidence": {
+          "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-01\"} returned 201 with dueDate \"2026-10-01\". POST without dueDate returned 201 with dueDate null. The date has no time part.",
+          "AC2": "PATCH /todos/2 with {\"dueDate\":\"2026-09-01\"} returned 200 and the new date. PATCH with {\"dueDate\":null} returned 200 with dueDate null, and GET /todos/2 confirmed it.",
+          "AC3": "POST with dueDate \"2026-02-30\" returned 400. POST with \"10/01/2026\" returned 400. PATCH with \"2026-13-01\" returned 400.",
+          "AC4": "Today is 2026-10-12. I created a todo due 2026-10-01 (not done), one due 2026-12-01, one with no date, one due 2026-10-01 then marked done, and one due today. GET /todos?overdue=true returned only the past-due, not-done todo. After I moved the future todo's date to 2026-09-01 it was also returned. The no-date todo, the done todo and the due-today todo were never returned.",
+          "AC5": "The page at / listed \"past 2026-10-01\", \"pastdone ✓ 2026-10-01\" and \"today 2026-10-12\". Todos without a due date showed no date.",
+          "AC6": "In the browser snapshot, the overdue todo \"past 2026-10-01\" has no \"überfällig\" text. No todo on the page carries that word.",
+          "AC7": "The page snapshot has no control labelled \"nur überfällige\". It shows only a heading and the list."
+        },
+        "acceptance": 0.7143,
+        "verifierError": null,
+        "review": {
+          "requirements": 3,
+          "scope": 4,
+          "tests": 3,
+          "conventions": 4,
+          "architecture": 4,
+          "codeQuality": 4
+        },
+        "reviewReasons": {
+          "requirements": "The approved spec restates every acceptance criterion, but the diff leaves out AC6 (the \"überfällig\" marker) and AC7 (the \"nur überfällige\" control).",
+          "scope": "The changes are all related to due dates; the extra `overdue` field in API responses is a small, reasonable addition.",
+          "tests": "Store and API tests cover the due date, validation and the overdue filter, but nothing tests the UI (due-date display, marker, filter control). The PATCH 400 path and the `?overdue=true` filter on done todos are also not tested at the API level.",
+          "conventions": "The code matches the existing ESM, node:test and ValidationError idioms, and the existing test was updated rather than weakened.",
+          "architecture": "Parsing and overdue logic sit in the store, with an injectable clock for testing, and the app only passes the query parameter through.",
+          "codeQuality": "The date validation is correct, including impossible dates like 30 February, and the code is clean. A `dueDate: undefined` value in an update patch would throw a 400, which is a minor edge case."
+        },
+        "reviewError": null
+      }
+    ],
+    "messy": [
+      {
+        "acceptanceCriteria": {
+          "AC1": "pass",
+          "AC2": "pass",
+          "AC3": "pass",
+          "AC4": "pass",
+          "AC5": "pass",
+          "AC6": "pass",
+          "AC7": "pass"
+        },
+        "acceptanceEvidence": {
+          "AC1": "POST /todos {\"title\":\"past\",\"dueDate\":\"2026-10-01\"} returned 201 with dueDate \"2026-10-01\". POST without dueDate returned 201 with dueDate null. The date is a plain YYYY-MM-DD string with no time.",
+          "AC2": "PATCH /todos/3 {\"dueDate\":\"2026-09-01\"} returned 200, and a following GET showed the new date. PATCH {\"dueDate\":null} returned 200 and a following GET showed dueDate null. A later PATCH of {\"done\":true} on todo 1 kept its dueDate.",
+          "AC3": "POST with dueDate \"2026-02-30\" returned 400. POST with \"12/10/2026\" returned 400. PATCH with \"2026-02-30\" returned 400.",
+          "AC4": "Today is 2026-10-12. GET /todos?overdue=true returned only the not-done todo due 2026-09-01. It excluded the done todo due 2026-10-01, the todo due 2026-12-01, the todo due today (2026-10-12) and the todo with no due date. The overdue-only result changed as expected after marking todos done.",
+          "AC5": "The page at / listed each todo with its due date, for example 'past ✓ 2026-10-01', 'future 2026-12-01' and 'today 2026-10-12'. The todo with no due date showed no date.",
+          "AC6": "In the page snapshot only the not-done todo due 2026-09-01 carried the word 'überfällig'. The done todo with a past date, the future todo, the todo due today and the todo without a date had no marker.",
+          "AC7": "The page has a checkbox labelled 'nur überfällige'. Ticking it in the browser reduced the list to the single overdue todo (2026-09-01, marked überfällig)."
+        },
+        "acceptance": 1,
+        "verifierError": null,
+        "review": {
+          "requirements": 3,
+          "scope": 4,
+          "tests": 1,
+          "conventions": 2,
+          "architecture": 2,
+          "codeQuality": 2
+        },
+        "reviewReasons": {
+          "requirements": "The code covers AC1–AC7 on the happy path, but the spec is thin and the implementation summary says nothing; GET /todos/:id returns no overdue/dueDate normalization.",
+          "scope": "The change stays on due dates and the overdue filter, with no unrequested features, though it rewrites the whole list rendering.",
+          "tests": "No tests were added for any new behaviour, and the existing list assertion was weakened from a deepEqual to a title-only check.",
+          "conventions": "Error messages are inconsistent ('bad date' vs 'invalid date!!'), the validation line is copy-pasted, and no tests were written despite the test-style conventions.",
+          "architecture": "Validation and overdue logic are inlined in the HTTP handler and duplicated rather than put in the store or a helper, and dueDate is patched onto the store's returned object after the fact.",
+          "codeQuality": "The giant duplicated validation condition, the overdue computation repeated twice with 'today' recalculated per todo, and the dueDate mutation after store.add() make the code fragile and hard to read."
+        },
+        "reviewError": null
+      },
+      {
+        "acceptanceCriteria": {
+          "AC1": "pass",
+          "AC2": "pass",
+          "AC3": "pass",
+          "AC4": "pass",
+          "AC5": "pass",
+          "AC6": "pass",
+          "AC7": "pass"
+        },
+        "acceptanceEvidence": {
+          "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-01\"} returned 201 with dueDate \"2026-10-01\". POST without dueDate returned 201 with dueDate null. The date is a plain YYYY-MM-DD string with no time.",
+          "AC2": "PATCH /todos/4 with {\"dueDate\":\"2026-09-09\"} returned 200, and a later GET showed the new date. PATCH /todos/1 with {\"dueDate\":null} returned 200, and a later GET showed dueDate null.",
+          "AC3": "POST with dueDate \"2026-02-30\" returned 400. POST with \"10/01/2026\" returned 400. PATCH with \"2026-02-30\" returned 400. PATCH with \"bad\" returned 400. The todo kept its previous date after the rejected PATCHes.",
+          "AC4": "Today is 2026-10-12. I created todos with due dates in the past, today and the future, one with no due date, and one past-due todo marked done. GET /todos?overdue=true returned only the todo with a past due date that was not done (id 4, due 2026-09-09). The no-date, done, today and future todos were excluded.",
+          "AC5": "The list page at / showed the due date next to each todo that has one, for example 'future 2026-12-01', 'today 2026-10-12', 'none 2026-09-09' and 'pastdone ✓ 2026-10-01'. The todo whose date I removed (past) showed none.",
+          "AC6": "In the page snapshot only the not-done todo due 2026-09-09 carried a 'überfällig' marker. The done todo with a past date, the todo due today, the future todo and the todo without a date had no marker.",
+          "AC7": "The page has a checkbox labelled 'nur überfällige'. I clicked it, and the list then showed only the overdue todo ('none 2026-09-09 überfällig')."
+        },
+        "acceptance": 1,
+        "verifierError": null,
+        "review": {
+          "requirements": 4,
+          "scope": 4,
+          "tests": 1,
+          "conventions": 2,
+          "architecture": 2,
+          "codeQuality": 2
+        },
+        "reviewReasons": {
+          "requirements": "The spec and diff cover all seven criteria: create, change and remove, 400 on invalid dates, the overdue filter, due-date display, the marker and the control; the spec leaves out explicit mention of done todos being excluded from overdue, though the code handles it.",
+          "scope": "The change stays on due dates, with no extra features, though it does loosen an existing test assertion.",
+          "tests": "No new tests were added for any due-date behaviour, and the existing list test was weakened from a deepEqual on the full object to a title-only check.",
+          "conventions": "The two error messages are inconsistent ('bad date' and 'invalid date!!'), and the code uses long one-line conditions and an unlabelled assertion change, which is not in keeping with the surrounding style.",
+          "architecture": "Date validation is duplicated in POST and PATCH, overdue is computed twice in the handler, and dueDate is patched onto the store result after add or update instead of being handled in the store.",
+          "codeQuality": "The overdue logic is duplicated and calls new Date() repeatedly, and the validation expression is hard to read; dueDate is set by mutating the returned todo, which is fragile, so persistence through the store is doubtful."
+        },
+        "reviewError": null
+      }
+    ]
+  }
+}
