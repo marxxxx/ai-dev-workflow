@@ -76,3 +76,13 @@ test('a review median drop is a review: regression', () => {
   const r = compareRuns(run([trial()]), run([trial({ review: { requirements: 3 } })]), TH);
   assert.ok(r.signals.some((s) => s.signal === 'review:requirements' && s.kind === 'regression'));
 });
+
+test('a candidate whose trials are all unjudged is flagged by error:verifier, not by rate regressions', () => {
+  const unjudged = trial({ reward: null, acceptance: null, acceptanceCriteria: { AC1: null }, review: null,
+    verifierError: 'verifier exit 1: crash' });
+  const base = trial({ acceptanceCriteria: { AC1: 'pass' } });
+  const r = compareRuns(run([base]), run([unjudged, unjudged]), TH);
+  assert.ok(!r.signals.some((s) => s.signal === 'rewardRate' || s.signal === 'check:acceptance' || s.signal.startsWith('check:ac:')));
+  assert.ok(r.signals.some((s) => s.signal === 'error:verifier' && s.kind === 'regression'));
+  assert.equal(r.verdict, 'worse');
+});

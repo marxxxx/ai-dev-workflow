@@ -21,8 +21,9 @@ export function compareRuns(base, cand, thresholds) {
   const signals = [];
   const rates = [['rewardRate', base.summary.rewardRate, cand.summary.rewardRate],
     ...Object.keys({ ...base.summary.checkRates, ...cand.summary.checkRates })
-      .map((k) => [`check:${k}`, base.summary.checkRates[k] ?? 0, cand.summary.checkRates[k] ?? 0])];
+      .map((k) => [`check:${k}`, k in base.summary.checkRates ? base.summary.checkRates[k] : 0, k in cand.summary.checkRates ? cand.summary.checkRates[k] : 0])];
   for (const [signal, b, c] of rates) {
+    if (b === null || c === null) continue; // unjudged: error:verifier carries it
     if (c < b) signals.push({ signal, base: b, cand: c, kind: 'regression' });
     else if (c > b) signals.push({ signal, base: b, cand: c, kind: 'improvement' });
   }
