@@ -4,3 +4,6 @@ docker/tools/node_modules/
 .vs
 
 .env.ai-dev
+spike/
+obj/
+bin/
