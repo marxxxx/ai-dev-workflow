@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { InterruptError } from './claude.mjs';
 import { loadConfig } from './config.mjs';
 import { buildTaskImage, postVerify, taskImage, verifierHash } from './postverify.mjs';
 
@@ -75,6 +76,15 @@ test('a bundle that cannot be checked out yields errors for both roles instead o
   assert.match(pv.verifierError, /^checkout: bundle must hold main/);
   assert.match(pv.reviewError, /^checkout: /);
   assert.deepEqual(pv.review, nulls);
+});
+
+test('an interrupt from a judge propagates: no checkout error verdict, no review, work dir removed', () => {
+  const { seen, deps } = fakes({ runVerifier: () => { throw new InterruptError('SIGINT'); } });
+  let reviewed = false;
+  deps.runReview = () => { reviewed = true; };
+  assert.throws(() => postVerify({ config, bundle: 'b', criteria, image: 'img', deps }), (e) => e.interrupted === true);
+  assert.equal(reviewed, false);
+  assert.equal(existsSync(path.dirname(seen.checkouts[0])), false, 'work dir removed');
 });
 
 test('verifierHash is stable and changes with criteria, models and rubric, not with limits', () => {

@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { isInterrupt } from './claude.mjs';
 import { loadConfig } from './config.mjs';
 import { buildReviewPrompt, runReview, validateReviewAnswer } from './review.mjs';
 
@@ -47,4 +48,8 @@ test('runReview runs read-only in the checkout with the review model, and fails 
   const bad = runReview({ config, checkout: '/c', ...input, run: () => ({ status: 1, stdout: '', stderr: 'boom' }) });
   assert.deepEqual(bad.scores, Object.fromEntries(Object.keys(rubric).map((k) => [k, null])));
   assert.match(bad.error, /review exit 1: boom/);
+});
+
+test('an interrupted review run propagates instead of becoming null scores', () => {
+  assert.throws(() => runReview({ config, checkout: '/c', ...input, run: () => ({ status: 130 }) }), (e) => isInterrupt(e));
 });

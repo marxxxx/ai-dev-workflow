@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { isInterrupt } from './claude.mjs';
 import { buildVerifierDockerArgs, buildVerifierPrompt, runVerifier, validateVerifierAnswer } from './verifier.mjs';
 
 const criteria = [{ id: 'AC1', text: 'A todo can get a due date.' }, { id: 'AC2', text: 'The list shows it.' }];
@@ -62,4 +63,11 @@ test('a timed-out or invalid verifier yields no verdicts and an error, and the c
     run: (cmd, args) => (args[0] === 'run' ? { status: 0, stdout: answer([both[0]]) } : { status: 0 }) });
   assert.equal(partial.criteria, null);
   assert.match(partial.error, /missing: AC2/);
+});
+
+test('an interrupted verifier run propagates instead of becoming an error verdict, and the container is still removed', () => {
+  const calls = [];
+  const run = (cmd, args) => { calls.push(args); return args[0] === 'run' ? { status: null, signal: 'SIGINT' } : { status: 0 }; };
+  assert.throws(() => runVerifier({ config, checkout: '/c', criteria, image: 'img', name: 'v4', run, uid: 1, gid: 1 }), (e) => isInterrupt(e));
+  assert.deepEqual(calls.at(-1), ['rm', '-f', 'v4']);
 });

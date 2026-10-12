@@ -2,7 +2,7 @@
 // It derives conventions and architecture from AGENTS.md and the code; the prompt holds no stack knowledge.
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { callClaude } from './claude.mjs';
+import { callClaude, isInterrupt } from './claude.mjs';
 
 export const REVIEW_ALLOWED_TOOLS = 'Read,Grep,Glob';
 export const REVIEW_DENIED_TOOLS = 'Bash,Edit,Write,NotebookEdit,Task,WebFetch,WebSearch';
@@ -52,6 +52,7 @@ export function runReview({ config, checkout, diffPath, criteria, spec, summary,
       input: buildReviewPrompt({ rubric, criteria, spec, summary, diffPath }) });
     return { ...validateReviewAnswer(answer, rubric), error: null };
   } catch (err) {
+    if (isInterrupt(err)) throw err;
     return { scores: Object.fromEntries(Object.keys(rubric).map((k) => [k, null])), reasons: {}, error: err.message };
   }
 }

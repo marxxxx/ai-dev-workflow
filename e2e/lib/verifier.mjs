@@ -1,7 +1,7 @@
 // Agentic E2E verifier: one claude -p run in a fresh task container exercises the PR head and
 // judges it against the task's acceptance criteria only.
 import { spawnSync } from 'node:child_process';
-import { callClaude } from './claude.mjs';
+import { callClaude, isInterrupt } from './claude.mjs';
 
 export const VERIFIER_ALLOWED_TOOLS = 'Bash,Read,Grep,Glob,mcp__playwright';
 export const VERIFIER_DENIED_TOOLS = 'Edit,Write,NotebookEdit,Task,WebFetch,WebSearch';
@@ -61,6 +61,7 @@ export function runVerifier({ config, checkout, criteria, env = {}, image, name 
       input: buildVerifierPrompt({ criteria }), env, timeoutMs: config.verifier.timeoutSec * 1000, label: 'verifier', run });
     return { criteria: validateVerifierAnswer(answer, criteria.map((c) => c.id)), error: null };
   } catch (err) {
+    if (isInterrupt(err)) throw err;
     return { criteria: null, error: err.message };
   } finally {
     // A timeout kills only the docker client; the container would keep running.

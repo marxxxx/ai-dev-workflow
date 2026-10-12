@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { callClaude, cliError, isQuota, resultJson } from './claude.mjs';
+import { callClaude, cliError, isInterrupt, isQuota, resultJson } from './claude.mjs';
 
 test('resultJson takes the last JSON line and accepts a fenced answer', () => {
   const stdout = `agent runtime: trusted 1 company root certificate(s)\n${JSON.stringify({ type: 'result', result: 'Here:\n```json\n{"a":1}\n```' })}\n`;
@@ -43,4 +43,17 @@ test('callClaude passes input, cwd, timeout and merged env, and names a timeout'
   assert.ok(seen.env.PATH);
   const timedOut = () => ({ status: null, error: Object.assign(new Error('spawnSync docker ETIMEDOUT'), { code: 'ETIMEDOUT' }) });
   assert.throws(() => callClaude({ args: [], label: 'verifier', timeoutMs: 900000, run: timedOut }), /^Error: verifier timed out after 900 s$/);
+});
+
+test('a child that ended on an interrupt is an interrupt error, not a verdict', () => {
+  const call = (r) => callClaude({ args: [], label: 'verifier', timeoutMs: 1000, run: () => r });
+  for (const r of [{ status: null, signal: 'SIGINT' }, { status: 130 }]) {
+    assert.throws(() => call(r), (e) => isInterrupt(e) && e.signal === 'SIGINT' && e.message === 'interrupted (SIGINT)');
+  }
+  for (const r of [{ status: null, signal: 'SIGTERM' }, { status: 143 }]) {
+    assert.throws(() => call(r), (e) => isInterrupt(e) && e.signal === 'SIGTERM' && e.message === 'interrupted (SIGTERM)');
+  }
+  assert.throws(() => call({ status: 1, stdout: 'boom' }), (e) => !isInterrupt(e), 'an ordinary failure is no interrupt');
+  assert.equal(isInterrupt(new Error('x')), false);
+  assert.equal(isInterrupt(undefined), false);
 });

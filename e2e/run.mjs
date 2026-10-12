@@ -18,7 +18,7 @@ import { loadCriteria } from './lib/criteria.mjs';
 import { buildTaskImage, postVerify, verifierHash } from './lib/postverify.mjs';
 import { bundleLeaks, createCalibrationBundle } from './lib/bundle.mjs';
 import { evaluateCalibration, findCalibration, renderCalibrationReport } from './lib/calibration.mjs';
-import { isQuota } from './lib/claude.mjs';
+import { isInterrupt, isQuota } from './lib/claude.mjs';
 
 const config = loadConfig();
 const { positionals, values: opts } = parseArgs({ allowPositionals: true,
@@ -39,6 +39,9 @@ const criteria = loadCriteria(path.join(task, 'acceptance-criteria.md'));
 const hash = verifierHash({ config, criteria });
 const calibrationDir = path.join(config.root, config.resultsDir, 'calibration');
 const calibration = () => findCalibration({ dir: calibrationDir, hash });
+// postVerify blocks the event loop (spawnSync), so a Ctrl-C handler cannot run during it: yield once
+// afterwards, before anything is written, so a pending signal handler gets its turn first.
+const tick = () => new Promise((resolve) => setImmediate(resolve));
 const acLine = (x) => Object.entries(x.acceptanceCriteria).map(([id, v]) => `${id} ${v ?? '—'}`).join(' · ');
 
 // Every text file under the results dir goes through here so known secret values never reach disk.
@@ -210,9 +213,11 @@ async function run() {
               console.log('  post-verifying (E2E verifier, review)');
               try {
                 const pv = postVerifyTrial(bundle, ev, staged.env, image);
+                await tick();
                 writeVerdicts(ev, pv);
                 trial = applyPostVerification(trial, pv);
               } catch (e) {
+                if (isInterrupt(e)) throw e; // Ctrl-C is no verdict
                 // A broken verifier is no agent failure: keep the trial, leave it unjudged.
                 const error = `post-verification: ${e.message}`;
                 console.error(`✗ ${id}: ${error}`);
@@ -226,6 +231,7 @@ async function run() {
             }
           }
         } catch (e) {
+          if (isInterrupt(e)) throw e;
           trial = failed(`runner error: ${e.message}`);
           safeCleanupCompose();
         }
@@ -276,6 +282,7 @@ async function verify(harnessDir, trialId) {
       if (!existsSync(bundle)) { console.log(`- ${t.id}: no bundle (no PR head), kept as is`); continue; }
       console.log(`▶ verify ${t.id}`);
       const pv = postVerifyTrial(bundle, ev, staged.env, image);
+      await tick();
       if (isQuota(pv.verifierError) || isQuota(pv.reviewError)) {
         console.error(`✗ subscription usage limit reached in ${t.id}: nothing written, rerun after the reset`);
         process.exitCode = 1;
@@ -320,6 +327,7 @@ async function calibrate() {
       for (const [variant, bundle] of Object.entries(bundles)) {
         console.log(`▶ ${variant} (run ${i}/${runs})`);
         const pv = postVerify({ config, bundle, criteria, spec, summary, env: staged.env, image });
+        await tick();
         if (isQuota(pv.verifierError) || isQuota(pv.reviewError)) {
           console.error('✗ subscription usage limit reached: calibration aborted, nothing written');
           process.exitCode = 1;
@@ -344,15 +352,23 @@ async function calibrate() {
   }
 }
 
-if (command === 'preflight') process.exit(preflight() ? 0 : 1);
-else if (command === 'run') await run();
-else if (command === 'verify' && rest.length === 1) await verify(path.resolve(rest[0]), opts.trial);
-else if (command === 'calibrate' && rest.length === 0) await calibrate();
-else if (command === 'compare' && rest.length === 2) compareDirs(path.resolve(rest[0]), path.resolve(rest[1]));
-else if (command === 'report' && rest.length === 1) {
-  const r = JSON.parse(readFileSync(path.join(rest[0], 'run.json'), 'utf8'));
-  writeFileSync(path.join(rest[0], 'report.md'), renderRunReport(r));
-} else {
-  console.error('usage: node e2e/run.mjs preflight | run [--harness h]... [--repetitions n] | verify <harnessDir> [--trial id] | calibrate [--runs n] | compare <baseDir> <candDir> | report <harnessDir>');
-  process.exit(2);
+// An interrupt that propagates out of post-verification has already run the finally blocks (staged
+// secrets, work dir); nothing was written for the interrupted trial.
+try {
+  if (command === 'preflight') process.exit(preflight() ? 0 : 1);
+  else if (command === 'run') await run();
+  else if (command === 'verify' && rest.length === 1) await verify(path.resolve(rest[0]), opts.trial);
+  else if (command === 'calibrate' && rest.length === 0) await calibrate();
+  else if (command === 'compare' && rest.length === 2) compareDirs(path.resolve(rest[0]), path.resolve(rest[1]));
+  else if (command === 'report' && rest.length === 1) {
+    const r = JSON.parse(readFileSync(path.join(rest[0], 'run.json'), 'utf8'));
+    writeFileSync(path.join(rest[0], 'report.md'), renderRunReport(r));
+  } else {
+    console.error('usage: node e2e/run.mjs preflight | run [--harness h]... [--repetitions n] | verify <harnessDir> [--trial id] | calibrate [--runs n] | compare <baseDir> <candDir> | report <harnessDir>');
+    process.exit(2);
+  }
+} catch (e) {
+  if (!isInterrupt(e)) throw e;
+  console.error(`✗ ${e.message}: stopped, nothing written for the interrupted trial`);
+  process.exit(e.signal === 'SIGTERM' ? 143 : 130);
 }

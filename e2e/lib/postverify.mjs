@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { checkoutBundle } from './bundle.mjs';
-import { isQuota } from './claude.mjs';
+import { isInterrupt, isQuota } from './claude.mjs';
 import { REVIEW_ALLOWED_TOOLS, REVIEW_DENIED_TOOLS, buildReviewPrompt, runReview } from './review.mjs';
 import { VERIFIER_ALLOWED_TOOLS, VERIFIER_DENIED_TOOLS, buildVerifierPrompt, runVerifier } from './verifier.mjs';
 
@@ -57,6 +57,7 @@ export function postVerify({ config, bundle, criteria, spec, summary, env = {}, 
       review = isQuota(verdict.error) ? { scores: nulls, reasons: {}, error: verdict.error }
         : deps.runReview({ config, checkout: path.join(work, 'review'), diffPath, criteria, spec, summary, env });
     } catch (err) {
+      if (isInterrupt(err)) throw err; // Ctrl-C ends the command; it is no verdict
       const error = `checkout: ${err.message}`;
       verdict = { criteria: null, error };
       review = { scores: nulls, reasons: {}, error };
