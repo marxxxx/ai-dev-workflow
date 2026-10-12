@@ -119,9 +119,22 @@ AGENTS.md
 - **Same surface as the Node app:** the same paths, the same fields (`id`, `title`, `done`), the same
   status codes (201 on create, 400 on validation, 404 on an unknown id), and the same `data-testid`s
   on the page (`todo-list`, `todo-item`, `todo-title`).
+- **Communication:** the page talks to the backend only over the Blazor circuit. `Home.razor` injects
+  `TodoStore` and calls it directly; it never calls the app's own HTTP API. The minimal API is a second,
+  independent interface on the same store. It exists because AC3 and AC4 name HTTP and an API, and because
+  the verifier creates its test data through it.
+
+  ```
+  Browser ──SignalR circuit──► Home.razor ──DI──► TodoStore (singleton)
+  curl / verifier ──HTTP──► minimal API (/todos, /health) ──DI──┘
+  ```
+
 - **Data flow:** the verifier creates data through the API and reloads the page; Blazor Server renders
   from the same singleton store. The "nur überfällige" filter the agent builds is a real interactive
   Blazor control over SignalR.
+- **As simple as possible:** the task only proves that the workflow works on .NET. The app starts from the
+  minimal Blazor Web App (the `--empty` template shape): no layout components, no Bootstrap or CSS
+  framework, no navigation, no authentication.
 - **`AGENTS.md`:**
   - commands: `dotnet test`; `dotnet run --project src/DemoTodo --urls http://localhost:3000`;
   - conventions: no new NuGet packages, `ValidationException` maps to 400, TDD with a failing test in
