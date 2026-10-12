@@ -132,9 +132,8 @@ AGENTS.md
 - **Data flow:** the verifier creates data through the API and reloads the page; Blazor Server renders
   from the same singleton store. The "nur überfällige" filter the agent builds is a real interactive
   Blazor control over SignalR.
-- **As simple as possible:** the task only proves that the workflow works on .NET. The app starts from the
-  minimal Blazor Web App (the `--empty` template shape): no layout components, no Bootstrap or CSS
-  framework, no navigation, no authentication.
+- **Template:** the app is the standard Blazor Web App template (interactive server render mode) with its
+  default Bootstrap, CSS and navigation; the todo list replaces the template's home page.
 - **`AGENTS.md`:**
   - commands: `dotnet test`; `dotnet run --project src/DemoTodo --urls http://localhost:3000`;
   - conventions: no new NuGet packages, `ValidationException` maps to 400, TDD with a failing test in
