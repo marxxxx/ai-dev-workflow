@@ -1,2 +1,0 @@
-summary_comment=0
-acceptance=0.8571

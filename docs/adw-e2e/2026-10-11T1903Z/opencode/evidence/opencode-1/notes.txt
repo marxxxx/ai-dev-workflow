@@ -1,1 +1,0 @@
-acceptance=0.8571
