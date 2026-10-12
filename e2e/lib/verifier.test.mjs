@@ -16,6 +16,13 @@ test('prompt lists every criterion and points to the E2E section of AGENTS.md, n
   assert.ok(!p.includes('SPEC-TEXT') && !p.includes('TICKET-TEXT'));
 });
 
+test('prompt makes the verifier write evidence before the verdict', () => {
+  const p = buildVerifierPrompt({ criteria });
+  const shape = p.split('\n').find((l) => l.startsWith('{"criteria"'));
+  assert.ok(shape.indexOf('"evidence"') < shape.indexOf('"pass"'));
+  assert.ok(p.includes('Write each criterion\'s evidence first, then set "pass" from that evidence alone; never revise a verdict inside the evidence text.'));
+});
+
 test('answer validation demands every criterion exactly once with a boolean verdict', () => {
   const ids = ['AC1', 'AC2'];
   assert.deepEqual(validateVerifierAnswer({ criteria: both }, ids),

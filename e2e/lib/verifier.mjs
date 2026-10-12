@@ -19,12 +19,13 @@ How to work:
 - A criterion passes only if you observed the behaviour yourself. If you cannot find a way to exercise it, it fails.
 - Never change repository files, never commit, and never save screenshots inside the repository.
 - Stop the app before you answer.
+- Write each criterion's evidence first, then set "pass" from that evidence alone; never revise a verdict inside the evidence text.
 
 Acceptance criteria:
 ${criteria.map((c) => `- ${c.id}: ${c.text}`).join('\n')}
 
 Answer with JSON only, exactly this shape, with one entry per criterion id:
-{"criteria": [{"id": "${criteria[0].id}", "pass": true, "evidence": "<the requests or page steps you ran and what you observed>"}]}
+{"criteria": [{"id": "${criteria[0].id}", "evidence": "<the requests or page steps you ran and what you observed>", "pass": true}]}
 `;
 }
 
