@@ -190,14 +190,27 @@ async function run() {
             }
             const bundle = path.join(trialDir, 'verifier/pr-head.bundle');
             if (existsSync(bundle)) {
-              if (bundleLeaks(bundle, staged.values)) {
-                console.error(`✗ ${id}: a secret occurs in the PR history: bundle not stored, the trial cannot be re-verified`);
+              try {
+                if (bundleLeaks(bundle, staged.values)) {
+                  console.error(`✗ ${id}: a secret occurs in the PR history: bundle not stored, the trial cannot be re-verified`);
+                  process.exitCode = 1;
+                } else copyFileSync(bundle, path.join(ev, 'pr-head.bundle'));
+              } catch (e) {
+                console.error(`✗ ${id}: bundle could not be scanned for secrets (${e.message}): not stored, the trial cannot be re-verified`);
                 process.exitCode = 1;
-              } else copyFileSync(bundle, path.join(ev, 'pr-head.bundle'));
+              }
               console.log('  post-verifying (E2E verifier, review)');
-              const pv = postVerifyTrial(bundle, ev, staged.env, image);
-              writeVerdicts(ev, pv);
-              trial = applyPostVerification(trial, pv);
+              try {
+                const pv = postVerifyTrial(bundle, ev, staged.env, image);
+                writeVerdicts(ev, pv);
+                trial = applyPostVerification(trial, pv);
+              } catch (e) {
+                // A broken verifier is no agent failure: keep the trial, leave it unjudged.
+                const error = `post-verification: ${e.message}`;
+                console.error(`✗ ${id}: ${error}`);
+                trial = applyPostVerification(trial, { acceptanceCriteria: Object.fromEntries(criteria.map(({ id: c }) => [c, null])),
+                  acceptance: null, acceptanceEvidence: null, verifierError: error, review: null, reviewReasons: null, reviewError: error });
+              }
               console.log(`  ${acLine(trial)}`);
             }
           }
