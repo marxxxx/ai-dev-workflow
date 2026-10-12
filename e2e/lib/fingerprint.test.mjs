@@ -27,8 +27,12 @@ const exec = (cmd, args) => {
 test('fingerprint records versions, hashes and image', () => {
   const repo = demoRepo();
   try {
-    const fp = buildFingerprint({ config: loadConfig(), harness: 'codex', demoRepo: repo, exec });
+    const config = loadConfig();
+    const fp = buildFingerprint({ config, harness: 'codex', demoRepo: repo, verifierHash: 'vh', exec });
     assert.equal(fp.adw.sha, 'abc123');
+    assert.equal(fp.verifierHash, 'vh');
+    assert.deepEqual(fp.models, { target: config.harnesses.codex.model, subagents: null, simulatedUser: config.simulatedUser.model,
+      verifier: config.verifier.model, review: config.review.model });
     assert.equal(fp.adw.dirty, false);
     assert.equal(fp.image.id, 'sha256:img1');
     assert.equal(fp.harbor.version, '0.24.0');

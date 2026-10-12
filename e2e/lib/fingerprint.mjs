@@ -6,7 +6,7 @@ import { configHash, harnessVersion } from './config.mjs';
 import { sha256Dir, sha256File, walk } from './fsutil.mjs';
 
 export const ACP_VERSIONS = { acpx: '0.11.2', claudeCodeAcp: '0.16.2', codexAcp: '1.12.0' };
-export function buildFingerprint({ config, harness, demoRepo,
+export function buildFingerprint({ config, harness, demoRepo, verifierHash,
   exec = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8', cwd: config.root }) }) {
   const root = config.root;
   const inventory = path.join(root, 'docker/tools/inventory.json');
@@ -24,6 +24,9 @@ export function buildFingerprint({ config, harness, demoRepo,
     code: { agents: sha256Dir(path.join(root, 'e2e/agents'), { exclude: /__pycache__/ }),
       lib: sha256Dir(path.join(root, 'e2e/lib'), { exclude: /(^|\/)fixtures\/|\.test\.mjs$/ }) },
     config: configHash(config),
+    verifierHash,
+    models: { target: config.harnesses[harness].model, subagents: config.harnesses[harness].subagentModel ?? null,
+      simulatedUser: config.simulatedUser.model, verifier: config.verifier.model, review: config.review.model },
     task: sha256Dir(path.join(root, 'e2e', config.task), { exclude: /(^|\/)(\.claude|\.agents|\.opencode|\.codex)\/|\.mcp\.json$/ }),
   };
 }
