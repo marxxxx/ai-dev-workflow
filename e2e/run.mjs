@@ -78,11 +78,14 @@ function preflight() {
   return r.ok;
 }
 
-// verify and calibrate need only the Claude login (verifier and review).
-function stageClaude(name) {
+// verify and calibrate need only the Claude login (verifier and review). Ctrl-C removes the staged
+// copies (and whatever else `onExit` cleans up), like run() does.
+function stageClaude(name, onExit = () => {}) {
   const staged = stageSecrets({ config, invocationDir: path.join(config.root, config.jobsDir, name) });
   if (!staged.env.CLAUDE_CODE_OAUTH_TOKEN) { staged.cleanup(); fail(`claude login missing: put CLAUDE_CODE_OAUTH_TOKEN into ${config.auth.claudeEnvFile}`); }
   secretValues = staged.values;
+  process.on('SIGINT', () => { staged.cleanup(); onExit(); process.exit(130); });
+  process.on('SIGTERM', () => { staged.cleanup(); onExit(); process.exit(143); });
   return staged;
 }
 
@@ -258,6 +261,7 @@ async function run() {
 
 // Re-runs post-verification from the committed bundles, then rewrites run.json, report.md and summary.md.
 async function verify(harnessDir, trialId) {
+  if (!existsSync(path.join(harnessDir, 'run.json'))) fail(`${harnessDir}: no run.json — pass a harness dir, e.g. docs/adw-e2e/<ts>/<harness>`);
   const record = readRun(harnessDir);
   if (record.schema !== 2) fail(`${harnessDir}: schema ${record.schema ?? 1} runs have no bundles to re-verify`);
   if (trialId && !record.trials.some((t) => t.id === trialId)) fail(`no trial ${trialId} in ${harnessDir}`);
@@ -302,8 +306,9 @@ async function calibrate() {
   const summary = readFileSync(path.join(calDir, 'summary.md'), 'utf8');
   const image = buildTaskImage({ config });
   const ts = timestamp();
-  const staged = stageClaude(`calibrate-${ts}`);
-  const work = mkdtempSync(path.join(tmpdir(), 'adw-calibrate-'));
+  let work;
+  const staged = stageClaude(`calibrate-${ts}`, () => work && rmSync(work, { recursive: true, force: true }));
+  work = mkdtempSync(path.join(tmpdir(), 'adw-calibrate-'));
   try {
     const bundles = Object.fromEntries(Object.keys(expected).map((variant) => {
       const out = path.join(work, `${variant}.bundle`);
