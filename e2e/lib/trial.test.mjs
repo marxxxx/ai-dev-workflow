@@ -3,69 +3,71 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { buildTrialRecord, CONTRACT_CHECKS } from './trial.mjs';
+import { applyPostVerification, buildTrialRecord, CONTRACT_CHECKS, emptyOutcome, section } from './trial.mjs';
 import { RESULT } from './fixtures/make.mjs';
 
-test('trial record merges verifier rewards, host e2e check, metrics and judge', () => {
+const criteria = [{ id: 'AC1', text: 'a' }, { id: 'AC2', text: 'b' }];
+const config = { app: { port: 3000 } };
+const DEPS = {
+  targetTokens: () => ({ input: 1, output: 2, cacheRead: 3, cacheWrite: 4, total: 10 }),
+  userTokens: () => ({ total: 5 }),
+  durations: () => ({ setup: 1, agent: 2, verifier: 3, total: 6 }),
+  errors: () => ({ harbor: null, bridge: null, tool: 0, timeout: false, quota: false }),
+  e2ePerformed: () => 1,
+  softSignals: () => ({ superpowersActive: true }),
+  ccusageCrossCheck: () => ({ ccusageTotal: 10, deviation: 0, warning: null }),
+};
+
+test('trial record merges verifier rewards, host e2e check and metrics; acceptance waits for post-verification', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
   try {
     mkdirSync(path.join(dir, 'verifier'));
     writeFileSync(path.join(dir, 'result.json'), JSON.stringify(RESULT));
     const checks = Object.fromEntries(CONTRACT_CHECKS.filter((c) => c !== 'e2e_performed').map((c) => [c, 1]));
-    writeFileSync(path.join(dir, 'verifier/reward.json'), JSON.stringify({ ...checks, own_tests_pass: 1, acceptance: 1 }));
-    writeFileSync(path.join(dir, 'verifier/ticket.json'), JSON.stringify({ comments: [
-      { body: '## Approved Spec\nSPEC' }, { body: '## Implementation Summary\nSUM' }] }));
-    writeFileSync(path.join(dir, 'verifier/pr.diff'), 'DIFF');
-    let judged;
-    const deps = {
-      targetTokens: () => ({ input: 1, output: 2, cacheRead: 3, cacheWrite: 4, total: 10 }),
-      userTokens: () => ({ total: 5 }),
-      durations: () => ({ setup: 1, agent: 2, verifier: 3, total: 6 }),
-      errors: () => ({ harbor: null, bridge: null, tool: 0, timeout: false }),
-      e2ePerformed: () => 0,
-      softSignals: () => ({ superpowersActive: true }),
-      ccusageCrossCheck: () => ({ ccusageTotal: 10, deviation: 0, warning: null }),
-      runJudge: (a) => { judged = a; return { scores: { requirements: 5 }, reasons: { requirements: 'ok' }, error: null }; },
-    };
-    const t = buildTrialRecord({ id: 'codex-1', harness: 'codex', trialDir: dir, config: { app: { port: 3000 } }, briefing: 'BRIEF', env: { X: '1' }, deps });
-    assert.deepEqual(judged.env, { X: '1' });
+    writeFileSync(path.join(dir, 'verifier/reward.json'), JSON.stringify({ ...checks, own_tests_pass: 1 }));
+    const t = buildTrialRecord({ id: 'codex-1', harness: 'codex', trialDir: dir, config, criteria, deps: { ...DEPS, e2ePerformed: () => 0 } });
     assert.equal(t.checks.e2e_performed, 0);
     assert.equal(t.contract, Number(((CONTRACT_CHECKS.length - 1) / CONTRACT_CHECKS.length).toFixed(4)));
-    assert.equal(t.reward, 0, 'missing e2e makes reward 0');
-    assert.deepEqual([judged.spec, judged.summary, judged.diff, judged.briefing], ['## Approved Spec\nSPEC', '## Implementation Summary\nSUM', 'DIFF', 'BRIEF']);
-    assert.equal(t.judge.requirements, 5);
+    assert.equal(t.ownTests, 1);
+    assert.deepEqual(t.acceptanceCriteria, { AC1: 'fail', AC2: 'fail' });
+    assert.equal(t.acceptance, 0);
+    assert.equal(t.review, null);
+    assert.equal(t.reward, 0);
     assert.equal(t.tokens.total, 10);
     assert.equal(t.errors.quota, false);
-    const limited = buildTrialRecord({ id: 'codex-1', harness: 'codex', trialDir: dir, config: { app: { port: 3000 } }, briefing: 'BRIEF',
-      deps: { ...deps, runJudge: () => ({ scores: { requirements: null }, reasons: {}, error: 'judge exit 1: usage_limit_reached: limit' }) } });
-    assert.equal(limited.errors.quota, true, 'a usage-limited judge voids the trial too');
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('post-verification sets verdicts and reward; a usage limit in either role marks quota', () => {
+  const base = { id: 'x', contract: 1, ownTests: 1, checks: {}, ...emptyOutcome(criteria), errors: { harbor: null, quota: false } };
+  const pv = { acceptanceCriteria: { AC1: 'pass', AC2: 'pass' }, acceptanceEvidence: { AC1: 'e', AC2: 'e' }, acceptance: 1,
+    verifierError: null, review: { scope: 5 }, reviewReasons: { scope: 'ok' }, reviewError: null };
+  const t = applyPostVerification(base, pv);
+  assert.equal(t.reward, 1);
+  assert.deepEqual(t.review, { scope: 5 });
+  assert.equal('acceptanceEvidence' in t, false, 'evidence stays in acceptance.json');
+  assert.equal(applyPostVerification({ ...base, ownTests: 0 }, pv).reward, 0);
+  const unjudged = applyPostVerification(base, { ...pv, acceptanceCriteria: { AC1: null, AC2: null }, acceptance: null,
+    verifierError: 'verifier exit 1: usage_limit_reached: x' });
+  assert.equal(unjudged.errors.quota, true);
+  assert.equal(unjudged.reward, null, 'an unjudged trial has no reward');
+  assert.equal(applyPostVerification(base, { ...pv, reviewError: 'review exit 1: usage_limit_reached' }).errors.quota, true);
+});
+
+test('section joins every comment that starts with the heading', () => {
+  assert.equal(section([{ body: '## Approved Spec\nA' }, { body: 'x' }, { body: '  ## Approved Spec\nB' }], 'Approved Spec'),
+    '## Approved Spec\nA\n\n  ## Approved Spec\nB');
+  assert.equal(section(undefined, 'Approved Spec'), '');
 });
 
 test('a trial without verifier output scores zero instead of throwing', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
   try {
     writeFileSync(path.join(dir, 'result.json'), JSON.stringify({ ...RESULT, exception_info: { exception_type: 'RuntimeError' } }));
-    const deps = { targetTokens: () => null, userTokens: () => ({ total: 0 }), durations: () => ({}), e2ePerformed: () => 0,
-      errors: () => ({ harbor: 'RuntimeError', bridge: null, tool: 0, timeout: false }), softSignals: () => ({ superpowersActive: false }),
-      ccusageCrossCheck: () => ({ ccusageTotal: null, deviation: null, warning: null }),
-      runJudge: () => { throw new Error('must not judge without evidence'); } };
-    const t = buildTrialRecord({ id: 'x-1', harness: 'codex', trialDir: dir, config: { app: { port: 3000 } }, briefing: '', deps });
+    const t = buildTrialRecord({ id: 'x-1', harness: 'codex', trialDir: dir, config, criteria,
+      deps: { ...DEPS, targetTokens: () => null, e2ePerformed: () => 0, errors: () => ({ harbor: 'RuntimeError', bridge: null, tool: 0, timeout: false }) } });
     assert.equal(t.reward, 0);
     assert.equal(t.contract, 0);
-    assert.equal(t.judge, null);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
-});
-
-test('a verifier ticket without comments does not throw', () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
-  try {
-    mkdirSync(path.join(dir, 'verifier'));
-    writeFileSync(path.join(dir, 'verifier/ticket.json'), JSON.stringify({}));
-    const deps = { targetTokens: () => null, userTokens: () => ({ total: 0 }), durations: () => ({}), e2ePerformed: () => 0,
-      errors: () => ({}), softSignals: () => ({}), ccusageCrossCheck: () => ({}),
-      runJudge: () => ({ scores: {}, reasons: {}, error: null }) };
-    const t = buildTrialRecord({ id: 'x-2', harness: 'codex', trialDir: dir, config: { app: { port: 3000 } }, briefing: '', deps });
-    assert.equal(t.reward, 0);
+    assert.equal(t.acceptance, 0);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
