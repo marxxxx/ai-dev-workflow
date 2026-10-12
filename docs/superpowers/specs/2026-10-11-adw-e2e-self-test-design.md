@@ -59,7 +59,7 @@ it.
 | Claude Code (target) | main `claude-opus-5-5`, subagents `claude-sonnet-5-5` (`CLAUDE_CODE_SUBAGENT_MODEL`) |
 | Codex (target) | `gpt-6.1-sol`, reasoning `high`; subagents `gpt-6.1-sol` at default effort, if Codex exposes a subagent effort setting, otherwise a documented limitation |
 | OpenCode (target) | `mistral/mistral-large-4` |
-| Simulated user | Claude Code, `claude-haiku-4-5-20251001`, tools restricted |
+| Simulated user | Claude Code, `claude-sonnet-5-5`, tools restricted |
 | Judge | `claude-opus-5-5` via host `claude -p` |
 | Repetitions | 3 per harness, run in sequence |
 | Harbor | `0.24.0` (`uv tool install harbor==0.24.0`) |

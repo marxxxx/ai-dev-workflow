@@ -14,7 +14,7 @@ test('harbor args pin agent, model, version and the constrained simulated user',
   const pin = JSON.parse(readFileSync(new URL('../../docker/tools/inventory.json', import.meta.url), 'utf8')).npmPackages['@openai/codex'];
   assert.ok(a.includes(`version=${pin}`));
   assert.ok(a.includes('reasoning_effort=high'));
-  assert.equal(pair('--user-model'), 'claude-haiku-4-5-20251001');
+  assert.equal(pair('--user-model'), 'claude-sonnet-5-5');
   assert.ok(a.includes('disallowed_tools=Skill,Edit,Write,NotebookEdit,Task'));
   assert.equal(pair('--bridge'), 'acp');
   assert.equal(pair('--job-name'), 'codex-1');
