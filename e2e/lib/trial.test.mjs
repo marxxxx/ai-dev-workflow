@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { applyPostVerification, buildTrialRecord, CONTRACT_CHECKS, emptyOutcome, section } from './trial.mjs';
+import { applyPostVerification, buildTrialRecord, CONTRACT_CHECKS, emptyOutcome, rewardOf, section, unjudgedOutcome } from './trial.mjs';
 import { RESULT } from './fixtures/make.mjs';
 
 const criteria = [{ id: 'AC1', text: 'a' }, { id: 'AC2', text: 'b' }];
@@ -52,6 +52,26 @@ test('post-verification sets verdicts and reward; a usage limit in either role m
   assert.equal(unjudged.errors.quota, true);
   assert.equal(unjudged.reward, null, 'an unjudged trial has no reward');
   assert.equal(applyPostVerification(base, { ...pv, reviewError: 'review exit 1: usage_limit_reached' }).errors.quota, true);
+});
+
+test('an unjudged trial has a reward only while nothing already forces zero', () => {
+  const unjudged = { acceptance: null, contract: 1, ownTests: 1 };
+  assert.equal(rewardOf(unjudged), null, 'a broken verifier is no agent failure');
+  assert.equal(rewardOf({ ...unjudged, ownTests: 0 }), 0, 'failing own tests already fail the trial');
+  assert.equal(rewardOf({ ...unjudged, contract: 0.9231 }), 0, 'a contract miss already fails the trial');
+  assert.equal(rewardOf({ acceptance: 1, contract: 1, ownTests: 1 }), 1);
+  assert.equal(rewardOf({ acceptance: 0.5, contract: 1, ownTests: 1 }), 0);
+});
+
+test('unjudgedOutcome leaves every verdict null and carries the error for both roles', () => {
+  const cfg = { review: { criteria: { scope: 'q', tests: 'q' } } };
+  assert.deepEqual(unjudgedOutcome(criteria, cfg, 'no PR-head bundle (see clone-error.txt)'), {
+    acceptanceCriteria: { AC1: null, AC2: null }, acceptanceEvidence: null, acceptance: null,
+    verifierError: 'no PR-head bundle (see clone-error.txt)', review: { scope: null, tests: null }, reviewReasons: {},
+    reviewError: 'no PR-head bundle (see clone-error.txt)' });
+  const base = { id: 'x', contract: 1, ownTests: 1, checks: {}, ...emptyOutcome(criteria), errors: { harbor: null, quota: false } };
+  assert.equal(applyPostVerification(base, unjudgedOutcome(criteria, cfg, 'e')).reward, null);
+  assert.equal(applyPostVerification({ ...base, ownTests: 0 }, unjudgedOutcome(criteria, cfg, 'e')).reward, 0);
 });
 
 test('section joins every comment that starts with the heading', () => {

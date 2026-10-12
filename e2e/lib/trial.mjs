@@ -14,13 +14,20 @@ const DEFAULT_DEPS = { ...metrics, ccusageCrossCheck };
 const readJson = (f) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null);
 export const section = (comments = [], title) => comments.filter((c) => c.body.trimStart().startsWith(`## ${title}`)).map((c) => c.body).join('\n\n');
 
-// null when the verifier could not judge: a broken verifier is no agent failure.
-export const rewardOf = (t) => (t.acceptance === null ? null : t.contract === 1 && t.ownTests === 1 && t.acceptance === 1 ? 1 : 0);
+// null only when the verifier could not judge and nothing else already fails the trial: a broken verifier is no agent failure.
+export const rewardOf = (t) => (t.acceptance === null && t.contract === 1 && t.ownTests === 1 ? null
+  : t.contract === 1 && t.ownTests === 1 && t.acceptance === 1 ? 1 : 0);
 
 // A trial without a PR head to verify: every criterion failed, nothing reviewed.
 export function emptyOutcome(criteria) {
   return { acceptanceCriteria: Object.fromEntries(criteria.map(({ id }) => [id, 'fail'])), acceptance: 0,
     verifierError: null, review: null, reviewReasons: null, reviewError: null };
+}
+
+// A PR head exists but could not be judged (verifier or checkout broke): no verdicts, never a failed criterion.
+export function unjudgedOutcome(criteria, config, error) {
+  return { acceptanceCriteria: Object.fromEntries(criteria.map(({ id }) => [id, null])), acceptanceEvidence: null, acceptance: null,
+    verifierError: error, review: Object.fromEntries(Object.keys(config.review.criteria).map((k) => [k, null])), reviewReasons: {}, reviewError: error };
 }
 
 export function buildTrialRecord({ id, harness, trialDir, config, criteria, deps = DEFAULT_DEPS }) {

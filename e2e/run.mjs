@@ -10,7 +10,7 @@ import { buildFingerprint } from './lib/fingerprint.mjs';
 import { buildHarborArgs, cleanupCompose, runHarbor } from './lib/harbor.mjs';
 import { runPreflight } from './lib/preflight.mjs';
 import { stageSecrets, scanForSecrets, redactSecrets, scrubSecretsInTree, removeOpenCodeAuthCopies } from './lib/secrets.mjs';
-import { applyPostVerification, buildTrialRecord, emptyOutcome, section } from './lib/trial.mjs';
+import { applyPostVerification, buildTrialRecord, emptyOutcome, section, unjudgedOutcome } from './lib/trial.mjs';
 import { summarizeTrials } from './lib/summary.mjs';
 import { compareRuns, findBaseline } from './lib/compare.mjs';
 import { renderCompare, renderRunReport, renderSummary } from './lib/report.mjs';
@@ -127,6 +127,11 @@ function reportLeaks(dir, values) {
   }
 }
 
+// Whether the container verifier saw at least one PR (an unreadable file counts as none).
+function hasPull(file) {
+  try { return JSON.parse(readFileSync(file, 'utf8')).length > 0; } catch { return false; }
+}
+
 async function run() {
   if (!preflight()) process.exit(1);
   rmSync(path.join(demoRepo, 'ai-project.json'), { force: true }); // init --answers needs a fresh tree
@@ -208,9 +213,12 @@ async function run() {
                 // A broken verifier is no agent failure: keep the trial, leave it unjudged.
                 const error = `post-verification: ${e.message}`;
                 console.error(`✗ ${id}: ${error}`);
-                trial = applyPostVerification(trial, { acceptanceCriteria: Object.fromEntries(criteria.map(({ id: c }) => [c, null])),
-                  acceptance: null, acceptanceEvidence: null, verifierError: error, review: null, reviewReasons: null, reviewError: error });
+                trial = applyPostVerification(trial, unjudgedOutcome(criteria, config, error));
               }
+              console.log(`  ${acLine(trial)}`);
+            } else if (hasPull(path.join(trialDir, 'verifier/pulls.json'))) {
+              // A PR exists but its head could not be bundled: a verifier failure, not an agent failure.
+              trial = applyPostVerification(trial, unjudgedOutcome(criteria, config, 'no PR-head bundle (see clone-error.txt)'));
               console.log(`  ${acLine(trial)}`);
             }
           }
