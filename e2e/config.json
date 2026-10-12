@@ -2,7 +2,8 @@
   "schema": 1,
   "harbor": { "version": "0.24.0" },
   "tasks": {
-    "demo-todo": { "baseImage": "ai-dev-workflow-node:latest" }
+    "demo-todo": { "baseImage": "ai-dev-workflow-node:latest" },
+    "demo-todo-dotnet": { "baseImage": "ai-dev-workflow-dotnet:latest" }
   },
   "repetitions": 3,
   "app": { "port": 3000 },

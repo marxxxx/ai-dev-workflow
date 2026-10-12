@@ -1,13 +1,15 @@
 # ADW E2E self-test
 
-Runs the full `agent-dev` workflow headlessly in Claude Code, Codex and OpenCode against the
-`demo-todo` task (a todo API + list page, ticket #1 in a throwaway Gitea), scores every trial and
-compares result sets. Design: `docs/superpowers/specs/2026-10-11-adw-e2e-self-test-design.md`.
+Runs the full `agent-dev` workflow headlessly in Claude Code, Codex and OpenCode against two
+tasks with the same ticket (#1 in a throwaway Gitea): `demo-todo`, a Node todo API with a list page,
+and `demo-todo-dotnet`, the same app as a .NET 10 Blazor Server app with a minimal API. It scores
+every trial and compares result sets. Design: `docs/superpowers/specs/2026-10-11-adw-e2e-self-test-design.md`.
 Agentic verification: `docs/superpowers/specs/2026-10-12-adw-e2e-agentic-verification-design.md`.
+.NET task: `docs/superpowers/specs/2026-10-12-adw-e2e-dotnet-task-design.md`.
 
 ## Prerequisites (host)
 
-- Docker, and the local image: `node docker/build.mjs`
+- Docker, and the local images: `node docker/build.mjs` (builds `ai-dev-workflow-node` and `ai-dev-workflow-dotnet`)
 - Harbor 0.24.0: `uv tool install harbor==0.24.0`
 - Logins, used as copies and never committed:
   - Claude: `claude setup-token`, then put `CLAUDE_CODE_OAUTH_TOKEN=<token>` into `e2e/.env`

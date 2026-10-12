@@ -99,8 +99,9 @@ hand-edit them (`node docker/tools/inventory.mjs update | sync | check`). See `d
 ## E2E self-test (`e2e/`)
 
 Hand-maintained, not generated, not shipped in the npm package. `node e2e/run.mjs run` runs the full
-`agent-dev` workflow through Harbor (pinned in `e2e/config.json`) in all three harnesses and on every task in
-`config.tasks` with a simulated user and a throwaway Gitea; results land in
+`agent-dev` workflow through Harbor (pinned in `e2e/config.json`) in all three harnesses and on
+every task in `config.tasks` (`demo-todo` in Node, `demo-todo-dotnet` in Blazor Server) with a
+simulated user and a throwaway Gitea; results land in
 `docs/adw-e2e/<ts>/<task>/<harness>/`. Stack-neutral task files live once in `e2e/tasks/_shared/` and
 are mirrored into each task (git-ignored copies). An agentic verifier judges each trial's PR head
 against `acceptance-criteria.md`, and a review judge with read access scores the code;
