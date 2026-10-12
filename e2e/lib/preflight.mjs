@@ -40,12 +40,14 @@ export function runPreflight({ config, harnesses, exec = defaultExec, env = {}, 
       if (!out.includes(v)) problems.push(`${h}: image does not carry pinned ${v} (rebuild with node docker/build.mjs)`);
     }
   }
-  // The simulated user and the judge always run on Claude, whichever harnesses are selected.
+  // The simulated user, the verifier and the review judge always run on Claude, whichever harnesses are selected.
   const claudeOk = authPresent('claude-code');
-  if (!claudeOk) problems.push('claude: login missing (needed by simulated user and judge)');
+  if (!claudeOk) problems.push('claude: login missing (needed by simulated user, verifier and review)');
   else {
-    for (const [label, model] of [['simulated user', config.simulatedUser.model], ['judge', config.judge.model]]) {
-      const err = probe('claude-code', model);
+    const probed = new Map();
+    for (const [label, model] of [['simulated user', config.simulatedUser.model], ['verifier', config.verifier.model], ['review', config.review.model]]) {
+      if (!probed.has(model)) probed.set(model, probe('claude-code', model));
+      const err = probed.get(model);
       if (err) problems.push(`${label} model ${model}: probe failed: ${err}`);
     }
   }

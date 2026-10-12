@@ -40,6 +40,19 @@
       "readability": "Clear, idiomatic, consistent with the repo's conventions?"
     }
   },
+  "verifier": { "model": "claude-sonnet-5-5", "timeoutSec": 900 },
+  "review": {
+    "model": "claude-sonnet-5-5",
+    "timeoutSec": 600,
+    "criteria": {
+      "requirements": "Do the posted spec and the diff capture every acceptance criterion? (measures interview quality by its outcome)",
+      "scope": "No unrequested features and no unrelated changes?",
+      "tests": "Do the agent's new tests meaningfully cover the new behaviour? Were existing tests deleted or weakened?",
+      "conventions": "Does the code follow AGENTS.md and the repository's idioms (naming, error handling, test style)?",
+      "architecture": "Does the change fit the existing structure (where logic lives, layering, reuse instead of duplication)?",
+      "codeQuality": "Is the code readable and correct at the edges, without needless complexity?"
+    }
+  },
   "thresholds": { "tokensMedianRise": 0.5, "agentTimeMedianRise": 0.5, "judgeMedianDrop": 1 },
   "auth": {
     "claudeEnvFile": "e2e/.env",
