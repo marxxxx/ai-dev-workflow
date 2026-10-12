@@ -134,7 +134,7 @@ index 3caed3c..d1529ac 100644
 +
  export class ValidationError extends Error {}
 diff --git a/test/app.test.mjs b/test/app.test.mjs
-index 2ce65b0..e2076ee 100644
+index 2ce65b0..3005b91 100644
 --- a/test/app.test.mjs
 +++ b/test/app.test.mjs
 @@ -25,7 +25,7 @@ test('creates and lists todos', () =>
@@ -146,7 +146,7 @@ index 2ce65b0..e2076ee 100644
    }));
  
  test('rejects an empty title', () =>
-@@ -47,3 +47,17 @@ test('serves the list page', () =>
+@@ -47,3 +47,70 @@ test('serves the list page', () =>
      assert.equal(res.status, 200);
      assert.match(await res.text(), /data-testid="todo-list"/);
    }));
@@ -163,6 +163,59 @@ index 2ce65b0..e2076ee 100644
 +    await fetch(`${base}/todos`, json('POST', { title: 'later', dueDate: '2999-01-01' }));
 +    const list = await (await fetch(`${base}/todos?overdue=true`)).json();
 +    assert.deepEqual(list.map((t) => t.title), ['late']);
++  }));
++
++test('sets a due date on create', () =>
++  withServer(async (base) => {
++    const res = await fetch(`${base}/todos`, json('POST', { title: 'A', dueDate: '2026-05-20' }));
++    assert.equal(res.status, 201);
++    const todo = await res.json();
++    assert.equal(todo.dueDate, '2026-05-20');
++    assert.equal((await (await fetch(`${base}/todos/${todo.id}`)).json()).dueDate, '2026-05-20');
++  }));
++
++test('changes and clears the due date with PATCH', () =>
++  withServer(async (base) => {
++    await fetch(`${base}/todos`, json('POST', { title: 'A', dueDate: '2026-05-20' }));
++    const changed = await fetch(`${base}/todos/1`, json('PATCH', { dueDate: '2026-06-01' }));
++    assert.equal(changed.status, 200);
++    assert.equal((await changed.json()).dueDate, '2026-06-01');
++    const cleared = await fetch(`${base}/todos/1`, json('PATCH', { dueDate: null }));
++    assert.equal(cleared.status, 200);
++    assert.equal((await cleared.json()).dueDate, null);
++    assert.equal((await (await fetch(`${base}/todos/1`)).json()).dueDate, null);
++  }));
++
++test('rejects an invalid due date on PATCH and keeps the old one', () =>
++  withServer(async (base) => {
++    await fetch(`${base}/todos`, json('POST', { title: 'A', dueDate: '2026-05-20' }));
++    for (const dueDate of ['2026-02-30', '10.05.2026', 20260520]) {
++      const res = await fetch(`${base}/todos/1`, json('PATCH', { dueDate }));
++      assert.equal(res.status, 400, String(dueDate));
++    }
++    assert.equal((await (await fetch(`${base}/todos/1`)).json()).dueDate, '2026-05-20');
++  }));
++
++test('a done todo is never overdue, and ?overdue=true leaves it out', () =>
++  withServer(async (base) => {
++    await fetch(`${base}/todos`, json('POST', { title: 'open', dueDate: '2000-01-01' }));
++    await fetch(`${base}/todos`, json('POST', { title: 'finished', dueDate: '2000-01-01' }));
++    await fetch(`${base}/todos`, json('POST', { title: 'undated' }));
++    const done = await fetch(`${base}/todos/2`, json('PATCH', { done: true }));
++    assert.equal((await done.json()).overdue, false);
++    const overdue = await (await fetch(`${base}/todos?overdue=true`)).json();
++    assert.deepEqual(overdue.map((t) => t.title), ['open']);
++    const all = await (await fetch(`${base}/todos`)).json();
++    assert.deepEqual(all.map((t) => t.overdue), [true, false, false]);
++  }));
++
++test('the list page has the overdue marker and the overdue-only control', () =>
++  withServer(async (base) => {
++    const html = await (await fetch(`${base}/`)).text();
++    assert.match(html, /<input type="checkbox" data-testid="overdue-filter">\s*nur überfällige/);
++    assert.match(html, /dataset\.testid = 'todo-overdue'/);
++    assert.match(html, /textContent = ' überfällig'/);
++    assert.match(html, /dataset\.testid = 'todo-due'/);
 +  }));
 diff --git a/test/due-date.test.mjs b/test/due-date.test.mjs
 new file mode 100644
