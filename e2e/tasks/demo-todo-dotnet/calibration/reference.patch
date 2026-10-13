@@ -77,10 +77,10 @@ index fd7934d..579a456 100644
 +
  public partial class Program;
 diff --git a/src/DemoTodo/TodoStore.cs b/src/DemoTodo/TodoStore.cs
-index c5509e1..1305f5f 100644
+index c5509e1..3116ead 100644
 --- a/src/DemoTodo/TodoStore.cs
 +++ b/src/DemoTodo/TodoStore.cs
-@@ -1,23 +1,49 @@
+@@ -1,23 +1,48 @@
  using System.ComponentModel.DataAnnotations;
 +using System.Globalization;
 +using System.Text.Json;
@@ -97,25 +97,24 @@ index c5509e1..1305f5f 100644
 -public record TodoPatch(string? Title, bool? Done);
 +public record TodoPatch(string? Title, bool? Done, DueDateField DueDate = default);
 +
-+// A due date in a request body: absent (IsSet is false), null, or a calendar date yyyy-MM-dd.
-+// In a PATCH, an absent field keeps the due date and null removes it.
++// The dueDate field of a request body as sent: absent (IsSet is false), null, or its raw text.
++// In a PATCH, an absent field keeps the due date and null removes it; TodoStore validates the text.
 +[JsonConverter(typeof(Converter))]
-+public readonly record struct DueDateField(bool IsSet, DateOnly? Value)
++public readonly record struct DueDateField(bool IsSet, string? Text)
 +{
-+    public static DueDateField Of(DateOnly? value) => new(true, value);
++    public static DueDateField Of(string? text) => new(true, text);
 +
 +    public sealed class Converter : JsonConverter<DueDateField>
 +    {
 +        public override DueDateField Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => reader.TokenType switch
 +        {
 +            JsonTokenType.Null => Of(null),
-+            JsonTokenType.String when DateOnly.TryParseExact(reader.GetString(), "yyyy-MM-dd",
-+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) => Of(date),
-+            _ => throw new ValidationException("dueDate must be a valid date in the form yyyy-MM-dd, or null"),
++            JsonTokenType.String => Of(reader.GetString()),
++            _ => Of(JsonDocument.ParseValue(ref reader).RootElement.GetRawText()),
 +        };
 +
 +        public override void Write(Utf8JsonWriter writer, DueDateField value, JsonSerializerOptions options) =>
-+            JsonSerializer.Serialize(writer, value.Value, options);
++            JsonSerializer.Serialize(writer, value.Text, options);
 +    }
 +}
  
@@ -136,16 +135,23 @@ index c5509e1..1305f5f 100644
      }
  
      public Todo? Get(int id)
-@@ -31,7 +57,7 @@ public class TodoStore
+@@ -29,9 +54,10 @@ public class TodoStore
+     {
+         var title = input.Title?.Trim();
          if (string.IsNullOrEmpty(title)) throw new ValidationException("title is required");
++        var dueDate = ParseDueDate(input.DueDate.Text);
          lock (_lock)
          {
 -            var todo = new Todo(_nextId++, title, false);
-+            var todo = new Todo(_nextId++, title, false, input.DueDate.Value);
++            var todo = new Todo(_nextId++, title, false, dueDate);
              _todos[todo.Id] = todo;
              return todo;
          }
-@@ -44,7 +70,12 @@ public class TodoStore
+@@ -41,10 +67,16 @@ public class TodoStore
+     {
+         var title = patch.Title?.Trim();
+         if (patch.Title is not null && title == "") throw new ValidationException("title must be a non-empty string");
++        var dueDate = ParseDueDate(patch.DueDate.Text);
          lock (_lock)
          {
              if (!_todos.TryGetValue(id, out var todo)) return null;
@@ -154,15 +160,21 @@ index c5509e1..1305f5f 100644
 +            {
 +                Title = title ?? todo.Title,
 +                Done = patch.Done ?? todo.Done,
-+                DueDate = patch.DueDate.IsSet ? patch.DueDate.Value : todo.DueDate,
++                DueDate = patch.DueDate.IsSet ? dueDate : todo.DueDate,
 +            };
              _todos[id] = todo;
              return todo;
          }
-@@ -54,4 +85,12 @@ public class TodoStore
+@@ -54,4 +86,18 @@ public class TodoStore
      {
          lock (_lock) return _todos.Remove(id);
      }
++
++    // A due date is a calendar date (yyyy-MM-dd) or null.
++    public static DateOnly? ParseDueDate(string? text) =>
++        text is null ? null
++        : DateOnly.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date
++        : throw new ValidationException("dueDate must be a valid date in the form yyyy-MM-dd, or null");
 +
 +    // Overdue: not done and due before today. Derived on every read, never stored.
 +    public bool IsOverdue(Todo todo) => IsOverdue(todo, Today());
@@ -280,10 +292,10 @@ index f20e459..a55bf59 100644
  }
 diff --git a/tests/DemoTodo.Tests/TodoStoreDueDateTests.cs b/tests/DemoTodo.Tests/TodoStoreDueDateTests.cs
 new file mode 100644
-index 0000000..e27cc06
+index 0000000..bcec03d
 --- /dev/null
 +++ b/tests/DemoTodo.Tests/TodoStoreDueDateTests.cs
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,80 @@
 +using System.ComponentModel.DataAnnotations;
 +using System.Globalization;
 +using System.Text.Json;
@@ -294,7 +306,9 @@ index 0000000..e27cc06
 +{
 +    private static TodoStore Store() => new(new FixedTime("2026-05-10"));
 +
-+    private static DueDateField Due(string date) => DueDateField.Of(DateOnly.Parse(date, CultureInfo.InvariantCulture));
++    private static DueDateField Due(string date) => DueDateField.Of(date);
++
++    private static NewTodo Read(string json) => JsonSerializer.Deserialize<NewTodo>(json, JsonSerializerOptions.Web)!;
 +
 +    [Fact]
 +    public void ATodoGetsAnOptionalDueDate()
@@ -323,13 +337,12 @@ index 0000000..e27cc06
 +    [InlineData("true")]
 +    public void RejectsMalformedAndImpossibleDueDates(string json)
 +    {
-+        Assert.Throws<ValidationException>(() => JsonSerializer.Deserialize<NewTodo>($$"""{"title":"A","dueDate":{{json}}}""", JsonSerializerOptions.Web));
++        Assert.Throws<ValidationException>(() => Store().Add(Read($$"""{"title":"A","dueDate":{{json}}}""")));
 +    }
 +
 +    [Fact]
-+    public void ReadsAnAbsentANullAndAValidDueDate()
++    public void ReadsAnAbsentANullAndAGivenDueDate()
 +    {
-+        NewTodo Read(string json) => JsonSerializer.Deserialize<NewTodo>(json, JsonSerializerOptions.Web)!;
 +        Assert.Equal(default, Read("""{"title":"A"}""").DueDate);
 +        Assert.Equal(DueDateField.Of(null), Read("""{"title":"A","dueDate":null}""").DueDate);
 +        Assert.Equal(Due("2026-05-20"), Read("""{"title":"A","dueDate":"2026-05-20"}""").DueDate);
