@@ -34,7 +34,7 @@ index 10e75f0..5e943d5 100644
 +    private bool onlyOverdue;
 +}
 diff --git a/src/DemoTodo/Program.cs b/src/DemoTodo/Program.cs
-index fd7934d..19ecb9f 100644
+index fd7934d..247c391 100644
 --- a/src/DemoTodo/Program.cs
 +++ b/src/DemoTodo/Program.cs
 @@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
@@ -45,36 +45,20 @@ index fd7934d..19ecb9f 100644
  builder.Services.AddSingleton<TodoStore>();
  // Malformed JSON bodies throw in every environment, so the handler below turns them into a 400.
  builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
-@@ -47,16 +48,20 @@ app.MapRazorComponents<App>()
+@@ -47,7 +48,7 @@ app.MapRazorComponents<App>()
  app.MapGet("/health", () => new { ok = true });
  
  var todos = app.MapGroup("/todos");
 -todos.MapGet("", (TodoStore store) => store.List());
-+todos.MapGet("", (TodoStore store, bool overdue = false) =>
-+{
-+    var today = store.Today();
-+    return store.List(overdue).Select(todo => TodoResponse.Of(todo, today));
-+});
++todos.MapGet("", (TodoStore store, bool overdue = false) => store.List(overdue));
  todos.MapPost("", (NewTodo input, TodoStore store) =>
  {
      var todo = store.Add(input);
--    return Results.Created($"/todos/{todo.Id}", todo);
-+    return Results.Created($"/todos/{todo.Id}", TodoResponse.Of(todo, store.Today()));
- });
- todos.MapGet("/{id:int}", (int id, TodoStore store) =>
--    store.Get(id) is { } todo ? Results.Ok(todo) : NotFound());
-+    store.Get(id) is { } todo ? Results.Ok(TodoResponse.Of(todo, store.Today())) : NotFound());
- todos.MapPatch("/{id:int}", (int id, TodoPatch patch, TodoStore store) =>
--    store.Update(id, patch) is { } todo ? Results.Ok(todo) : NotFound());
-+    store.Update(id, patch) is { } todo ? Results.Ok(TodoResponse.Of(todo, store.Today())) : NotFound());
- todos.MapDelete("/{id:int}", (int id, TodoStore store) =>
-     store.Remove(id) ? Results.NoContent() : NotFound());
- 
 diff --git a/src/DemoTodo/TodoStore.cs b/src/DemoTodo/TodoStore.cs
-index c5509e1..c0a91fc 100644
+index c5509e1..8bf833d 100644
 --- a/src/DemoTodo/TodoStore.cs
 +++ b/src/DemoTodo/TodoStore.cs
-@@ -1,23 +1,37 @@
+@@ -1,23 +1,31 @@
  using System.ComponentModel.DataAnnotations;
 +using System.Globalization;
 +using System.Text.Json;
@@ -86,12 +70,6 @@ index c5509e1..c0a91fc 100644
 +{
 +    // Overdue: not done and due before today.
 +    public bool IsOverdueOn(DateOnly today) => !Done && DueDate is { } dueDate && dueDate < today;
-+}
-+
-+// What the API returns for a todo: its fields plus whether it is overdue today.
-+public record TodoResponse(int Id, string Title, bool Done, DateOnly? DueDate, bool Overdue)
-+{
-+    public static TodoResponse Of(Todo todo, DateOnly today) => new(todo.Id, todo.Title, todo.Done, todo.DueDate, todo.IsOverdueOn(today));
 +}
  
 -public record NewTodo(string? Title);
@@ -118,7 +96,7 @@ index c5509e1..c0a91fc 100644
      }
  
      public Todo? Get(int id)
-@@ -29,9 +43,10 @@ public class TodoStore
+@@ -29,9 +37,10 @@ public class TodoStore
      {
          var title = input.Title?.Trim();
          if (string.IsNullOrEmpty(title)) throw new ValidationException("title is required");
@@ -130,7 +108,7 @@ index c5509e1..c0a91fc 100644
              _todos[todo.Id] = todo;
              return todo;
          }
-@@ -41,10 +56,17 @@ public class TodoStore
+@@ -41,10 +50,17 @@ public class TodoStore
      {
          var title = patch.Title?.Trim();
          if (patch.Title is not null && title == "") throw new ValidationException("title must be a non-empty string");
@@ -149,7 +127,7 @@ index c5509e1..c0a91fc 100644
              _todos[id] = todo;
              return todo;
          }
-@@ -54,4 +76,16 @@ public class TodoStore
+@@ -54,4 +70,16 @@ public class TodoStore
      {
          lock (_lock) return _todos.Remove(id);
      }
@@ -167,7 +145,7 @@ index c5509e1..c0a91fc 100644
 +    public DateOnly Today() => DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime);
  }
 diff --git a/tests/DemoTodo.Tests/TodoApiTests.cs b/tests/DemoTodo.Tests/TodoApiTests.cs
-index f20e459..a55bf59 100644
+index f20e459..d8e2ec3 100644
 --- a/tests/DemoTodo.Tests/TodoApiTests.cs
 +++ b/tests/DemoTodo.Tests/TodoApiTests.cs
 @@ -1,4 +1,5 @@
@@ -181,11 +159,11 @@ index f20e459..a55bf59 100644
          Assert.Equal(HttpStatusCode.Created, created.StatusCode);
          var list = await _client.GetStringAsync("/todos");
 -        Assert.Equal("""[{"id":1,"title":"Milch kaufen","done":false}]""", list);
-+        Assert.Equal("""[{"id":1,"title":"Milch kaufen","done":false,"dueDate":null,"overdue":false}]""", list);
++        Assert.Equal("""[{"id":1,"title":"Milch kaufen","done":false,"dueDate":null}]""", list);
      }
  
      [Fact]
-@@ -62,4 +63,86 @@ public class TodoApiTests : IDisposable
+@@ -62,4 +63,83 @@ public class TodoApiTests : IDisposable
          Assert.Contains("data-testid=\"todo-list\"", html);
          Assert.Contains("Milch kaufen", html);
      }
@@ -249,12 +227,9 @@ index f20e459..a55bf59 100644
 +        await _client.PostAsJsonAsync("/todos", new { title = "open", dueDate = "2000-01-01" });
 +        await _client.PostAsJsonAsync("/todos", new { title = "finished", dueDate = "2000-01-01" });
 +        await _client.PostAsJsonAsync("/todos", new { title = "undated" });
-+        var done = await _client.PatchAsJsonAsync("/todos/2", new { done = true });
-+        Assert.False((await done.Content.ReadFromJsonAsync<TodoResponse>())!.Overdue);
++        await _client.PatchAsJsonAsync("/todos/2", new { done = true });
 +        var overdue = await _client.GetFromJsonAsync<Todo[]>("/todos?overdue=true");
 +        Assert.Equal(["open"], overdue!.Select(t => t.Title));
-+        var all = await _client.GetFromJsonAsync<TodoResponse[]>("/todos");
-+        Assert.Equal([true, false, false], all!.Select(t => t.Overdue));
 +    }
 +
 +    [Fact]
