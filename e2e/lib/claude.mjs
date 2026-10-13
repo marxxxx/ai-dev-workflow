@@ -5,15 +5,16 @@ const AUTH_ENV = ['CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_FORCE_OAUTH'];
 
 // E2E_VERIFY=1 skips the task image's Gitea seed hook (environment/seed/seed.sh). AGENT_TOOLSTACK_ONLY=1
 // configures only the tool stack: a calibration checkout has no ai-project.json, and a judge needs no ticketing.
-// `mounts` are extra `-v` specs after the checkout; `claudeArgs` follow the common claude flags.
+// `mounts` are extra `-v` specs after the checkout; `claudeArgs` follow the common claude flags. stream-json
+// prints the whole session (tool calls and their results) as JSON lines; its last line is the result object.
 export function buildClaudeDockerArgs({ image, name, checkout, model, uid, gid, mounts = [], claudeArgs }) {
   return ['run', '--rm', '-i', '--name', name,
     '-e', `HOST_UID=${uid}`, '-e', `HOST_GID=${gid}`, '-e', 'E2E_VERIFY=1', '-e', 'AGENT_TOOLSTACK_ONLY=1', ...AUTH_ENV.flatMap((k) => ['-e', k]),
     '-v', `${checkout}:/workspace`, ...mounts.flatMap((m) => ['-v', m]), image,
-    'claude', '-p', '--model', model, '--output-format', 'json', '--setting-sources', 'user', '--strict-mcp-config', ...claudeArgs];
+    'claude', '-p', '--model', model, '--output-format', 'stream-json', '--verbose', '--setting-sources', 'user', '--strict-mcp-config', ...claudeArgs];
 }
 
-// The CLI prints one JSON line; anything before it (e.g. container start-up output) is noise.
+// The result is the CLI's last JSON line; anything before it (the transcript, container start-up output) is no answer.
 function cliJson(stdout) {
   const line = String(stdout ?? '').trim().split('\n').reverse().find((l) => l.trimStart().startsWith('{'));
   return line ? JSON.parse(line) : null;
@@ -63,8 +64,10 @@ export const isInterrupt = (err) => err?.interrupted === true;
 const INTERRUPT_STATUS = { 130: 'SIGINT', 143: 'SIGTERM' };
 
 // `run` has spawnSync's signature. Returns the answer's JSON object or throws a labelled error.
-export function callClaude({ cmd = 'claude', args, input, cwd, env = {}, timeoutMs, label, run }) {
+// `onStdout` gets the raw output before it is judged, so a failed or unparsable call keeps its transcript.
+export function callClaude({ cmd = 'claude', args, input, cwd, env = {}, timeoutMs, label, run, onStdout = () => {} }) {
   const r = run(cmd, args, { input, cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: timeoutMs, env: { ...process.env, ...env } });
+  if (r.stdout) onStdout(r.stdout);
   if (r.error?.code === 'ETIMEDOUT') throw new Error(`${label} timed out after ${timeoutMs / 1000} s`);
   if (r.error) throw new Error(`${label}: ${r.error.message}`);
   const signal = ['SIGINT', 'SIGTERM'].includes(r.signal) ? r.signal : INTERRUPT_STATUS[r.status];

@@ -43,6 +43,8 @@ The simulated user, the E2E verifier, the review judge and the claude-code harne
 
 Raw Harbor output: `e2e/jobs/<ts>/<task>/` (inspect with `harbor view e2e/jobs/<ts>/<task>`).
 
+The verifier's and the review judge's full claude transcripts (stream-json: every tool call, its output and the final answer) are kept next to it, never committed: `e2e/jobs/<ts>/<task>/<trial>-{verifier,review}.jsonl` for a run, `e2e/jobs/verify-<ts>/<task>/<harness>/<trial>-…` for `verify`, `e2e/jobs/calibrate-<ts>/<task>/<variant>-run<n>-…` for `calibrate`. They explain a surprising verdict or an unparsable answer.
+
 `npm test` runs the e2e unit tests (`e2e/lib/*.test.mjs` and the verifier's `e2e/tasks/_shared/tests/checks.test.mjs`).
 
 ## Read the results

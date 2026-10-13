@@ -74,3 +74,11 @@ test('an interrupted review run propagates instead of becoming null scores, and 
   assert.throws(() => runReview({ config, checkout: '/c', ...input, image: 'img', name: 'r3', run, uid: 1, gid: 1 }), (e) => isInterrupt(e));
   assert.deepEqual(calls.at(-1), ['rm', '-f', 'r3']);
 });
+
+test('runReview hands the raw transcript to onTranscript', () => {
+  const seen = [];
+  const stdout = JSON.stringify({ result: JSON.stringify(good) });
+  runReview({ config, checkout: '/c', ...input, image: 'img', name: 'r4', uid: 1, gid: 1, onTranscript: (s) => seen.push(s),
+    run: (cmd, args) => (args[0] === 'run' ? { status: 0, stdout } : { status: 0 }) });
+  assert.deepEqual(seen, [stdout]);
+});

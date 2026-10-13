@@ -104,10 +104,14 @@ function stageClaude(name, onExit = () => {}) {
   return staged;
 }
 
+// Each judge's raw claude transcript lands next to the Harbor output, e.g. <prefix>-verifier.jsonl: never committed,
+// it is what explains a surprising verdict or an unparsable answer.
+const transcripts = (prefix) => (kind, text) => writeResult(`${prefix}-${kind}.jsonl`, text);
+
 // The E2E verifier and the review judge on one PR head (e2e/lib/postverify.mjs).
-function postVerifyTrial(task, bundle, evidenceDir, env, image) {
+function postVerifyTrial(task, bundle, evidenceDir, env, image, transcriptPrefix) {
   const ticket = JSON.parse(readFileSync(path.join(evidenceDir, 'ticket.json'), 'utf8'));
-  return postVerify({ config, bundle, criteria: task.criteria, env, image,
+  return postVerify({ config, bundle, criteria: task.criteria, env, image, onTranscript: transcripts(transcriptPrefix),
     spec: section(ticket.comments, 'Approved Spec'), summary: section(ticket.comments, 'Implementation Summary') });
 }
 function writeVerdicts(evidenceDir, pv) {
@@ -235,7 +239,7 @@ async function run() {
                 }
                 console.log('  post-verifying (E2E verifier, review)');
                 try {
-                  const pv = postVerifyTrial(t, bundle, ev, staged.env, t.image);
+                  const pv = postVerifyTrial(t, bundle, ev, staged.env, t.image, path.join(taskJobs, id));
                   await tick();
                   writeVerdicts(ev, pv);
                   trial = applyPostVerification(trial, pv);
@@ -301,7 +305,8 @@ async function verify(harnessDir, trialId) {
   if (trialId && !record.trials.some((t) => t.id === trialId)) fail(`no trial ${trialId} in ${harnessDir}`);
   const task = loadTask(name);
   const image = buildTaskImage({ config, task: name });
-  const staged = stageClaude(`verify-${timestamp()}`);
+  const invocation = `verify-${timestamp()}`;
+  const staged = stageClaude(invocation);
   try {
     const verified = new Map();
     for (const t of record.trials) {
@@ -310,7 +315,8 @@ async function verify(harnessDir, trialId) {
       const bundle = path.join(ev, 'pr-head.bundle');
       if (!existsSync(bundle)) { console.log(`- ${t.id}: no bundle (no PR head), kept as is`); continue; }
       console.log(`▶ verify ${name} · ${t.id}`);
-      const pv = postVerifyTrial(task, bundle, ev, staged.env, image);
+      const pv = postVerifyTrial(task, bundle, ev, staged.env, image,
+        path.join(config.root, config.jobsDir, invocation, name, path.basename(harnessDir), t.id));
       await tick();
       if (isQuota(pv.verifierError) || isQuota(pv.reviewError)) {
         console.error(`✗ subscription usage limit reached in ${t.id}: nothing written, rerun after the reset`);
@@ -349,7 +355,8 @@ async function calibrateTask(task, { runs, ts, work, staged }) {
   for (let i = 1; i <= runs; i++) {
     for (const [variant, bundle] of Object.entries(bundles)) {
       console.log(`▶ ${task.name} · ${variant} (run ${i}/${runs})`);
-      const pv = postVerify({ config, bundle, criteria: task.criteria, spec, summary, env: staged.env, image: task.image });
+      const pv = postVerify({ config, bundle, criteria: task.criteria, spec, summary, env: staged.env, image: task.image,
+        onTranscript: transcripts(path.join(config.root, config.jobsDir, `calibrate-${ts}`, task.name, `${variant}-run${i}`)) });
       await tick();
       if (isQuota(pv.verifierError) || isQuota(pv.reviewError)) {
         console.error(`✗ subscription usage limit reached: calibration of ${task.name} aborted, nothing written for it`);

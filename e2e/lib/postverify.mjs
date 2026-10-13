@@ -44,7 +44,8 @@ function stripAgentSettings(dir) {
 
 const DEFAULT_DEPS = { checkoutBundle, runVerifier, runReview };
 
-export function postVerify({ config, bundle, criteria, spec, summary, env = {}, image, deps = DEFAULT_DEPS }) {
+// `onTranscript(kind, text)` receives each judge's raw claude output ('verifier', 'review'), so its verdict can be traced.
+export function postVerify({ config, bundle, criteria, spec, summary, env = {}, image, deps = DEFAULT_DEPS, onTranscript = () => {} }) {
   const nulls = Object.fromEntries(Object.keys(config.review.criteria).map((k) => [k, null]));
   const work = mkdtempSync(path.join(tmpdir(), 'adw-postverify-'));
   try {
@@ -59,9 +60,11 @@ export function postVerify({ config, bundle, criteria, spec, summary, env = {}, 
       mkdirSync(path.join(work, 'diff'));
       const diffPath = path.join(work, 'diff', 'pr.diff');
       writeFileSync(diffPath, diff);
-      verdict = deps.runVerifier({ config, checkout: path.join(work, 'verify'), criteria, env, image });
+      verdict = deps.runVerifier({ config, checkout: path.join(work, 'verify'), criteria, env, image,
+        onTranscript: (text) => onTranscript('verifier', text) });
       review = isQuota(verdict.error) ? { scores: nulls, reasons: {}, error: verdict.error }
-        : deps.runReview({ config, checkout: path.join(work, 'review'), diffPath, criteria, spec, summary, env, image });
+        : deps.runReview({ config, checkout: path.join(work, 'review'), diffPath, criteria, spec, summary, env, image,
+          onTranscript: (text) => onTranscript('review', text) });
     } catch (err) {
       if (isInterrupt(err)) throw err; // Ctrl-C ends the command; it is no verdict
       const error = `checkout: ${err.message}`;

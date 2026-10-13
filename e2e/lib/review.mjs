@@ -45,10 +45,10 @@ export function validateReviewAnswer(answer, rubric) {
 }
 
 export function runReview({ config, checkout, diffPath, criteria, spec, summary, env = {}, image, name = `adw-review-${process.pid}-${Date.now()}`,
-  run = spawnSync, uid = process.getuid(), gid = process.getgid() }) {
+  run = spawnSync, uid = process.getuid(), gid = process.getgid(), onTranscript }) {
   const { model, criteria: rubric, timeoutSec } = config.review;
   try {
-    const answer = callClaude({ cmd: 'docker', env, run, label: 'review', timeoutMs: timeoutSec * 1000,
+    const answer = callClaude({ cmd: 'docker', env, run, onStdout: onTranscript, label: 'review', timeoutMs: timeoutSec * 1000,
       args: buildClaudeDockerArgs({ image, name, checkout, model, uid, gid, mounts: [`${path.dirname(diffPath)}:/diff:ro`],
         claudeArgs: ['--add-dir', '/diff', '--allowedTools', REVIEW_ALLOWED_TOOLS, '--disallowedTools', REVIEW_DENIED_TOOLS] }),
       input: buildReviewPrompt({ rubric, criteria, spec, summary, diffPath: `/diff/${path.basename(diffPath)}` }) });

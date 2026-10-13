@@ -125,3 +125,15 @@ test('the task image is built from the task environment as adw-e2e-<task>', () =
   const env = path.join(config.root, 'e2e/tasks/demo-todo/environment');
   assert.deepEqual(call, ['docker', 'build', '-t', 'adw-e2e-demo-todo', '-f', path.join(env, 'Dockerfile'), env]);
 });
+
+test('postVerify labels each judge transcript with its kind', () => {
+  const { seen, deps } = fakes();
+  const got = [];
+  postVerify({ config, bundle: 'b', criteria, image: 'img', deps, onTranscript: (kind, text) => got.push([kind, text]) });
+  seen.verifier.onTranscript('V');
+  seen.review.onTranscript('R');
+  assert.deepEqual(got, [['verifier', 'V'], ['review', 'R']]);
+  const quiet = fakes();
+  postVerify({ config, bundle: 'b', criteria, image: 'img', deps: quiet.deps });
+  assert.doesNotThrow(() => quiet.seen.verifier.onTranscript('V'), 'transcripts are optional');
+});

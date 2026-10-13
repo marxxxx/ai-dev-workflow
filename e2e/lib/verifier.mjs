@@ -49,9 +49,9 @@ export function buildVerifierDockerArgs({ image, name, checkout, model, uid, gid
 }
 
 export function runVerifier({ config, checkout, criteria, env = {}, image, name = `adw-verify-${process.pid}-${Date.now()}`,
-  run = spawnSync, uid = process.getuid(), gid = process.getgid() }) {
+  run = spawnSync, uid = process.getuid(), gid = process.getgid(), onTranscript }) {
   try {
-    const answer = callClaude({ cmd: 'docker', args: buildVerifierDockerArgs({ image, name, checkout, model: config.verifier.model, uid, gid }),
+    const answer = callClaude({ cmd: 'docker', onStdout: onTranscript, args: buildVerifierDockerArgs({ image, name, checkout, model: config.verifier.model, uid, gid }),
       input: buildVerifierPrompt({ criteria }), env, timeoutMs: config.verifier.timeoutSec * 1000, label: 'verifier', run });
     return { criteria: validateVerifierAnswer(answer, criteria.map((c) => c.id)), error: null };
   } catch (err) {

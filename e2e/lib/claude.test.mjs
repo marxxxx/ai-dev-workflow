@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { callClaude, cliError, isInterrupt, isQuota, resultJson } from './claude.mjs';
+import { buildClaudeDockerArgs, callClaude, cliError, isInterrupt, isQuota, resultJson } from './claude.mjs';
 
 test('resultJson takes the last JSON line and accepts a fenced answer', () => {
   const stdout = `agent runtime: trusted 1 company root certificate(s)\n${JSON.stringify({ type: 'result', result: 'Here:\n```json\n{"a":1}\n```' })}\n`;
@@ -73,4 +73,21 @@ test('a child that ended on an interrupt is an interrupt error, not a verdict', 
   assert.throws(() => call({ status: 1, stdout: 'boom' }), (e) => !isInterrupt(e), 'an ordinary failure is no interrupt');
   assert.equal(isInterrupt(new Error('x')), false);
   assert.equal(isInterrupt(undefined), false);
+});
+
+test('callClaude hands the raw output to onStdout before it parses, so an unparsable answer keeps its transcript', () => {
+  const seen = [];
+  const stream = `${JSON.stringify({ type: 'assistant', message: 'tool call' })}\n${JSON.stringify({ type: 'result', result: 'no json' })}\n`;
+  assert.throws(() => callClaude({ args: [], label: 'verifier', timeoutMs: 1000, onStdout: (s) => seen.push(s), run: () => ({ status: 0, stdout: stream }) }),
+    /answer holds no JSON object/);
+  assert.deepEqual(seen, [stream]);
+  assert.throws(() => callClaude({ args: [], label: 'verifier', timeoutMs: 1000, onStdout: (s) => seen.push(s), run: () => ({ status: 1, stdout: 'boom' }) }), /exit 1/);
+  assert.deepEqual(seen, [stream, 'boom'], 'a failed call keeps its output too');
+  assert.deepEqual(callClaude({ args: [], label: 'review', timeoutMs: 1000, run: () => ({ status: 0, stdout: stream.replace('no json', '{\\"a\\":1}') }) }), { a: 1 },
+    'the result line of a stream-json transcript is the answer');
+});
+
+test('buildClaudeDockerArgs asks for the stream-json transcript', () => {
+  const args = buildClaudeDockerArgs({ image: 'i', name: 'n', checkout: '/c', model: 'm', uid: 1, gid: 1, claudeArgs: [] });
+  assert.deepEqual(args.slice(args.indexOf('--output-format'), args.indexOf('--output-format') + 3), ['--output-format', 'stream-json', '--verbose']);
 });

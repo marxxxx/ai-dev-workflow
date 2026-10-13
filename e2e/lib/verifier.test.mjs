@@ -78,3 +78,11 @@ test('an interrupted verifier run propagates instead of becoming an error verdic
   assert.throws(() => runVerifier({ config, checkout: '/c', criteria, image: 'img', name: 'v4', run, uid: 1, gid: 1 }), (e) => isInterrupt(e));
   assert.deepEqual(calls.at(-1), ['rm', '-f', 'v4']);
 });
+
+test('runVerifier hands the raw transcript to onTranscript, also when the answer is unusable', () => {
+  const seen = [];
+  const run = (cmd, args) => (args[0] === 'run' ? { status: 0, stdout: answer([both[0]]) } : { status: 0 });
+  const r = runVerifier({ config, checkout: '/c', criteria, image: 'img', name: 'v5', run, uid: 1, gid: 1, onTranscript: (s) => seen.push(s) });
+  assert.match(r.error, /missing: AC2/);
+  assert.deepEqual(seen, [answer([both[0]])]);
+});
