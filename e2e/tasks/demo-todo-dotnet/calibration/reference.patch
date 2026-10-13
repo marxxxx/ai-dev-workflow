@@ -1,8 +1,8 @@
 diff --git a/src/DemoTodo/Components/Pages/Home.razor b/src/DemoTodo/Components/Pages/Home.razor
-index 10e75f0..6caf2c7 100644
+index 10e75f0..5e943d5 100644
 --- a/src/DemoTodo/Components/Pages/Home.razor
 +++ b/src/DemoTodo/Components/Pages/Home.razor
-@@ -6,11 +6,28 @@
+@@ -6,11 +6,29 @@
  
  <h1>Todos</h1>
  
@@ -11,6 +11,7 @@ index 10e75f0..6caf2c7 100644
 +    nur überfällige
 +</label>
 +
++@{ var today = Store.Today(); }
  <ul data-testid="todo-list">
 -    @foreach (var todo in Store.List())
 +    @foreach (var todo in Store.List(overdueOnly: onlyOverdue))
@@ -21,7 +22,7 @@ index 10e75f0..6caf2c7 100644
 +            {
 +                <span class="ms-2" data-testid="todo-due">@dueDate.ToString("yyyy-MM-dd")</span>
 +            }
-+            @if (Store.IsOverdue(todo))
++            @if (todo.IsOverdueOn(today))
 +            {
 +                <strong class="badge text-bg-danger ms-2" data-testid="todo-overdue">überfällig</strong>
 +            }
@@ -33,7 +34,7 @@ index 10e75f0..6caf2c7 100644
 +    private bool onlyOverdue;
 +}
 diff --git a/src/DemoTodo/Program.cs b/src/DemoTodo/Program.cs
-index fd7934d..579a456 100644
+index fd7934d..19ecb9f 100644
 --- a/src/DemoTodo/Program.cs
 +++ b/src/DemoTodo/Program.cs
 @@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
@@ -44,79 +45,61 @@ index fd7934d..579a456 100644
  builder.Services.AddSingleton<TodoStore>();
  // Malformed JSON bodies throw in every environment, so the handler below turns them into a 400.
  builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
-@@ -47,16 +48,16 @@ app.MapRazorComponents<App>()
+@@ -47,16 +48,20 @@ app.MapRazorComponents<App>()
  app.MapGet("/health", () => new { ok = true });
  
  var todos = app.MapGroup("/todos");
 -todos.MapGet("", (TodoStore store) => store.List());
-+todos.MapGet("", (TodoStore store, bool overdue = false) => store.List(overdue).Select(todo => TodoResponse.Of(todo, store)));
++todos.MapGet("", (TodoStore store, bool overdue = false) =>
++{
++    var today = store.Today();
++    return store.List(overdue).Select(todo => TodoResponse.Of(todo, today));
++});
  todos.MapPost("", (NewTodo input, TodoStore store) =>
  {
      var todo = store.Add(input);
 -    return Results.Created($"/todos/{todo.Id}", todo);
-+    return Results.Created($"/todos/{todo.Id}", TodoResponse.Of(todo, store));
++    return Results.Created($"/todos/{todo.Id}", TodoResponse.Of(todo, store.Today()));
  });
  todos.MapGet("/{id:int}", (int id, TodoStore store) =>
 -    store.Get(id) is { } todo ? Results.Ok(todo) : NotFound());
-+    store.Get(id) is { } todo ? Results.Ok(TodoResponse.Of(todo, store)) : NotFound());
++    store.Get(id) is { } todo ? Results.Ok(TodoResponse.Of(todo, store.Today())) : NotFound());
  todos.MapPatch("/{id:int}", (int id, TodoPatch patch, TodoStore store) =>
 -    store.Update(id, patch) is { } todo ? Results.Ok(todo) : NotFound());
-+    store.Update(id, patch) is { } todo ? Results.Ok(TodoResponse.Of(todo, store)) : NotFound());
++    store.Update(id, patch) is { } todo ? Results.Ok(TodoResponse.Of(todo, store.Today())) : NotFound());
  todos.MapDelete("/{id:int}", (int id, TodoStore store) =>
      store.Remove(id) ? Results.NoContent() : NotFound());
  
-@@ -64,4 +65,10 @@ app.Run();
- 
- static IResult NotFound() => Results.NotFound(new { error = "not found" });
- 
-+// What the API returns for a todo: the stored fields plus whether it is overdue today.
-+public record TodoResponse(int Id, string Title, bool Done, DateOnly? DueDate, bool Overdue)
-+{
-+    public static TodoResponse Of(Todo todo, TodoStore store) => new(todo.Id, todo.Title, todo.Done, todo.DueDate, store.IsOverdue(todo));
-+}
-+
- public partial class Program;
 diff --git a/src/DemoTodo/TodoStore.cs b/src/DemoTodo/TodoStore.cs
-index c5509e1..3116ead 100644
+index c5509e1..c0a91fc 100644
 --- a/src/DemoTodo/TodoStore.cs
 +++ b/src/DemoTodo/TodoStore.cs
-@@ -1,23 +1,48 @@
+@@ -1,23 +1,37 @@
  using System.ComponentModel.DataAnnotations;
 +using System.Globalization;
 +using System.Text.Json;
-+using System.Text.Json.Serialization;
  
  namespace DemoTodo;
  
 -public record Todo(int Id, string Title, bool Done);
-+public record Todo(int Id, string Title, bool Done, DateOnly? DueDate = null);
++public record Todo(int Id, string Title, bool Done, DateOnly? DueDate = null)
++{
++    // Overdue: not done and due before today.
++    public bool IsOverdueOn(DateOnly today) => !Done && DueDate is { } dueDate && dueDate < today;
++}
++
++// What the API returns for a todo: its fields plus whether it is overdue today.
++public record TodoResponse(int Id, string Title, bool Done, DateOnly? DueDate, bool Overdue)
++{
++    public static TodoResponse Of(Todo todo, DateOnly today) => new(todo.Id, todo.Title, todo.Done, todo.DueDate, todo.IsOverdueOn(today));
++}
  
 -public record NewTodo(string? Title);
-+public record NewTodo(string? Title, DueDateField DueDate = default);
++// DueDate stays raw JSON, so a PATCH can tell an absent field (keep the due date) from null (remove it).
++public record NewTodo(string? Title, JsonElement DueDate = default);
  
 -public record TodoPatch(string? Title, bool? Done);
-+public record TodoPatch(string? Title, bool? Done, DueDateField DueDate = default);
-+
-+// The dueDate field of a request body as sent: absent (IsSet is false), null, or its raw text.
-+// In a PATCH, an absent field keeps the due date and null removes it; TodoStore validates the text.
-+[JsonConverter(typeof(Converter))]
-+public readonly record struct DueDateField(bool IsSet, string? Text)
-+{
-+    public static DueDateField Of(string? text) => new(true, text);
-+
-+    public sealed class Converter : JsonConverter<DueDateField>
-+    {
-+        public override DueDateField Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => reader.TokenType switch
-+        {
-+            JsonTokenType.Null => Of(null),
-+            JsonTokenType.String => Of(reader.GetString()),
-+            _ => Of(JsonDocument.ParseValue(ref reader).RootElement.GetRawText()),
-+        };
-+
-+        public override void Write(Utf8JsonWriter writer, DueDateField value, JsonSerializerOptions options) =>
-+            JsonSerializer.Serialize(writer, value.Text, options);
-+    }
-+}
++public record TodoPatch(string? Title, bool? Done, JsonElement DueDate = default);
  
  // In-memory todo store, registered as a singleton: the API and the list page share it.
 -public class TodoStore
@@ -131,15 +114,15 @@ index c5509e1..3116ead 100644
      {
 -        lock (_lock) return [.. _todos.Values];
 +        var today = Today();
-+        lock (_lock) return [.. _todos.Values.Where(todo => !overdueOnly || IsOverdue(todo, today))];
++        lock (_lock) return [.. _todos.Values.Where(todo => !overdueOnly || todo.IsOverdueOn(today))];
      }
  
      public Todo? Get(int id)
-@@ -29,9 +54,10 @@ public class TodoStore
+@@ -29,9 +43,10 @@ public class TodoStore
      {
          var title = input.Title?.Trim();
          if (string.IsNullOrEmpty(title)) throw new ValidationException("title is required");
-+        var dueDate = ParseDueDate(input.DueDate.Text);
++        var dueDate = ParseDueDate(input.DueDate);
          lock (_lock)
          {
 -            var todo = new Todo(_nextId++, title, false);
@@ -147,11 +130,12 @@ index c5509e1..3116ead 100644
              _todos[todo.Id] = todo;
              return todo;
          }
-@@ -41,10 +67,16 @@ public class TodoStore
+@@ -41,10 +56,17 @@ public class TodoStore
      {
          var title = patch.Title?.Trim();
          if (patch.Title is not null && title == "") throw new ValidationException("title must be a non-empty string");
-+        var dueDate = ParseDueDate(patch.DueDate.Text);
++        var changesDueDate = patch.DueDate.ValueKind != JsonValueKind.Undefined;
++        var dueDate = ParseDueDate(patch.DueDate);
          lock (_lock)
          {
              if (!_todos.TryGetValue(id, out var todo)) return null;
@@ -160,29 +144,27 @@ index c5509e1..3116ead 100644
 +            {
 +                Title = title ?? todo.Title,
 +                Done = patch.Done ?? todo.Done,
-+                DueDate = patch.DueDate.IsSet ? dueDate : todo.DueDate,
++                DueDate = changesDueDate ? dueDate : todo.DueDate,
 +            };
              _todos[id] = todo;
              return todo;
          }
-@@ -54,4 +86,18 @@ public class TodoStore
+@@ -54,4 +76,16 @@ public class TodoStore
      {
          lock (_lock) return _todos.Remove(id);
      }
 +
 +    // A due date is a calendar date (yyyy-MM-dd) or null.
-+    public static DateOnly? ParseDueDate(string? text) =>
-+        text is null ? null
-+        : DateOnly.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date
-+        : throw new ValidationException("dueDate must be a valid date in the form yyyy-MM-dd, or null");
-+
-+    // Overdue: not done and due before today. Derived on every read, never stored.
-+    public bool IsOverdue(Todo todo) => IsOverdue(todo, Today());
-+
-+    private static bool IsOverdue(Todo todo, DateOnly today) => !todo.Done && todo.DueDate is { } dueDate && dueDate < today;
++    public static DateOnly? ParseDueDate(JsonElement value) => value.ValueKind switch
++    {
++        JsonValueKind.Undefined or JsonValueKind.Null => null,
++        JsonValueKind.String when DateOnly.TryParseExact(value.GetString(), "yyyy-MM-dd",
++            CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) => date,
++        _ => throw new ValidationException("dueDate must be a valid date in the form yyyy-MM-dd, or null"),
++    };
 +
 +    // "Today" is the current date in UTC.
-+    private DateOnly Today() => DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime);
++    public DateOnly Today() => DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime);
  }
 diff --git a/tests/DemoTodo.Tests/TodoApiTests.cs b/tests/DemoTodo.Tests/TodoApiTests.cs
 index f20e459..a55bf59 100644
@@ -292,10 +274,10 @@ index f20e459..a55bf59 100644
  }
 diff --git a/tests/DemoTodo.Tests/TodoStoreDueDateTests.cs b/tests/DemoTodo.Tests/TodoStoreDueDateTests.cs
 new file mode 100644
-index 0000000..bcec03d
+index 0000000..66572ec
 --- /dev/null
 +++ b/tests/DemoTodo.Tests/TodoStoreDueDateTests.cs
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,71 @@
 +using System.ComponentModel.DataAnnotations;
 +using System.Globalization;
 +using System.Text.Json;
@@ -306,26 +288,24 @@ index 0000000..bcec03d
 +{
 +    private static TodoStore Store() => new(new FixedTime("2026-05-10"));
 +
-+    private static DueDateField Due(string date) => DueDateField.Of(date);
-+
-+    private static NewTodo Read(string json) => JsonSerializer.Deserialize<NewTodo>(json, JsonSerializerOptions.Web)!;
++    private static JsonElement Json(object? value) => JsonSerializer.SerializeToElement(value);
 +
 +    [Fact]
 +    public void ATodoGetsAnOptionalDueDate()
 +    {
 +        var store = Store();
 +        Assert.Null(store.Add(new NewTodo("A")).DueDate);
-+        Assert.Equal(new DateOnly(2026, 5, 20), store.Add(new NewTodo("B", Due("2026-05-20"))).DueDate);
++        Assert.Equal(new DateOnly(2026, 5, 20), store.Add(new NewTodo("B", Json("2026-05-20"))).DueDate);
 +    }
 +
 +    [Fact]
 +    public void TheDueDateCanBeChangedKeptAndCleared()
 +    {
 +        var store = Store();
-+        var id = store.Add(new NewTodo("A", Due("2026-05-20"))).Id;
-+        Assert.Equal(new DateOnly(2026, 6, 1), store.Update(id, new TodoPatch(null, null, Due("2026-06-01")))!.DueDate);
++        var id = store.Add(new NewTodo("A", Json("2026-05-20"))).Id;
++        Assert.Equal(new DateOnly(2026, 6, 1), store.Update(id, new TodoPatch(null, null, Json("2026-06-01")))!.DueDate);
 +        Assert.Equal(new DateOnly(2026, 6, 1), store.Update(id, new TodoPatch(null, true))!.DueDate);
-+        Assert.Null(store.Update(id, new TodoPatch(null, null, DueDateField.Of(null)))!.DueDate);
++        Assert.Null(store.Update(id, new TodoPatch(null, null, Json(null)))!.DueDate);
 +    }
 +
 +    [Theory]
@@ -337,36 +317,29 @@ index 0000000..bcec03d
 +    [InlineData("true")]
 +    public void RejectsMalformedAndImpossibleDueDates(string json)
 +    {
-+        Assert.Throws<ValidationException>(() => Store().Add(Read($$"""{"title":"A","dueDate":{{json}}}""")));
-+    }
-+
-+    [Fact]
-+    public void ReadsAnAbsentANullAndAGivenDueDate()
-+    {
-+        Assert.Equal(default, Read("""{"title":"A"}""").DueDate);
-+        Assert.Equal(DueDateField.Of(null), Read("""{"title":"A","dueDate":null}""").DueDate);
-+        Assert.Equal(Due("2026-05-20"), Read("""{"title":"A","dueDate":"2026-05-20"}""").DueDate);
++        var dueDate = JsonDocument.Parse(json).RootElement;
++        Assert.Throws<ValidationException>(() => Store().Add(new NewTodo("A", dueDate)));
 +    }
 +
 +    [Fact]
 +    public void OverdueMeansNotDoneAndDueBeforeTodayInUtc()
 +    {
 +        var store = Store();
-+        store.Add(new NewTodo("late", Due("2026-05-09")));
-+        var done = store.Add(new NewTodo("late but done", Due("2026-05-01")));
++        store.Add(new NewTodo("late", Json("2026-05-09")));
++        var done = store.Add(new NewTodo("late but done", Json("2026-05-01")));
 +        store.Update(done.Id, new TodoPatch(null, true));
-+        store.Add(new NewTodo("today", Due("2026-05-10")));
++        store.Add(new NewTodo("today", Json("2026-05-10")));
 +        store.Add(new NewTodo("no date"));
 +        Assert.Equal(["late"], store.List(overdueOnly: true).Select(t => t.Title));
-+        Assert.Equal([true, false, false, false], store.List().Select(store.IsOverdue));
++        Assert.Equal([true, false, false, false], store.List().Select(t => t.IsOverdueOn(store.Today())));
 +    }
 +
 +    [Fact]
 +    public void TodayIsTheUtcDate()
 +    {
-+        // 01:30 on 10 May in UTC+2 is still 9 May in UTC: a todo due on 9 May is not overdue yet.
++        // 01:30 on 10 May in UTC+2 is still 9 May in UTC.
 +        var store = new TodoStore(new FixedTime(DateTimeOffset.Parse("2026-05-10T01:30:00+02:00", CultureInfo.InvariantCulture)));
-+        Assert.False(store.IsOverdue(store.Add(new NewTodo("A", Due("2026-05-09")))));
++        Assert.Equal(new DateOnly(2026, 5, 9), store.Today());
 +    }
 +
 +    private sealed class FixedTime(DateTimeOffset now) : TimeProvider
