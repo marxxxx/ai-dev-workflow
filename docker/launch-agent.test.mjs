@@ -285,11 +285,11 @@ test('concurrent starts sharing one home and one pid do not fail', linkTest, asy
     superpowersRoot: path.join(root, 'no-superpowers'), registerCodexPlugin: false, toolstackOnly: true,
   };
   const script = `
-    import { rmSync } from 'node:fs';
+    import { unlinkSync } from 'node:fs';
     import { configureRuntime } from ${JSON.stringify(new URL('./launch-agent.mjs', import.meta.url).href)};
     Object.defineProperty(process, 'pid', { value: 7 });
     for (let i = 0; i < 40; i++) {
-      rmSync(${JSON.stringify(link)}, { force: true });
+      try { unlinkSync(${JSON.stringify(link)}); } catch {}
       configureRuntime(${JSON.stringify(options)});
     }`;
   const children = Array.from({ length: 6 }, () => new Promise(resolve => {

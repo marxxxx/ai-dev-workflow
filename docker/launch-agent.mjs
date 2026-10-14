@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import {
   existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync,
-  rmSync, symlinkSync, writeFileSync,
+  symlinkSync, unlinkSync, writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -173,7 +173,8 @@ function linkLanguageServers(source, serenaHome) {
     for (const entry of readdirSync(classDir)) {
       const link = path.join(classDir, entry);
       if (!packages.has(entry) && readlinkSafe(link)?.startsWith(`${provisioned}${path.sep}`) && !existsSync(link)) {
-        rmSync(link, { force: true });
+        // rmSync follows symlinks on some Node versions; another container may have removed it.
+        try { unlinkSync(link); } catch (error) { if (error.code !== 'ENOENT') throw error; }
       }
     }
     for (const entry of packages) {
