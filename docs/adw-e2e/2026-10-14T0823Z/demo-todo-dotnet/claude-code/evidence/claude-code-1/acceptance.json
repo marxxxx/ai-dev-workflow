@@ -1,0 +1,21 @@
+{
+  "criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass",
+    "AC5": "pass",
+    "AC6": "pass",
+    "AC7": "pass"
+  },
+  "evidence": {
+    "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-13\"} returned 201 with dueDate \"2026-10-13\" (date only, no time). POST without dueDate returned 201 with dueDate null.",
+    "AC2": "PATCH /todos/2 {\"dueDate\":\"2026-09-01\"} returned 200 and the dueDate changed from 2026-10-15 to 2026-09-01. PATCH /todos/3 {\"dueDate\":null} returned 200 and dueDate became null. A PATCH that only changed the title left a null dueDate null.",
+    "AC3": "POST with dueDate \"2026-02-30\", \"14/10/2026\" and \"2026-10-14T10:00:00\" each returned 400 with {\"error\":\"dueDate must be a date in the form YYYY-MM-DD\"}. PATCH with \"2026-02-30\" also returned 400.",
+    "AC4": "Today is 2026-10-14 (UTC). GET /todos?overdue=true returned only the todos due 2026-10-13 and 2026-09-01. Not returned: the todo due today (2026-10-14), the todo with no due date, and the todo with a past due date that I marked done (it shows overdue:false). Today-due and future-due todos show overdue:false.",
+    "AC5": "The browser snapshot of / shows each dated todo with its due date next to the title (e.g. 'past 2026-10-13 überfällig', 'donepast ✓ 2026-10-01'). Todos without a due date show none.",
+    "AC6": "In the page snapshot, 'überfällig' appears only on the two overdue todos (due 2026-10-13 and 2026-09-01). It does not appear on the todo with no due date, the todo with no due date after its date was removed, or the done todo with a past due date.",
+    "AC7": "The page has a checkbox labelled 'nur überfällige'. Clicking it reduced the list to the two overdue todos (past and future, the latter now due 2026-09-01); the other three todos disappeared."
+  },
+  "error": null
+}

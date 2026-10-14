@@ -1,0 +1,8 @@
+3b69ccb docs: record draft PR and ticket close-out
+a5f2205 fix: separate todo titles dates and overdue markers
+5f4c2a7 feat: show due dates and filter the todo list
+2bedc9c feat: filter overdue todos through the JSON API
+391fa7a docs: record completion of the todo store task
+60f99e0 feat: add optional todo due dates and UTC overdue state
+94ab655 docs: approve specification and plan ticket 1 implementation
+384e90d docs: specify due dates and overdue filters for ticket 1

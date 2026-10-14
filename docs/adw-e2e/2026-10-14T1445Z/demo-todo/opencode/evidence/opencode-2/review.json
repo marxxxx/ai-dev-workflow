@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 3,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, including a null-removal path, 30 February rejection, UTC overdue logic, the 'überfällig' label and the 'nur überfällige' control.",
+    "scope": "No extra features were added, but there is a stray blank line in app.mjs and the committed plan and spec files add some noise.",
+    "tests": "API tests cover create, update, remove, invalid dates and the overdue filter edge cases, and the existing assertion was only adjusted for the new field; the UI has no automated test and the test has a pointless `done: false` in the POST body.",
+    "conventions": "Uses ValidationError, zero dependencies, data-testids and TDD per AGENTS.md; the duplicated error message and the stray blank line are minor blemishes.",
+    "architecture": "Validation and filtering live in the store and the route stays thin, but isOverdue is duplicated in the UI, and the exported isOverdue is only used inside the store.",
+    "codeQuality": "Date validation via a Date.UTC round trip is correct and the code is readable; minor issues are the duplicated validation block and the UI computing today only once at page load."
+  },
+  "error": null
+}

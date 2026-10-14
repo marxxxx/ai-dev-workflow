@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover AC1–AC7 (optional date, change and clear, 400 on invalid dates, UTC overdue rule and filter, date and 'überfällig' on the page, 'nur überfällige' checkbox), and add edge cases such as the due day itself, leap days and a non-string dueDate.",
+    "scope": "The code changes stay within the ticket; the only extras are the spec and plan docs under docs/superpowers, and the `?overdue=false` filter value, which the ACs don't ask for.",
+    "tests": "Store, API and page tests cover the new behaviour with a fixed clock, including boundary dates and null-versus-missing PATCH, and no existing test was weakened; the checkbox toggle itself has no automated test and was only checked by hand with Playwright.",
+    "conventions": "The change follows the conventions (ValidationException from the store, no new packages, data-testid on new elements, tests written first), but AGENTS.md's list of existing data-testids was not updated with the three new ones.",
+    "architecture": "The overdue rule and date validation live in TodoStore behind an injected TimeProvider, the page calls the store directly, and the API maps through one TodoResponse helper, matching the layout in AGENTS.md.",
+    "codeQuality": "The code is compact and handles edge cases such as strict date parsing, UTC today, and patch semantics for a missing field versus null; the generic Optional<T> converter is a little heavy for one field, and Read uses a null-forgiving `!`."
+  },
+  "error": null
+}

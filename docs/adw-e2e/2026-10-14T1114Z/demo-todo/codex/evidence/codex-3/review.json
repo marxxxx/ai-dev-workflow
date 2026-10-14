@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 5,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria, including UTC overdue semantics, the 400 responses, the exact 'überfällig' marker and the 'nur überfällige' control, plus sensible edge rules such as the year range and the repeated filter parameter.",
+    "scope": "The extra non-object JSON body rejection and the `overdue=false` filter go slightly past the ACs, but both were in the approved spec, and the plan and spec docs are process artifacts.",
+    "tests": "The new tests cover leap years, UTC day boundaries, atomic PATCH, both filter values, invalid queries, stale responses, error recovery and literal titles; the only existing test change is the agreed extra response fields.",
+    "conventions": "It stays dependency-free, uses ValidationError for HTTP 400, follows TDD and adds data-testid attributes, though the dense inline filter condition in app.mjs is a bit out of step with the surrounding style.",
+    "architecture": "Validation and overdue computation live in the store, filtering stays in the handler, and the page reuses the API result; the filter check inside the route handler is slightly cluttered.",
+    "codeQuality": "The code is correct, with atomic updates, a single UTC day per list and stale-response guards; minor nits are a redundant length check next to the regex and clearing the list before every fetch."
+  },
+  "error": null
+}

@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria, including the PATCH missing-versus-null distinction, UTC overdue rules and the exact UI texts.",
+    "scope": "The code changes stay on the ticket; the only extras are the spec and plan documents added under docs/, and the extra overdue=false filter, which the approved spec asks for.",
+    "tests": "Store, API and prerender tests are thorough and no existing tests were weakened; the interactive checkbox filtering and the page's toggle behaviour have no automated test, only manual Playwright runs.",
+    "conventions": "The change follows the ValidationException pattern, data-testid usage, TDD and adds no new packages; it does not update the AGENTS.md locators list for the new test IDs.",
+    "architecture": "Validation, overdue computation and filtering all live in TodoStore, the page and API reuse List(overdue), and the clock is injected through TimeProvider.",
+    "codeQuality": "The code is clean and atomic, validating before it mutates, but the HasDueDate flag set inside an init setter is slightly subtle, and Todo carries a computed IsOverdue init property that every snapshot has to populate."
+  },
+  "error": null
+}

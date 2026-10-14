@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 5,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, including the strict calendar validation, the UTC overdue rule, the German \"überfällig\" marker and the \"nur überfällige\" checkbox.",
+    "scope": "The code stays on the ticket, but the diff adds a .gitignore entry for .worktrees/ and committed spec and plan documents that the ticket did not ask for.",
+    "tests": "Store and HTTP tests cover validation, atomic PATCH, UTC midnight, one clock reading per list, filter errors and ignored client overdue values. The existing assertions were only extended, not weakened, and the UI was checked with Playwright.",
+    "conventions": "The change uses ValidationError mapped to 400, adds data-testid attributes to the new elements, uses Node builtins only, and keeps the existing node:test style.",
+    "architecture": "Validation and the overdue projection live in the store and the handler only filters, which fits the layering. The date validator is a standalone function inside the store file, and the page keeps its logic inline in the HTML.",
+    "codeQuality": "The code is correct at the edges: it validates before mutating, uses a single clock reading, handles repeated query parameters and renders text safely. The redundant length check before the regex is minor, and the page does not handle fetch errors."
+  },
+  "error": null
+}

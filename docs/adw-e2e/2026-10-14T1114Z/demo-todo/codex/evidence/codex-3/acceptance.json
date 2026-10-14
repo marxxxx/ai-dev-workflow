@@ -1,0 +1,21 @@
+{
+  "criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass",
+    "AC5": "pass",
+    "AC6": "pass",
+    "AC7": "pass"
+  },
+  "evidence": {
+    "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-13\"} returned 201 with dueDate \"2026-10-13\". A todo created without dueDate returned 201 with dueDate null. The value is a plain YYYY-MM-DD date with no time.",
+    "AC2": "PATCH /todos/3 with {\"dueDate\":\"2026-10-01\"} returned 200 and the new date. PATCH /todos/1 with {\"dueDate\":null} returned 200 with dueDate null, and a later GET /todos/1 confirmed it was removed.",
+    "AC3": "POST with dueDate \"2026-02-30\" returned 400. POST with \"14.10.2026\" returned 400. POST with \"2026-10-14T10:00:00\" returned 400. PATCH with \"2026-02-30\", \"2026-1-5\" and 123 each returned 400.",
+    "AC4": "Today is 2026-10-14 (UTC). GET /todos?overdue=true returned only the not-done todo with due date 2026-10-01. Before that, the due-today, future-dated and no-date todos all showed overdue=false. After PATCH done:true, the done todo with due date 2026-01-01 changed from overdue=true to overdue=false.",
+    "AC5": "The page at / listed each todo's due date as a time element: 13.10.2026, 14.10.2026, 01.10.2026 and 01.01.2026. The todo without a due date showed none.",
+    "AC6": "In the page snapshot, a mark element with the text \"überfällig\" appeared only on the two overdue todos (13.10.2026 and 01.10.2026). It did not appear on the due-today todo, the no-date todo or the done todo.",
+    "AC7": "The page has a checkbox labelled \"nur überfällige\". After I clicked it, the list showed only the two overdue todos (past and future)."
+  },
+  "error": null
+}

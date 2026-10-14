@@ -1,0 +1,25 @@
+
+> demo-todo@1.0.0 test
+> node --test
+
+✔ creates and lists todos (31.769153ms)
+✔ creates a todo with a dueDate and rejects invalid ones (14.787087ms)
+✔ updates and removes a dueDate (11.294861ms)
+✔ GET /todos?overdue=true returns only overdue todos (10.069875ms)
+✔ rejects an empty title (4.895563ms)
+✔ marks a todo done (4.521968ms)
+✔ serves the list page (4.54592ms)
+✔ add stores an optional dueDate (1.138082ms)
+✔ add rejects invalid dueDate values (0.609745ms)
+✔ add accepts the 29th of February in a leap year only (0.18938ms)
+✔ update sets, changes and removes dueDate (0.894079ms)
+✔ update rejects invalid dueDate values (0.296101ms)
+✔ isOverdue: only unfinished todos with a past dueDate (0.385819ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 180.068234

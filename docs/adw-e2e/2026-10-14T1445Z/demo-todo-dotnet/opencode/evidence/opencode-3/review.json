@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 4,
+    "scope": 4,
+    "tests": 3,
+    "conventions": 3,
+    "architecture": 3,
+    "codeQuality": 3
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover AC1–AC7 (optional date, set/change/remove, 400 on invalid dates, overdue filter, display, marker, toggle); the spec's PATCH section is somewhat muddled, but the behaviour is clear.",
+    "scope": "The changes stay on the feature; the only extras are the spec and plan markdown files and the extra public factory overloads and test helpers.",
+    "tests": "Store and API tests cover the date logic, validation and the overdue filter well, but the page test only checks that the testids and the word appear and never that non-overdue todos lack the marker. The toggle's filtering behaviour is not tested. Existing tests were adapted to the new signatures, not weakened.",
+    "conventions": "The code reuses ValidationException and the existing 400 middleware and uses German UI text and testids as the spec asks, but the `NewTodo.Of` factory workaround and the `default` JsonElement arguments in tests depart from the plain record style used before.",
+    "architecture": "The clock and the overdue predicate sit in TodoStore and the page reads the store directly, which fits. Using raw JsonElement in the public DTO records, with TodoJson and ToElement helpers living in production code mainly to serve tests, is a leaky and awkward design.",
+    "codeQuality": "The behaviour is correct at the edges (strict format, UTC today, null versus missing), but the JsonElement-based records with overloaded Of factories are needlessly complex, and the JsonException catch could mask unrelated errors."
+  },
+  "error": null
+}

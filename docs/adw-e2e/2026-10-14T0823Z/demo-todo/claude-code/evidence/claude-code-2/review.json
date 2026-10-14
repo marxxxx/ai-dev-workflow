@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 3,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff: creation, change and removal of dueDate, 400 on invalid dates, overdue computed in UTC with the filter, the due date shown in the list, the 'überfällig' marker, and the 'nur überfällige' control.",
+    "scope": "The new 400 for non-object JSON bodies and the atomic PATCH validation fix are unrequested; the atomic fix is arguably needed once dueDate is validated, but the readJson change is unrelated, and the diff also adds plan and spec docs.",
+    "tests": "Store and API tests cover the new behaviour well, including edge cases (leap days, today versus yesterday, copies, atomic patch) and no existing tests were removed. The UI is only checked with regex matches on the HTML, so rendering and the filter toggle are never exercised, and the spec's PATCH set/change cases are not tested at API level.",
+    "conventions": "It stays zero-dependency, uses ValidationError for HTTP 400, gives every new UI element a data-testid, and the tests follow the existing node:test and withServer style.",
+    "architecture": "Domain logic sits in the store with an injectable clock, the app only parses the query parameter, and the UI renders API fields without computing overdue itself.",
+    "codeQuality": "The code is readable and handles edges well (arithmetic leap-year rule, the stale-response guard, copies returned from the store), but render() has no error handling and unhandled JSON.parse errors in readJson are unchanged."
+  },
+  "error": null
+}

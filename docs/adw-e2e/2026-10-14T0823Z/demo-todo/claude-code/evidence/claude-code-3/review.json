@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, including the edge cases: 30 February, today not being overdue, done todos, and removing a date with null.",
+    "scope": "The change is focused. The small extras are the atomic validate-before-mutate rewrite of update, plus the spec and plan documents, and none of them is harmful.",
+    "tests": "The store and HTTP tests cover validation, the overdue boundaries, filtering, PATCH null and the 400 cases, and the one existing assertion was extended rather than weakened. The UI is only checked via a string match on the HTML, and the HTTP tests don't check that a PATCH with an invalid date leaves the todo unchanged.",
+    "conventions": "It stays zero-dependency, uses ValidationError for 400s, follows TDD with node:test, and gives every new UI element a data-testid.",
+    "architecture": "Validation and the overdue rule live in the store, app.mjs only translates the query parameter, and the clock is injectable, which matches the existing layering.",
+    "codeQuality": "The code is clear and correct at the edges, with a NaN guard, view copies and validate-before-mutate in update. Minor points are that update does repeated 'in patch' checks, and the null-body 500 was left as is."
+  },
+  "error": null
+}

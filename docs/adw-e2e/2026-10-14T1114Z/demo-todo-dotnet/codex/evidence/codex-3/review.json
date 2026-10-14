@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria: optional date on create, PATCH set/replace/clear, 400 on invalid dates, the overdue API filter, date display, the 'überfällig' marker, and the 'nur überfällige' checkbox. They also add edge cases such as the UTC midnight crossing.",
+    "scope": "The product code stays within the ticket, but the diff adds plan and spec documents under docs/ and an extra DatePatchForUnknownId test, which are small extras.",
+    "tests": "Store, API and prerendered page tests are thorough, including a controlled clock, PATCH omitted-vs-null and no-mutation cases, and no tests were weakened. The checkbox's interactive filtering is only checked by manual E2E, not an automated test.",
+    "conventions": "The change follows TDD, uses data-testid attributes, ValidationException and the existing 400 handling, and adds no packages. AGENTS.md's list of locators was not updated with the three new data-testids.",
+    "architecture": "Overdue computation and filtering sit in the shared singleton store behind an injected TimeProvider, Home.razor calls the store directly, and the API and page reuse the same List(overdue) method.",
+    "codeQuality": "The code is clear, takes one clock read per call, and keeps computed IsOverdue out of stored state. The HasDueDate presence-tracking init hack on TodoPatch is slightly subtle but tested."
+  },
+  "error": null
+}

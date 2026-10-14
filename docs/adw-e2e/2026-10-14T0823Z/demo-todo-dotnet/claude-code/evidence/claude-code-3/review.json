@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover AC1–AC7 and add edge cases the ACs only imply: set, clear and keep on PATCH, 30 February, empty or time-bearing strings, today and done boundaries, and UTC.",
+    "scope": "Everything traces to the ticket; the plan and spec docs and the `@preservewhitespace` change are justified by the E2E finding, but the extra whitespace test and docs add a little beyond the minimum.",
+    "tests": "Store, API and page behaviour are well covered with boundary cases and the one existing test was only updated for the new JSON shape; the filter checkbox's interactive behaviour has no automated test and relies on the manual E2E run.",
+    "conventions": "Follows TDD, adds data-testids, adds no packages and uses the existing 400 handling; AGENTS.md was not updated with the new testids, and the validation errors come from JSON binding rather than ValidationException, which the spec chose deliberately.",
+    "architecture": "The overdue rule lives in TodoStore with an injected TimeProvider, the API maps through a TodoResponse, and the page calls the store directly as AGENTS.md requires.",
+    "codeQuality": "The code is small and clear, with UTC handling, InvariantCulture and the lock kept; the generic Optional converter uses `!` on null deserialization and reflection, which is acceptable here but slightly heavy."
+  },
+  "error": null
+}

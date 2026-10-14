@@ -1,0 +1,8 @@
+756c304 docs: complete ticket 1 delivery checklist
+4c54a23 docs: record verified implementation and browser evidence
+564482a feat: show due dates and filter overdue todos on the list page
+298f9a6 feat: filter overdue todos through the API
+fa2e1f4 feat: support validated due dates and UTC overdue status
+166ce3c chore: prepare isolated worktree and execution task headings
+efe3266 docs: plan due date validation and overdue filters
+112c6b0 docs: specify due dates and overdue filtering for ticket 1

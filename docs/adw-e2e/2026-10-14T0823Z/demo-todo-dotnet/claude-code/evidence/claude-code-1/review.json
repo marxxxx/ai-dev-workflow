@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria, including the edge cases of removal via null, leap days, a todo due today, and a done todo.",
+    "scope": "The change stays within the ticket; the only extras are the spec and plan docs and a small whitespace-separation test.",
+    "tests": "The tests are thorough and use a fake clock, and the one existing assertion was only extended for the new fields. The filter toggle is not tested outside the manual end-to-end run.",
+    "conventions": "The change follows AGENTS.md: ValidationException from the store, no new packages, data-testid on new elements, and tests written alongside the code.",
+    "architecture": "Validation and the overdue rule live only in TodoStore; the API and page reuse it, and Program.cs changes by a single line.",
+    "codeQuality": "The code is clean and the null-versus-absent PATCH handling is sound. The TodoPatch backing-field trick is slightly clever and Overdue is computed on every read, but both are acceptable."
+  },
+  "error": null
+}

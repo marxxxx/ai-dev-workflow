@@ -1,0 +1,21 @@
+{
+  "criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass",
+    "AC5": "pass",
+    "AC6": "pass",
+    "AC7": "pass"
+  },
+  "evidence": {
+    "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-13\"} returned 201 with dueDate \"2026-10-13\". POST without dueDate returned 201 with dueDate null. Dates are plain YYYY-MM-DD strings. A datetime string such as 2026-10-14T10:00:00Z was rejected with 400.",
+    "AC2": "PATCH /todos/4 with {\"dueDate\":\"2026-11-01\"} returned 200 and the new date. PATCH /todos/1 with {\"dueDate\":null} returned 200 with dueDate null. A later GET /todos showed both changes.",
+    "AC3": "POST with dueDate \"2026-02-30\" returned 400. POST with \"14/10/2026\" returned 400. POST with a datetime string returned 400. PATCH with \"2026-02-30\" returned 400. PATCH with \"x\" returned 400.",
+    "AC4": "Test data, with today = 2026-10-14: past 2026-10-13, today 2026-10-14, future 2026-10-15, one with no date, one with a past date that I marked done, and old 2025-12-31. GET /todos?overdue=true returned only 'past' and 'old'. The due-today, future, no-date and done todos were excluded.",
+    "AC5": "Loaded / in the browser. Each todo with a date showed it, e.g. 'past fällig 13.10.2026', 'today fällig 14.10.2026', 'future fällig 15.10.2026', 'none fällig 01.11.2026'. The todo with no date showed no date text in the earlier GET; it was set later in the run.",
+    "AC6": "In the page snapshot, 'past fällig 13.10.2026 überfällig' and 'old fällig 31.12.2025 überfällig' carried the word. The due-today, future, undated and done todos ('pastdone ✓ fällig 01.01.2026') did not.",
+    "AC7": "The page has a checkbox labelled 'nur überfällige'. Clicking it reduced the list from 6 items to only 'past' and 'old', the two overdue todos."
+  },
+  "error": null
+}

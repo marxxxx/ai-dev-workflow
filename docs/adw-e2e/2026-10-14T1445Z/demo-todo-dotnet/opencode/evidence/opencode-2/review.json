@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 4,
+    "scope": 4,
+    "tests": 3,
+    "conventions": 3,
+    "architecture": 3,
+    "codeQuality": 3
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered in the spec and the diff, but the spec says nothing about the 400 body shape for POST, where `DateOnly?` binding errors don't go through the `ValidationException` path.",
+    "scope": "The change stays on the feature; the only extras are the plan and spec docs under docs/, which are low-risk.",
+    "tests": "The store, API and page tests are good and no existing test was weakened. The 'nur überfällige' toggle behaviour has no test, the POST 400 tests check only the status code, and the PATCH tests never cover a non-object body.",
+    "conventions": "AGENTS.md says `TodoStore` throws `ValidationException`, but the date validation lives in `Program.cs`'s `ParsePatch`. POST relies on JSON binding errors instead, so its 400 body may not be the `{\"error\": ...}` shape.",
+    "architecture": "The hand-rolled `JsonElement` parser in `Program.cs`, plus a `DueDateSet` flag on `TodoPatch`, puts parsing and validation in the wrong layer. The two input paths also validate differently: POST uses framework binding, PATCH uses `TryParseExact`.",
+    "codeQuality": "`ParsePatch` throws `InvalidOperationException`, giving a 500, when the body isn't a JSON object, because `TryGetProperty` is called on a non-object. It also silently ignores wrongly typed `title` and `done` values, and POST and PATCH accept different date formats."
+  },
+  "error": null
+}

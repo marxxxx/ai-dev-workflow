@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 5,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered in the spec and the diff, and the spec adds precise edge-case contracts: atomic updates, UTC handling, and filter validation.",
+    "scope": "The change stays on the feature, but it adds a .worktrees/ entry to .gitignore, stale-response and error handling that the ticket did not ask for, and extensive plan and spec docs.",
+    "tests": "Store, HTTP and page tests cover the new behaviour thoroughly, including leap years, UTC midnight, atomic rejection, filter validation and stale responses; the only existing assertions touched were extended, none weakened or removed.",
+    "conventions": "The change keeps to zero dependencies, uses ValidationError mapped to 400, follows TDD, and adds data-testid attributes to every new element as AGENTS.md asks.",
+    "architecture": "Validation and the overdue projection live in the store, the filter parameter is validated in app.mjs, and the page reuses the API's overdue value without computing its own.",
+    "codeQuality": "The code is correct and compact, but the date validator has a redundant length check and an awkward invalid() closure, and the page test harness is somewhat heavy."
+  },
+  "error": null
+}

@@ -1,0 +1,6 @@
+78849dd List page: due date, overdue marker, filter checkbox (#1)
+eb38cd0 API: dueDate, overdue flag and filter (#1)
+88183d8 Store: overdue rule and filter via TimeProvider (#1)
+a8ed854 Store: optional due date with validation (#1)
+9ce52db Plan: Fälligkeitsdatum für Todos (#1)
+551bd90 Spec: Fälligkeitsdatum für Todos (#1)

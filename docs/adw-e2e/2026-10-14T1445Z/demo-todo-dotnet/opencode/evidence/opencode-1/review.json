@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 4,
+    "scope": 4,
+    "tests": 3,
+    "conventions": 4,
+    "architecture": 3,
+    "codeQuality": 3
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven ACs, but the spec says PUT while the API uses PATCH, and it doesn't pin down the 30 February case or the date's wire format.",
+    "scope": "The change stays on the feature; the hand-written JSON parsing, which loosens validation of title and done, and the plan and spec files are side effects of the chosen design.",
+    "tests": "Store, API and prerendered page tests cover most behaviour, but there is no test for an impossible date such as 30 February or a non-string dueDate, and the live filter toggle is untested. No existing tests were weakened.",
+    "conventions": "It uses ValidationException for 400s, data-testid on the new elements, and xUnit tests in the existing style; the manual JsonElement parsing departs from the repo's typed-binding idiom.",
+    "architecture": "The overdue logic is shared in TodoStore.IsOverdue, but hand-parsing request bodies in Program.cs and the tri-state TodoPatch with a secondary constructor are heavier than needed. An anonymous-object ToDto helper also sits in Program.cs.",
+    "codeQuality": "The `when` guards silently ignore a dueDate of the wrong type, such as a number, instead of returning 400, which breaks AC3. A non-object body would likely cause a 500, and the response serializes dueDate as a full UTC timestamp rather than a plain date."
+  },
+  "error": null
+}

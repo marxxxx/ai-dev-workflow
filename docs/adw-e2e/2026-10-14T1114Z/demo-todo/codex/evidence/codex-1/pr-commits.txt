@@ -1,0 +1,8 @@
+3b5ed91 docs: record ticket 1 verification and draft PR
+cb05f97 fix: validate every overdue query parameter
+b6b918a feat: show due dates and overdue-only list control
+59a487c feat: filter overdue todos through the JSON API
+2b573f9 feat: add validated due dates and UTC overdue status
+7073052 chore: ignore isolated development worktrees
+bb8626d docs: plan due date implementation for ticket 1
+6a09a3f docs: specify due dates for ticket 1

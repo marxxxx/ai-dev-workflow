@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria: optional date-only dueDate, change and clear, 400 on invalid input, the overdue API filter, due date display, the \"überfällig\" marker, and the \"nur überfällige\" control.",
+    "scope": "The code changes stay within the ticket; the only extras are the spec and plan markdown files committed to the repo.",
+    "tests": "Store and API tests cover valid, invalid, null and overdue cases, and the existing test was only updated for the new dueDate field; the list-page test is weak because its regexes use `|todo-due` alternations and only check that strings appear.",
+    "conventions": "The change uses ValidationError for HTTP 400, adds no dependencies, puts data-testid on all new elements, follows TDD, and matches the existing style.",
+    "architecture": "Validation sits in the store and the overdue filter in the app layer as planned, but isOverdue is duplicated between server and client, which is unavoidable here since there is no shared module and no bundler.",
+    "codeQuality": "The code is clear and the calendar-date check handles rollover correctly; minor nits are todayUtc being computed once at page load on the client and `todo.dueDate !== null` failing on a missing field."
+  },
+  "error": null
+}

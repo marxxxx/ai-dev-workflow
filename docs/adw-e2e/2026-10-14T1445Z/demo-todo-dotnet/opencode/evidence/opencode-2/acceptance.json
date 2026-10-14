@@ -1,0 +1,21 @@
+{
+  "criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass",
+    "AC5": "pass",
+    "AC6": "pass",
+    "AC7": "pass"
+  },
+  "evidence": {
+    "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-01\"} returned 201 with dueDate \"2026-10-01\". A POST without dueDate returned 201 with dueDate null. The value is a date only, with no time.",
+    "AC2": "PATCH /todos/4 with {\"dueDate\":\"2026-10-02\"} returned 200 and set the date. PATCH with {\"title\":\"none2\"} left the date unchanged. PATCH with {\"dueDate\":null} returned 200 with dueDate null. A later PATCH set the date again.",
+    "AC3": "POST and PATCH with dueDate \"2026-02-30\", \"14.10.2026\", \"abc\", 123 and \"2026-10-14T10:00:00\" all returned HTTP 400.",
+    "AC4": "With today = 2026-10-14, I created a past-due todo, a future one, one due today, one with no date, and a past-due todo marked done. GET /todos?overdue=true returned only the past-due not-done todo (id 1) and id 4, which I had set to 2026-10-02. It excluded the future, today, no-date and done todos.",
+    "AC5": "The page snapshot at / showed each dated todo with its date, e.g. \"past (2026-10-01)\", \"future (2026-12-01)\" and \"today (2026-10-14)\".",
+    "AC6": "The page showed the text \"überfällig\" only on the two overdue todos (past, 2026-10-01; none2, 2026-10-02). It was absent on the future, today and done past-due todos.",
+    "AC7": "The page has a button \"nur überfällige\". After I clicked it, the list showed only the two overdue todos, past and none2."
+  },
+  "error": null
+}

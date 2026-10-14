@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria: optional date-only dueDate, set/change/remove, 400 on invalid dates, the overdue filter, date display, the 'überfällig' marker and the 'nur überfällige' toggle.",
+    "scope": "The change stays within the ticket. The only additions beyond the code are the spec and plan markdown files, which the workflow calls for.",
+    "tests": "Store and API tests cover validation, leap years, update/remove and the overdue filter. The existing test was adjusted only for the new dueDate field. Gaps: no test pins the 'heute' boundary at the API level, and the UI has no automated test.",
+    "conventions": "The change uses ValidationError for 400s, adds no dependencies, gives every new UI element a data-testid, and follows the TDD-style tests and the existing code style.",
+    "architecture": "Validation and overdue logic live in the store and the API reuses isOverdue. The UI duplicates the overdue check client-side, which is minor and was planned.",
+    "codeQuality": "The date validation is strict and correct, with a Date.UTC round trip for real calendar days. One edge: PATCH treats undefined as null, which is harmless for JSON bodies. The UI also doesn't handle a failed fetch."
+  },
+  "error": null
+}

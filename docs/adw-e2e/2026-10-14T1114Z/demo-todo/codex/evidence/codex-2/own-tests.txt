@@ -1,0 +1,40 @@
+
+> demo-todo@1.0.0 test
+> node --test
+
+✔ creates and lists todos (36.292ms)
+✔ rejects an empty title (12.110872ms)
+✔ marks a todo done (10.153237ms)
+✔ serves the list page (6.473499ms)
+✔ filters overdue todos over HTTP (16.188072ms)
+✔ returns an empty list when no todos are overdue (7.509628ms)
+✔ rejects invalid overdue filters (8.625042ms)
+✔ supports due date lifecycle over HTTP (9.701686ms)
+✔ rejects invalid dates with 400 without changing the todo (17.556226ms)
+✔ recomputes overdue status over HTTP after UTC midnight (6.620905ms)
+✔ preserves missing todo and delete responses (6.801095ms)
+✔ renders due dates and overdue markers from the API (4.752163ms)
+✔ filters and restores the list including empty matches (1.836814ms)
+✔ ignores stale filter responses (1.159357ms)
+✔ ignores stale errors after a newer successful filter response (1.215211ms)
+✔ shows HTTP errors and recovers after the next successful filter request (0.981187ms)
+✔ shows network errors without unhandled rejections and recovers (2.467732ms)
+✔ renders titles as literal text (1.061085ms)
+✔ stores optional dates and returns computed overdue (2.696373ms)
+✔ updates, preserves and clears dates atomically (0.346279ms)
+✔ validates real calendar dates including century and early-year leap rules (1.041826ms)
+✔ rejects invalid dates on both creation and update (1.106116ms)
+✔ rejected updates leave all fields unchanged (0.336147ms)
+✔ recomputes at UTC midnight and uses UTC for offset timestamps (0.25119ms)
+✔ filters only overdue todos in insertion order and handles no matches (0.413343ms)
+✔ returns independent response objects (0.289135ms)
+✔ ignores caller-provided overdue and other unknown fields (0.235281ms)
+✔ reads the clock once for a consistent list projection (0.447832ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 253.560053

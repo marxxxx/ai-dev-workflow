@@ -1,0 +1,35 @@
+
+> demo-todo@1.0.0 test
+> node --test
+
+✔ creates and lists todos (40.262679ms)
+✔ rejects an empty title (10.078386ms)
+✔ marks a todo done (8.74572ms)
+✔ serves the list page (8.960984ms)
+✔ creates, reads, changes and clears due dates through the API (14.17184ms)
+✔ filters overdue and non-overdue todos without changing order (19.225668ms)
+✔ rejects invalid overdue queries (10.198483ms)
+✔ rejects invalid dates and leaves combined patches unchanged (7.234215ms)
+✔ rejects non-object JSON for todo writes (14.671712ms)
+✔ renders dates, exact overdue text and literal titles (7.416518ms)
+✔ loads the appropriate API on filter changes and supports empty results (2.725253ms)
+✔ ignores stale responses after rapid filter changes (3.622058ms)
+✔ ignores stale errors after a successful newer response (1.771278ms)
+✔ shows network errors and recovers on a later change (1.524477ms)
+✔ shows HTTP 500 errors and recovers on a later change (1.269265ms)
+✔ supports optional due dates and clearing them (2.529094ms)
+✔ validates real Gregorian calendar dates (2.017857ms)
+✔ computes overdue only for open todos strictly before today (0.333647ms)
+✔ refreshes overdue at UTC midnight on get and list (0.233071ms)
+✔ uses the UTC calendar day for offset instants (0.250105ms)
+✔ keeps failed updates atomic and does not consume ids for rejected creates (0.412284ms)
+✔ uses one UTC calendar day for a list (0.25157ms)
+✔ preserves missing ids and deletion behavior (0.203099ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 250.020253

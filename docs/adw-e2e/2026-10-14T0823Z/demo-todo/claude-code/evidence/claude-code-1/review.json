@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, and the spec also settles edge cases such as UTC today, due-today not being overdue, and null versus absent.",
+    "scope": "The change stays on the ticket; the two extras are the `?overdue=false` filter value and the atomic PATCH, and the spec and plan docs are the repo's workflow artifacts.",
+    "tests": "The tests are thorough and cover validation, PATCH, UTC boundary, filter and 400 cases, and the one changed existing assertion was only extended. The weak spot is that the list page UI is checked only by regex on the HTML, though e2e was run manually.",
+    "conventions": "It uses ValidationError for 400s, adds data-testid to new elements, uses no dependencies, follows TDD with matching test style, and the commits reference the ticket.",
+    "architecture": "Domain logic sits in the store with an injectable clock, the app only parses the query, and the page renders server-computed overdue, which fits the existing layering with no duplication.",
+    "codeQuality": "The code is clean and handles the edge cases (calendar round-trip, leap day, empty string, atomic patch); minor issues are that the page has no error handling and can show a stale list on rapid toggling, both acknowledged."
+  },
+  "error": null
+}

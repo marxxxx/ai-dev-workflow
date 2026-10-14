@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria and go further on PATCH missing-versus-null, boundary dates and UTC rollover.",
+    "scope": "The code changes stay in scope; the only extras are the committed spec and plan docs and a shared test clock helper.",
+    "tests": "Store, API and page tests are thorough, covering invalid dates without mutation, UTC midnight and the filter, and no existing tests were weakened. The checkbox toggle is only checked in the manual E2E run, not in an automated test.",
+    "conventions": "The change follows AGENTS.md: ValidationException from the store, mapped to 400 by the existing handler, new data-testid attributes, no new packages, tests written first, and the page reads from the store directly.",
+    "architecture": "Validation, the overdue rule and filtering live once in TodoStore, with an injected TimeProvider; the API and page reuse it and Program.cs only binds the query parameter.",
+    "codeQuality": "The code is compact and correct, with validation before the lock and a fresh overdue calculation on every read. The PATCH presence flag set in an init accessor is slightly clever but works and is tested."
+  },
+  "error": null
+}
