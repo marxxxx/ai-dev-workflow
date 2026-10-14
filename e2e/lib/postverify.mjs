@@ -9,15 +9,16 @@ import path from 'node:path';
 import { checkoutBundle } from './bundle.mjs';
 import { isInterrupt, isQuota } from './claude.mjs';
 import { REVIEW_ALLOWED_TOOLS, REVIEW_DENIED_TOOLS, buildReviewPrompt, runReview } from './review.mjs';
+import { taskDir } from './tasks.mjs';
 import { VERIFIER_ALLOWED_TOOLS, VERIFIER_DENIED_TOOLS, buildVerifierPrompt, runVerifier } from './verifier.mjs';
 
-export const taskImage = (config) => `adw-e2e-${path.basename(config.task)}`;
+export const taskImage = (task) => `adw-e2e-${task}`;
 
 // The verifier and the review judge run in the task's own image; the Docker layer cache makes rebuilding cheap.
-export function buildTaskImage({ config, exec = (cmd, args) => execFileSync(cmd, args, { stdio: ['ignore', 'ignore', 'inherit'] }) }) {
-  const dir = path.join(config.root, 'e2e', config.task, 'environment');
-  exec('docker', ['build', '-t', taskImage(config), '-f', path.join(dir, 'Dockerfile'), dir]);
-  return taskImage(config);
+export function buildTaskImage({ config, task, exec = (cmd, args) => execFileSync(cmd, args, { stdio: ['ignore', 'ignore', 'inherit'] }) }) {
+  const dir = path.join(taskDir(config, task), 'environment');
+  exec('docker', ['build', '-t', taskImage(task), '-f', path.join(dir, 'Dockerfile'), dir]);
+  return taskImage(task);
 }
 
 // Changes whenever anything that shapes a verdict changes: prompts, tools, models, rubric, criteria.
@@ -43,7 +44,8 @@ function stripAgentSettings(dir) {
 
 const DEFAULT_DEPS = { checkoutBundle, runVerifier, runReview };
 
-export function postVerify({ config, bundle, criteria, spec, summary, env = {}, image, deps = DEFAULT_DEPS }) {
+// `onTranscript(kind, text)` receives each judge's raw claude output ('verifier', 'review'), so its verdict can be traced.
+export function postVerify({ config, bundle, criteria, spec, summary, env = {}, image, deps = DEFAULT_DEPS, onTranscript = () => {} }) {
   const nulls = Object.fromEntries(Object.keys(config.review.criteria).map((k) => [k, null]));
   const work = mkdtempSync(path.join(tmpdir(), 'adw-postverify-'));
   try {
@@ -58,9 +60,11 @@ export function postVerify({ config, bundle, criteria, spec, summary, env = {}, 
       mkdirSync(path.join(work, 'diff'));
       const diffPath = path.join(work, 'diff', 'pr.diff');
       writeFileSync(diffPath, diff);
-      verdict = deps.runVerifier({ config, checkout: path.join(work, 'verify'), criteria, env, image });
+      verdict = deps.runVerifier({ config, checkout: path.join(work, 'verify'), criteria, env, image,
+        onTranscript: (text) => onTranscript('verifier', text) });
       review = isQuota(verdict.error) ? { scores: nulls, reasons: {}, error: verdict.error }
-        : deps.runReview({ config, checkout: path.join(work, 'review'), diffPath, criteria, spec, summary, env, image });
+        : deps.runReview({ config, checkout: path.join(work, 'review'), diffPath, criteria, spec, summary, env, image,
+          onTranscript: (text) => onTranscript('review', text) });
     } catch (err) {
       if (isInterrupt(err)) throw err; // Ctrl-C ends the command; it is no verdict
       const error = `checkout: ${err.message}`;

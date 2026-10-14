@@ -1,0 +1,16 @@
+@page "/"
+@rendermode InteractiveServer
+@inject TodoStore Store
+
+<PageTitle>Todos</PageTitle>
+
+<h1>Todos</h1>
+
+<ul data-testid="todo-list">
+    @foreach (var todo in Store.List())
+    {
+        <li data-testid="todo-item">
+            <span data-testid="todo-title">@todo.Title@(todo.Done ? " ✓" : "")</span>
+        </li>
+    }
+</ul>

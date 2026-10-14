@@ -120,8 +120,20 @@ test('verifierHash is stable and changes with criteria, models and rubric, not w
 
 test('the task image is built from the task environment as adw-e2e-<task>', () => {
   let call;
-  assert.equal(buildTaskImage({ config, exec: (cmd, args) => { call = [cmd, ...args]; } }), 'adw-e2e-demo-todo');
-  assert.equal(taskImage(config), 'adw-e2e-demo-todo');
+  assert.equal(buildTaskImage({ config, task: 'demo-todo', exec: (cmd, args) => { call = [cmd, ...args]; } }), 'adw-e2e-demo-todo');
+  assert.equal(taskImage('demo-todo-dotnet'), 'adw-e2e-demo-todo-dotnet');
   const env = path.join(config.root, 'e2e/tasks/demo-todo/environment');
   assert.deepEqual(call, ['docker', 'build', '-t', 'adw-e2e-demo-todo', '-f', path.join(env, 'Dockerfile'), env]);
+});
+
+test('postVerify labels each judge transcript with its kind', () => {
+  const { seen, deps } = fakes();
+  const got = [];
+  postVerify({ config, bundle: 'b', criteria, image: 'img', deps, onTranscript: (kind, text) => got.push([kind, text]) });
+  seen.verifier.onTranscript('V');
+  seen.review.onTranscript('R');
+  assert.deepEqual(got, [['verifier', 'V'], ['review', 'R']]);
+  const quiet = fakes();
+  postVerify({ config, bundle: 'b', criteria, image: 'img', deps: quiet.deps });
+  assert.doesNotThrow(() => quiet.seen.verifier.onTranscript('V'), 'transcripts are optional');
 });

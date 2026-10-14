@@ -14,9 +14,9 @@ test('rejects a table without criteria or with a duplicate id', () => {
   assert.throws(() => parseCriteria('| AC1 | a |\n| AC1 | b |\n'), /duplicate acceptance criterion AC1/);
 });
 
-test('demo-todo has AC1 to AC7 and names no endpoint, query parameter or field', () => {
+test('the shared criteria have AC1 to AC7 and name no endpoint, query parameter or field', () => {
   const config = loadConfig();
-  const criteria = loadCriteria(path.join(config.root, 'e2e', config.task, 'acceptance-criteria.md'));
+  const criteria = loadCriteria(path.join(config.root, 'e2e/tasks/_shared/acceptance-criteria.md'));
   assert.deepEqual(criteria.map((c) => c.id), ['AC1', 'AC2', 'AC3', 'AC4', 'AC5', 'AC6', 'AC7']);
   for (const { id, text } of criteria) assert.doesNotMatch(text, /\/todos|\?|dueDate|YYYY/, id);
 });

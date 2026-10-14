@@ -37,11 +37,12 @@ test('a calibration bundle holds the tracked seed on main and the patch on one b
   const { root, seed, patch } = fixture();
   try {
     const out = path.join(root, 'v.bundle');
-    createCalibrationBundle({ root, seedRepo: seed, patch, out });
+    createCalibrationBundle({ root, seedRepo: seed, patch, out, name: 'demo-todo' });
     assert.equal(bundleBranch(out), '1_calibration');
     const co = path.join(root, 'co');
     const { branch, diff } = checkoutBundle(out, co);
     assert.equal(branch, '1_calibration');
+    assert.equal(git(co, 'log', '-1', '--format=%s', 'origin/main').trim(), 'Initial demo-todo');
     assert.match(diff, /^\+export const b = 2;$/m);
     assert.equal(readFileSync(path.join(co, 'src/app.mjs'), 'utf8'), 'export const a = 1;\nexport const b = 2;\n');
     assert.throws(() => readFileSync(path.join(co, 'ignored.txt')), /ENOENT/, 'untracked seed files stay out');
@@ -77,7 +78,7 @@ test('bundleLeaks finds a secret value anywhere in the bundle history', () => {
   const { root, seed, patch } = fixture();
   try {
     const out = path.join(root, 'v.bundle');
-    createCalibrationBundle({ root, seedRepo: seed, patch, out });
+    createCalibrationBundle({ root, seedRepo: seed, patch, out, name: 'demo-todo' });
     assert.equal(bundleLeaks(out, ['sk-not-there']), false);
     assert.equal(bundleLeaks(out, ['export const b']), true);
     assert.equal(bundleLeaks(out, []), false);
@@ -150,7 +151,7 @@ test('the calibration bundle keeps a tracked seed file that a host global exclud
     const globalCfg = path.join(root, 'global.gitconfig');
     writeFileSync(globalCfg, `[core]\n\texcludesFile = ${ignore}\n`);
     const out = path.join(root, 'v.bundle');
-    withGlobalConfig(globalCfg, () => createCalibrationBundle({ root, seedRepo: seed, patch, out }));
+    withGlobalConfig(globalCfg, () => createCalibrationBundle({ root, seedRepo: seed, patch, out, name: 'demo-todo' }));
     const co = path.join(root, 'co');
     checkoutBundle(out, co);
     assert.equal(readFileSync(path.join(co, 'keep.txt'), 'utf8'), 'tracked\n');
@@ -161,7 +162,7 @@ test('checkoutBundle runs no host template hooks and ignores host diff prefix se
   const { root, seed, patch } = fixture();
   try {
     const out = path.join(root, 'v.bundle');
-    createCalibrationBundle({ root, seedRepo: seed, patch, out });
+    createCalibrationBundle({ root, seedRepo: seed, patch, out, name: 'demo-todo' });
     const tpl = path.join(root, 'tpl');
     mkdirSync(path.join(tpl, 'hooks'), { recursive: true });
     const marker = path.join(root, 'hook-ran');
@@ -179,7 +180,7 @@ test('relative paths resolve against the caller directory, not the git working d
   const cwd = process.cwd();
   try {
     process.chdir(root);
-    createCalibrationBundle({ root: '.', seedRepo: 'seed', patch: 'v.patch', out: 'v.bundle' });
+    createCalibrationBundle({ root: '.', seedRepo: 'seed', patch: 'v.patch', out: 'v.bundle', name: 'demo-todo' });
     assert.equal(bundleBranch('v.bundle'), '1_calibration');
     const { diff } = checkoutBundle('v.bundle', 'co');
     assert.match(diff, /^\+export const b = 2;$/m);

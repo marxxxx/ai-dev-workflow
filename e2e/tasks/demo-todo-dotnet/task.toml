@@ -1,0 +1,33 @@
+schema_version = "1.4"
+artifacts = []
+
+[task]
+name = "adw/demo-todo-dotnet"
+version = "1.0.0"
+description = "agent-dev end-to-end on .NET: due dates in API and Blazor Server list page via a Gitea ticket"
+authors = []
+keywords = ["adw", "e2e", "dotnet"]
+
+[metadata]
+
+[verifier]
+timeout_sec = 900.0
+collect = []
+
+[verifier.env]
+TEST_COMMAND = "dotnet test"
+
+[agent]
+timeout_sec = 2700.0
+user = "dev"
+
+[environment]
+network_mode = "public"
+build_timeout_sec = 1800.0
+os = "linux"
+workdir = "/workspace"
+mcp_servers = []
+
+[environment.env]
+
+[solution.env]

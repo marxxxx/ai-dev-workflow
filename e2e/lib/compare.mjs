@@ -43,10 +43,10 @@ export function compareRuns(base, cand, thresholds) {
   return { verdict, signals, fingerprintDiff: diffFingerprints(base.fingerprint, cand.fingerprint) };
 }
 
-export function findBaseline({ resultsDir, harness, before, isAncestor }) {
+export function findBaseline({ resultsDir, task, harness, before, isAncestor }) {
   if (!existsSync(resultsDir)) return null;
   for (const ts of readdirSync(resultsDir).filter((d) => d < before).sort().reverse()) {
-    const file = path.join(resultsDir, ts, harness, 'run.json');
+    const file = path.join(resultsDir, ts, task, harness, 'run.json');
     if (!existsSync(file)) continue;
     const run = JSON.parse(readFileSync(file, 'utf8'));
     const sha = run.fingerprint?.adw?.sha;

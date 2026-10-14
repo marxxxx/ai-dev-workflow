@@ -15,23 +15,23 @@ const exec = (cmd, args) => {
 };
 
 test('preflight passes when everything matches', () => {
-  const r = runPreflight({ config, harnesses: ['codex'], exec, probe: () => null, authPresent: () => true, platform: 'linux', root: '/home/u/src/adw' });
+  const r = runPreflight({ config, harnesses: ['codex'], tasks: ['demo-todo'], exec, probe: () => null, authPresent: () => true, platform: 'linux', root: '/home/u/src/adw' });
   assert.deepEqual(r, { ok: true, problems: [], warnings: [] });
 });
 
 test('preflight refuses native Windows and warns for a repo on a Windows drive under WSL', () => {
-  const win = runPreflight({ config, harnesses: ['codex'], exec: () => { throw new Error('must not run'); },
+  const win = runPreflight({ config, harnesses: ['codex'], tasks: ['demo-todo'], exec: () => { throw new Error('must not run'); },
     probe: () => null, authPresent: () => true, platform: 'win32', root: 'C:\\src\\adw' });
   assert.equal(win.ok, false);
   assert.deepEqual(win.problems, ['native Windows is not supported: run the E2E self-test inside WSL2 (see docs/adw-e2e/README.md)']);
-  const mnt = runPreflight({ config, harnesses: ['codex'], exec, probe: () => null, authPresent: () => true, platform: 'linux', root: '/mnt/c/src/adw' });
+  const mnt = runPreflight({ config, harnesses: ['codex'], tasks: ['demo-todo'], exec, probe: () => null, authPresent: () => true, platform: 'linux', root: '/mnt/c/src/adw' });
   assert.equal(mnt.ok, true);
   assert.match(mnt.warnings[0], /\/mnt\/c/);
 });
 
 test('preflight reports version drift, missing auth and failing model probes', () => {
   const bad = (cmd, args) => (cmd === 'harbor' ? '0.25.0' : exec(cmd, args));
-  const r = runPreflight({ config, harnesses: ['codex', 'claude-code'], exec: bad, platform: 'linux', root: '/home/u/adw',
+  const r = runPreflight({ config, harnesses: ['codex', 'claude-code'], tasks: ['demo-todo'], exec: bad, platform: 'linux', root: '/home/u/adw',
     probe: (h) => (h === 'codex' ? 'model not supported' : null), authPresent: (h) => h !== 'claude-code' });
   assert.equal(r.ok, false);
   assert.ok(r.problems.some((p) => /harbor 0.25.0/.test(p)));
@@ -41,15 +41,15 @@ test('preflight reports version drift, missing auth and failing model probes', (
 
 test('preflight extracts the version from a prefixed harbor --version output', () => {
   const ok = (cmd, args) => (cmd === 'harbor' ? 'harbor 0.24.0' : exec(cmd, args));
-  const r = runPreflight({ config, harnesses: ['codex'], exec: ok, probe: () => null, authPresent: () => true, platform: 'linux', root: '/home/u/adw' });
+  const r = runPreflight({ config, harnesses: ['codex'], tasks: ['demo-todo'], exec: ok, probe: () => null, authPresent: () => true, platform: 'linux', root: '/home/u/adw' });
   assert.deepEqual(r.problems, []);
   const drift = (cmd, args) => (cmd === 'harbor' ? 'harbor 0.25.0' : exec(cmd, args));
-  const d = runPreflight({ config, harnesses: ['codex'], exec: drift, probe: () => null, authPresent: () => true, platform: 'linux', root: '/home/u/adw' });
+  const d = runPreflight({ config, harnesses: ['codex'], tasks: ['demo-todo'], exec: drift, probe: () => null, authPresent: () => true, platform: 'linux', root: '/home/u/adw' });
   assert.ok(d.problems.some((p) => /harbor 0.25.0 installed/.test(p)));
 });
 
 test('preflight always requires Claude login, even for a codex-only run', () => {
-  const r = runPreflight({ config, harnesses: ['codex'], exec, platform: 'linux', root: '/home/u/adw',
+  const r = runPreflight({ config, harnesses: ['codex'], tasks: ['demo-todo'], exec, platform: 'linux', root: '/home/u/adw',
     probe: () => null, authPresent: (h) => h !== 'claude-code' });
   assert.equal(r.ok, false);
   assert.ok(r.problems.includes('claude: login missing (needed by simulated user, verifier and review)'));
@@ -58,10 +58,23 @@ test('preflight always requires Claude login, even for a codex-only run', () => 
 test('preflight probes the simulated-user, verifier and review models through Claude, each model once', () => {
   const calls = [];
   const cfg = { ...config, verifier: { ...config.verifier, model: 'm-shared' }, review: { ...config.review, model: 'm-shared' } };
-  const r = runPreflight({ config: cfg, harnesses: ['codex'], exec, platform: 'linux', root: '/home/u/adw',
+  const r = runPreflight({ config: cfg, harnesses: ['codex'], tasks: ['demo-todo'], exec, platform: 'linux', root: '/home/u/adw',
     probe: (h, model) => { calls.push([h, model]); return model === 'm-shared' ? 'no access' : null; }, authPresent: () => true });
   assert.ok(calls.some(([h, m]) => h === 'claude-code' && m === cfg.simulatedUser.model));
   assert.equal(calls.filter(([, m]) => m === 'm-shared').length, 1);
   assert.ok(r.problems.includes('verifier model m-shared: probe failed: no access'));
   assert.ok(r.problems.includes('review model m-shared: probe failed: no access'));
+});
+
+test('preflight checks the base image of every selected task once and names the image on drift', () => {
+  const cfg = { ...config, tasks: { a: { baseImage: 'img-a' }, b: { baseImage: 'img-b' }, c: { baseImage: 'img-a' } } };
+  const runs = [];
+  const execTwo = (cmd, args) => {
+    if (cmd === 'docker' && args[0] === 'run') { runs.push(args.at(-3)); return args.at(-3) === 'img-b' ? 'nothing pinned' : exec(cmd, args); }
+    return exec(cmd, args);
+  };
+  const r = runPreflight({ config: cfg, harnesses: ['codex'], tasks: ['a', 'b', 'c'], exec: execTwo, probe: () => null, authPresent: () => true,
+    platform: 'linux', root: '/home/u/adw' });
+  assert.deepEqual(runs, ['img-a', 'img-b']);
+  assert.deepEqual(r.problems, [`codex: img-b does not carry pinned ${versions.codex} (rebuild with node docker/build.mjs)`]);
 });

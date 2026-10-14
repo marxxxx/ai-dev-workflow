@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildHarborArgs, runHarbor } from './harbor.mjs';
+import { buildHarborArgs, cleanupCompose, runHarbor } from './harbor.mjs';
 import { loadConfig } from './config.mjs';
 
 test('harbor args pin agent, model, version and the constrained simulated user', () => {
   const config = loadConfig();
-  const a = buildHarborArgs({ config, harness: 'codex', jobName: 'codex-1', jobsDir: '/j' });
+  const a = buildHarborArgs({ config, task: 'demo-todo', harness: 'codex', jobName: 'codex-1', jobsDir: '/j' });
   const pair = (flag) => a[a.indexOf(flag) + 1];
   assert.equal(a[0], 'run');
   assert.equal(pair('-a'), 'agents.codex_subscription:CodexSubscription');
@@ -20,6 +20,7 @@ test('harbor args pin agent, model, version and the constrained simulated user',
   assert.equal(pair('--job-name'), 'codex-1');
   assert.equal(pair('-o'), '/j');
   assert.match(pair('-p'), /e2e\/tasks\/demo-todo$/);
+  assert.match(pair('--user-persona-path'), /e2e\/tasks\/demo-todo\/persona\.md$/);
 });
 
 test('runHarbor resolves 1 when the child emits error (e.g. harbor not installed)', async () => {
@@ -69,4 +70,15 @@ test('runHarbor does not escalate to SIGKILL when the child closes after SIGTERM
   assert.equal(await runHarbor({ args: ['run'], env: {}, cwd: '/tmp', spawn: () => child, timeoutMs: 10, killGraceMs: 30 }), 124);
   await new Promise((r) => setTimeout(r, 60));
   assert.deepEqual(kills, ['SIGTERM']);
+});
+
+test('cleanupCompose downs only the given tasks\' compose projects; demo-todo never matches demo-todo-dotnet', () => {
+  const calls = [];
+  const exec = (cmd, args) => {
+    calls.push(args.join(' '));
+    return args[0] === 'ps' ? 'demo-todo__codex-1\ndemo-todo-dotnet__codex-1\nother__x\n\n' : '';
+  };
+  assert.deepEqual(cleanupCompose({ prefixes: ['demo-todo'], exec }), ['demo-todo__codex-1']);
+  assert.deepEqual(calls.filter((c) => c.startsWith('compose')), ['compose -p demo-todo__codex-1 down -v --remove-orphans']);
+  assert.deepEqual(cleanupCompose({ prefixes: ['demo-todo', 'demo-todo-dotnet'], exec }).sort(), ['demo-todo-dotnet__codex-1', 'demo-todo__codex-1']);
 });

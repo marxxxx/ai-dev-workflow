@@ -16,7 +16,7 @@ export function defaultProbe(harness, config, { env = {}, model } = {}) {
     : (out.match(/"message":"([^"]+)"/)?.[1] ?? out.trim().split('\n').at(-1) ?? `exit ${r.status}`);
 }
 
-export function runPreflight({ config, harnesses, exec = defaultExec, env = {}, probe = (h, model) => defaultProbe(h, config, { env, model }), authPresent,
+export function runPreflight({ config, harnesses, tasks, exec = defaultExec, env = {}, probe = (h, model) => defaultProbe(h, config, { env, model }), authPresent,
   platform = process.platform, root = config.root }) {
   if (platform === 'win32') {
     return { ok: false, problems: ['native Windows is not supported: run the E2E self-test inside WSL2 (see docs/adw-e2e/README.md)'], warnings: [] };
@@ -32,12 +32,13 @@ export function runPreflight({ config, harnesses, exec = defaultExec, env = {}, 
   const harbor = harborOut?.match(/\d+\.\d+\.\d+/)?.[0] ?? harborOut;
   if (harborOut && harbor !== config.harbor.version) problems.push(`harbor ${harbor} installed, ${config.harbor.version} required (uv tool install harbor==${config.harbor.version})`);
   tryExec('docker', ['info', '--format', '{{.ServerVersion}}']);
-  if (tryExec('docker', ['image', 'inspect', '--format', '{{.Id}}', config.image])) {
-    const out = tryExec('docker', ['run', '--rm', '-e', 'AGENT_TOOLSTACK_ONLY=1', '--entrypoint', 'bash', config.image, '-lc',
+  for (const image of new Set(tasks.map((t) => config.tasks[t].baseImage))) {
+    if (!tryExec('docker', ['image', 'inspect', '--format', '{{.Id}}', image])) continue;
+    const out = tryExec('docker', ['run', '--rm', '-e', 'AGENT_TOOLSTACK_ONLY=1', '--entrypoint', 'bash', image, '-lc',
       'claude --version; codex --version; opencode --version']) ?? '';
     for (const h of harnesses) {
       const v = harnessVersion(config, h);
-      if (!out.includes(v)) problems.push(`${h}: image does not carry pinned ${v} (rebuild with node docker/build.mjs)`);
+      if (!out.includes(v)) problems.push(`${h}: ${image} does not carry pinned ${v} (rebuild with node docker/build.mjs)`);
     }
   }
   // The simulated user, the verifier and the review judge always run on Claude, whichever harnesses are selected.

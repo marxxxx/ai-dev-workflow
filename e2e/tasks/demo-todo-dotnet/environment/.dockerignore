@@ -1,0 +1,5 @@
+# Host build output of a local dotnet build/test must not be baked into /workspace
+seed/repo/**/bin/
+seed/repo/**/obj/
+seed/repo/**/artifacts/
+seed/repo/**/TestResults/

@@ -1,9 +1,28 @@
 jobs/
 .env
-tasks/demo-todo/environment/seed/repo/.claude/
-tasks/demo-todo/environment/seed/repo/.agents/
-tasks/demo-todo/environment/seed/repo/.opencode/
-tasks/demo-todo/environment/seed/repo/.mcp.json
-tasks/demo-todo/environment/seed/repo/.codex/
-tasks/demo-todo/environment/seed/repo/ai-project.json
+# Generated into every task's seed repo by run.mjs (agent-src/generate.mjs).
+tasks/*/environment/seed/repo/.claude/
+tasks/*/environment/seed/repo/.agents/
+tasks/*/environment/seed/repo/.opencode/
+tasks/*/environment/seed/repo/.mcp.json
+tasks/*/environment/seed/repo/.codex/
+tasks/*/environment/seed/repo/ai-project.json
+# Mirrored from tasks/_shared/ into every task by e2e/lib/tasks.mjs: never commit the copies.
+tasks/*/instruction.md
+tasks/*/persona.md
+tasks/*/bridge-prompt.md
+tasks/*/acceptance-criteria.md
+tasks/*/tests/test.sh
+tasks/*/tests/verify.mjs
+tasks/*/tests/checks.mjs
+tasks/*/tests/checks.test.mjs
+tasks/*/environment/docker-compose.yaml
+tasks/*/environment/gitea-init.sh
+tasks/*/environment/seed/seed.sh
+tasks/*/environment/seed/issue.md
+tasks/*/environment/seed/answers.json
+tasks/*/calibration/spec.md
+tasks/*/calibration/summary.md
+tasks/*/calibration/expected.json
+!tasks/_shared/**
 __pycache__/

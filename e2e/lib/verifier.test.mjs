@@ -16,6 +16,13 @@ test('prompt lists every criterion and points to the E2E section of AGENTS.md, n
   assert.ok(!p.includes('SPEC-TEXT') && !p.includes('TICKET-TEXT'));
 });
 
+test('prompt makes the verifier write evidence before the verdict', () => {
+  const p = buildVerifierPrompt({ criteria });
+  const shape = p.split('\n').find((l) => l.startsWith('{"criteria"'));
+  assert.ok(shape.indexOf('"evidence"') < shape.indexOf('"pass"'));
+  assert.ok(p.includes('Write each criterion\'s evidence first, then set "pass" from that evidence alone; never revise a verdict inside the evidence text.'));
+});
+
 test('answer validation demands every criterion exactly once with a boolean verdict', () => {
   const ids = ['AC1', 'AC2'];
   assert.deepEqual(validateVerifierAnswer({ criteria: both }, ids),
@@ -70,4 +77,12 @@ test('an interrupted verifier run propagates instead of becoming an error verdic
   const run = (cmd, args) => { calls.push(args); return args[0] === 'run' ? { status: null, signal: 'SIGINT' } : { status: 0 }; };
   assert.throws(() => runVerifier({ config, checkout: '/c', criteria, image: 'img', name: 'v4', run, uid: 1, gid: 1 }), (e) => isInterrupt(e));
   assert.deepEqual(calls.at(-1), ['rm', '-f', 'v4']);
+});
+
+test('runVerifier hands the raw transcript to onTranscript, also when the answer is unusable', () => {
+  const seen = [];
+  const run = (cmd, args) => (args[0] === 'run' ? { status: 0, stdout: answer([both[0]]) } : { status: 0 });
+  const r = runVerifier({ config, checkout: '/c', criteria, image: 'img', name: 'v5', run, uid: 1, gid: 1, onTranscript: (s) => seen.push(s) });
+  assert.match(r.error, /missing: AC2/);
+  assert.deepEqual(seen, [answer([both[0]])]);
 });
