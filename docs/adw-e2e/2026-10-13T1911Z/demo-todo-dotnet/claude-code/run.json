@@ -1,0 +1,176 @@
+{
+  "schema": 2,
+  "task": "demo-todo-dotnet",
+  "harness": "claude-code",
+  "fingerprint": {
+    "adw": {
+      "version": "0.25.0",
+      "sha": "26becd127d2aa0dfaa41c069ea8a6320c8397727",
+      "dirty": false
+    },
+    "skill": {
+      "claude": "ea87673f3e7d4c579c63688260ede3671cbda5cd7006b80ce7c8269fd031a555",
+      "codex": "ea87673f3e7d4c579c63688260ede3671cbda5cd7006b80ce7c8269fd031a555",
+      "opencode": "ea87673f3e7d4c579c63688260ede3671cbda5cd7006b80ce7c8269fd031a555",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:bb994111b36588f4909cc177d39df55899df4efbbb9e3d69d1a9a807ddd51afd"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-dotnet:latest",
+      "id": "sha256:be708520cbf819d5e24f2ee8dc34b256a8886473d987a47343a0063ac28721b6",
+      "inventory": "b96901724607dea7e3f16a6bc912ce331efa22dbc4777ab298def7f01d4f527a",
+      "harnessVersion": "2.1.293",
+      "superpowers": "8ca22dba9a94f28898bbce59f2537ff4d87c747d"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "code": {
+      "agents": "7f5997abe9fed3c12971846efcc906b799cacb5a450db838fbb6047836be4ab7",
+      "lib": "80c703ef6e27057c99e2e779c4523b5fdd0e0accecac1626625543e62841b255"
+    },
+    "config": "725f81f133bc532b5fb5af520da7d2a91f1f8c45c86ae11045092e673b28d6ae",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "claude-opus-5-5",
+      "subagents": "claude-sonnet-5-5",
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "13e3fd6e8ab7bb6902f4f2b3b91b0b7362122492c3e2e720d7099c5895c06aa1"
+  },
+  "calibration": "2026-10-13T1704Z",
+  "config": {
+    "model": "claude-opus-5-5",
+    "subagentModel": "claude-sonnet-5-5",
+    "agentKwargs": {
+      "max_budget_usd": "20"
+    },
+    "repetitions": 1
+  },
+  "trials": [
+    {
+      "id": "claude-code-1",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 5,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover all seven ACs and add sensible edge decisions: absent vs null on PATCH, a UTC boundary, `?overdue=abc` returning 400, and strict format parsing.",
+        "scope": "The change stays on the feature. It adds the plan and spec docs and a layout-only whitespace test, and the `?overdue=false` filter goes slightly beyond the ACs, but all of it was in the approved spec.",
+        "tests": "Store and API tests are thorough (PATCH absent/null, invalid dates, UTC boundary, filters). The checkbox filter is not tested interactively, only that the prerendered HTML contains it, and the one existing test change (the `dueDate:null` JSON expectation) is a legitimate update.",
+        "conventions": "Validation stays in the store as `ValidationException`, new elements carry testids, and the tests came first as the plan describes. The new testids were not added to the AGENTS.md locators list.",
+        "architecture": "A single `IsOverdue` definition in the store serves both the filter and the page. `TimeProvider` is injected through DI, and the page calls the store directly, as AGENTS.md requires.",
+        "codeQuality": "The code is clean. The C# 14 `field` accessor with `HasDueDate` is a bit clever, but it is commented and works. `Add` and `Update` parse the date outside the lock, and the explicit `@(\" \")` whitespace in the razor page is a small wart."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 8,
+        "agent": 749,
+        "verifier": 10,
+        "total": 822
+      },
+      "tokens": {
+        "input": 168,
+        "output": 48443,
+        "cacheRead": 6084171,
+        "cacheWrite": 205980,
+        "total": 6338762
+      },
+      "ccusage": {
+        "ccusageTotal": 6348127,
+        "deviation": 0.0015,
+        "warning": null
+      },
+      "userTokens": {
+        "total": 310650
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 5,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 1,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 1,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 1,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 1,
+      "ac:AC4": 1,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 1
+    },
+    "median": {
+      "tokens": 6338762,
+      "agent": 749
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 4,
+      "tests": 4,
+      "conventions": 4,
+      "architecture": 5,
+      "codeQuality": 4
+    },
+    "errorClasses": []
+  }
+}

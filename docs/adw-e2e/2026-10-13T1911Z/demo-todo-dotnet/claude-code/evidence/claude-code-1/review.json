@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven ACs and add sensible edge decisions: absent vs null on PATCH, a UTC boundary, `?overdue=abc` returning 400, and strict format parsing.",
+    "scope": "The change stays on the feature. It adds the plan and spec docs and a layout-only whitespace test, and the `?overdue=false` filter goes slightly beyond the ACs, but all of it was in the approved spec.",
+    "tests": "Store and API tests are thorough (PATCH absent/null, invalid dates, UTC boundary, filters). The checkbox filter is not tested interactively, only that the prerendered HTML contains it, and the one existing test change (the `dueDate:null` JSON expectation) is a legitimate update.",
+    "conventions": "Validation stays in the store as `ValidationException`, new elements carry testids, and the tests came first as the plan describes. The new testids were not added to the AGENTS.md locators list.",
+    "architecture": "A single `IsOverdue` definition in the store serves both the filter and the page. `TimeProvider` is injected through DI, and the page calls the store directly, as AGENTS.md requires.",
+    "codeQuality": "The code is clean. The C# 14 `field` accessor with `HasDueDate` is a bit clever, but it is commented and works. `Add` and `Update` parse the date outside the lock, and the explicit `@(\" \")` whitespace in the razor page is a small wart."
+  },
+  "error": null
+}
