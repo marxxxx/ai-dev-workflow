@@ -6,7 +6,8 @@ import { summarizeTrials } from './summary.mjs';
 const trial = { id: 'codex-1', reward: 0, contract: 1, checks: { spec_comment: 1, e2e_performed: 1 }, ownTests: 1,
   acceptanceCriteria: { AC1: 'pass', AC4: 'fail' }, acceptance: 0.5, verifierError: null,
   review: { conventions: 4 }, reviewReasons: { conventions: 'follows AGENTS.md' }, reviewError: null,
-  durations: { agent: 225, total: 287 }, tokens: { total: 916414 }, errors: { harbor: null, bridge: null, tool: 1, timeout: false },
+  durations: { agent: 225, total: 287 }, tokens: { total: 916414 }, cost: 1.2345,
+  ccusage: { models: { 'gpt-6.1-sol': { input: 140697, output: 35620, cacheRead: 2992000, cacheWrite: 0, total: 3168317, cost: 0.9368 } } }, errors: { harbor: null, bridge: null, tool: 1, timeout: false },
   soft: { superpowersActive: true } };
 const run = { schema: 2, task: 'demo-todo', harness: 'codex', calibration: '2026-10-12T0900Z', config: { model: 'openai/gpt-6.1-sol' },
   fingerprint: { adw: { version: '0.24.0', sha: 'abc' }, verifierHash: 'f00dfeed', models: { verifier: 'claude-sonnet-5-5', review: 'claude-sonnet-5-5' } },
@@ -16,7 +17,8 @@ test('run report shows summary, per-criterion verdicts, review reasons and the c
   const md = renderRunReport(run);
   for (const s of ['# E2E demo-todo · codex', 'openai/gpt-6.1-sol', 'verifier `claude-sonnet-5-5`', '| spec_comment | 1 |', '| ac:AC4 | 0 |',
     'codex-1', '916,414', 'Acceptance: AC1 pass · AC4 fail', 'review conventions 4: follows AGENTS.md', '| review conventions (median) | 4 |',
-    'superpowers active: yes', 'Verifier calibration: `2026-10-12T0900Z`']) assert.ok(md.includes(s), s);
+    'superpowers active: yes', 'Verifier calibration: `2026-10-12T0900Z`', '| median cost (USD) | $1.23 |', 'cost $1.23',
+    '| gpt-6.1-sol | 140,697 | 35,620 | 2,992,000 | 0 | 3,168,317 | $0.94 |']) assert.ok(md.includes(s), s);
 });
 
 test('an uncalibrated verifier, an unjudged trial and verifier errors are visible', () => {
@@ -38,7 +40,8 @@ test('summary puts tasks and harnesses side by side with review medians', () => 
   const md = renderSummary([run, { ...run, harness: 'opencode' }, { ...run, task: 'demo-todo-dotnet' }]);
   assert.match(md, /\| Task \| Harness \| Reward rate/);
   assert.match(md, /Review medians/);
-  assert.match(md, /\| demo-todo \| codex \| 0 \|/);
+  assert.match(md, /Median cost/);
+  assert.match(md, /\| demo-todo \| codex \| 0 \| 916,414 \| \$1\.23 \|/);
   assert.match(md, /\| demo-todo \| opencode \| 0 \|/);
   assert.match(md, /\| demo-todo-dotnet \| codex \| 0 \|/);
 });

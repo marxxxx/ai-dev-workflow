@@ -15,7 +15,7 @@ const DEPS = {
   errors: () => ({ harbor: null, bridge: null, tool: 0, timeout: false, quota: false }),
   e2ePerformed: () => 1,
   softSignals: () => ({ superpowersActive: true }),
-  ccusageCrossCheck: () => ({ ccusageTotal: 10, deviation: 0, warning: null }),
+  ccusageUsage: () => ({ ccusageTotal: 10, deviation: 0, warning: null, cost: 0.42, models: {} }),
 };
 
 test('trial record merges verifier rewards, host e2e check and metrics; acceptance waits for post-verification', () => {
@@ -34,6 +34,7 @@ test('trial record merges verifier rewards, host e2e check and metrics; acceptan
     assert.equal(t.review, null);
     assert.equal(t.reward, 0);
     assert.equal(t.tokens.total, 10);
+    assert.equal(t.cost, 0.42);
     assert.equal(t.errors.quota, false);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

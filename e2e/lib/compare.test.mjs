@@ -6,9 +6,9 @@ import path from 'node:path';
 import { compareRuns, findBaseline } from './compare.mjs';
 import { summarizeTrials } from './summary.mjs';
 
-const TH = { tokensMedianRise: 0.5, agentTimeMedianRise: 0.5, judgeMedianDrop: 1 };
+const TH = { tokensMedianRise: 0.5, costMedianRise: 0.5, agentTimeMedianRise: 0.5, judgeMedianDrop: 1 };
 const trial = (o = {}) => ({ reward: 1, checks: { spec_comment: 1 }, acceptance: 1, ownTests: 1,
-  tokens: { total: 100 }, durations: { agent: 10 }, review: { requirements: 5 },
+  tokens: { total: 100 }, cost: 1, durations: { agent: 10 }, review: { requirements: 5 },
   errors: { harbor: null, bridge: null, tool: 0, timeout: false }, ...o });
 const run = (trials, sha = 'a') => ({ schema: 2, trials, summary: summarizeTrials(trials), fingerprint: { adw: { sha } } });
 
@@ -30,6 +30,14 @@ test('token rise with overlapping ranges is inconclusive, disjoint ranges are wo
   assert.equal(compareRuns(base, overlap, TH).verdict, 'inconclusive');
   const disjoint = run([trial({ tokens: { total: 900 } }), trial({ tokens: { total: 1000 } })]);
   assert.equal(compareRuns(base, disjoint, TH).verdict, 'worse');
+});
+
+test('a cost rise at equal tokens is worse; a baseline without cost skips the signal', () => {
+  const base = run([trial({ cost: 1 }), trial({ cost: 1.2 })]);
+  const r = compareRuns(base, run([trial({ cost: 3 }), trial({ cost: 3.5 })]), TH);
+  assert.equal(r.verdict, 'worse');
+  assert.ok(r.signals.some((s) => s.signal === 'median:cost' && s.kind === 'regression'));
+  assert.equal(compareRuns(run([trial({ cost: undefined })]), run([trial({ cost: 9 })]), TH).verdict, 'same');
 });
 
 test('judge drop and new error class are regressions; improvements are better', () => {

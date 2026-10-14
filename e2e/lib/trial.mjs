@@ -3,14 +3,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import * as metrics from './metrics.mjs';
-import { ccusageCrossCheck } from './ccusage.mjs';
+import { ccusageUsage } from './ccusage.mjs';
 import { isQuota } from './claude.mjs';
 
 export const CONTRACT_CHECKS = ['ticket_open', 'ticket_review', 'spec_comment', 'spec_comment_complete',
   'summary_comment', 'cost_comment', 'only_allowed_comments', 'pr_draft', 'branch_naming', 'pr_title_naming',
   'e2e_performed', 'app_stopped', 'no_screenshots_in_repo'];
 
-const DEFAULT_DEPS = { ...metrics, ccusageCrossCheck };
+const DEFAULT_DEPS = { ...metrics, ccusageUsage };
 const readJson = (f) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null);
 export const section = (comments = [], title) => comments.filter((c) => c.body.trimStart().startsWith(`## ${title}`)).map((c) => c.body).join('\n\n');
 
@@ -37,9 +37,10 @@ export function buildTrialRecord({ id, harness, trialDir, config, criteria, deps
   checks.e2e_performed = deps.e2ePerformed(harness, trialDir, config.app.port);
   const contract = Number((Object.values(checks).reduce((a, b) => a + b, 0) / CONTRACT_CHECKS.length).toFixed(4));
   const tokens = deps.targetTokens(harness, trialDir);
+  const ccusage = deps.ccusageUsage(harness, trialDir, tokens, { version: config.ccusage?.version });
   const record = {
     id, reward: 0, contract, checks, ownTests: reward?.own_tests_pass ?? 0, ...emptyOutcome(criteria),
-    durations: deps.durations(result), tokens, ccusage: deps.ccusageCrossCheck(harness, trialDir, tokens),
+    durations: deps.durations(result), tokens, cost: ccusage.cost, ccusage,
     userTokens: deps.userTokens(result), errors: deps.errors(harness, trialDir, result), soft: deps.softSignals(harness, trialDir),
   };
   return { ...record, reward: rewardOf(record) };
