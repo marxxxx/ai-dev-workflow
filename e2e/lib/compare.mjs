@@ -34,6 +34,7 @@ export function compareRuns(base, cand, thresholds) {
     else if (c - b >= 1) signals.push({ signal: `review:${k}`, base: b, cand: c, kind: 'improvement' });
   }
   numeric('tokens', base, cand, (t) => t.tokens?.total, thresholds.tokensMedianRise, signals);
+  numeric('cost', base, cand, (t) => t.cost, thresholds.costMedianRise, signals);
   numeric('agent', base, cand, (t) => t.durations?.agent, thresholds.agentTimeMedianRise, signals);
   for (const e of cand.summary.errorClasses) {
     if (!base.summary.errorClasses.includes(e)) signals.push({ signal: `error:${e}`, base: 0, cand: 1, kind: 'regression' });

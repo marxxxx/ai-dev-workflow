@@ -36,6 +36,7 @@ test('fingerprint records versions, hashes and image', () => {
     assert.equal(fp.adw.dirty, false);
     assert.equal(fp.image.id, 'sha256:img1');
     assert.equal(fp.harbor.version, '0.24.0');
+    assert.equal(fp.ccusage, config.ccusage.version);
     assert.equal(fp.image.ref, config.tasks['demo-todo'].baseImage);
     assert.match(fp.task, /^[0-9a-f]{64}$/);
     assert.match(fp.skill.claude, /^[0-9a-f]{64}$/);
