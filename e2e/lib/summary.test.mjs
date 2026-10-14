@@ -10,12 +10,12 @@ test('median ignores nulls', () => {
 
 test('summary computes rates, medians, per-criterion rates and error classes', () => {
   const t = (reward, spec, tokens, agent, req, ac4, errs = {}) => ({ reward, checks: { spec_comment: spec, pr_draft: 1 },
-    acceptance: reward, ownTests: 1, acceptanceCriteria: { AC1: 'pass', AC4: ac4 }, tokens: { total: tokens }, durations: { agent },
+    acceptance: reward, ownTests: 1, acceptanceCriteria: { AC1: 'pass', AC4: ac4 }, tokens: { total: tokens }, cost: tokens / 100, durations: { agent },
     review: { requirements: req }, errors: { harbor: null, bridge: null, tool: 0, timeout: false, ...errs } });
   const s = summarizeTrials([t(1, 1, 100, 10, 5, 'pass'), t(0, 0, 300, 30, 3, 'fail', { bridge: 'BRIDGE FAILURE: x' }), t(1, 1, 200, 20, 4, 'pass')]);
   assert.equal(s.rewardRate, 0.67);
   assert.deepEqual(s.checkRates, { spec_comment: 0.67, pr_draft: 1, acceptance: 0.67, ownTests: 1, 'ac:AC1': 1, 'ac:AC4': 0.67 });
-  assert.deepEqual(s.median, { tokens: 200, agent: 20 });
+  assert.deepEqual(s.median, { tokens: 200, cost: 2, agent: 20 });
   assert.deepEqual(s.reviewMedian, { requirements: 4 });
   assert.deepEqual(s.errorClasses, ['bridge']);
 });

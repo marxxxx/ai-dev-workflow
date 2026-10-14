@@ -69,6 +69,7 @@ To re-render a `report.md` from its `run.json` (e.g. after a report template cha
 | acceptance / `ac:ACn` | Share of acceptance criteria an agentic verifier observed in the running app, and the pass rate per criterion (`e2e/tasks/_shared/acceptance-criteria.md`) |
 | review | 1–5 per criterion from a code review with read access to the repo: requirements, scope, tests, conventions, architecture, code quality |
 | tokens | Target agent only, from its own session logs (cross-checked with ccusage) |
+| cost | Target agent only, in USD at API list price, from ccusage (`ccusage.version` in `e2e/config.json`, pinned so its bundled price table stays the same between runs). The run report adds input, output, cache read, cache write, total and cost per model for each trial. A cost rise at equal tokens points to a model mix shift (e.g. more main-model, fewer subagent-model turns). |
 
 A report that says **Verifier not calibrated** has no passing calibration for its verifier hash (prompts, verifier/review models, review criteria, acceptance criteria). Run `calibrate` before trusting acceptance and review.
 
