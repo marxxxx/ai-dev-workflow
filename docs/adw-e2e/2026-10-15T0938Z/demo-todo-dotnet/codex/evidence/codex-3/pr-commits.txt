@@ -1,0 +1,7 @@
+80181fe docs: complete ticket 1 delivery record
+490159a docs: record successful tests, browser checks and code review
+04ac6ae feat: display due dates and filter overdue todos on the list
+b1e4561 feat: filter overdue todos through the JSON API
+7acd179 feat: store optional due dates and derive overdue status
+19d7f12 docs: plan todo due dates and overdue filtering
+470a307 chore: ignore isolated worktrees

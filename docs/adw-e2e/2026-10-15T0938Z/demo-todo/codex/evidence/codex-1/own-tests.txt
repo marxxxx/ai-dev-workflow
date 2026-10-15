@@ -1,0 +1,46 @@
+
+> demo-todo@1.0.0 test
+> node --test
+
+✔ creates and lists todos (38.318083ms)
+✔ rejects an empty title (8.911611ms)
+✔ marks a todo done (7.811886ms)
+✔ serves the list page (6.869386ms)
+✔ due dates and computed status are returned by POST, GET, PATCH and list (13.116433ms)
+✔ invalid POST and PATCH dates return HTTP 400 without changing stored data (33.774276ms)
+✔ overdue=true filters mixed todos and preserves their existing order (13.510538ms)
+✔ overdue filter returns an empty array when there are no matches (4.092275ms)
+✔ HTTP status and filtering refresh across UTC midnight without updates (4.939527ms)
+✔ undated todos default to null and are never overdue (3.093851ms)
+✔ overdue uses the UTC day and excludes today, future, done and undated todos (0.471904ms)
+✔ status refreshes at UTC midnight without updating the todo (0.247787ms)
+✔ clock offsets are interpreted in UTC (0.199817ms)
+✔ PATCH preserves omitted dates, replaces dates and removes dates with null (0.282929ms)
+✔ real leap dates are accepted including years below 100 (0.205573ms)
+✔ rejects invalid dueDate "2026-02-29" without changing data (0.577394ms)
+✔ rejects invalid dueDate "2026-04-31" without changing data (0.185444ms)
+✔ rejects invalid dueDate "1900-02-29" without changing data (0.225052ms)
+✔ rejects invalid dueDate "2026-00-01" without changing data (0.294781ms)
+✔ rejects invalid dueDate "2026-13-01" without changing data (0.191688ms)
+✔ rejects invalid dueDate "2026-01-00" without changing data (0.162016ms)
+✔ rejects invalid dueDate "2026-01-32" without changing data (0.183674ms)
+✔ rejects invalid dueDate "" without changing data (0.153791ms)
+✔ rejects invalid dueDate " " without changing data (0.140373ms)
+✔ rejects invalid dueDate "2026-1-01" without changing data (0.129483ms)
+✔ rejects invalid dueDate "2026-01-1" without changing data (1.169708ms)
+✔ rejects invalid dueDate "2026-10-15T00:00:00Z" without changing data (0.208638ms)
+✔ rejects invalid dueDate " 2026-10-15" without changing data (0.123535ms)
+✔ rejects invalid dueDate "2026-10-15\n" without changing data (0.100267ms)
+✔ rejects invalid dueDate 42 without changing data (0.096786ms)
+✔ rejects invalid dueDate true without changing data (0.098838ms)
+✔ rejects invalid dueDate [] without changing data (0.09922ms)
+✔ rejects invalid dueDate {} without changing data (0.092218ms)
+✔ invalid done leaves title and dueDate unchanged (0.171781ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 231.935933

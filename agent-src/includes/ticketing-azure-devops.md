@@ -42,9 +42,9 @@ wit_work_item_comment_write(action: "add", workItemId: <id>,
 
 ## Post the spec
 
-Post the approved spec as a readable Markdown comment: heading, path, then the full text. If it
-exceeds what the server accepts (it rejects the comment), split it at heading boundaries into
-numbered comments (`## {{artifact.spec}} (1/2)`, …), each repeating the path line.
+Post the agreed scope as a readable Markdown comment: heading, the spec path if there is one, then
+the full text. If it exceeds what the server accepts (it rejects the comment), split it at heading
+boundaries into numbered comments (`## {{artifact.spec}} (1/2)`, …), each repeating the path line.
 
 ```text
 wit_work_item_comment_write(action: "add", workItemId: <id>, project: "{{ticketing.azure.project}}",

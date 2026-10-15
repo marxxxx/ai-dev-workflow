@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the diff, and the spec adds clear detail (UTC boundary, null to remove, HTTP 400, filter checkbox).",
+    "scope": "The change stays on topic; the stale-response guard in the UI and the exposed `overdue` field on every response go slightly beyond the ticket but are small and justified.",
+    "tests": "Store, API and UI tests cover UTC boundaries, validation, atomic rejection and filter races, and the one existing assertion was only extended; the UI test uses a hand-rolled fake DOM, which is brittle, and the checkbox label is never asserted.",
+    "conventions": "The change uses ValidationError mapped to HTTP 400, adds data-testid on the new elements, uses no dependencies, and follows the existing test style.",
+    "architecture": "Validation and the overdue computation sit in the store and the filter in the route, which fits, though the filtering is done in app.mjs rather than the store.",
+    "codeQuality": "The code is clean: validation runs before any mutation, and the round-trip date check handles leap years. A fetch error or non-OK response in the UI is unhandled, and `overdue=true` is the only value the filter recognises."
+  },
+  "error": null
+}

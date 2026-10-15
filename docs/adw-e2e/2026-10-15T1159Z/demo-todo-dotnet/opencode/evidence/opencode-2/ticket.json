@@ -1,0 +1,24 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\n\nTicket #1: Fälligkeitsdatum für Todos\n\n**Store / Model**\n- `Todo` erhält optionales `DueDate` (`DateOnly?`, UTC-Kalenderdatum, ohne Uhrzeit). Bestehende Todos ohne Datum bleiben gültig.\n- `NewTodo` und `TodoPatch` tragen `DueDate`; beim PATCH kann das Datum gesetzt, geändert und per `dueDate: null` wieder entfernt werden.\n\n**API**\n- `POST /todos` akzeptiert `dueDate` (Format `yyyy-MM-dd`, z.B. `\"2026-10-20\"`).\n- `PATCH /todos/{id}` akzeptiert `dueDate` zum Setzen/Ändern; `dueDate: null` entfernt das Datum.\n- Ungültiges Datum (falsches Format oder nicht existierender Kalendertag wie 30. Februar) → HTTP 400 `{\"error\": \"...\"}`.\n- `GET /todos?overdue=true` filtert auf überfällige Todos: nicht erledigt UND `dueDate` liegt vor heute (UTC). Todos ohne Datum sind nie überfällig.\n- `dueDate` wird nur serialisiert, wenn gesetzt (`null` wird weggelassen).\n\n**UI (Liste auf `/`)**\n- Neben dem Titel steht das Fälligkeitsdatum als `(fällig: dd.MM.yyyy)` (`data-testid=\"todo-due-date\"`).\n- Überfällige Todos (nicht erledigt, Datum vor heute UTC) tragen sichtbar die Markierung „überfällig\" (`data-testid=\"todo-overdue\"`).\n- Ein Schalter mit der Beschriftung „nur überfällige\" (`data-testid=\"overdue-only-toggle\"`) zeigt nur die überfälligen Todos.\n\n**Tests**\n- Unit-/Integrationstests (`dotnet test`): Store, API (inkl. 400 bei ungültigem Datum, Filter, Setzen/Entfernen), Seite (Prerender-HTML).\n- End-to-end im laufenden App per Playwright: Datum angezeigt, „überfällig\"-Markierung, Schalter filtert korrekt.",
+      "created_at": "2026-10-15T12:41:00Z"
+    },
+    {
+      "body": "## Implementation Summary\n\n**Approach** — Todos erhalten ein optionales Fälligkeitsdatum (`DateOnly?`, UTC-Kalenderdatum). TDD: zuerst fehlschlagende Tests für Store, API und Seite, dann Implementierung. `TodoStore.List(overdueOnly:)` filtert überfällige Todos (nicht erledigt, Datum vor heute UTC). Das PATCH-Endpoint parst das JSON manuell, um `dueDate` absent vs. `null` (löschen) zu unterscheiden; ungültige Daten → 400 via `ValidationException`. `dueDate: null` wird bei der Serialisierung weggelassen (abwärtskompatibel).\n\n**Consequences** — API: `POST /todos` und `PATCH /todos/{id}` akzeptieren `dueDate` (`yyyy-MM-dd`); `PATCH` mit `dueDate: null` entfernt das Datum; `GET /todos?overdue=true` filtert. UI: Datum als `(fällig: dd.MM.yyyy)` neben dem Titel, „überfällig\"-Markierung, „nur überfällige\"-Schalter. Neue `data-testid`s: `todo-due-date`, `todo-overdue`, `overdue-only-toggle`.\n\n**Possible side effects** — Bestehende API-Clients sehen `dueDate` nur, wenn gesetzt (sonst weggelassen). Die PATCH-Endpoint-Logik ist jetzt manuelles JSON-Parsing statt Record-Binding.\n\n**Watch when testing** — Überfällig-Logik nutzt UTC „heute\"; um Mitternacht UTC kann sich die Markierung ändern. Ungültige Daten wie `2026-02-30` werden mit 400 abgelehnt. End-to-end getestet (Playwright, 11 Checks bestanden, Screenshots unter /tmp/e2e-*.png): Datum angezeigt, „überfällig\"-Markierung, Schalter filtert korrekt. `dotnet test`: 19/19 bestanden.\n\nSpec: (agreed in conversation, posted as Approved Spec) · Plan: none · PR: http://gitea:3000/adw/demo-todo/pulls/2",
+      "created_at": "2026-10-15T12:41:53Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-15T12:36:17Z → 2026-10-15T12:41:30Z · Models: mistral-large-4, claude-sonnet-5-5\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 101,866 | 14,670 | 1,288,535 | 8,007 | 1,413,078 | 0.2328 |\n\nSessions counted: opencode:ses_ec0700025ffeInX5OSdrsv5nt2, claude:066ddf03-ce06-4664-99b0-a100fa9a99d7\n\nUSD is a local ccusage estimate. Every session on this machine active in the window is counted, including unrelated ones.",
+      "created_at": "2026-10-15T12:41:53Z"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\n\nTicket #1: Fälligkeitsdatum für Todos (optional, Kalenderdatum ohne Uhrzeit).\n\n**API**\n- Todos bekommen ein optionales Feld `dueDate` im Format `YYYY-MM-DD` (reines Kalenderdatum, keine Uhrzeit).\n- Setzbar beim Anlegen (POST /todos) und änderbar später (PATCH/PUT /todos/:id); auch wieder entfernbar (auf `null` setzen).\n- Ungültige Daten (falsches Format, z.B. `2026-02-30`, `30.02.2026`, `2026-13-01`) werden mit HTTP 400 abgelehnt (ValidationError).\n- Bestehende Todos ohne `dueDate` bleiben gültig (Rückwärtskompatibilität); `dueDate` ist dann `null`/nicht gesetzt.\n\n**Liste (UI)**\n- Neben jedem Todo-Titel wird das Fälligkeitsdatum angezeigt (falls gesetzt).\n- Überfällige Todos werden sichtbar mit dem Wort „überfällig\" markiert.\n- Überfällig heißt: nicht erledigt UND `dueDate` vor heute (UTC). Ohne Datum nie überfällig.\n- Keine Sortierungsänderung, kein besonderes Styling.\n\n**Test**\n- End-to-End-Test durch den Agenten mit Playwright gegen die laufende App (siehe AGENTS.md).",
+      "created_at": "2026-10-15T12:00:43Z"
+    },
+    {
+      "body": "## Implementation Summary\n**Approach** — Todos haben jetzt ein optionales Feld `dueDate` (`YYYY-MM-DD`, reines Kalenderdatum). Validierung im Store (`src/store.mjs`): Format per Regex plus echte Kalenderprüfung (z. B. `2026-02-30` wird abgelehnt → HTTP 400 via `ValidationError`). Setzbar beim Anlegen (POST), änderbar und löschbar (`null`) per PATCH. Die Liste (`public/index.html`) zeigt das Datum neben dem Titel (`data-testid=\"todo-due-date\"`) und markiert überfällige Todos (nicht erledigt, Datum vor heute UTC) mit „überfällig\" (`data-testid=\"todo-overdue\"`). TDD: 5 neue Tests in `test/app.test.mjs` (alle 9 grün).\n**Consequences** — API-Antworten enthalten jetzt immer `dueDate` (`null` wenn nicht gesetzt). Bestehende Clients ohne `dueDate` funktionieren weiter. Ungültige Daten → 400 mit Fehlermeldung.\n**Possible side effects** — Bestehende Tests mussten an das neue Feld angepasst werden; UI zeigt zusätzlichen Text pro Todo mit Datum.\n**Watch when testing** — Überfällig-Logik nutzt UTC („heute\" = UTC-Datum); am Tageswechsel kann sich die Markierung ändern. Erledigte Todos sind nie überfällig.\n**End-to-end** — Vom Agenten getestet: App gestartet, 4 Todos per API angelegt (überfällig/offen, zukünftig, ohne Datum, erledigt+überfällig), Liste im Browser (Chromium via CDP) geprüft — alle Fälle korrekt, inkl. 400 für `2026-02-30`. Screenshot: `/tmp/e2e-todo-list.png` (außerhalb des Repos).\nSpec: Approved Spec Kommentar auf diesem Ticket · Plan: — · PR: siehe Draft-PR",
+      "created_at": "2026-10-15T12:05:02Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-15T12:00:04Z → 2026-10-15T12:05:20Z · Models: mistral-large-4, claude-sonnet-5-5\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 70.094 | 11.012 | 781.713 | 6.667 | 869.486 | 0,16 |\n\nSessions counted: opencode:ses_ec091280dffeCwp49dZv7hegP4, claude:d725554d-a586-409c-b8b6-7a2d37e97145\nUSD is a local ccusage estimate. Every session on this machine active in the window is counted, including unrelated ones.",
+      "created_at": "2026-10-15T12:05:20Z"
+    },
+    {
+      "body": "## Implementation Summary (Update: Überfällig-Filter)\n**Approach** — Ergänzung zu #1: `GET /todos?overdue=true` filtert serverseitig auf überfällige Todos (zentrale `isOverdue()`-Logik im Store: nicht erledigt + `dueDate` vor heute UTC). Die Liste hat eine Checkbox „nur überfällige\" (`data-testid=\"overdue-only\"`), die clientseitig filtert. TDD: 1 neuer Test (alle 10 grün).\n**Consequences** — `GET /todos` ohne Parameter liefert weiterhin alle Todos; `?overdue=true` nur überfällige. UI zeigt Checkbox oberhalb der Liste.\n**Possible side effects** — Keine; Filter ist rein lesend.\n**Watch when testing** — Gleiche UTC-Definition wie die Markierung; Checkbox wirkt sofort ohne Reload.\n**End-to-end** — Vom Agenten getestet: API-Filter per curl verifiziert (`?overdue=true` → nur „Überfälliges Todo\"), Checkbox im Browser (Chromium/CDP) an/aus geschaltet — Liste zeigt korrekt nur das überfällige Todo. Screenshot: `/tmp/e2e-overdue-filter.png` (außerhalb des Repos).\nPR: #2 (aktualisiert, Draft)",
+      "created_at": "2026-10-15T12:06:59Z"
+    },
+    {
+      "body": "## Cost Summary (Update: Überfällig-Filter)\nWindow: 2026-10-15T12:00:04Z → 2026-10-15T12:07:05Z · Models: mistral-large-4, claude-sonnet-5-5\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 84.057 | 16.151 | 1.364.826 | 8.863 | 1.473.897 | 0,23 |\n\nSessions counted: opencode:ses_ec091280dffeCwp49dZv7hegP4, claude:d725554d-a586-409c-b8b6-7a2d37e97145\nUSD is a local ccusage estimate (kumulativ über beide Runs dieses Tickets). Every session on this machine active in the window is counted, including unrelated ones.",
+      "created_at": "2026-10-15T12:07:05Z"
+    }
+  ]
+}

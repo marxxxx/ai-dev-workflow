@@ -1,0 +1,40 @@
+
+> demo-todo@1.0.0 test
+> node --test
+
+✔ creates and lists todos (38.293822ms)
+✔ rejects an empty title (9.161314ms)
+✔ marks a todo done (11.609814ms)
+✔ serves the list page (7.257534ms)
+✔ sets, changes, preserves, and removes due dates through the API (11.476723ms)
+✔ invalid dates return HTTP 400 on creation and update without partial mutation (7.304399ms)
+✔ filters only open todos dated before today in UTC (16.592307ms)
+✔ stores a date, preserves it on unrelated updates, and allows replacing/removing it (2.774474ms)
+✔ rejects invalid due date "" without modifying existing data (1.255692ms)
+✔ rejects invalid due date "2026-2-01" without modifying existing data (0.205808ms)
+✔ rejects invalid due date "26-02-01" without modifying existing data (0.18005ms)
+✔ rejects invalid due date "2026-02-30" without modifying existing data (0.199249ms)
+✔ rejects invalid due date "2025-02-29" without modifying existing data (0.23954ms)
+✔ rejects invalid due date "1900-02-29" without modifying existing data (0.202314ms)
+✔ rejects invalid due date "2026-04-31" without modifying existing data (0.184353ms)
+✔ rejects invalid due date "2026-00-01" without modifying existing data (0.198886ms)
+✔ rejects invalid due date "2026-13-01" without modifying existing data (0.449471ms)
+✔ rejects invalid due date "2026-01-00" without modifying existing data (3.482123ms)
+✔ rejects invalid due date "2026-01-32" without modifying existing data (0.160119ms)
+✔ rejects invalid due date "2026-10-15T00:00:00Z" without modifying existing data (0.122319ms)
+✔ rejects invalid due date " 2026-10-15" without modifying existing data (0.156998ms)
+✔ rejects invalid due date "2026-10-15\n" without modifying existing data (0.172665ms)
+✔ rejects invalid due date 20261015 without modifying existing data (0.184943ms)
+✔ rejects invalid due date false without modifying existing data (0.195478ms)
+✔ rejects invalid due date {} without modifying existing data (0.224934ms)
+✔ rejects invalid due date [] without modifying existing data (0.182054ms)
+✔ does not change the date or title when another patch field is invalid (0.182013ms)
+✔ derives overdue strictly from the current UTC day and completion state (0.890277ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 208.659068

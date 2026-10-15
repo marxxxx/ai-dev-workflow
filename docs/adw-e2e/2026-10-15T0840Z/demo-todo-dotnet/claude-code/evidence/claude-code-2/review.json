@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, including the PATCH omit-vs-null semantics and the UTC clock via TimeProvider.",
+    "scope": "The change stays on the ticket. The only extras are the `overdue` query-value validation and the TimeProvider registration, which the spec itself called for.",
+    "tests": "Store, API and page tests cover the new behaviour, including the UTC edge case, and the one changed existing assertion only adds `dueDate`. Gaps: no test uses an impossible date like 30 February (it uses month 13), and the filter checkbox is only checked for presence in the markup.",
+    "conventions": "The change follows the conventions: new elements carry a `data-testid`, there are no new packages, and the page calls the store directly. The 400 errors for invalid dates rely on the existing bad-request handler rather than `ValidationException`, which is reasonable but is not checked against AGENTS.md's stated mapping.",
+    "architecture": "Overdue logic lives in `TodoStore` and is reused by the API and the page. The extra parameterless constructor and the `HasDueDate` flag on the patch record add some complexity.",
+    "codeQuality": "The code is readable and handles the edge cases: UTC date, null-vs-omitted, and the Blazor whitespace issue. The `field` keyword with an init-flag property is a bit clever, and the `\" · \"` separators are a workaround."
+  },
+  "error": null
+}

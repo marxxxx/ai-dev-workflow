@@ -85,7 +85,7 @@ test('agent-dev enters the superpowers workflow and defers ticketing and cost to
       assert.match(body, /`<number>_<short_title_slug>`/, 'branch name derives from the ticket');
       assert.match(body, /`<number>: <short title>`/, 'PR title derives from the ticket');
       assert.match(body, /create a ticket/i, 'without a ticket, offer to create one');
-      assert.match(body, /post the spec on it as\s+`Approved Spec` comments/i, 'the approved spec goes onto the ticket as comments');
+      assert.match(body, /post with the include's commands as\s+`Approved Spec` comments/i, 'the agreed scope goes onto the ticket as comments');
       assert.doesNotMatch(body, /attach|Approved Plan/i, 'no attachments, and the plan stays in the repo');
       assert.doesNotMatch(body, /\{\{.*?\}\}/);
     }
@@ -122,7 +122,7 @@ const BACKENDS = {
     review: /status: review/,
     draft: /gh pr create --draft/,
     create: /next_id/,
-    spec: /## Approved Spec\n`<spec path>`\nBODY_EOF/,
+    spec: /## Approved Spec\n`<spec path>` \(or the agreements\)\nBODY_EOF/,
   },
   github: {
     project: {

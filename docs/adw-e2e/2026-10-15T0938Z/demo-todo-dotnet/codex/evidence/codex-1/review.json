@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover AC1–AC7, and the spec also settles the PATCH omit/null semantics and the `overdue=false` case.",
+    "scope": "The code changes stay within the ticket; the only extras are the plan and spec docs, plus a public `Today` property that the page needs.",
+    "tests": "The tests are thorough on API validation, atomicity, UTC boundaries and prerendered markup, and no existing tests were weakened. The checkbox toggle is not covered by an automated test; it was only checked manually with Playwright.",
+    "conventions": "The change follows AGENTS.md: `ValidationException` thrown in the store, `data-testid` on new elements, no new packages, and the page uses the store directly. AGENTS.md's list of test ids was not updated.",
+    "architecture": "Validation and the overdue rule sit in the store and `Todo`, and both the API and the page reuse them with an injected `TimeProvider`. The `DueDateSpecified` mechanism on `TodoPatch` is somewhat indirect.",
+    "codeQuality": "The code is readable, parses dates strictly and applies updates atomically. The `init` accessor that sets a flag is a subtle trick, though it has a comment and is tested."
+  },
+  "error": null
+}

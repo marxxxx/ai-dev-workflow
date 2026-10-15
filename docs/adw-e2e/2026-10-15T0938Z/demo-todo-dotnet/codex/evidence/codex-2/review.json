@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 3
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered in the diff, and the spec adds clear edge-case decisions: PATCH omitted versus null, the UTC rule, and HTTP 400 for bad input.",
+    "scope": "The change stays on the ticket. Small extras are the `overdue=false` filter, a committed e2e script, plan and spec docs, and a `.gitignore` entry for `.worktrees/`.",
+    "tests": "Store, API and prerendered-page tests cover the UTC boundary, PATCH presence, invalid dates, the filter and the controls. Nothing in the .NET suite exercises the interactive create, save and filter-toggle behaviour, and no existing tests were weakened.",
+    "conventions": "The change follows AGENTS.md: no new packages, `ValidationException` kept, `data-testid` on new elements, tests under `tests/`, and tests in the existing xUnit and `WebApplicationFactory` style.",
+    "architecture": "The overdue rule lives in one place on `Todo` and `TodoStore`, with `TimeProvider` injected. The page calls the store directly, as AGENTS.md requires.",
+    "codeQuality": "The core logic is correct and readable. `Home.razor` writes to `_dueDates` while rendering, and the `_editedDueDates` bookkeeping is somewhat fragile. The presence-tracking PATCH record is slightly clunky."
+  },
+  "error": null
+}

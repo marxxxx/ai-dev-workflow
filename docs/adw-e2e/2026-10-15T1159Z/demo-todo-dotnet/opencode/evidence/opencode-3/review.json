@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 4,
+    "scope": 5,
+    "tests": 3,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, but the spec leaves the remove mechanism (`clearDueDate`) open and does not explicitly pin AC3 for an impossible date on PATCH.",
+    "scope": "The change is limited to due date, overdue filtering and display; the only extra is the spec file, which the workflow calls for.",
+    "tests": "There are store, API and page tests, but none covers the 'due today is not overdue' boundary, the PATCH 30 February case, or the client-side toggle. The page test's 'überfällig' assertion is also satisfied by the 'nur überfällige' label, and it never checks that the normal todo is unmarked.",
+    "conventions": "The change follows the data-testid, no-new-packages and TDD conventions, and reuses the existing 400 mapping for invalid dates; the only gap is that the new filter and PATCH-date tests are missing from the tests it names.",
+    "architecture": "Overdue logic is centralised in the static `TodoStore.IsOverdue` and shared by the API and the page, and the page still calls the store directly; the 'today UTC' computation is duplicated in Program.cs and Home.razor.",
+    "codeQuality": "The code is small and readable and handles the set, change and clear cases correctly. `Store.List()` is called repeatedly and `DateTime.UtcNow` is read per call, but this is minor."
+  },
+  "error": null
+}

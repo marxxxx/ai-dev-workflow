@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "Every acceptance criterion (AC1–AC7) is captured in the spec and implemented, including PATCH with null to remove the date, 400 on invalid dates, the UTC overdue rule, and the list-page display, marker and filter.",
+    "scope": "The change stays within the ticket; the only extras are the strict 400 for any `overdue` value other than true, which the spec approved, and an injectable clock for the store.",
+    "tests": "Tests cover create, change, remove, many invalid dates, the leap day, the UTC overdue boundary with a fixed clock, and the invalid overdue values. The UI is only checked by an HTML regex, with no browser tests; the one edited existing assertion only added `dueDate: null`.",
+    "conventions": "The change uses ValidationError for 400s, adds no dependencies, follows TDD, gives new elements data-testid attributes, and matches the existing test helper style.",
+    "architecture": "Validation and the overdue logic live in the store and routing stays in app.mjs. The overdue rule is duplicated in the page script, but that follows the spec, which keeps the marker client-side and adds no overdue field.",
+    "codeQuality": "The code is clear, and the round-trip check handles impossible dates correctly. Minor edge: the page's `render()` has no handling for fetch errors and can race when the checkbox is toggled quickly."
+  },
+  "error": null
+}

@@ -18,7 +18,7 @@ requirement is Node on the machine that runs the generator (your dev box and CI)
 | `ai-project.json` | **you** — project identity + ticketing backend choice | yes |
 | `AGENTS.md` | **you** — create with your coding agent's native `/init`; `agent-dev` reads it first (add an [End-to-end testing](#end-to-end-testing) section for agent-run e2e checks) | yes |
 | `agent-custom/` | **you** (optional) — per-project tweaks to the skill body (see [Customizing the skill](#customizing-the-skill)) | yes |
-| `docs/superpowers/{specs,plans}/` | written by superpowers during each run; the approved spec is also posted to the ticket | yes |
+| `docs/superpowers/{specs,plans}/` | written by superpowers when a change needs them; the agreed scope is also posted to the ticket | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
 | `.mcp.json` | merged (azure-devops backend only) — the shared `ado` server entry; other servers preserved | yes |
 | `.codex/config.toml` | merged (azure-devops backend only) — the Codex project-local `ado` MCP server entry; other Codex settings preserved | yes |
@@ -115,20 +115,22 @@ about — the ticket and its comments — and otherwise follows the superpowers 
 1. **Start** — record the start time, read `AGENTS.md`; with a ticket, read it and move it to
    `in-progress`. Without one, it asks whether to **create a ticket**; if you say yes, it creates one
    once brainstorming has settled the scope and uses it for the rest of the run. A ticket already
-   `in-progress` **resumes** where the earlier run stopped: straight to planning if a spec was
+   `in-progress` **resumes** where the earlier run stopped: straight to planning if a spec file was
    approved, to the next unfinished plan task if a plan exists (offering a partial cost summary for
-   the interrupted session).
+   the interrupted session), otherwise back into brainstorming with the ticket as context.
 2. **Brainstorming** — the full requirements interview with you. A ticket (often an upstream ticket
    with too little detail to implement from) is only background context; it never replaces the
    interview. For changes with user-visible behavior it also asks whether the agent should test
-   end to end or you prefer to test manually. The spec lands in `docs/superpowers/specs/`; once you
-   approve it, it is posted to the ticket as an **Approved Spec** comment (split into numbered
-   comments if it exceeds the backend's limit; the file backend gets just the path). The plan stays
-   in the repo.
+   end to end or you prefer to test manually. Superpowers sizes the work: a quick task goes ahead,
+   a small change is agreed in chat, a larger one gets a written spec in `docs/superpowers/specs/`.
+   Once the scope is agreed, the ticket must say what gets built: the spec, or the agreements from
+   the conversation, is posted as an **Approved Spec** comment (split into numbered comments if it
+   exceeds the backend's limit; the file backend gets just a spec's path); nothing is posted if the
+   ticket already said everything. The plan, if any, stays in the repo.
 3. **The rest of the superpowers workflow** — whatever superpowers chains from brainstorming
    (today: worktree, plan, implementation with TDD and review, finishing the branch). `agent-dev`
-   does not restate that chain; it only hooks in at events (spec approved, branch created,
-   integration offered), so superpowers releases need no changes here.
+   does not restate that chain; it only hooks in at events (scope agreed, branch created,
+   integration offered or the workflow finished), so superpowers releases need no changes here.
    If you chose agent testing, an [end-to-end check](#end-to-end-testing) runs before integrating.
    Instead of superpowers' merge/PR/keep menu, the run always ends with a **draft PR**
    (Gitea: a `WIP:` title), so a human reviews and tests before publishing it.
@@ -141,14 +143,14 @@ Names derive from the ticket's number and a short version of its title: branch
 `42: User login form`). Without a ticket, both drop the number.
 
 Ticket states are just `new → in-progress → review`; acceptance and closing stay with the human.
-Nothing beyond the spec and those two comments is written to the ticket.
+Nothing beyond the agreed scope and those two comments is written to the ticket.
 
 ### End-to-end testing
 
 Superpowers itself never starts your app: its verification is satisfied by passing tests. So
 `agent-dev` adds one decision and one step. During brainstorming, for a change with user-visible
 behavior (UI, user flows), it asks whether **you want the agent to test it end to end** or **you
-prefer to test it manually**, and records the answer in the spec. If you chose the agent, it starts
+prefer to test it manually**, and records the answer in the agreed scope. If you chose the agent, it starts
 the app, exercises the changed flows in a browser via Playwright, captures evidence, and shuts the
 app down before opening the draft PR. The **Implementation Summary** always states the outcome:
 tested by the agent (with what was checked), left to manual testing at your request, or not tested

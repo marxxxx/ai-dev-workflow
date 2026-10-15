@@ -32,9 +32,9 @@ BODY_EOF
 
 ## Post the spec
 
-Post the approved spec as a readable comment: heading, path, then the full text. If it exceeds
-GitHub's 65,536-character comment limit, split it at heading boundaries into numbered comments
-(`## {{artifact.spec}} (1/2)`, …), each repeating the path line.
+Post the agreed scope as a readable comment: heading, the spec path if there is one, then the full
+text. If it exceeds GitHub's 65,536-character comment limit, split it at heading boundaries into
+numbered comments (`## {{artifact.spec}} (1/2)`, …), each repeating the path line.
 
 ```bash
 { printf '## {{artifact.spec}}\n`<spec path>`\n\n'; cat <spec path>; } \
