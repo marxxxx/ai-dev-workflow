@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 5,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 3
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria, including the date-only format, the 400 cases, the clear-with-null semantics, the UTC overdue rule, the \"überfällig\" marker and the \"nur überfällige\" checkbox, and the spec also pins down edge cases such as today and done todos.",
+    "scope": "Every change maps to an acceptance criterion or to the spec; the plan and spec docs are the expected artifacts and no extra features were added.",
+    "tests": "The new tests cover the store, the API and the prerendered page well, including the boundary and clear-versus-omitted cases, and the existing JSON assertion was only updated for the new field. The checkbox filtering behaviour is untested in the suite, and so are the page cases for a done todo and for no due date.",
+    "conventions": "The change follows AGENTS.md: ValidationException for validation errors, data-testid on the new elements, no new packages, and TDD per the plan. Parsing now lives in Program.cs instead of TodoStore, which the spec accepts, but the endpoints grew long inline lambdas.",
+    "architecture": "IsOverdue lives on Todo and is shared by the API filter and the page, and the date parsing is a single helper. Hand-parsing the POST and PATCH bodies with JsonDocument duplicates the title and done extraction and replaces model binding, which the spec chose in order to tell null from omitted.",
+    "codeQuality": "The date validation and IsOverdue logic are correct. The manual body parsing is fragile: a non-object JSON body such as `[]` makes TryGetProperty throw InvalidOperationException, which gives a 500 where model binding would not. A non-string title or a non-boolean done is also silently ignored, and the PATCH `done` line is dense."
+  },
+  "error": null
+}

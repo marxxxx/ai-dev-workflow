@@ -1,0 +1,372 @@
+{
+  "schema": 2,
+  "task": "demo-todo-dotnet",
+  "harness": "opencode",
+  "fingerprint": {
+    "adw": {
+      "version": "0.25.0",
+      "sha": "576ccfbdba8954564f92e5b7af0773f1a2bef01e",
+      "dirty": true
+    },
+    "skill": {
+      "claude": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "codex": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "opencode": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:de8e8443addc7abd272af71c7102e56e4614e9ebd357888f3bba18a0414c9994"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-dotnet:latest",
+      "id": "sha256:ace9073ee964d44277cf61280e09662d29a37dc9e9d1a04e3b764ad86ffe10cb",
+      "inventory": "f73312c8b32a0eff8a6e42407639392e80cae5d02d97ee54f12a4af8dc7a6d6e",
+      "harnessVersion": "1.19.0",
+      "superpowers": "bb92a77741419a4ab5f06e711a283343f1ada0c3"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "d0da995efeca9c264b60d5b89daaaf8676038179c9502bfb8a4f804ba286495b",
+      "lib": "448a9daff708940389a4d6fb40a52be9bf66943ee97aee330b24bbaf0395e2f2"
+    },
+    "config": "d86521c9a4663bdd8de6e2be965bbb601cf0ad1b235a7541cad6fe57faaced44",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "mistral/mistral-large-4",
+      "subagents": null,
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "1a98141d9bd37e45588304d38388bb6353872f09a58b2828c3a115305ced3b16"
+  },
+  "calibration": "2026-10-13T1704Z",
+  "config": {
+    "model": "mistral/mistral-large-4",
+    "subagentModel": null,
+    "agentKwargs": {},
+    "repetitions": 3
+  },
+  "trials": [
+    {
+      "id": "opencode-1",
+      "reward": 0,
+      "contract": 0.9231,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 0,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 3,
+        "scope": 4,
+        "tests": 3,
+        "conventions": 4,
+        "architecture": 3,
+        "codeQuality": 3
+      },
+      "reviewReasons": {
+        "requirements": "The diff meets all seven ACs, but the approved spec has a non-goal of 'keine Filterung' and never mentions the ?overdue=true API filter or the 'nur überfällige' control (AC4, AC7), and it does not state the 30 February case.",
+        "scope": "Changes stay on due dates, the overdue filter and the toggle; the only extras are the plan and spec docs and the new 'alle anzeigen' toggle label.",
+        "tests": "Store, API and page-markup tests cover most behaviour and existing tests were adapted without being weakened, but nothing tests the toggle's click behaviour, an impossible date like 30 February, or a PATCH body that isn't a JSON object.",
+        "conventions": "It follows the TDD flow, data-testid usage, the ValidationException/400 mapping and the no-new-packages rule, though Program.cs uses long fully-qualified System.Text.Json names inline.",
+        "architecture": "Overdue logic sits on Todo and the filter in TodoStore.List, which fits the layout, but the PATCH handler parses the body by hand and uses a public DueDateSet flag, a workaround that leaks into the record and can be set through the JSON body.",
+        "codeQuality": "The code is mostly readable, but the PATCH handler is a dense one-liner, a non-object JSON body would make TryGetProperty throw and return 500, and the UTC 'today' computation is repeated in the page and the store."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 13,
+        "agent": 689,
+        "verifier": 12,
+        "total": 767
+      },
+      "tokens": {
+        "input": 173726,
+        "output": 19714,
+        "cacheRead": 4606280,
+        "cacheWrite": 0,
+        "total": 4799720
+      },
+      "cost": 0.481776,
+      "ccusage": {
+        "ccusageTotal": 4799720,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.481776,
+        "models": {
+          "mistral-large-4": {
+            "input": 173726,
+            "output": 19714,
+            "cacheRead": 4606280,
+            "cacheWrite": 0,
+            "total": 4799720,
+            "cost": 0.481776
+          }
+        }
+      },
+      "userTokens": {
+        "total": 120475
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 2,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      }
+    },
+    {
+      "id": "opencode-2",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 5,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 4,
+        "codeQuality": 3
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover all seven acceptance criteria, including the date-only format, the 400 cases, the clear-with-null semantics, the UTC overdue rule, the \"überfällig\" marker and the \"nur überfällige\" checkbox, and the spec also pins down edge cases such as today and done todos.",
+        "scope": "Every change maps to an acceptance criterion or to the spec; the plan and spec docs are the expected artifacts and no extra features were added.",
+        "tests": "The new tests cover the store, the API and the prerendered page well, including the boundary and clear-versus-omitted cases, and the existing JSON assertion was only updated for the new field. The checkbox filtering behaviour is untested in the suite, and so are the page cases for a done todo and for no due date.",
+        "conventions": "The change follows AGENTS.md: ValidationException for validation errors, data-testid on the new elements, no new packages, and TDD per the plan. Parsing now lives in Program.cs instead of TodoStore, which the spec accepts, but the endpoints grew long inline lambdas.",
+        "architecture": "IsOverdue lives on Todo and is shared by the API filter and the page, and the date parsing is a single helper. Hand-parsing the POST and PATCH bodies with JsonDocument duplicates the title and done extraction and replaces model binding, which the spec chose in order to tell null from omitted.",
+        "codeQuality": "The date validation and IsOverdue logic are correct. The manual body parsing is fragile: a non-object JSON body such as `[]` makes TryGetProperty throw InvalidOperationException, which gives a 500 where model binding would not. A non-string title or a non-boolean done is also silently ignored, and the PATCH `done` line is dense."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 13,
+        "agent": 1005,
+        "verifier": 13,
+        "total": 1080
+      },
+      "tokens": {
+        "input": 391792,
+        "output": 33939,
+        "cacheRead": 6269288,
+        "cacheWrite": 0,
+        "total": 6695019
+      },
+      "cost": 0.776201,
+      "ccusage": {
+        "ccusageTotal": 6695019,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.776201,
+        "models": {
+          "mistral-large-4": {
+            "input": 391792,
+            "output": 33939,
+            "cacheRead": 6269288,
+            "cacheWrite": 0,
+            "total": 6695019,
+            "cost": 0.776201
+          }
+        }
+      },
+      "userTokens": {
+        "total": 214040
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 3,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": false
+      }
+    },
+    {
+      "id": "opencode-3",
+      "reward": 0,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "fail",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 0.8571,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 3,
+        "conventions": 4,
+        "architecture": 3,
+        "codeQuality": 3
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover all seven acceptance criteria, including the 30 February case, removing the date with null or an empty string, and the strict `<` boundary for overdue.",
+        "scope": "The code changes stay within the ticket; the only extras are the spec and plan documents the workflow asks for, and the `todo-overdue` and `todo-due-date` test ids the ticket's UI needs.",
+        "tests": "Store and API tests are thorough, but nothing exercises the 'nur überfällige' toggle behaviour (AC7), only that the button is present. Existing tests were adapted to the new record signatures, not weakened.",
+        "conventions": "The change follows AGENTS.md: validation lives in `TodoStore` and throws `ValidationException`, new UI elements carry `data-testid`, and test style matches. The inline fully qualified `System.Text.Json` names are slightly off the repo's style.",
+        "architecture": "The logic sits in the store and is reused by the API and the page, but `TodoPatch` now carries a `JsonElement`, which leaks JSON concerns into the domain record. `IsOverdue` also re-parses the date string instead of reusing a shared helper.",
+        "codeQuality": "The code is readable, but a PATCH with a non-string `dueDate` such as a number makes `GetString()` throw `InvalidOperationException`, giving a 500 instead of a 400. The `DateTime.UtcNow` call is also duplicated across the page."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 1202,
+        "verifier": 12,
+        "total": 1272
+      },
+      "tokens": {
+        "input": 164991,
+        "output": 21146,
+        "cacheRead": 4584596,
+        "cacheWrite": 0,
+        "total": 4770733
+      },
+      "cost": 0.477311,
+      "ccusage": {
+        "ccusageTotal": 4770733,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.477311,
+        "models": {
+          "mistral-large-4": {
+            "input": 164991,
+            "output": 21146,
+            "cacheRead": 4584596,
+            "cacheWrite": 0,
+            "total": 4770733,
+            "cost": 0.477311
+          }
+        }
+      },
+      "userTokens": {
+        "total": 187824
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 1,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": false
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 0.33,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 0.67,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 0.67,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 0.67,
+      "ac:AC4": 1,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 1
+    },
+    "median": {
+      "tokens": 4799720,
+      "cost": 0.481776,
+      "agent": 1005
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 4,
+      "tests": 3,
+      "conventions": 4,
+      "architecture": 3,
+      "codeQuality": 3
+    },
+    "errorClasses": []
+  }
+}

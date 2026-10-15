@@ -1,0 +1,372 @@
+{
+  "schema": 2,
+  "task": "demo-todo",
+  "harness": "opencode",
+  "fingerprint": {
+    "adw": {
+      "version": "0.25.0",
+      "sha": "576ccfbdba8954564f92e5b7af0773f1a2bef01e",
+      "dirty": true
+    },
+    "skill": {
+      "claude": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "codex": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "opencode": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:de8e8443addc7abd272af71c7102e56e4614e9ebd357888f3bba18a0414c9994"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-node:latest",
+      "id": "sha256:dd8a71df3012301ef215d301c0d6ac2f11cf249f7bef39dabe5c86e22175e09f",
+      "inventory": "f73312c8b32a0eff8a6e42407639392e80cae5d02d97ee54f12a4af8dc7a6d6e",
+      "harnessVersion": "1.19.0",
+      "superpowers": "bb92a77741419a4ab5f06e711a283343f1ada0c3"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "d0da995efeca9c264b60d5b89daaaf8676038179c9502bfb8a4f804ba286495b",
+      "lib": "448a9daff708940389a4d6fb40a52be9bf66943ee97aee330b24bbaf0395e2f2"
+    },
+    "config": "d86521c9a4663bdd8de6e2be965bbb601cf0ad1b235a7541cad6fe57faaced44",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "mistral/mistral-large-4",
+      "subagents": null,
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "3dea70a503184309c5f8bbd3e7e717d537f0b372eb3ed69dc9a288b856de256f"
+  },
+  "calibration": "2026-10-12T1659Z",
+  "config": {
+    "model": "mistral/mistral-large-4",
+    "subagentModel": null,
+    "agentKwargs": {},
+    "repetitions": 3
+  },
+  "trials": [
+    {
+      "id": "opencode-1",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 5,
+        "tests": 4,
+        "conventions": 5,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and the diff cover all seven acceptance criteria: optional date on create, change and remove through PATCH, 400 on invalid dates, the overdue filter, date display, the 'überfällig' marker and the 'nur überfällige' control.",
+        "scope": "The change is limited to what the ticket asks for, plus the spec and plan docs the workflow requires. The only edit to an existing test is the one the new field forces.",
+        "tests": "The API tests cover creation, invalid format, 30 February, update, removal, and the overdue boundaries (today, done, no date). The UI is only checked by regex on the served HTML, so marker and filter behaviour is not tested automatically, and no test calls isValidDueDate or isOverdue directly.",
+        "conventions": "The change uses ValidationError mapped to 400, adds no dependencies, adds data-testid attributes to new elements, and follows the existing test helpers and naming style.",
+        "architecture": "Validation and the overdue predicate sit in the store and the filter is applied in the store's list(). The overdue predicate is duplicated in the client script, which is unavoidable without a server-provided flag.",
+        "codeQuality": "The code is small and readable, and the calendar-date round-trip check is correct. Minor edges: todayUtc in the page is computed once at load, so it goes stale if the page stays open past midnight UTC, and the fetch in render() has no error handling or ordering guard."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 12,
+        "agent": 635,
+        "verifier": 1,
+        "total": 702
+      },
+      "tokens": {
+        "input": 1438687,
+        "output": 15094,
+        "cacheRead": 1451424,
+        "cacheWrite": 0,
+        "total": 2905205
+      },
+      "cost": 1.111453,
+      "ccusage": {
+        "ccusageTotal": 2905205,
+        "deviation": 0,
+        "warning": null,
+        "cost": 1.111453,
+        "models": {
+          "mistral-large-4": {
+            "input": 1438687,
+            "output": 15094,
+            "cacheRead": 1451424,
+            "cacheWrite": 0,
+            "total": 2905205,
+            "cost": 1.111453
+          }
+        }
+      },
+      "userTokens": {
+        "total": 136045
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 3,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": false
+      }
+    },
+    {
+      "id": "opencode-2",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 3,
+        "conventions": 5,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover all seven acceptance criteria, including set, change and remove (null), 400 on invalid dates, UTC overdue semantics, the date display, the \"überfällig\" marker and the \"nur überfällige\" button.",
+        "scope": "The change stays on the ticket; the only extras are an aria-pressed state the spec allowed and the plan and spec docs.",
+        "tests": "API tests cover validation, update and removal, the overdue filter, done todos and a due date of today, and the one edited existing assertion only adds dueDate: null. The UI has only a string-match test for the button, so the marker, date display and toggle are covered only by manual Playwright runs, and the leap-year edge case has no test.",
+        "conventions": "Follows AGENTS.md: ValidationError maps to 400, no dependencies, data-testid on new elements, and it matches the existing test style.",
+        "architecture": "Validation and the overdue predicate live in the store with the HTTP layer only passing through, though the overdue predicate is duplicated in the client.",
+        "codeQuality": "The code is clear and handles edge cases such as impossible calendar dates and the strict < comparison; applyDueDate has a duplicated error message and the page recomputes today's date for every todo."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 11,
+        "agent": 569,
+        "verifier": 1,
+        "total": 631
+      },
+      "tokens": {
+        "input": 914471,
+        "output": 13947,
+        "cacheRead": 2361560,
+        "cacheWrite": 0,
+        "total": 3289978
+      },
+      "cost": 0.816299,
+      "ccusage": {
+        "ccusageTotal": 3289978,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.816299,
+        "models": {
+          "mistral-large-4": {
+            "input": 914471,
+            "output": 13947,
+            "cacheRead": 2361560,
+            "cacheWrite": 0,
+            "total": 3289978,
+            "cost": 0.816299
+          }
+        }
+      },
+      "userTokens": {
+        "total": 134359
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 2,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      }
+    },
+    {
+      "id": "opencode-3",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 5,
+        "architecture": 3,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria are covered by the spec and the diff, including the UTC and done-todo overdue rule, which the spec was updated to match.",
+        "scope": "The change stays within the ticket; the extra plan and spec docs and the .gitignore entry for Playwright artifacts are minor additions.",
+        "tests": "Store and API tests cover validation, PATCH set/clear, and overdue edge cases, but the UI is only checked for the filter's testid and the existing test was only extended.",
+        "conventions": "The change uses ValidationError mapped to 400, adds data-testid on the new elements, has no new dependencies, and follows the existing test style.",
+        "architecture": "The overdue predicate is duplicated in app.mjs and index.html, and the filtering logic sits in the route handler instead of the store.",
+        "codeQuality": "The code is clear and the date validation is strict, but the overdue logic is duplicated and the page's initial load has no error handling."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 631,
+        "verifier": 1,
+        "total": 691
+      },
+      "tokens": {
+        "input": 155497,
+        "output": 20260,
+        "cacheRead": 4138744,
+        "cacheWrite": 0,
+        "total": 4314501
+      },
+      "cost": 0.437793,
+      "ccusage": {
+        "ccusageTotal": 4314501,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.437793,
+        "models": {
+          "mistral-large-4": {
+            "input": 155497,
+            "output": 20260,
+            "cacheRead": 4138744,
+            "cacheWrite": 0,
+            "total": 4314501,
+            "cost": 0.437793
+          }
+        }
+      },
+      "userTokens": {
+        "total": 157857
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 3,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": false
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 1,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 1,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 1,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 1,
+      "ac:AC4": 1,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 1
+    },
+    "median": {
+      "tokens": 3289978,
+      "cost": 0.816299,
+      "agent": 631
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 4,
+      "tests": 4,
+      "conventions": 5,
+      "architecture": 4,
+      "codeQuality": 4
+    },
+    "errorClasses": []
+  }
+}

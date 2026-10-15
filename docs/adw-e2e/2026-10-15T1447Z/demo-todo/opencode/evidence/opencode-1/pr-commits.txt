@@ -1,0 +1,5 @@
+911527d feat: show due date and overdue marker, add overdue-only filter
+4c8b94c feat: filter todos by overdue via GET /todos?overdue=true
+f723754 feat: add optional dueDate to todos with validation
+32aefbf Add implementation plan for due date feature (ticket #1)
+1c16a3c Add spec for due date feature (ticket #1)

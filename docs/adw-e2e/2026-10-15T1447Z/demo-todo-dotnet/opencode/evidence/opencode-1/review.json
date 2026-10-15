@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 3,
+    "scope": 4,
+    "tests": 3,
+    "conventions": 4,
+    "architecture": 3,
+    "codeQuality": 3
+  },
+  "reasons": {
+    "requirements": "The diff meets all seven ACs, but the approved spec has a non-goal of 'keine Filterung' and never mentions the ?overdue=true API filter or the 'nur überfällige' control (AC4, AC7), and it does not state the 30 February case.",
+    "scope": "Changes stay on due dates, the overdue filter and the toggle; the only extras are the plan and spec docs and the new 'alle anzeigen' toggle label.",
+    "tests": "Store, API and page-markup tests cover most behaviour and existing tests were adapted without being weakened, but nothing tests the toggle's click behaviour, an impossible date like 30 February, or a PATCH body that isn't a JSON object.",
+    "conventions": "It follows the TDD flow, data-testid usage, the ValidationException/400 mapping and the no-new-packages rule, though Program.cs uses long fully-qualified System.Text.Json names inline.",
+    "architecture": "Overdue logic sits on Todo and the filter in TodoStore.List, which fits the layout, but the PATCH handler parses the body by hand and uses a public DueDateSet flag, a workaround that leaks into the record and can be set through the JSON body.",
+    "codeQuality": "The code is mostly readable, but the PATCH handler is a dense one-liner, a non-object JSON body would make TryGetProperty throw and return 500, and the UTC 'today' computation is repeated in the page and the store."
+  },
+  "error": null
+}

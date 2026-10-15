@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 3,
+    "conventions": 4,
+    "architecture": 3,
+    "codeQuality": 3
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria, including the 30 February case, removing the date with null or an empty string, and the strict `<` boundary for overdue.",
+    "scope": "The code changes stay within the ticket; the only extras are the spec and plan documents the workflow asks for, and the `todo-overdue` and `todo-due-date` test ids the ticket's UI needs.",
+    "tests": "Store and API tests are thorough, but nothing exercises the 'nur überfällige' toggle behaviour (AC7), only that the button is present. Existing tests were adapted to the new record signatures, not weakened.",
+    "conventions": "The change follows AGENTS.md: validation lives in `TodoStore` and throws `ValidationException`, new UI elements carry `data-testid`, and test style matches. The inline fully qualified `System.Text.Json` names are slightly off the repo's style.",
+    "architecture": "The logic sits in the store and is reused by the API and the page, but `TodoPatch` now carries a `JsonElement`, which leaks JSON concerns into the domain record. `IsOverdue` also re-parses the date string instead of reusing a shared helper.",
+    "codeQuality": "The code is readable, but a PATCH with a non-string `dueDate` such as a number makes `GetString()` throw `InvalidOperationException`, giving a 500 instead of a 400. The `DateTime.UtcNow` call is also duplicated across the page."
+  },
+  "error": null
+}
