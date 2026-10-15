@@ -1,0 +1,24 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\nKein schriftliches Spec-Dokument (kleine Änderung); im Gespräch vereinbarter Umfang:\n\n**API**\n- Neues optionales Feld `dueDate` (`YYYY-MM-DD`, ohne Uhrzeit); in jeder Antwort `null`, wenn nicht gesetzt.\n- Setzen bei `POST /todos`, ändern per `PATCH /todos/:id`, entfernen per `PATCH` mit `null`.\n- 400 (`ValidationError`) bei falschem Format, Nicht-String oder unmöglichem Kalenderdatum (z. B. `2026-02-30`, `2026-13-01`). Vergangene Daten sind erlaubt.\n- `GET /todos?overdue=true` liefert nur überfällige Todos (nicht erledigt, Datum vor heute UTC). Ohne Parameter alle; jeder andere Wert für `overdue` → 400.\n\n**Liste (`/`), nur Anzeige**\n- Hinter dem Titel `fällig TT.MM.JJJJ` (`data-testid=\"todo-due\"`); überfällige zusätzlich das Wort „überfällig“ (`data-testid=\"todo-overdue\"`).\n- Überfällig = Datum gesetzt, nicht erledigt, Datum vor heute (UTC). Heute fällig, erledigt oder ohne Datum ist nie überfällig.\n- Checkbox „nur überfällige“ (`data-testid=\"filter-overdue\"`), anfangs nicht angehakt; angehakt lädt `/todos?overdue=true`, abgehakt wieder alle.\n- Kein Styling, keine Sortierung, kein Bearbeiten auf der Seite.\n\n**Tests**\n- TDD in `test/`, inkl. Filter; Store mit einstellbarer Uhr.\n- E2E durch den Agenten mit Playwright: Todos mit vergangenem, heutigem, ohne Datum und erledigt+vergangen; Anzeige und „überfällig“ prüfen; Filter an/aus prüfen; Screenshots außerhalb des Repos.\n\n**Nicht dabei:** Uhrzeiten, andere Zeitzonen als UTC, Formulare auf der Seite, `overdue`-Feld in Todo-Objekten.",
+      "created_at": "2026-10-15T08:43:59Z"
+    },
+    {
+      "body": "## Implementation Summary\n**Approach** — Todos haben ein optionales Feld `dueDate` (`YYYY-MM-DD`). Es wird bei `POST /todos` gesetzt, per `PATCH` geändert und mit `null` entfernt. Der Store prüft das Format und ob es das Datum wirklich gibt: Er baut das Datum per UTC nach und vergleicht Jahr, Monat und Tag. `GET /todos?overdue=true` gibt nur offene Todos mit Datum vor heute (UTC) zurück. Die Uhr des Stores ist für Tests einstellbar (`createStore({ now })`). Die Liste zeigt `fällig TT.MM.JJJJ` (`todo-due`), bei überfälligen Todos zusätzlich „überfällig“ (`todo-overdue`). Außerdem gibt es die Checkbox „nur überfällige“ (`filter-overdue`), die über die API filtert.\n**Consequences** — Jedes Todo-Objekt hat jetzt `dueDate` (Standardwert `null`). Ungültige Datumswerte und jeder andere `overdue`-Wert als `true` geben 400 zurück. Keine neue Config, keine Abhängigkeiten.\n**Possible side effects** — Clients, die exakt `{id,title,done}` erwarten, sehen ein zusätzliches Feld. „Heute“ hängt von der UTC-Uhr ab: Server und Browser rechnen getrennt, kurz um Mitternacht UTC können die Uhren abweichen.\n**Watch when testing** — Datum `2026-02-30` und `2026-13-01` → 400. Heute fällig ist nicht überfällig, erledigte Todos sind nie überfällig. E2E **vom Agenten getestet** mit Playwright: vier Todos (vergangen offen, heute, ohne Datum, vergangen erledigt). Nur das erste zeigt „überfällig“. Der Filter an zeigt nur dieses, aus wieder alle vier. Belege: `/tmp/demo-todo-e2e/2-nur-ueberfaellige.png`, `3-alle-wieder.png` sowie Snapshots. Der einzige Konsolenfehler ist das schon vorher fehlende `favicon.ico` (404).\nSpec: — (kleine Änderung, Umfang im Ticket-Kommentar „Approved Spec“) · Plan: — · PR: http://gitea:3000/adw/demo-todo/pulls/2",
+      "created_at": "2026-10-15T08:47:58Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-15T08:41:57Z → 2026-10-15T08:47:45Z · Models: claude-sonnet-5-5\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 20 | 1,638 | 204,050 | 26,607 | 232,315 | $0.14 |\n\nSessions counted: claude:5c7380ed-8db8-4bc9-8e7b-8255d0d8fc75\nUSD is a local ccusage estimate. Every session on this machine active in the\nwindow is counted, including unrelated ones.",
+      "created_at": "2026-10-15T08:47:58Z"
+    }
+  ]
+}

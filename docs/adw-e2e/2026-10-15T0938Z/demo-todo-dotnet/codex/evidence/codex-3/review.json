@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 5,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, including the PATCH cases of omitting the field, setting it and clearing it with null, and the strict UTC overdue rule.",
+    "scope": "The product change stays in scope, but the diff also adds a .gitignore entry for .worktrees/ and a committed agent plan document that nobody asked for.",
+    "tests": "The store, API and page tests cover valid and invalid dates, the omitted/null/set PATCH cases, the UTC today boundary, done and undated todos, and the filter. The one existing exact-JSON assertion was updated for the new fields, and no tests were removed.",
+    "conventions": "Validation uses ValidationException thrown from TodoStore, the new UI elements have data-testid attributes, no packages were added, and the page calls the store directly, all as AGENTS.md requires.",
+    "architecture": "Logic stays in the store with a thin route binding and the page reusing List(bool). The init-accessor presence flag on TodoPatch is a somewhat clever way to tell an omitted field from an explicit null, but it is contained.",
+    "codeQuality": "Parsing is strict, happens before any mutation, and IsOverdue is computed on read. The only minor drawbacks are the slightly intricate patch-flag pattern and the page's `@(\" \")` spacing workaround."
+  },
+  "error": null
+}

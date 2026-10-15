@@ -1,0 +1,24 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\n\nTicket #1: Fälligkeitsdatum für Todos.\n\n- Optionales Fälligkeitsdatum als Kalendertag ohne Uhrzeit, API-Feld `dueDate` im Format `YYYY-MM-DD`.\n- Überfällig ist ein Todo genau dann, wenn es nicht erledigt ist und sein Datum vor dem heutigen UTC-Kalendertag liegt. Ohne Datum niemals überfällig.\n- POST erlaubt ein Datum oder kein Datum. PATCH setzt/ändert es, explizites `null` entfernt es, ein ausgelassenes Feld bleibt unverändert.\n- API-Antworten enthalten `dueDate` und `isOverdue`.\n- `GET /todos?overdue=true` liefert nur überfällige Todos. Ohne Parameter oder bei `overdue=false` weiterhin alle.\n- Die Liste zeigt das Datum und markiert überfällige Todos sichtbar mit dem Wort „überfällig“.\n- Ein anfangs nicht aktiviertes Kontrollkästchen mit der Beschriftung „nur überfällige“ filtert die Liste; Deaktivieren zeigt wieder alle.\n- Ungültige Datumswerte führen zu HTTP 400 mit Fehler-JSON; bestehende Todos und Requests ohne Datum funktionieren weiter.\n- Keine Sortierung, keine Erinnerungen, kein Styling und keine zusätzlichen Bearbeitungsfunktionen.\n- Automatisierte Store-, API- und Seitentests. End-to-End-Test durch den Agenten mit Playwright: vergangene/heutige/zukünftige/fehlende Daten, erledigte Todos, Marker, Filter ein/aus und leeres Filterergebnis. Screenshots außerhalb des Repositories, App anschließend stoppen.",
+      "created_at": "2026-10-15T11:26:38Z"
+    },
+    {
+      "body": "## Implementation Summary\n\n**Approach** — Optionale Fälligkeitsdaten im gemeinsamen TodoStore, als Kalendertag ohne Uhrzeit. `isOverdue` wird beim Lesen nach dem heutigen UTC-Datum berechnet. Die Liste zeigt ISO-Datum und „überfällig“ sowie das Kontrollkästchen „nur überfällige“.\n\n**Consequences** — API-Antworten enthalten zusätzlich `dueDate` und `isOverdue`. POST akzeptiert optional `dueDate` (`YYYY-MM-DD`); PATCH unterscheidet Setzen/Ändern, explizites `null` zum Entfernen und Auslassen zum Beibehalten. `GET /todos?overdue=true` filtert; fehlend/false liefert alle. Ungültige Daten ergeben HTTP 400 mit Fehler-JSON, ohne Daten zu ändern. Ohne Datum und bei erledigten Todos gilt niemals überfällig. Keine Sortierung, Erinnerungen, Styling oder neuen Pakete.\n\n**Possible side effects** — Clients mit strikt festgelegter JSON-Antwortstruktur müssen die zwei zusätzlichen Felder berücksichtigen. Der bestehende In-Memory-Lebenszyklus gilt auch für Fälligkeitsdaten.\n\n**Watch when testing** — 46/46 automatisierte Tests bestanden; unabhängiges Review ohne Befunde. End-to-End durch den Agenten mit Playwright bestanden: gestern/heute/morgen/ohne Datum/erledigt, Datumsanzeige und Wort „überfällig“, API-Filter, UI-Filter ein/aus und leeres Ergebnis nach Erledigen des letzten überfälligen Todos. Am UTC-Tag 2026-10-15 wurden 5 Zeilen, 4 Daten und genau 1 Überfällig-Markierung geprüft. Screenshots: `/tmp/ticket-1-all-todos.png`, `/tmp/ticket-1-only-overdue.png`, `/tmp/ticket-1-empty-overdue.png`. App anschließend gestoppt.\n\nSpec: #1, Approved Spec · Plan: `docs/superpowers/plans/2026-10-15-todo-due-dates.md` · PR: http://gitea:3000/adw/demo-todo/pulls/2\n\nTicket: #1",
+      "created_at": "2026-10-15T11:34:51Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-15T11:23:45Z → 2026-10-15T11:35:16Z · Models: claude-sonnet-5-5, gpt-6.1-sol\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 131853 | 28412 | 2898629 | 7813 | 3066707 | $0.868941 |\n\nSessions counted: codex:2026/10/15/rollout-2026-10-15T11-23-30-01a13f4d-9148-7611-ae12-b213d31714d3, codex:2026/10/15/rollout-2026-10-15T11-32-21-01a13f55-ab3b-79d0-b0d9-a9d48d785652, claude:ebfb8afe-fddd-402a-9198-765f317b2da7\n\nUSD is a local ccusage estimate. Every session on this machine active in the window is counted, including unrelated ones.",
+      "created_at": "2026-10-15T11:35:16Z"
+    }
+  ]
+}

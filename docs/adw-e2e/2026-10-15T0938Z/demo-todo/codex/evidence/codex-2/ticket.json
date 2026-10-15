@@ -1,0 +1,24 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\n\nTicket #1 — Fälligkeitsdatum für Todos.\n\n- Optionales Feld `dueDate` als gültiger Kalendertag im Format `YYYY-MM-DD`, ohne Uhrzeit. Beim Anlegen setzbar, per PATCH änderbar oder mit `null` entfernbar; ohne Datum `null`. Ungültige Daten ergeben HTTP 400 über ValidationError.\n- Ein Todo ist genau dann `overdue`, wenn es nicht erledigt ist und sein Fälligkeitsdatum vor dem heutigen UTC-Kalendertag liegt. Ohne Datum nie überfällig. API-Antworten berechnen den aktuellen Wert.\n- `GET /todos?overdue=true` liefert nur überfällige Todos; die normale Liste liefert weiterhin alle.\n- Die vorhandene Liste zeigt das Fälligkeitsdatum und bei überfälligen Todos eine Markierung mit dem Wort „überfällig“. Ein Bedienelement „nur überfällige“ schaltet den Filter ein und aus.\n- Keine neuen Eingabeformulare oder Sortierung. Datumsänderungen erfolgen über die API.\n- Der Agent testet die Anzeige Ende-zu-Ende mit Playwright: Datum/Markierung, gestern/heute/zukünftig/ohne Datum/erledigt, Filter an und aus sowie Änderung und Entfernung des Datums nach erneutem Laden.\n- Weiterhin Node 24, keine zusätzlichen Abhängigkeiten, In-Memory-Store und data-testid für neue geprüfte UI-Elemente.",
+      "created_at": "2026-10-15T09:53:05Z"
+    },
+    {
+      "body": "## Implementation Summary\n**Approach** — Todos unterstützen ein optionales `dueDate` als echten Kalendertag (`YYYY-MM-DD`). POST setzt das Datum, PATCH ändert es oder entfernt es mit `null`. `overdue` wird bei jeder Antwort aus dem heutigen UTC-Tag und dem Erledigt-Status berechnet. `GET /todos?overdue=true` sowie die Checkbox „nur überfällige“ filtern die Liste; überfällige Einträge tragen die Markierung „überfällig“.\n\n**Consequences** — Todo-Antworten enthalten zusätzlich `dueDate` (ohne Datum `null`) und `overdue`. Ungültige Datumswerte liefern HTTP 400. Keine zusätzlichen Abhängigkeiten; Speicherung bleibt im Arbeitsspeicher.\n\n**Possible side effects** — API-Clients mit exakten Objektvergleichen müssen die beiden neuen Antwortfelder berücksichtigen. Datum und Status werden beim Laden beziehungsweise Filterwechsel aktualisiert.\n\n**Watch when testing** — Heute, Zukunft, ohne Datum und erledigt sind nie überfällig. Datum setzen/ändern/entfernen und Filter ein/aus prüfen. 28 Node-Tests bestanden, darunter Kalendervalidierung, UTC-Tageswechsel und atomare Fehlerbehandlung. Ende-zu-Ende durch den Agenten mit Playwright getestet: alle fünf Datums-/Statusfälle, Datum/Markierung, Filter ein/aus/leeres Ergebnis, Änderung/Entfernung nach Neuladen, schnelle Filterwechsel und HTTP-Fehler mit Wiederherstellung. Screenshots außerhalb des Repos: `/tmp/ticket-1-all-todos.png`, `/tmp/ticket-1-overdue-filter.png`. Test-App anschließend gestoppt.\n\nSpec: Ticket #1, Approved Spec-Kommentar · Plan: `docs/superpowers/plans/2026-10-15-todo-due-dates.md`\n\nTicket: #1 — http://gitea:3000/adw/demo-todo/issues/1\n\nPR: http://gitea:3000/adw/demo-todo/pulls/2",
+      "created_at": "2026-10-15T09:57:54Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-15T09:51:00Z → 2026-10-15T09:58:19.872Z · Models: gpt-6.1-sol, gpt-6-sol, claude-sonnet-5-5\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 122526 | 19580 | 1973330 | 6256 | 2121692 | 0.682422 |\n\nSessions counted: codex:2026/10/15/rollout-2026-10-15T09-50-48-01a13ef8-b12f-7ea0-ab73-36026adc11cd, codex:2026/10/15/rollout-2026-10-15T09-56-24-01a13efd-d42e-7640-b4f1-5b12dc677e2e, claude:f97773c4-7050-4d55-93e6-d5ec8899554c\nUSD is a local ccusage estimate. Every session on this machine active in the window is counted, including unrelated ones.",
+      "created_at": "2026-10-15T09:58:20Z"
+    }
+  ]
+}

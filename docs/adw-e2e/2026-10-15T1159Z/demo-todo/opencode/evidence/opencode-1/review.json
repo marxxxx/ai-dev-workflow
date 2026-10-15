@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 4,
+    "scope": 5,
+    "tests": 3,
+    "conventions": 4,
+    "architecture": 3,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered, including UTC overdue logic, 400 on invalid dates, and removal via null; the spec only covered the filter (AC4, AC7) through a later update, but the diff delivers it.",
+    "scope": "Only due-date and overdue-filter changes are present, with no unrelated edits.",
+    "tests": "API tests are good (valid and invalid dates, update and clear, overdue filter including done and no-date cases), but no automated test covers the UI marker, due-date display or checkbox, and the one existing test was only updated for the new field.",
+    "conventions": "Uses ValidationError mapped to 400, adds data-testid to every new element, stays dependency-free, and follows the TDD test style.",
+    "architecture": "Server-side validation and isOverdue live in the store, but the page re-implements isOverdue in the browser and filters client-side rather than using the new ?overdue=true endpoint, which duplicates logic.",
+    "codeQuality": "Date validation is correct with a round-trip calendar check and the code is readable; minor issues are reassigning the dueDate parameter and tests that compute dates from Date.now."
+  },
+  "error": null
+}

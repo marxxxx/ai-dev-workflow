@@ -1,0 +1,24 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\nKleine Änderung, im Chat abgestimmt (kein Spec-Dokument).\n\n**Datenmodell & API**\n- Neues Feld `dueDate`: optional, reiner Kalendertag als `\"YYYY-MM-DD\"`, sonst `null`; jedes Todo hat das Feld.\n- Setzen per `POST /todos` (`{ \"title\", \"dueDate\" }`) oder `PATCH /todos/:id`; `PATCH { \"dueDate\": null }` entfernt das Datum.\n- Ungültige Werte (z. B. `\"morgen\"`, `\"2026-02-30\"`, Zahlen) → HTTP 400 (`ValidationError`).\n- Berechnetes Feld `overdue: true|false` in jeder Antwort. Überfällig = nicht erledigt **und** `dueDate` vor heute (UTC). Ohne Datum nie überfällig; heute fällig ist nicht überfällig.\n- Filter `GET /todos?overdue=true` liefert nur überfällige Todos; andere Werte für `overdue` → 400.\n\n**Liste**\n- Datum im ISO-Format neben dem Titel (`data-testid=\"todo-due\"`).\n- Überfällige Todos mit dem Wort „überfällig“ markiert (`data-testid=\"todo-overdue\"`); kein weiteres Styling.\n- Checkbox „nur überfällige“ (`data-testid=\"overdue-filter\"`), lädt angehakt `/todos?overdue=true`.\n\n**Test**\n- Der Agent testet Ende-zu-Ende im Browser (Playwright): Anzeige von Datum und „überfällig“, Filter-Checkbox an/aus.",
+      "created_at": "2026-10-15T08:51:54Z"
+    },
+    {
+      "body": "## Implementation Summary\n**Approach** — Todos haben ein optionales Feld `dueDate` (`YYYY-MM-DD` oder `null`), das sich per `POST /todos` und `PATCH /todos/:id` setzen lässt; `null` entfernt es. Der Store liefert zusätzlich ein berechnetes Feld `overdue` (nicht erledigt und `dueDate` vor heute in UTC). `GET /todos?overdue=true` filtert danach. „Heute“ kann über `createStore({ today })` injiziert werden, die Tests nutzen das. Die Liste zeigt Datum (`todo-due`) und „überfällig“ (`todo-overdue`) neben dem Titel und hat eine Checkbox „nur überfällige“ (`overdue-filter`). Umgesetzt testgetrieben, 13 neue Tests.\n**Consequences** — Jede Todo-Antwort hat jetzt zusätzlich `dueDate` und `overdue`. Ungültige Datumswerte und `overdue`-Werte außer `true` führen zu 400.\n**Possible side effects** — Clients, die die Antwort exakt vergleichen, sehen neue Felder. Ein PATCH mit gültigem Titel und ungültigem Datum ändert den Titel trotzdem, bevor die 400 kommt; das entspricht dem bisherigen Verhalten bei `done`.\n**Watch when testing** — Grenzfälle „heute fällig“ (nicht überfällig) und „erledigt, Datum in der Vergangenheit“ (nicht überfällig); Tageswechsel in UTC statt Ortszeit. E2E vom Agenten getestet (Playwright): 5 Todos über die API angelegt (gestern, heute, morgen, ohne Datum, gestern erledigt). Die Liste zeigte die Daten, „überfällig“ nur bei „gestern“; die Checkbox filterte auf genau dieses Todo und zeigte nach dem Abhaken wieder alle. Screenshots: `/tmp/e2e-1/list-all.png`, `/tmp/e2e-1/list-overdue.png` (lokal beim Agenten).\nSpec: Ticket-Kommentar „Approved Spec“ · Plan: — · PR: http://gitea:3000/adw/demo-todo/pulls/2",
+      "created_at": "2026-10-15T08:54:52Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-15T08:50:46Z → 2026-10-15T08:54:34Z · Models: claude-opus-5-5, claude-sonnet-5-5\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 86 | 18,128 | 1,738,050 | 63,436 | 1,819,700 | $1.16 |\n\nSessions counted: claude:7523db4f-a8e7-44fa-ad15-655f1f54db52, claude:cfb65a27-4203-4b8a-94fb-4818448d6524\nUSD is a local ccusage estimate. Every session on this machine active in the window is counted, including unrelated ones. Note: this session's logs live under `/logs/agent/sessions`, so they were collected with `CLAUDE_CONFIG_DIR=/logs/agent/sessions`; the Sonnet session comes from the default directory.",
+      "created_at": "2026-10-15T08:54:52Z"
+    }
+  ]
+}

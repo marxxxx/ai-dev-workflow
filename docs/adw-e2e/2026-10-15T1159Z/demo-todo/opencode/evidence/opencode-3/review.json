@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the diff, and the spec adds precise edge cases (today is not overdue, null removes the date, wrong type returns 400).",
+    "scope": "The code changes stay within the ticket. The only extras are the committed spec and plan docs, and the sample todo in the overdue test carries a redundant `done: false`.",
+    "tests": "Store and API tests cover set, change, remove, invalid input and the overdue filter edge cases, and the existing page test was extended rather than weakened. Gaps: the E2E run was manual and left no committed test, and there is no API-level test for a non-string dueDate.",
+    "conventions": "The change uses ValidationError for 400s, adds no dependencies, follows TDD, and gives the new UI elements data-testid attributes as AGENTS.md requires.",
+    "architecture": "Validation and the overdue filter live in the store and the route only passes the query parameter through. The UI re-implements the overdue rule client-side instead of using ?overdue=true, which the spec allows.",
+    "codeQuality": "The code is clear and handles edge cases well, using a Date.UTC round-trip for validation, UTC string comparison, and delete on null. Minor points: the UI computes today once at page load, and a null dueDate on POST gives 400 rather than being ignored."
+  },
+  "error": null
+}

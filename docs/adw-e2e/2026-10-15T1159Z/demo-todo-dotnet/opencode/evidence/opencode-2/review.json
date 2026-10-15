@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 4,
+    "scope": 3,
+    "tests": 3,
+    "conventions": 3,
+    "architecture": 2,
+    "codeQuality": 2
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered, but a non-string `dueDate` in PATCH is silently ignored instead of rejected with 400.",
+    "scope": "The `Done` flag added to `NewTodo` was not requested and exists only to make tests convenient.",
+    "tests": "Store, API and prerender tests were added and none were weakened, but nothing tests that the toggle filters the list, 400 for PATCH, or a body that is not a JSON object.",
+    "conventions": "AGENTS.md says `TodoStore` throws `ValidationException`, but the date parsing and its throw are in `Program.cs`. POST 400s come from framework binding and likely lack the `{\"error\"}` body.",
+    "architecture": "The overdue rule is duplicated in `Home.razor` and `TodoStore`. Hand-written JSON parsing in the PATCH endpoint replaces record binding, and the `ClearDueDate` flag leaks the absent-vs-null workaround into the model.",
+    "codeQuality": "The PATCH handler is fragile: a non-object body makes `TryGetProperty` throw a 500, wrongly typed fields are silently ignored, and the parsing is verbose."
+  },
+  "error": null
+}

@@ -1,0 +1,351 @@
+diff --git a/docs/superpowers/plans/2026-10-15-todo-due-dates.md b/docs/superpowers/plans/2026-10-15-todo-due-dates.md
+new file mode 100644
+index 0000000..427969a
+--- /dev/null
++++ b/docs/superpowers/plans/2026-10-15-todo-due-dates.md
+@@ -0,0 +1,61 @@
++# Todo due dates implementation plan
++
++> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking.
++
++**Goal:** Add optional calendar due dates, UTC overdue status, and overdue-only API/UI filtering for ticket #1.
++
++**Architecture:** Store validated nullable `dueDate` values and derive `overdue` at read time. The API selects overdue items with `?overdue=true`; the existing page renders date/status and reloads the list when its checkbox changes.
++
++**Tech Stack:** Node 24 builtins, node:test, plain HTML/JavaScript, Playwright MCP.
++
++**Spec:** Ticket #1 Approved Spec comment (2026-10-15), agreed in conversation; no separate design file for this small change.
++
++## Global Constraints
++
++- No dependencies; in-memory storage.
++- Invalid dates throw `ValidationError` and yield HTTP 400.
++- `dueDate`: real `YYYY-MM-DD` calendar day or null; POST sets, PATCH changes/removes; omission on PATCH preserves.
++- `overdue`: not done, date present, date strictly before today's UTC date; derived on every API response.
++- `GET /todos?overdue=true` selects only overdue items; unfiltered/false returns all.
++- Show the word “überfällig” and a “nur überfällige” checkbox; use data-testid for new UI elements.
++- No editing forms or sorting; agent performs end-to-end browser checks and stops the app afterward.
++
++## Review Focus
++
++- Invalid leap days and timestamps must be rejected, not normalized.
++- Failed PATCH must not partially mutate title, done, or due date.
++- UTC midnight must update status without writing the todo again.
++- Completed, undated, today, and future todos must be excluded by the filter.
++- Fast checkbox changes must not leave stale filtered results on screen.
++
++### Task 1: API due dates and overdue filtering
++
++**Files:** `src/store.mjs`, `src/app.mjs`, `test/store.test.mjs`, `test/app.test.mjs`.
++
++**Interfaces:** `createStore()` retains list/get/add/update/remove; todo responses add `dueDate: string|null` and `overdue: boolean`. `createApp(store)` uses `store.list()` and filters the derived overdue value.
++
++- [x] Write failing store/API tests: date set/change/remove/preserve; invalid date formats/types/calendar days; UTC midnight and done state; atomic invalid updates; mixed-list filtering and empty result. Use fixed dates with node:test mocked Date for boundary tests.
++- [x] Run `npm test`; expect assertion failures for missing date/status/filter behavior.
++- [x] Implement strict date validation and computed snapshots; validate patches before assignment; add query filtering.
++- [x] Run `npm test`; expect all tests passing.
++- [x] Commit API implementation and tests.
++
++### Task 2: List display and overdue checkbox
++
++**Files:** `public/index.html`; browser evidence outside the repo.
++
++**Interfaces:** API from Task 1. New UI test IDs: `overdue-filter`, `todo-due-date`, `todo-overdue`, `todo-error`.
++
++- [x] Start app on port 3000; wait for `/health`. Seed yesterday/today/future/undated/completed todos via API. With Playwright, assert due-date rendering and filter checkbox; expect failure before implementation.
++- [x] Render dates with semantic time elements, overdue text, and a labelled checkbox. Fetch `/todos?overdue=true` on filter activation; protect against stale responses and show errors accessibly.
++- [x] Run Playwright checks for all date/status cases, filter on/off, changing/removing a date after reload, and fast toggles; save screenshots outside repo. Stop app.
++- [x] Run `npm test` and `git diff --check`; expect success.
++- [x] Commit UI implementation; mark plan complete.
++
++### Close-out
++
++- [x] Obtain independent whole-branch code review; fix important issues with regression tests.
++- [x] Fresh full test run, push branch, open draft PR against main.
++- [x] Post Implementation Summary and Cost Summary to ticket; move to review, leave open.
++
++Completed: independent review found no issues; draft PR http://gitea:3000/adw/demo-todo/pulls/2; implementation/cost summaries posted and ticket #1 moved to review.
+diff --git a/public/index.html b/public/index.html
+index de8f94a..d7218f4 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -3,19 +3,56 @@
+ <head><meta charset="utf-8"><title>demo-todo</title></head>
+ <body>
+   <h1>Todos</h1>
++  <label><input type="checkbox" data-testid="overdue-filter"> nur überfällige</label>
++  <p role="alert" data-testid="todo-error" hidden>Todos konnten nicht geladen werden. Bitte erneut versuchen.</p>
+   <ul data-testid="todo-list"></ul>
+   <script type="module">
+     const list = document.querySelector('[data-testid="todo-list"]');
+-    const todos = await (await fetch('/todos')).json();
+-    for (const todo of todos) {
+-      const li = document.createElement('li');
+-      li.dataset.testid = 'todo-item';
+-      const title = document.createElement('span');
+-      title.dataset.testid = 'todo-title';
+-      title.textContent = todo.title + (todo.done ? ' ✓' : '');
+-      li.append(title);
+-      list.append(li);
++    const filter = document.querySelector('[data-testid="overdue-filter"]');
++    const error = document.querySelector('[data-testid="todo-error"]');
++    let requestId = 0;
++
++    async function loadTodos() {
++      const currentRequest = ++requestId;
++      error.hidden = true;
++      try {
++        const response = await fetch(filter.checked ? '/todos?overdue=true' : '/todos');
++        if (!response.ok) throw new Error('Could not load todos');
++        const todos = await response.json();
++        if (currentRequest !== requestId) return;
++        const items = document.createDocumentFragment();
++        for (const todo of todos) {
++          const li = document.createElement('li');
++          li.dataset.testid = 'todo-item';
++          const title = document.createElement('span');
++          title.dataset.testid = 'todo-title';
++          title.textContent = todo.title + (todo.done ? ' ✓' : '');
++          li.append(title);
++          if (todo.dueDate) {
++            const dueDate = document.createElement('time');
++            dueDate.dataset.testid = 'todo-due-date';
++            dueDate.dateTime = todo.dueDate;
++            dueDate.textContent = todo.dueDate;
++            li.append(' — Fällig: ', dueDate);
++          }
++          if (todo.overdue) {
++            const overdue = document.createElement('strong');
++            overdue.dataset.testid = 'todo-overdue';
++            overdue.textContent = 'überfällig';
++            li.append(' — ', overdue);
++          }
++          items.append(li);
++        }
++        list.replaceChildren(items);
++      } catch {
++        if (currentRequest !== requestId) return;
++        list.replaceChildren();
++        error.hidden = false;
++      }
+     }
++
++    filter.addEventListener('change', loadTodos);
++    await loadTodos();
+   </script>
+ </body>
+ </html>
+diff --git a/src/app.mjs b/src/app.mjs
+index 9db56cc..f443e29 100644
+--- a/src/app.mjs
++++ b/src/app.mjs
+@@ -15,7 +15,11 @@ export function createApp(store = createStore()) {
+         return res.end(await readFile(new URL('../public/index.html', import.meta.url)));
+       }
+       if (url.pathname === '/health') return send(200, { ok: true });
+-      if (url.pathname === '/todos' && req.method === 'GET') return send(200, store.list());
++      if (url.pathname === '/todos' && req.method === 'GET') {
++        const todos = store.list();
++        return send(200, url.searchParams.get('overdue') === 'true'
++          ? todos.filter((todo) => todo.overdue) : todos);
++      }
+       if (url.pathname === '/todos' && req.method === 'POST') {
+         return send(201, store.add(await readJson(req)));
+       }
+diff --git a/src/store.mjs b/src/store.mjs
+index 3caed3c..f459c47 100644
+--- a/src/store.mjs
++++ b/src/store.mjs
+@@ -4,18 +4,20 @@ export function createStore() {
+   let nextId = 1;
+   return {
+     list() {
+-      return [...todos.values()];
++      const today = new Date().toISOString().slice(0, 10);
++      return [...todos.values()].map((todo) => snapshot(todo, today));
+     },
+     get(id) {
+-      return todos.get(id);
++      return snapshot(todos.get(id));
+     },
+-    add({ title }) {
++    add({ title, dueDate = null }) {
+       if (typeof title !== 'string' || title.trim() === '') {
+         throw new ValidationError('title is required');
+       }
+-      const todo = { id: nextId++, title: title.trim(), done: false };
++      validateDueDate(dueDate);
++      const todo = { id: nextId++, title: title.trim(), done: false, dueDate };
+       todos.set(todo.id, todo);
+-      return todo;
++      return snapshot(todo);
+     },
+     update(id, patch) {
+       const todo = todos.get(id);
+@@ -24,13 +26,15 @@ export function createStore() {
+         if (typeof patch.title !== 'string' || patch.title.trim() === '') {
+           throw new ValidationError('title must be a non-empty string');
+         }
+-        todo.title = patch.title.trim();
+       }
+       if ('done' in patch) {
+         if (typeof patch.done !== 'boolean') throw new ValidationError('done must be a boolean');
+-        todo.done = patch.done;
+       }
+-      return todo;
++      if ('dueDate' in patch) validateDueDate(patch.dueDate);
++      if ('title' in patch) todo.title = patch.title.trim();
++      if ('done' in patch) todo.done = patch.done;
++      if ('dueDate' in patch) todo.dueDate = patch.dueDate;
++      return snapshot(todo);
+     },
+     remove(id) {
+       return todos.delete(id);
+@@ -38,4 +42,18 @@ export function createStore() {
+   };
+ }
+ 
++function validateDueDate(dueDate) {
++  if (dueDate === null) return;
++  if (typeof dueDate === 'string' && dueDate.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
++    const parsed = new Date(`${dueDate}T00:00:00.000Z`);
++    if (!Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === dueDate) return;
++  }
++  throw new ValidationError('dueDate must be a valid YYYY-MM-DD date or null');
++}
++
++function snapshot(todo, today = new Date().toISOString().slice(0, 10)) {
++  if (!todo) return undefined;
++  return { ...todo, overdue: !todo.done && todo.dueDate !== null && todo.dueDate < today };
++}
++
+ export class ValidationError extends Error {}
+diff --git a/test/app.test.mjs b/test/app.test.mjs
+index 2ce65b0..fe90634 100644
+--- a/test/app.test.mjs
++++ b/test/app.test.mjs
+@@ -25,7 +25,7 @@ test('creates and lists todos', () =>
+     const created = await fetch(`${base}/todos`, json('POST', { title: 'Milch kaufen' }));
+     assert.equal(created.status, 201);
+     const list = await (await fetch(`${base}/todos`)).json();
+-    assert.deepEqual(list, [{ id: 1, title: 'Milch kaufen', done: false }]);
++    assert.deepEqual(list, [{ id: 1, title: 'Milch kaufen', done: false, dueDate: null, overdue: false }]);
+   }));
+ 
+ test('rejects an empty title', () =>
+@@ -47,3 +47,53 @@ test('serves the list page', () =>
+     assert.equal(res.status, 200);
+     assert.match(await res.text(), /data-testid="todo-list"/);
+   }));
++
++test('sets, changes, preserves, and removes due dates through the API', () =>
++  withServer(async (base) => {
++    const created = await fetch(`${base}/todos`, json('POST', { title: 'A', dueDate: '2028-02-29' }));
++    assert.equal(created.status, 201);
++    assert.equal((await created.json()).dueDate, '2028-02-29');
++    const changed = await fetch(`${base}/todos/1`, json('PATCH', { dueDate: '2028-03-01' }));
++    assert.equal(changed.status, 200);
++    assert.equal((await changed.json()).dueDate, '2028-03-01');
++    const unrelated = await fetch(`${base}/todos/1`, json('PATCH', { done: true }));
++    assert.equal((await unrelated.json()).dueDate, '2028-03-01');
++    const removed = await fetch(`${base}/todos/1`, json('PATCH', { dueDate: null }));
++    assert.equal((await removed.json()).dueDate, null);
++    const saved = await (await fetch(`${base}/todos/1`)).json();
++    assert.equal(saved.dueDate, null);
++    assert.equal(saved.overdue, false);
++  }));
++
++test('invalid dates return HTTP 400 on creation and update without partial mutation', () =>
++  withServer(async (base) => {
++    const invalid = await fetch(`${base}/todos`, json('POST', { title: 'A', dueDate: '2026-02-30' }));
++    assert.equal(invalid.status, 400);
++    assert.equal(typeof (await invalid.json()).error, 'string');
++    await fetch(`${base}/todos`, json('POST', { title: 'B', dueDate: '2026-01-01' }));
++    const patch = await fetch(`${base}/todos/1`, json('PATCH', { title: 'Changed', dueDate: 'nope' }));
++    assert.equal(patch.status, 400);
++    const saved = await (await fetch(`${base}/todos/1`)).json();
++    assert.equal(saved.title, 'B');
++    assert.equal(saved.dueDate, '2026-01-01');
++  }));
++
++test('filters only open todos dated before today in UTC', (t) => {
++  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-15T00:30:00Z') });
++  return withServer(async (base) => {
++    for (const body of [
++      { title: 'Yesterday', dueDate: '2026-10-14' },
++      { title: 'Today', dueDate: '2026-10-15' },
++      { title: 'Future', dueDate: '2026-10-16' },
++      { title: 'Undated' },
++      { title: 'Done', dueDate: '2026-10-14' },
++    ]) await fetch(`${base}/todos`, json('POST', body));
++    await fetch(`${base}/todos/5`, json('PATCH', { done: true }));
++    const filtered = await (await fetch(`${base}/todos?overdue=true`)).json();
++    assert.deepEqual(filtered, [{ id: 1, title: 'Yesterday', done: false, dueDate: '2026-10-14', overdue: true }]);
++    assert.equal((await (await fetch(`${base}/todos`)).json()).length, 5);
++    assert.equal((await (await fetch(`${base}/todos?overdue=false`)).json()).length, 5);
++    await fetch(`${base}/todos/1`, json('PATCH', { dueDate: null }));
++    assert.deepEqual(await (await fetch(`${base}/todos?overdue=true`)).json(), []);
++  });
++});
+diff --git a/test/store.test.mjs b/test/store.test.mjs
+new file mode 100644
+index 0000000..0ab098c
+--- /dev/null
++++ b/test/store.test.mjs
+@@ -0,0 +1,56 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { createStore, ValidationError } from '../src/store.mjs';
++
++test('stores a date, preserves it on unrelated updates, and allows replacing/removing it', () => {
++  const store = createStore();
++  const todo = store.add({ title: 'A', dueDate: '2028-02-29' });
++  assert.equal(todo.dueDate, '2028-02-29');
++  assert.equal(store.update(todo.id, { title: 'B' }).dueDate, '2028-02-29');
++  assert.equal(store.update(todo.id, { dueDate: '2028-03-01' }).dueDate, '2028-03-01');
++  assert.equal(store.update(todo.id, { dueDate: null }).dueDate, null);
++  assert.equal(store.get(todo.id).dueDate, null);
++  assert.equal(store.add({ title: 'Undated' }).dueDate, null);
++  assert.equal(store.add({ title: 'Explicit null', dueDate: null }).dueDate, null);
++});
++
++for (const dueDate of ['', '2026-2-01', '26-02-01', '2026-02-30', '2025-02-29',
++  '1900-02-29', '2026-04-31', '2026-00-01', '2026-13-01', '2026-01-00',
++  '2026-01-32', '2026-10-15T00:00:00Z', ' 2026-10-15', '2026-10-15\n',
++  20261015, false, {}, []]) {
++  test(`rejects invalid due date ${JSON.stringify(dueDate)} without modifying existing data`, () => {
++    const store = createStore();
++    assert.throws(() => store.add({ title: 'Invalid', dueDate }), ValidationError);
++    assert.deepEqual(store.list(), []);
++    const todo = store.add({ title: 'A', dueDate: '2026-01-01' });
++    assert.throws(() => store.update(todo.id, { title: 'Changed', done: true, dueDate }), ValidationError);
++    const saved = store.get(todo.id);
++    assert.equal(saved.title, 'A');
++    assert.equal(saved.done, false);
++    assert.equal(saved.dueDate, '2026-01-01');
++  });
++}
++
++test('does not change the date or title when another patch field is invalid', () => {
++  const store = createStore();
++  const todo = store.add({ title: 'A', dueDate: '2026-01-01' });
++  assert.throws(() => store.update(todo.id, { title: 'B', done: 'yes', dueDate: null }), ValidationError);
++  assert.equal(store.get(todo.id).title, 'A');
++  assert.equal(store.get(todo.id).dueDate, '2026-01-01');
++});
++
++test('derives overdue strictly from the current UTC day and completion state', (t) => {
++  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-15T23:59:59Z') });
++  const store = createStore();
++  const yesterday = store.add({ title: 'Yesterday', dueDate: '2026-10-14' });
++  const today = store.add({ title: 'Today', dueDate: '2026-10-15' });
++  store.add({ title: 'Future', dueDate: '2026-10-16' });
++  store.add({ title: 'Undated' });
++  assert.deepEqual(store.list().map((todo) => todo.overdue), [true, false, false, false]);
++  assert.equal(store.update(yesterday.id, { done: true }).overdue, false);
++  assert.equal(store.update(yesterday.id, { done: false }).overdue, true);
++  t.mock.timers.setTime(new Date('2026-10-16T00:00:00Z').getTime());
++  assert.equal(store.get(today.id).overdue, true);
++  assert.equal(store.list()[1].overdue, true);
++  assert.equal(store.update(today.id, { dueDate: null }).overdue, false);
++});

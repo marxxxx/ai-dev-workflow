@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 3,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are captured in the spec and implemented, including the 400 on invalid dates, the UTC overdue rule, the \"überfällig\" marker and the \"nur überfällige\" toggle.",
+    "scope": "The change stays within the ticket, but the unused `store.isOverdue(id)` method was not requested and is only used by tests.",
+    "tests": "The API and store tests cover validation, leap years, PATCH set/remove, and the overdue filter with edge cases. No browser e2e test was committed, though the spec called for one, and the one existing assertion was only updated for the new `dueDate: null` field.",
+    "conventions": "The change uses `ValidationError`, zero dependencies, `data-testid` attributes and the existing test style. The overdue logic is not covered by a test written first, and the e2e check is only reported in the summary, not committed.",
+    "architecture": "The overdue rule is written three times: in `isOverdue`, in `listOverdue`, and in the front-end `isOverdue` (client-side, using the browser's date). `listOverdue` does not reuse `isOverdue`.",
+    "codeQuality": "The code is readable and handles edge cases such as impossible dates, non-string values and a todo due today. The duplicated validation message and the `isOverdue` duplication are minor flaws, and the UI computes its 'today' in the browser, so it can disagree with the server's UTC day only if the browser clock is off."
+  },
+  "error": null
+}

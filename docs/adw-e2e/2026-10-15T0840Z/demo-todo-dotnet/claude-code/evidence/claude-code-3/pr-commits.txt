@@ -1,0 +1,6 @@
+f0aa069 Liste: Leerzeichen zwischen Titel, Datum und überfällig (#1)
+f60742a Liste: Fälligkeitsdatum, überfällig und Filter (#1)
+7ba80c1 API: dueDate, overdue und Filter ?overdue (#1)
+bd3f2a1 Store: optionales Fälligkeitsdatum und Überfällig-Regel (#1)
+0d73868 Plan: Fälligkeitsdatum für Todos (#1)
+995016e Spec: Fälligkeitsdatum für Todos (#1)

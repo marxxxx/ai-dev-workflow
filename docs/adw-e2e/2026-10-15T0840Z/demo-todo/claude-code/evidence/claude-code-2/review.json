@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, including the edge cases (today is not overdue, done todos are not overdue, and a PATCH with null removes the date).",
+    "scope": "The change stays within the ticket; the only addition is the 400 for invalid overdue values, which the spec approved, and the injectable `today` is a small testability hook.",
+    "tests": "The tests cover validation, the overdue edge cases and the filter, and the existing deepEqual was updated rather than weakened; the UI is only checked by regex on the HTML source, and the agent's Playwright run is not part of the suite.",
+    "conventions": "The change follows AGENTS.md: no dependencies, `ValidationError` for 400s, tests written first, and `data-testid` on every new element.",
+    "architecture": "Validation and the derived `overdue` flag live in the store, the app only parses the query parameter, and the `view` helper is reused; the UI refactor into `render` and `span` is reasonable.",
+    "codeQuality": "The code is clean and the date validation is robust, with a round-trip check that catches 30 February; the PATCH can change the title before a 400 on the date, and the render fetch has no error handling, which is minor."
+  },
+  "error": null
+}

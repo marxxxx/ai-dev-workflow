@@ -1,0 +1,24 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\n`.agents/specs/1-due-date.md`\n\n# Spec: Fälligkeitsdatum für Todos (Ticket #1)\n\n## Anforderungen\n\nTodos bekommen ein optionales Fälligkeitsdatum `dueDate` im Format `YYYY-MM-DD`\n(Datum ohne Uhrzeit). Überfällige Todos sind in der API filterbar und in der\nListe markiert.\n\n## API\n\n- Feldname: `dueDate`, ISO-Datum-String `YYYY-MM-DD` oder `null` (kein Datum).\n- Beim Anlegen (`POST /todos`) optional setzbar.\n- Per `PATCH /todos/:id` änderbar; mit `null` entfernbar.\n- Validierung: `dueDate` muss `null` sein oder dem Format `YYYY-MM-DD`\n  entsprechen und ein reales Kalendertag sein (z. B. `2026-02-30` ist ungültig).\n  Ungültige Werte → `400` mit `ValidationError`.\n- `GET /todos?overdue=true` liefert nur Todos, die überfällig sind.\n- Ein Todo ist überfällig, wenn `done === false` und `dueDate` ein Kalendertag\n  vor dem heutigen UTC-Datum ist. Todos ohne `dueDate` sind nie überfällig.\n  Erledigte Todos sind nie überfällig.\n\n## UI (Liste unter `/`)\n\n- Neben dem Titel steht das Fälligkeitsdatum (formatiert als `YYYY-MM-DD`).\n- Überfällige Todos sind mit dem Wort „überfällig\" markiert.\n- Ein Bedienelement „nur überfällige\" (Checkbox) zeigt nur die überfälligen\n  Todos; ohne Häkchen werden alle Todos angezeigt.\n- Kein besonderes Styling nötig.\n- Neue UI-Elemente tragen `data-testid`-Attribute:\n  `todo-due-date`, `todo-overdue`, `overdue-only-toggle`.\n\n## Tests\n\n- Unit-/API-Tests (`node --test`): Validierung (gültig, falsches Format,\n  nichtexistierendes Datum, `null`), Setzen/Ändern/Entfernen per PATCH,\n  Filter `?overdue=true` (nur nicht erledigte mit Datum vor heute).\n- End-to-end im Browser (Playwright) gegen die laufende App:\n  Todo mit Datum anlegen, Anzeige in der Liste, „überfällig\"-Markierung,\n  Toggle „nur überfällige\".\n\n## Out of scope\n\n- Kein Styling/Design-Arbeit.\n- Keine Sortierung nach Fälligkeitsdatum.\n- Keine Uhrzeit, keine Zeitzonen außer UTC-Tagesvergleich.",
+      "created_at": "2026-10-15T12:10:27Z"
+    },
+    {
+      "body": "## Implementation Summary\n**Approach** — Todos haben jetzt ein optionales Fälligkeitsdatum `dueDate` (YYYY-MM-DD). Der Store validiert das Format und echte Kalendertage (z. B. `2026-02-30` → `ValidationError` → HTTP 400), erlaubt Setzen beim Anlegen, Ändern und Entfernen (`null`) per PATCH. Überfällig ist ein Todo, wenn es nicht erledigt ist und `dueDate` vor dem heutigen UTC-Datum liegt. `GET /todos?overdue=true` liefert nur überfällige Todos. Die Liste zeigt das Datum neben dem Titel, markiert Überfällige mit „überfällig\" und bietet eine Checkbox „nur überfällige\".\n**Consequences** — API: neues Feld `dueDate` (default `null`) in allen Todo-Responses; neuer Query-Parameter `overdue=true`. UI: drei neue `data-testid`-Elemente (`todo-due-date`, `todo-overdue`, `overdue-only-toggle`). Bestehende Todos ohne Datum sind nie überfällig.\n**Possible side effects** — Bestehende API-Clients sehen ein zusätzliches Feld `dueDate: null` in Responses. Der `?overdue=true`-Filter ist rein lesend, verändert keine Daten.\n**Watch when testing** — Tagesgrenze UTC beachten (ein Todo mit heutigem Datum ist noch nicht überfällig). Ungültige Daten wie `2026-02-30` oder `2026-13-01` müssen 400 liefern. End-to-end-Status: vom Agent im Browser getestet (Playwright gegen laufende App: Anzeige, Überfällig-Badge, Toggle „nur überfällige\" — Screenshots unter /tmp/e2e-*.png).\nSpec: `.agents/specs/1-due-date.md` · Plan: — · PR: http://gitea:3000/adw/demo-todo/pulls/2",
+      "created_at": "2026-10-15T12:14:39Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-15T12:09:41Z → 2026-10-15T12:14:31Z · Models: mistral-large-4, claude-sonnet-5-5\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 38,837 | 9,096 | 782,977 | 6,812 | 837,722 | 0.1359 |\n\nSessions counted: opencode:ses_ec088633cfferev3eHYwYcdTdb, claude:f7a13b7c-0d03-4719-9ab6-b7354b5d2a74\n\nUSD is a local ccusage estimate. Every session on this machine active in the window is counted, including unrelated ones.",
+      "created_at": "2026-10-15T12:14:45Z"
+    }
+  ]
+}

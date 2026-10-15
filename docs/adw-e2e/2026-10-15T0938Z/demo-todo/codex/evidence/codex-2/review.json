@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria: optional date, change and removal, HTTP 400 on invalid dates, the overdue API filter, date display, the 'überfällig' marker, and the 'nur überfällige' control.",
+    "scope": "The change stays on the feature. It adds an error element, stale-response handling and a plan doc, which are small extras, and the plan doc is arguably clutter.",
+    "tests": "The store and API tests are thorough and cover calendar validation, atomic patches, UTC boundaries and filtering. The existing test was only updated for the new fields, and the UI has no automated test in the repo, only manual Playwright checks.",
+    "conventions": "The change uses ValidationError, data-testid, zero dependencies and node:test. The Playwright checks were not saved as repo tests, which AGENTS.md does not require.",
+    "architecture": "Validation and derived state sit in the store, the app does the filtering, and the page reuses the existing structure. The filter lives in app.mjs rather than the store, which is acceptable.",
+    "codeQuality": "Date validation is strict, patches are applied atomically and stale responses are guarded. The validateDueDate check is slightly redundant, and the missing-todo path in snapshot(undefined) is handled."
+  },
+  "error": null
+}

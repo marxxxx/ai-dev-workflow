@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, including PATCH semantics for missing, null and set values, the 400 cases, and the date-only 'due today is not overdue' edge.",
+    "scope": "The change stays close to the ticket. The `overdue=false` filter and the parameterless TodoStore constructor are small additions, and the spec approved the former.",
+    "tests": "Store, API and page tests cover the new behaviour, including boundary dates, PATCH semantics and whitespace. The only weakening is that the existing JSON-shape assertion was updated for the new field. The UI filter checkbox toggle has no automated test.",
+    "conventions": "The change follows AGENTS.md: ValidationException maps to 400, new data-testids were added, no packages were added, and tests were written. The parameterless TodoStore constructor exists only for tests, and the `@preservewhitespace` workaround is a mild deviation from the existing style.",
+    "architecture": "Logic stays in TodoStore, the page calls the store directly, and the time source goes through the TimeProvider abstraction. The raw JsonElement in TodoPatch leaks JSON handling into the domain record.",
+    "codeQuality": "The code is readable and handles edge cases such as strict parsing, UTC and null. A few details are awkward: `onlyOverdue ? true : null`, the dual constructor, and an unvalidated `overdue` query binding that relies on framework behaviour."
+  },
+  "error": null
+}

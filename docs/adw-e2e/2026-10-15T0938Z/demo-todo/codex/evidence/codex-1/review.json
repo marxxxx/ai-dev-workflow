@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered in the spec and the diff: optional date, change and removal, 400 on invalid dates, the overdue filter, date display, the \"überfällig\" label and the \"nur überfällige\" checkbox.",
+    "scope": "The change stays on the ticket, but it also adds a `.worktrees/` entry to `.gitignore` and commits a long plan document with execution notes, which the ticket did not ask for.",
+    "tests": "Store and HTTP tests are thorough, covering UTC midnight, leap years, invalid types, atomic PATCH and filter order, and no existing test was weakened. The UI is only checked by a regex on the checkbox markup, with no automated test of the date or overdue rendering.",
+    "conventions": "It uses `ValidationError`, adds `data-testid` attributes, has no new dependencies and follows the TDD flow, though the plan doc and the `.gitignore` edit add repository clutter.",
+    "architecture": "Logic sits in the store, with an injected clock and derived status computed on read. The route filters in one place, and the page reuses the API filter.",
+    "codeQuality": "The validation is correct, PATCH checks everything before it mutates, and a request counter stops stale responses overwriting newer ones. The page still has no handling for failed fetches, and `get` computes today separately from `list`, which is a minor inconsistency."
+  },
+  "error": null
+}

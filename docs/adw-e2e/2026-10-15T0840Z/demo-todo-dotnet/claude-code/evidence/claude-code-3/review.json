@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, including PATCH null versus missing, UTC day boundary, 400 on invalid dates, the `?overdue` filter, and the German date display with the 'überfällig' marker and 'nur überfällige' checkbox.",
+    "scope": "The diff stays on the ticket; the only extras are the `?overdue=false` filter and the explicit-whitespace test, which the spec approves or which fixes a real rendering bug, plus the plan and spec docs.",
+    "tests": "New tests cover set, change, clear and keep on PATCH, invalid-date theories, a rejected PATCH leaving the todo unchanged, the UTC day boundary, the filters and the page markup, and the one existing test that changed was only adjusted for the new JSON shape; the checkbox toggle is not tested automatically and was checked only in the manual end-to-end run.",
+    "conventions": "The change follows the repo's TDD, `data-testid`, no-new-packages and xUnit idioms, but invalid dates return the binder's generic 400 message rather than a `ValidationException` from `TodoStore`, which `AGENTS.md` names as the convention.",
+    "architecture": "The overdue rule lives once in `Todo.IsOverdue`, `TodoStore` owns the injected `TimeProvider`, and both the API and `Home.razor` reuse it, with the page calling the store directly as `AGENTS.md` requires.",
+    "codeQuality": "The code is compact and handles the edge cases (null versus missing in PATCH, UTC, strict `DateOnly` parsing), though the `HasDueDate` init-setter trick is a little subtle and `TodoResponse` is declared after the top-level statements in `Program.cs`."
+  },
+  "error": null
+}

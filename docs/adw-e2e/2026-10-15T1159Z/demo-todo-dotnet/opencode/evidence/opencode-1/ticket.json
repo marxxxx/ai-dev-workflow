@@ -1,0 +1,24 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\n\n**Ticket #1: Fälligkeitsdatum für Todos**\n\n- **Datenmodell**: Todos bekommen ein optionales `dueDate` (Kalenderdatum, `YYYY-MM-DD`, keine Uhrzeit). Todos ohne Datum bleiben erlaubt.\n- **API** (`Program.cs`):\n  - `dueDate` beim Anlegen setzbar (optional), später änderbar und entfernbar (null).\n  - Ungültiges Datum (falsches Format, z.B. 30. Februar) → HTTP 400 `{\"error\": \"...\"}`.\n  - Filter: `GET /todos?overdue=true` liefert nur überfällige Todos.\n- **Überfällig-Definition**: nicht erledigt UND `dueDate` liegt vor heute (UTC) – am Fälligkeitstag selbst noch nicht überfällig.\n- **Listenseite** (`Home.razor`):\n  - Neben dem Titel wird das Fälligkeitsdatum angezeigt.\n  - Überfällige Todos sind sichtbar mit dem Wort \"überfällig\" markiert (kein spezielles Styling nötig).\n  - Bedienelement \"nur überfällige\" (Filter-Toggle), das nur überfällige Todos zeigt.\n- **E2E**: Agent testet selbst Ende zu Ende mit Playwright (Datum setzen/ändern/entfernen, Überfällig-Markierung, Filter, 400 bei ungültigem Datum).\n- **Conventions**: TDD (failing test zuerst), `data-testid` für neue UI-Elemente, keine neuen NuGet-Pakete, Validation via `ValidationException` → 400.",
+      "created_at": "2026-10-15T12:28:15Z"
+    },
+    {
+      "body": "## Implementation Summary\n\n**Approach** — Todos gained an optional `DateOnly? DueDate`. `TodoStore` got `IsOverdue()` (not done AND due date before today UTC) and `ListOverdue()`. The API accepts `dueDate` on `POST /todos` and `PATCH /todos/{id}`; removal uses `clearDueDate: true` (since `null` means \"don't change\" for patch fields). Invalid dates (wrong format, e.g. `2026-02-30`) are rejected with HTTP 400 via the existing `BadHttpRequestException` middleware. `GET /todos?overdue=true` filters to overdue todos. The list page shows the due date next to the title, marks overdue todos with \"überfällig\", and has a \"nur überfällige\" checkbox toggle.\n\n**Consequences** — `Todo`, `NewTodo`, `TodoPatch` records changed (new optional fields, backward compatible). API responses now include `\"dueDate\": null` or `\"dueDate\": \"YYYY-MM-DD\"`. New query parameter `overdue` on `GET /todos`. New `data-testid`s: `todo-due-date`, `todo-overdue`, `overdue-only-toggle`.\n\n**Possible side effects** — Existing API consumers see an extra `dueDate` field in responses (additive, non-breaking). The `CreatesAndListsTodos` test was updated to expect `\"dueDate\":null`.\n\n**Watch when testing** — A todo due *today* is NOT overdue (only strictly before today UTC). Done todos are never overdue even with a past date. PATCH with `clearDueDate: true` removes the date; omitting `dueDate` in a PATCH keeps the existing value.\n\n**End-to-end status** — Tested by the agent: 24/24 xUnit tests pass; Playwright E2E against the running app verified all 11 checks (due date display, \"überfällig\" mark, \"nur überfällige\" toggle, API filter, 400 on invalid dates, set/change/remove due date). Screenshots at `/tmp/e2e-*.png`.\n\nSpec: `specs/ticket-1-due-date.md` · Plan: n/a · PR: (link added once created)",
+      "created_at": "2026-10-15T12:32:53Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-15T12:27:20Z → 2026-10-15T12:33:01Z · Models: mistral-large-4, claude-sonnet-5-5\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 115,686 | 16,193 | 1,269,749 | 8,492 | 1,410,120 | 0.2457 |\n\nSessions counted: opencode:ses_ec07837d3ffepeNUOdFRtsswak, claude:93b10288-d90f-440b-b554-2a487b07c1ca\n\nUSD is a local ccusage estimate. Every session on this machine active in the window is counted, including unrelated ones.",
+      "created_at": "2026-10-15T12:33:14Z"
+    }
+  ]
+}

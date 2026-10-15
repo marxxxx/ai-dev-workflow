@@ -1,0 +1,21 @@
+{
+  "criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass",
+    "AC5": "pass",
+    "AC6": "pass",
+    "AC7": "pass"
+  },
+  "evidence": {
+    "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-01\"} returned 201 with dueDate \"2026-10-01\". POST without dueDate returned 201 with dueDate null. The value is a plain YYYY-MM-DD date, and a datetime string was rejected.",
+    "AC2": "PATCH /todos/4 {\"dueDate\":\"2026-10-02\"} returned 200 with the new date. PATCH {\"dueDate\":null} returned 200 with dueDate null, so the date was removed.",
+    "AC3": "POST with dueDate \"2026-02-30\", \"15.10.2026\" and \"2026-10-15T10:00:00Z\" each returned 400. PATCH with \"2026-02-30\" also returned 400.",
+    "AC4": "With today = 2026-10-15, GET /todos?overdue=true returned only the open todo due 2026-10-01. A todo due today, a todo due in the future, a todo with no date and a done todo with a past date were all overdue:false. They appeared under ?overdue=false and not under ?overdue=true.",
+    "AC5": "The list page at / showed each due date: 'past 2026-10-01 überfällig', 'future 2026-12-01', 'today 2026-10-15', 'donepast ✓ 2026-09-01'. The todo with no date showed none.",
+    "AC6": "Only the open todo with a past due date showed the word 'überfällig'. The todos due today, in the future, without a date, and the done todo with a past date had no marker.",
+    "AC7": "The page has a checkbox labelled 'nur überfällige'. Checking it reduced the list to only 'past 2026-10-01 überfällig'."
+  },
+  "error": null
+}

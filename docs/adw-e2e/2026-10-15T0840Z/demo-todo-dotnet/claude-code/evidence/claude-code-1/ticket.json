@@ -1,0 +1,24 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\nKleine Änderung, im Chat vereinbart (kein Spec-Dokument).\n\n**Daten & API**\n- Todos bekommen ein optionales Fälligkeitsdatum `dueDate` (reines Datum, ISO `YYYY-MM-DD`, sonst `null`).\n- `POST /todos`: `dueDate` optional.\n- `PATCH /todos/{id}`: `\"dueDate\": \"…\"` setzt/ändert, `\"dueDate\": null` entfernt, fehlendes Feld lässt unverändert.\n- Ungültiges Datum (Format, z. B. 30. Februar) → HTTP 400 `{\"error\": \"...\"}`.\n- **Überfällig**: nicht erledigt, Datum gesetzt und vor heute (UTC). Fällig heute ist nicht überfällig; ohne Datum nie überfällig.\n- `GET /todos?overdue=true` liefert nur überfällige Todos; ohne Parameter alle. `overdue=false` liefert die nicht überfälligen, ungültiger Wert → 400. Kein zusätzliches `overdue`-Feld.\n\n**Liste**\n- Fälligkeitsdatum neben dem Titel (ISO, z. B. `fällig 2026-10-20`).\n- Überfällige Todos sichtbar mit „überfällig“ markiert.\n- Checkbox „nur überfällige“ zeigt nur diese.\n- Neue `data-testid`s: `todo-due-date`, `todo-overdue`, `overdue-filter`.\n\n**Technik**: „heute“ über den eingebauten `TimeProvider` (testbar), keine neuen Pakete, TDD.\n\n**Nicht enthalten**: Sortieren, Erinnerungen, Styling, Datum auf der Liste bearbeiten.\n\n**Testen**: Unit- und API-Tests; zusätzlich End-to-End-Test im Browser durch den Agenten (Datumsanzeige, „überfällig“-Markierung, Schalter „nur überfällige“), Screenshots als Beleg.",
+      "created_at": "2026-10-15T09:05:36Z"
+    },
+    {
+      "body": "## Implementation Summary\n**Approach** — Todos bekommen ein optionales `dueDate` (`DateOnly?`). `TodoStore` prüft das Datum (`YYYY-MM-DD`, streng) und wirft bei Fehlern `ValidationException` → HTTP 400. `PATCH` liest `dueDate` als rohes JSON, damit „Feld fehlt“ (unverändert) und `null` (löschen) unterscheidbar sind. „Heute“ kommt aus dem eingebauten `TimeProvider` (UTC). `GET /todos?overdue=true|false` filtert. Die Liste zeigt `fällig <Datum>`, die Markierung `überfällig` und eine Checkbox „nur überfällige“.\n\n**Consequences** — API-Antworten enthalten jetzt immer `\"dueDate\"` (ggf. `null`). Neue `data-testid`s: `todo-due-date`, `todo-overdue`, `overdue-filter`. `TimeProvider.System` als Singleton registriert.\n\n**Possible side effects** — Clients, die exakt das alte JSON erwarten, sehen ein zusätzliches Feld. `Home.razor` nutzt `@preservewhitespace true`.\n\n**Watch when testing** — Fällig heute ist *nicht* überfällig; erledigte Todos und Todos ohne Datum nie. Grenze ist Mitternacht UTC. Ungültige Daten (`2026-02-30`) → 400. Die Liste aktualisiert sich nicht live bei API-Änderungen; neu laden.\nEnd-to-End vom Agenten getestet (Playwright): fünf Todos (überfällig, heute fällig, ohne Datum, erledigt alt, Zukunft); nur das überfällige zeigte „überfällig“, der Schalter filterte und hob den Filter wieder auf; API-Filter, 400er und Entfernen per `null` per curl geprüft. Dabei einen Fehler (fehlende Leerzeichen zwischen Titel/Datum/Markierung) gefunden und behoben. Screenshots lokal in `/tmp/demo-todo-e2e/`.\nSpec: — (kleine Änderung, Scope im Ticket) · Plan: — · PR: http://gitea:3000/adw/demo-todo/pulls/2",
+      "created_at": "2026-10-15T09:10:39Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-15T09:04:16Z → 2026-10-15T09:10:14Z · Models: claude-sonnet-5-5\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 14 | 1,024 | 148,331 | 8,440 | 157,809 | $0.06 (incomplete) |\n\nSessions counted: claude:033f5d2c-5008-43a1-8ce5-1491d0b2800c\nUSD is a local ccusage estimate. **Incomplete:** the main agent-dev session (claude-opus-5-5) was not reported by ccusage, so its tokens and cost are missing from this total. Every session on this machine active in the window is counted, including unrelated ones.",
+      "created_at": "2026-10-15T09:10:39Z"
+    }
+  ]
+}

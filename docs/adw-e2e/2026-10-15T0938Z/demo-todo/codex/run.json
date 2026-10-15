@@ -1,0 +1,382 @@
+{
+  "schema": 2,
+  "task": "demo-todo",
+  "harness": "codex",
+  "fingerprint": {
+    "adw": {
+      "version": "0.25.0",
+      "sha": "b408a440dd02b4c7c1f228a7d9babb4a6ddd27df",
+      "dirty": true
+    },
+    "skill": {
+      "claude": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "codex": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "opencode": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:de8e8443addc7abd272af71c7102e56e4614e9ebd357888f3bba18a0414c9994"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-node:latest",
+      "id": "sha256:dd8a71df3012301ef215d301c0d6ac2f11cf249f7bef39dabe5c86e22175e09f",
+      "inventory": "f73312c8b32a0eff8a6e42407639392e80cae5d02d97ee54f12a4af8dc7a6d6e",
+      "harnessVersion": "0.162.1",
+      "superpowers": "bb92a77741419a4ab5f06e711a283343f1ada0c3"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "7f5997abe9fed3c12971846efcc906b799cacb5a450db838fbb6047836be4ab7",
+      "lib": "448a9daff708940389a4d6fb40a52be9bf66943ee97aee330b24bbaf0395e2f2"
+    },
+    "config": "d86521c9a4663bdd8de6e2be965bbb601cf0ad1b235a7541cad6fe57faaced44",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "openai/gpt-6.1-sol",
+      "subagents": null,
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "4420e5ab403a072da868fa9c61aca5844dc87ac417b3798ce5a069fb02029e18"
+  },
+  "calibration": "2026-10-12T1659Z",
+  "config": {
+    "model": "openai/gpt-6.1-sol",
+    "subagentModel": null,
+    "agentKwargs": {
+      "reasoning_effort": "high"
+    },
+    "repetitions": 3
+  },
+  "trials": [
+    {
+      "id": "codex-1",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 5,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria are covered in the spec and the diff: optional date, change and removal, 400 on invalid dates, the overdue filter, date display, the \"überfällig\" label and the \"nur überfällige\" checkbox.",
+        "scope": "The change stays on the ticket, but it also adds a `.worktrees/` entry to `.gitignore` and commits a long plan document with execution notes, which the ticket did not ask for.",
+        "tests": "Store and HTTP tests are thorough, covering UTC midnight, leap years, invalid types, atomic PATCH and filter order, and no existing test was weakened. The UI is only checked by a regex on the checkbox markup, with no automated test of the date or overdue rendering.",
+        "conventions": "It uses `ValidationError`, adds `data-testid` attributes, has no new dependencies and follows the TDD flow, though the plan doc and the `.gitignore` edit add repository clutter.",
+        "architecture": "Logic sits in the store, with an injected clock and derived status computed on read. The route filters in one place, and the page reuses the API filter.",
+        "codeQuality": "The validation is correct, PATCH checks everything before it mutates, and a request counter stops stale responses overwriting newer ones. The page still has no handling for failed fetches, and `get` computes today separately from `list`, which is a minor inconsistency."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 583,
+        "verifier": 1,
+        "total": 646
+      },
+      "tokens": {
+        "input": 138073,
+        "output": 22573,
+        "cacheRead": 2198528,
+        "cacheWrite": 0,
+        "total": 2359174
+      },
+      "cost": 0.721729,
+      "ccusage": {
+        "ccusageTotal": 2359174,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.721729,
+        "models": {
+          "gpt-6.1-sol": {
+            "input": 138073,
+            "output": 22573,
+            "cacheRead": 2198528,
+            "cacheWrite": 0,
+            "total": 2359174,
+            "cost": 0.721729
+          }
+        }
+      },
+      "userTokens": {
+        "total": 134422
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 0,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      }
+    },
+    {
+      "id": "codex-2",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover all seven acceptance criteria: optional date, change and removal, HTTP 400 on invalid dates, the overdue API filter, date display, the 'überfällig' marker, and the 'nur überfällige' control.",
+        "scope": "The change stays on the feature. It adds an error element, stale-response handling and a plan doc, which are small extras, and the plan doc is arguably clutter.",
+        "tests": "The store and API tests are thorough and cover calendar validation, atomic patches, UTC boundaries and filtering. The existing test was only updated for the new fields, and the UI has no automated test in the repo, only manual Playwright checks.",
+        "conventions": "The change uses ValidationError, data-testid, zero dependencies and node:test. The Playwright checks were not saved as repo tests, which AGENTS.md does not require.",
+        "architecture": "Validation and derived state sit in the store, the app does the filtering, and the page reuses the existing structure. The filter lives in app.mjs rather than the store, which is acceptable.",
+        "codeQuality": "Date validation is strict, patches are applied atomically and stale responses are guarded. The validateDueDate check is slightly redundant, and the missing-todo path in snapshot(undefined) is handled."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 491,
+        "verifier": 1,
+        "total": 553
+      },
+      "tokens": {
+        "input": 128669,
+        "output": 21336,
+        "cacheRead": 2283136,
+        "cacheWrite": 0,
+        "total": 2433141
+      },
+      "cost": 0.718224,
+      "ccusage": {
+        "ccusageTotal": 2433141,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.718224,
+        "models": {
+          "gpt-6.1-sol": {
+            "input": 94385,
+            "output": 18363,
+            "cacheRead": 2091008,
+            "cacheWrite": 0,
+            "total": 2203756,
+            "cost": 0.581501
+          },
+          "gpt-6-sol": {
+            "input": 34284,
+            "output": 2973,
+            "cacheRead": 192128,
+            "cacheWrite": 0,
+            "total": 229385,
+            "cost": 0.136724
+          }
+        }
+      },
+      "userTokens": {
+        "total": 88824
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 0,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      }
+    },
+    {
+      "id": "codex-3",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 5,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria are covered by the diff, and the spec adds clear detail (UTC boundary, null to remove, HTTP 400, filter checkbox).",
+        "scope": "The change stays on topic; the stale-response guard in the UI and the exposed `overdue` field on every response go slightly beyond the ticket but are small and justified.",
+        "tests": "Store, API and UI tests cover UTC boundaries, validation, atomic rejection and filter races, and the one existing assertion was only extended; the UI test uses a hand-rolled fake DOM, which is brittle, and the checkbox label is never asserted.",
+        "conventions": "The change uses ValidationError mapped to HTTP 400, adds data-testid on the new elements, uses no dependencies, and follows the existing test style.",
+        "architecture": "Validation and the overdue computation sit in the store and the filter in the route, which fits, though the filtering is done in app.mjs rather than the store.",
+        "codeQuality": "The code is clean: validation runs before any mutation, and the round-trip date check handles leap years. A fetch error or non-OK response in the UI is unhandled, and `overdue=true` is the only value the filter recognises."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 13,
+        "agent": 497,
+        "verifier": 1,
+        "total": 562
+      },
+      "tokens": {
+        "input": 110719,
+        "output": 17777,
+        "cacheRead": 1963008,
+        "cacheWrite": 0,
+        "total": 2091504
+      },
+      "cost": 0.595509,
+      "ccusage": {
+        "ccusageTotal": 2091504,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.595509,
+        "models": {
+          "gpt-6.1-sol": {
+            "input": 110719,
+            "output": 17777,
+            "cacheRead": 1963008,
+            "cacheWrite": 0,
+            "total": 2091504,
+            "cost": 0.595509
+          }
+        }
+      },
+      "userTokens": {
+        "total": 132961
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 0,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 1,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 1,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 1,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 1,
+      "ac:AC4": 1,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 1
+    },
+    "median": {
+      "tokens": 2359174,
+      "cost": 0.718224,
+      "agent": 497
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 4,
+      "tests": 4,
+      "conventions": 4,
+      "architecture": 4,
+      "codeQuality": 4
+    },
+    "errorClasses": []
+  }
+}

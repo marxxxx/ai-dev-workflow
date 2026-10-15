@@ -1,0 +1,24 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\n\nTicket #1 — bestätigter Umfang:\n- Optionales Kalenderdatum `dueDate` im Format `YYYY-MM-DD`; beim Anlegen setzbar, per PATCH änderbar und mit `null` entfernbar. Ohne Datum liefert die API `dueDate: null`.\n- Ungültige Formate, Typen und unmögliche Kalenderdaten werden mit HTTP 400 abgelehnt (`ValidationError`).\n- Alle Todo-Antworten enthalten das berechnete boolesche Feld `overdue`: nicht erledigt und Fälligkeitsdatum vor dem heutigen UTC-Datum. Heute ist nicht überfällig.\n- `GET /todos?overdue=true` liefert ausschließlich überfällige Todos. Ohne Filter werden alle geliefert.\n- Die Liste zeigt das Fälligkeitsdatum und gegebenenfalls das Wort „überfällig“. Eine Checkbox „nur überfällige“ schaltet den API-Filter ein und aus.\n- API-Verhalten und UTC-Datumsgrenzen werden automatisiert getestet. Der Agent prüft Anzeige und Filter Ende-zu-Ende mit Playwright in der laufenden App; Screenshots liegen außerhalb des Repositories.\n- Keine Sortierung, Erinnerungen oder zusätzliches Styling.\n\nKleine Änderung, Beschreibung im Gespräch freigegeben; kein separates Spec- oder Plandokument.",
+      "created_at": "2026-10-15T10:02:33Z"
+    },
+    {
+      "body": "## Implementation Summary\n**Approach** — Optionale Kalenderdaten `dueDate` (`YYYY-MM-DD` oder `null`) ergänzt. Der Store validiert echte Kalenderdaten und berechnet `overdue` bei jeder Antwort anhand des heutigen UTC-Datums. `GET /todos?overdue=true` filtert überfällige Todos. Die Liste zeigt Datum und „überfällig“; die Checkbox „nur überfällige“ schaltet den API-Filter um. Verspätete Antworten überschreiben die neueste Auswahl nicht.\n\n**Consequences** — POST/PATCH akzeptieren `dueDate`, `null` entfernt das Datum. Ungültige Werte ergeben HTTP 400; abgelehnte Änderungen lassen gespeicherte Daten unverändert. Todo-Antworten enthalten zusätzlich `dueDate` und `overdue`.\n\n**Possible side effects** — Clients mit strikt geprüftem Antwortschema müssen die zusätzlichen Felder berücksichtigen. Keine neuen Abhängigkeiten, Sortierung, Erinnerungen oder zusätzliches Styling.\n\n**Watch when testing** — Heute in UTC ist nicht überfällig; erledigte Todos und solche ohne Datum ebenfalls nicht. Schaltjahre, Datum ändern/entfernen und Filter ein/aus prüfen. `npm test`: 15/15 bestanden; UTC-Grenzen außerdem unter `TZ=Pacific/Honolulu` geprüft. Code-Review abgeschlossen, keine offenen Befunde.\n\nEnde-zu-Ende durch den Agenten mit Playwright getestet: fünf Fälle (gestern/heute/morgen/erledigt/ohne Datum), korrekte Markierung, Filter ein/aus und leeres Ergebnis, Datum entfernen, HTTP 400 und schnelle Filterwechsel mit verzögerten Antworten. Beleg: ungefiltert fünf Einträge, gefiltert ausschließlich „Gestern offen · Fällig: 2026-10-14 · überfällig“. Beobachtungen: `/tmp/ticket-1-playwright-evidence/observations.txt`; Screenshot-Ausgabe außerhalb des Repos war vom Browser-Tool gesperrt. Test-App anschließend beendet.\n\nTicket: #1 · Spec/Plan: im Gespräch freigegebene kleine Änderung, Umfang als Approved Spec am Ticket dokumentiert.\n\nPR: http://gitea:3000/adw/demo-todo/pulls/2 (Draft)",
+      "created_at": "2026-10-15T10:08:25Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-15T10:01:13Z → 2026-10-15T10:08:51Z · Models: claude-sonnet-5-5, gpt-6.1-sol\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 105,684 | 17,153 | 1,743,567 | 6,891 | 1,873,295 | $0.584819 |\n\nSessions counted: codex:2026/10/15/rollout-2026-10-15T10-01-00-01a13f02-0969-7a31-bd48-91df7f530722, codex:2026/10/15/rollout-2026-10-15T10-05-22-01a13f06-08b6-7321-8259-8d376a56b556, claude:4b243175-3459-44ea-8a8d-cf2041703946\n\nUSD is a local ccusage estimate. Every session on this machine active in the window is counted, including unrelated ones. Snapshot collected after draft PR creation; later close-out tokens may not yet be recorded.",
+      "created_at": "2026-10-15T10:08:52Z"
+    }
+  ]
+}

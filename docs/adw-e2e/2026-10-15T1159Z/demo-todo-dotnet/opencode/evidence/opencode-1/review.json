@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 4,
+    "scope": 4,
+    "tests": 3,
+    "conventions": 3,
+    "architecture": 4,
+    "codeQuality": 3
+  },
+  "reasons": {
+    "requirements": "All seven ACs are implemented, but the posted spec said `null` removes the date and the implementation needs a separate `clearDueDate` flag, and the spec's `ValidationException` plan was dropped.",
+    "scope": "Changes stay on the ticket; the extra `ClearDueDate` field and the committed spec file are minor additions.",
+    "tests": "Store and API tests are good, covering the due-today boundary and done todos. Nothing tests the 'überfällig' marker or the toggle filtering on the page. The one existing test was changed only for the new field.",
+    "conventions": "Invalid dates are rejected through the generic bad-request middleware rather than `ValidationException` thrown by `TodoStore`, which AGENTS.md and the spec require. New `data-testid`s are present.",
+    "architecture": "Logic sits in `TodoStore` and is reused by the API and the page. `IsOverdue` is an instance method that doesn't need instance state.",
+    "codeQuality": "The code is compact and readable. Sending `dueDate: null` in a PATCH silently does nothing, and `DateTime.UtcNow` is evaluated per call, so a list can disagree with itself at midnight."
+  },
+  "error": null
+}

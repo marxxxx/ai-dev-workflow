@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 3
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, including the 400 cases, the UTC overdue rule, the date and marker display, and the filter control.",
+    "scope": "The change stays within the ticket. The one extra is the fix so a rejected POST no longer consumes an ID, which the summary mentions. The 400 on invalid `overdue` filter values is in the approved spec.",
+    "tests": "The tests cover create, change, remove, invalid dates, leap year, clock injection, done todos, the filter and invalid filter values. The only existing test touched was updated for the new fields. The UI has no automated test and relies on the agent's manual Playwright run. No test covers a PATCH with a valid `done` and an invalid `dueDate`.",
+    "conventions": "It uses `ValidationError`, adds `data-testid` attributes, has no dependencies, and follows the repository's test style and TDD flow. Comments are short and fit the surrounding code.",
+    "architecture": "Date validation and the derived `overdue` flag live in the store, and the clock is injectable. The route handler filters the store's list result. A store-level filter would have been tidier but isn't needed.",
+    "codeQuality": "The code is readable, but `update` applies `done` before validating `dueDate`. A PATCH with a valid `done` and an invalid `dueDate` returns 400 but still changes `done`. The date check also does redundant `Date.parse` and `toISOString` work."
+  },
+  "error": null
+}

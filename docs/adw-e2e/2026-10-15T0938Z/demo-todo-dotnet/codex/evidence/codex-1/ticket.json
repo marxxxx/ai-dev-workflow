@@ -1,0 +1,24 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\n`docs/superpowers/specs/2026-10-15-todo-due-date-design.md`\n# Fälligkeitsdatum für Todos\n\nTicket: #1. Der folgende Umfang wurde im Gespräch ausdrücklich freigegeben.\n\n- Optionales API-Feld `dueDate`, ein reines Kalenderdatum im Format `YYYY-MM-DD`.\n- Beim Anlegen setzbar. PATCH: weggelassen bedeutet beibehalten, ein Datum bedeutet\n  ändern, `null` bedeutet entfernen.\n- Ungültiges Format oder unmögliches Datum führt zu HTTP 400 mit einem JSON-Feld `error`.\n  Validierung im Store mittels `ValidationException`; keine teilweise gespeicherten Änderungen.\n- Ein Todo ist überfällig, wenn es offen ist und sein Datum vor dem heutigen UTC-Kalendertag liegt.\n- `GET /todos?overdue=true` liefert nur überfällige Todos; ohne Filter alle Todos.\n- Die Liste zeigt das Datum neben dem Titel und für überfällige Todos das Wort „überfällig“.\n- Eine Checkbox „nur überfällige“ schränkt die Liste auf überfällige Todos ein.\n- Keine Formulare zum Anlegen oder Bearbeiten. Die Seite benutzt den Store direkt.\n- Keine neuen NuGet-Pakete. Neue für Tests relevante Elemente tragen `data-testid`.\n- Der Agent prüft API und Oberfläche end to end mit Playwright, einschließlich der Checkbox,\n  Heute-/Zukunftsgrenze, erledigten Todos, Datum ändern/entfernen und ungültigen Daten.\n\nImplementierungsentscheidungen: Rückgaben enthalten `dueDate` als ISO-Datum oder `null`.\n`overdue=false` entspricht der ungefilterten Liste. Datum und Überfälligkeit werden beim Lesen\nberechnet; `TimeProvider` ermöglicht deterministische UTC-Grenztests. Keine automatische\nAktualisierung anderer geöffneter Browser oder Sortierung ist vorgesehen.",
+      "created_at": "2026-10-15T10:15:32Z"
+    },
+    {
+      "body": "## Implementation Summary\n**Approach** — Optionale Fälligkeitsdaten als `DateOnly` im gemeinsamen Store, mit strikter Validierung und einer gemeinsamen Überfälligkeitsregel. Die Blazor-Liste zeigt ISO-Datum und „überfällig“; die Checkbox „nur überfällige“ filtert direkt über den Store.\n\n**Consequences** — API-Antworten enthalten `dueDate` (Datum oder `null`). POST setzt das Datum; PATCH unterscheidet Weglassen, Ändern und Entfernen per `null`. Ungültige Formate, unmögliche Daten und falsche JSON-Typen ergeben HTTP 400 mit `error`. `GET /todos?overdue=true` liefert offene Todos vor dem heutigen UTC-Kalendertag.\n\n**Possible side effects** — Zusätzliches JSON-Feld für bestehende Clients. Die Anzeige wird beim Laden oder Filtern neu berechnet; eine über Mitternacht unverändert geöffnete Seite benötigt eine solche Aktualisierung.\n\n**Watch when testing** — 27 automatisierte Tests bestanden; unabhängiges Code-Review ohne Befunde. End to end durch den Agenten mit Playwright getestet: API-Datum setzen/ändern/beibehalten/entfernen, ungültige Daten und atomare Ablehnung, Heute/Zukunft/erledigt/ohne Datum, Anzeige sowie Checkbox an/aus/leeres Ergebnis. Keine Browser-Konsolenfehler. Screenshots außerhalb des Repos: `/tmp/ticket-1-all-todos.png`, `/tmp/ticket-1-only-overdue.png`, `/tmp/ticket-1-empty-filter.png`. App danach gestoppt.\n\nSpec: `docs/superpowers/specs/2026-10-15-todo-due-date-design.md` · Plan: `docs/superpowers/plans/2026-10-15-todo-due-date.md`\n\nTicket: [#1](http://gitea:3000/adw/demo-todo/issues/1)\n\nPR: http://gitea:3000/adw/demo-todo/pulls/2 (Draft)",
+      "created_at": "2026-10-15T10:23:00Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-15T10:11:38Z → 2026-10-15T10:23:34Z · Models: claude-sonnet-5-5, gpt-6.1-sol\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 149818 | 27281 | 2950806 | 7677 | 3135582 | $0.898235 |\n\nSessions counted: codex:2026/10/15/rollout-2026-10-15T10-11-24-01a13f0b-8fa9-75e3-a83b-8eacdd806431, codex:2026/10/15/rollout-2026-10-15T10-19-46-01a13f13-363e-7970-a40f-445837393fd2, claude:f917675c-2ba8-4871-bd48-3d01da47ae2d\n\nUSD is a local ccusage estimate. Every session on this machine active in the window is counted, including unrelated ones. The Claude session is included by this machine-wide rule.",
+      "created_at": "2026-10-15T10:23:34Z"
+    }
+  ]
+}
