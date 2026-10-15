@@ -48,7 +48,7 @@
     }
   },
   "thresholds": { "tokensMedianRise": 0.5, "costMedianRise": 0.5, "agentTimeMedianRise": 0.5, "judgeMedianDrop": 1 },
-  "ccusage": { "version": "20.0.31" },
+  "ccusage": { "version": "20.0.32" },
   "auth": {
     "claudeEnvFile": "e2e/.env",
     "codexAuthJson": "~/.codex/auth.json",
