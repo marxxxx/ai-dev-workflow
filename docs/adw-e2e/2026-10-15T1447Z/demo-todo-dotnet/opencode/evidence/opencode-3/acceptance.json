@@ -1,0 +1,21 @@
+{
+  "criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "fail",
+    "AC4": "pass",
+    "AC5": "pass",
+    "AC6": "pass",
+    "AC7": "pass"
+  },
+  "evidence": {
+    "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-01\"} returned 201 with dueDate \"2026-10-01\". POST without dueDate returned 201 with dueDate null. The value is a plain YYYY-MM-DD date with no time.",
+    "AC2": "PATCH /todos/3 {\"dueDate\":\"2026-09-01\"} returned 200 with the new date. PATCH /todos/2 {\"dueDate\":null} returned 200 with dueDate null, so the date was removed. PATCH of the title only left the dueDate unchanged.",
+    "AC3": "POST with dueDate 2026-02-30, 15.10.2026 and 2026-10-15T10:00:00 each returned 400. POST with numeric dueDate 123 returned 400. PATCH with 2026-02-30 and \"bad\" returned 400. But PATCH /todos/1 with {\"dueDate\":5} returned HTTP 500 with an InvalidOperationException stack trace instead of 400. A wrong-format value is therefore not always rejected with 400.",
+    "AC4": "Test data, today = 2026-10-15: past (2026-10-01, open), future (null after patch), nodue (2026-09-01 after patch), today (2026-10-15, open), pastdone (2026-10-01, done). GET /todos?overdue=true returned only the past todo (id 1) and the todo patched to 2026-09-01 (id 3). The todo due today, the todo without a due date and the done todo with a past date were excluded.",
+    "AC5": "The list page at / showed each due date next to its todo, for example past2 2026-10-01, nodue 2026-09-01, today 2026-10-15 and pastdone 2026-10-01. The todo with no due date showed none.",
+    "AC6": "On the list page, \"überfällig\" appeared only on past2 (2026-10-01) and nodue (2026-09-01). The todo due today, the todo without a due date and the done todo with a past date had no marker.",
+    "AC7": "The page has a button \"nur überfällige\". Clicking it reduced the list from 5 todos to the 2 overdue ones, past2 and nodue."
+  },
+  "error": null
+}

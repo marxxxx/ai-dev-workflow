@@ -1,0 +1,7 @@
+f2e2aa5 chore: ignore Playwright MCP artifacts
+1299629 feat: show due date, overdue marker and overdue-only filter in list
+6a4ebce feat: dueDate via POST/PATCH and server-side GET /todos?overdue=true filter
+79cf0f0 feat: store supports optional dueDate with strict validation
+6f21ea3 Spec/plan: add server-side overdue filter (GET /todos?overdue=true)
+5dc6d0f Add implementation plan for due dates (ticket #1)
+4841d65 Add spec for due dates on todos (ticket #1)

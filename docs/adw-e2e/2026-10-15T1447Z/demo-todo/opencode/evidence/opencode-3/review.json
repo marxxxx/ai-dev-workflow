@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 3,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, including the UTC and done-todo overdue rule, which the spec was updated to match.",
+    "scope": "The change stays within the ticket; the extra plan and spec docs and the .gitignore entry for Playwright artifacts are minor additions.",
+    "tests": "Store and API tests cover validation, PATCH set/clear, and overdue edge cases, but the UI is only checked for the filter's testid and the existing test was only extended.",
+    "conventions": "The change uses ValidationError mapped to 400, adds data-testid on the new elements, has no new dependencies, and follows the existing test style.",
+    "architecture": "The overdue predicate is duplicated in app.mjs and index.html, and the filtering logic sits in the route handler instead of the store.",
+    "codeQuality": "The code is clear and the date validation is strict, but the overdue logic is duplicated and the page's initial load has no error handling."
+  },
+  "error": null
+}

@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 3,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria, including set, change and remove (null), 400 on invalid dates, UTC overdue semantics, the date display, the \"überfällig\" marker and the \"nur überfällige\" button.",
+    "scope": "The change stays on the ticket; the only extras are an aria-pressed state the spec allowed and the plan and spec docs.",
+    "tests": "API tests cover validation, update and removal, the overdue filter, done todos and a due date of today, and the one edited existing assertion only adds dueDate: null. The UI has only a string-match test for the button, so the marker, date display and toggle are covered only by manual Playwright runs, and the leap-year edge case has no test.",
+    "conventions": "Follows AGENTS.md: ValidationError maps to 400, no dependencies, data-testid on new elements, and it matches the existing test style.",
+    "architecture": "Validation and the overdue predicate live in the store with the HTTP layer only passing through, though the overdue predicate is duplicated in the client.",
+    "codeQuality": "The code is clear and handles edge cases such as impossible calendar dates and the strict < comparison; applyDueDate has a duplicated error message and the page recomputes today's date for every todo."
+  },
+  "error": null
+}

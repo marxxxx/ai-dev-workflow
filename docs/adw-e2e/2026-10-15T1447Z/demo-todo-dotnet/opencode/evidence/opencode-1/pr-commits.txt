@@ -1,0 +1,6 @@
+e6851e1 feat: filter overdue todos via API (?overdue=true) and 'nur überfällige' toggle on list page
+47eb7d7 feat: show due date and overdue marker in todo list
+97ea6f6 feat: accept dueDate in todo API (create, patch set/change/clear, 400 on invalid)
+fc611a0 feat: add optional due date to todos (store, patch set/change/clear, IsOverdue)
+2f63f85 Add implementation plan for ticket #1: due date for todos
+2797f0c Add spec for ticket #1: due date for todos

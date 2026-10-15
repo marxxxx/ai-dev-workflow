@@ -1,0 +1,5 @@
+dce0e74 feat: show due date and overdue marker, add 'nur überfällige' filter to list page
+a9ce404 feat: accept dueDate in todo API and add ?overdue=true filter
+c618d35 feat: add optional dueDate with validation and overdue logic to TodoStore
+34a86df Add implementation plan for todo due dates (ticket #1)
+d2a5571 Add spec for todo due dates (ticket #1)

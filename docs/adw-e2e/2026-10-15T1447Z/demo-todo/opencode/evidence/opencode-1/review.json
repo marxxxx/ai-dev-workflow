@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 5,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and the diff cover all seven acceptance criteria: optional date on create, change and remove through PATCH, 400 on invalid dates, the overdue filter, date display, the 'überfällig' marker and the 'nur überfällige' control.",
+    "scope": "The change is limited to what the ticket asks for, plus the spec and plan docs the workflow requires. The only edit to an existing test is the one the new field forces.",
+    "tests": "The API tests cover creation, invalid format, 30 February, update, removal, and the overdue boundaries (today, done, no date). The UI is only checked by regex on the served HTML, so marker and filter behaviour is not tested automatically, and no test calls isValidDueDate or isOverdue directly.",
+    "conventions": "The change uses ValidationError mapped to 400, adds no dependencies, adds data-testid attributes to new elements, and follows the existing test helpers and naming style.",
+    "architecture": "Validation and the overdue predicate sit in the store and the filter is applied in the store's list(). The overdue predicate is duplicated in the client script, which is unavoidable without a server-provided flag.",
+    "codeQuality": "The code is small and readable, and the calendar-date round-trip check is correct. Minor edges: todayUtc in the page is computed once at load, so it goes stale if the page stays open past midnight UTC, and the fetch in render() has no error handling or ordering guard."
+  },
+  "error": null
+}
