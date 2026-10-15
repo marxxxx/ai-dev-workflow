@@ -24,6 +24,13 @@ test('a short in-chat agreement counts as a complete spec comment', () => {
   assert.equal(c.spec_comment_complete, 1);
 });
 
+test('a German summary stating the end-to-end status passes', () => {
+  for (const e2e of ['Ende-zu-Ende durch den Agenten getestet', 'Ende zu Ende vom Agent getestet']) {
+    const comments = [good.comments[0], { body: `## Implementation Summary\n${e2e}` }, good.comments[2]];
+    assert.equal(evaluateContract({ ...good, comments }).summary_comment, 1, e2e);
+  }
+});
+
 test('each deviation fails exactly its check', () => {
   const cases = [
     ['ticket_review', { issue: { state: 'open', labels: [{ name: 'status:new' }, { name: 'status:review' }] } }],
