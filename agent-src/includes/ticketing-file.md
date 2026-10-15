@@ -26,7 +26,7 @@ title: "<title>"
 status: {{status.in-progress}}
 ---
 
-<a few sentences summarizing the spec; spec path>
+<the agreed scope; for a written spec, a few sentences summarizing it plus its path>
 BODY_EOF
 ```
 
@@ -45,14 +45,15 @@ BODY_EOF
 
 ## Post the spec
 
-The spec file already lives in the repository, so the comment is just its path:
+A written spec already lives in the repository, so the comment is just its path; otherwise it is
+the agreements themselves:
 
 ```bash
 cat >> {{ticketing.dir}}/<number>_<slug>.md <<'BODY_EOF'
 
 ---
 ## {{artifact.spec}}
-`<spec path>`
+`<spec path>` (or the agreements)
 BODY_EOF
 ```
 

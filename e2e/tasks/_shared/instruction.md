@@ -22,6 +22,7 @@ it only when the agent asks, in your own words, one topic at a time:
 How endpoints, parameters, fields and page elements are named is the agent's choice.
 
 Process answers:
+- If the agent offers to skip its questions and just start: no, it should ask them.
 - When asked whether the agent should test end to end or you test manually: the agent should test
   end to end.
 - When asked to approve a design or written spec: read it; approve it if it covers the bullets above (naming is the agent's choice), otherwise name the deviation and ask for a correction.

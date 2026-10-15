@@ -13,7 +13,7 @@ export function evaluateContract({ issue, comments, pulls, prDiff, appListening 
     ticket_open: ok(issue.state === 'open'),
     ticket_review: ok(status.length === 1 && status[0] === 'status:review'),
     spec_comment: ok(spec !== ''),
-    spec_comment_complete: ok(spec.length >= 400 && !/\$\(|\$\{/.test(spec)),
+    spec_comment_complete: ok(!/\$\(|\$\{/.test(spec)),
     summary_comment: ok(summary !== '' && /end[- ]to[- ]end|e2e/i.test(summary)),
     cost_comment: ok(bodies.some((b) => starts(b, 'Cost Summary'))),
     only_allowed_comments: ok(bodies.every((b) => /^## (Approved Spec|Implementation Summary|Cost Summary)/.test(b.trimStart()))),

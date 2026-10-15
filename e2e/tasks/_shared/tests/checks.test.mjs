@@ -17,6 +17,13 @@ test('a correct run passes every verifier-side contract check', () => {
   assert.equal(Object.keys(c).length, 12);
 });
 
+test('a short in-chat agreement counts as a complete spec comment', () => {
+  const short = { body: '## Approved Spec\nOptional due date (date only), 400 on invalid, overdue filter.' };
+  const c = evaluateContract({ ...good, comments: [short, ...good.comments.slice(1)] });
+  assert.equal(c.spec_comment, 1);
+  assert.equal(c.spec_comment_complete, 1);
+});
+
 test('each deviation fails exactly its check', () => {
   const cases = [
     ['ticket_review', { issue: { state: 'open', labels: [{ name: 'status:new' }, { name: 'status:review' }] } }],
