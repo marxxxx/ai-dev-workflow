@@ -7,7 +7,7 @@ import { applyPostVerification, buildTrialRecord, CONTRACT_CHECKS, emptyOutcome,
 import { RESULT } from './fixtures/make.mjs';
 
 const criteria = [{ id: 'AC1', text: 'a' }, { id: 'AC2', text: 'b' }];
-const config = { app: { port: 3000 } };
+const config = { app: { port: 3000 }, mcpServers: ['serena'] };
 const DEPS = {
   targetTokens: () => ({ input: 1, output: 2, cacheRead: 3, cacheWrite: 4, total: 10 }),
   userTokens: () => ({ total: 5 }),
@@ -15,6 +15,7 @@ const DEPS = {
   errors: () => ({ harbor: null, bridge: null, tool: 0, timeout: false, quota: false }),
   e2ePerformed: () => 1,
   softSignals: () => ({ superpowersActive: true }),
+  toolUsage: (h, d, servers) => ({ builtin: { Bash: 2 }, mcp: Object.fromEntries(servers.map((s) => [s, {}])) }),
   ccusageUsage: () => ({ ccusageTotal: 10, deviation: 0, warning: null, cost: 0.42, models: {} }),
 };
 
@@ -90,5 +91,13 @@ test('a trial without verifier output scores zero instead of throwing', () => {
     assert.equal(t.reward, 0);
     assert.equal(t.contract, 0);
     assert.equal(t.acceptance, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('trial record carries the tool usage for the configured MCP servers', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
+  try {
+    const t = buildTrialRecord({ id: 'codex-1', harness: 'codex', trialDir: dir, config, criteria, deps: DEPS });
+    assert.deepEqual(t.tools, { builtin: { Bash: 2 }, mcp: { serena: {} } });
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

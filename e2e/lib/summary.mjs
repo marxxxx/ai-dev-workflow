@@ -14,6 +14,17 @@ const rate = (xs) => {
   return v.length ? Number((v.filter((x) => x === 1).length / v.length).toFixed(2)) : null;
 };
 const acNumber = (id) => Number(id.replace(/\D/g, ''));
+const sum = (counts) => Object.values(counts).reduce((a, b) => a + b, 0);
+
+// Information only: which MCP servers the agent used, in how many trials. Never a check.
+function mcpUsage(trials) {
+  const usage = {};
+  for (const [server, tools] of trials.flatMap((t) => Object.entries(t.tools?.mcp ?? {}))) {
+    const u = usage[server] ??= { calls: 0, trials: 0 };
+    u.calls += sum(tools); if (sum(tools)) u.trials += 1;
+  }
+  return usage;
+}
 
 export function summarizeTrials(trials) {
   const checkNames = [...new Set(trials.flatMap((t) => Object.keys(t.checks ?? {})))];
@@ -31,6 +42,7 @@ export function summarizeTrials(trials) {
     rewardRate: rate(trials.map((t) => t.reward)),
     checkRates,
     median: { tokens: median(trials.map((t) => t.tokens?.total)), cost: median(trials.map((t) => t.cost)), agent: median(trials.map((t) => t.durations?.agent)) },
+    mcp: mcpUsage(trials),
     reviewMedian: Object.fromEntries(criteria.map((c) => [c, median(trials.map((t) => t.review?.[c]))])),
     errorClasses: [...new Set([
       ...trials.flatMap((t) => ['harbor', 'bridge', 'timeout', 'quota'].filter((k) => t.errors?.[k])),

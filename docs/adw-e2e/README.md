@@ -70,6 +70,7 @@ To re-render a `report.md` from its `run.json` (e.g. after a report template cha
 | review | 1–5 per criterion from a code review with read access to the repo: requirements, scope, tests, conventions, architecture, code quality |
 | tokens | Target agent only, from its own session logs (cross-checked with ccusage) |
 | cost | Target agent only, in USD at API list price, from ccusage (`ccusage.version` in `e2e/config.json`, pinned so its bundled price table stays the same between runs). The run report adds input, output, cache read, cache write, total and cost per model for each trial. A cost rise at equal tokens points to a model mix shift (e.g. more main-model, fewer subagent-model turns). |
+| MCP usage | Information only, never a check: calls per MCP server and tool for every server in `mcpServers` (`e2e/config.json`, kept equal to the servers `docker/launch-agent.mjs` always configures), so an unused server shows `0`; plus the built-in tool counts. From the agent's own session logs. |
 
 A report that says **Verifier not calibrated** has no passing calibration for its verifier hash (prompts, verifier/review models, review criteria, acceptance criteria). Run `calibrate` before trusting acceptance and review.
 
@@ -83,7 +84,7 @@ Variance is large between identical runs. Compare rates and medians, never singl
   `e2e/tasks/<task>/` holds only what is stack-specific: `task.toml`, `environment/Dockerfile`, the seed repo and
   the calibration patches. The runner mirrors `_shared/` into each task before use (git-ignored copies): edit
   only `_shared/`; a shared file that is also tracked in a task stops the run.
-- `e2e/config.json`: models, repetitions, thresholds, rubric. Any change shows in the fingerprint,
+- `e2e/config.json`: models, repetitions, thresholds, rubric, the MCP servers counted in the report. Any change shows in the fingerprint,
   so treat it as a deliberate comparison.
 - Acceptance criteria (`acceptance-criteria.md`) describe observable behaviour only: no endpoints, parameters or field names, and only what the briefing (`instruction.md`) actively communicates or what follows unambiguously from the ticket.
 - Any change to the criteria, the verifier or review prompt, their models or `review.criteria` changes the verifier hash: run `calibrate`, and keep the calibration variants (`calibration/*.patch`, `expected.json`) in step with the criteria.
