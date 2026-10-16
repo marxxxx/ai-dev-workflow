@@ -112,6 +112,7 @@ if [[ -s "$AGENT_CA_BUNDLE" ]]; then
 fi
 cd /workspace
 git config --global --replace-all safe.directory /workspace
+node /usr/local/lib/agent-runtime/docker-proxy-config.mjs
 configure-agents.sh
 # Variant images add idempotent per-home setup here (the .NET image trusts its dev certificate).
 for hook in /usr/local/lib/agent-runtime/startup.d/*; do

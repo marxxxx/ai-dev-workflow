@@ -23,6 +23,9 @@
   "systemTools": {
     "azureCliDebianPackage": "2.91.0-1~bookworm",
     "azureDevOpsCliExtension": "1.0.9",
+    "dockerBuildxDebianPackage": "0.38.0-1~debian.12~bookworm",
+    "dockerCliDebianPackage": "5:29.9.1-1~debian.12~bookworm",
+    "dockerComposeDebianPackage": "5.6.0-1~debian.12~bookworm",
     "uv": "0.13.1"
   },
   "sourceRevisions": {
@@ -32,6 +35,10 @@
   "derivedImages": {
     "dotnetSdk": "10.0.402",
     "dotnetEf": "10.0.13"
+  },
+  "dindImage": {
+    "reference": "docker:29-dind@sha256:0b6d18a4a222e71c88be6034926b4f6cde2fc33c2218643d03ccfddc65995470",
+    "docker": "29.9.0"
   },
   "updatePolicy": {
     "npmMajorHolds": {

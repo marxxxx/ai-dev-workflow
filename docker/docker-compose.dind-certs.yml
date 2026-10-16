@@ -1,0 +1,17 @@
+# Opt-in companion of the dind and certs overlays: the Docker daemon trusts the company root
+# certificates too, so image pulls work behind a TLS-inspecting proxy. Use all four files:
+#   docker compose -f compose.ai-dev.yml -f compose.ai-dev.certs.yml \
+#     -f compose.ai-dev.dind.yml -f compose.ai-dev.dind-certs.yml run --rm ai-dev-workflow
+# The daemon reads PEM files only (no DER) from AGENT_CA_DIR, next to the system store. Trust
+# inside the RUN steps of your own Dockerfiles remains the Dockerfile's responsibility.
+services:
+  docker:
+    environment:
+      SSL_CERT_DIR: /etc/ssl/certs:/etc/agent-certs
+    volumes:
+      - type: bind
+        source: ${AGENT_CA_DIR:?Set AGENT_CA_DIR to an existing absolute directory holding the company root certificates}
+        target: /etc/agent-certs
+        read_only: true
+        bind:
+          create_host_path: false
