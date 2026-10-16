@@ -39,6 +39,8 @@ Run the self-test inside **WSL2**. Native Windows is not supported, and the pref
     node e2e/run.mjs verify docs/adw-e2e/<ts>/<task>/<harness> [--trial <id>]   # re-judge stored PR heads, no agent run
     node e2e/run.mjs calibrate [--task <task>] [--runs 2]   # judge the known variants per task; needed after any verifier change
 
+In Claude Code, the `e2e-run` skill (`.claude/skills/e2e-run/`) runs this for given harnesses and ends with a short overview against the previous run, linking to the reports.
+
 The simulated user, the E2E verifier, the review judge and the claude-code harness all draw on the one Claude subscription. Each trial adds two Sonnet runs (verifier and review); a calibration adds 20 per task. A full run (every task × harness) can exhaust the subscription's 5-hour limit: run one harness per limit window (`--harness`); it covers every task. The codex harness draws on the ChatGPT subscription's limit the same way. A trial that hits either limit (`quota` error class) aborts the run; the partial result is marked `aborted` and is never used as a baseline. Delete it and rerun after the reset. A `verify` that hits a limit writes nothing; a `calibrate` that hits it writes nothing for the task it was on (earlier tasks keep their result).
 
 Raw Harbor output: `e2e/jobs/<ts>/<task>/` (inspect with `harbor view e2e/jobs/<ts>/<task>`).
