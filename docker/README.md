@@ -23,8 +23,8 @@ produces `latest` only.
 
 The build context is the standalone `docker/` directory. The base includes all
 three agents, local Serena, Playwright MCP and its matching Chromium, Context7,
-Azure DevOps MCP v2, Azure CLI with its `azure-devops` extension, Superpowers and
-ccusage. The Node variant adds native compilation tools, package managers and
+Azure DevOps MCP v2, Azure CLI with its `azure-devops` extension, the Gitea CLI
+`tea`, Superpowers and ccusage. The Node variant adds native compilation tools, package managers and
 TypeScript semantic tooling; the .NET variant adds an exact SDK version, the matching `dotnet-ef` tool, Serena's C#
 language server, and trusts the ASP.NET Core HTTPS development certificate for `localhost`. Project dependency
 installation remains the consuming project's responsibility.
@@ -190,6 +190,18 @@ For other remotes configure a project-scoped Git credential helper or a dedicate
 SSH key inside that home, according to the remote's instructions. Verify the actual
 remote with `git ls-remote origin` before a full development cycle; do not mount a
 host-wide credential store. Azure CLI authentication alone does not configure Git.
+
+### Gitea
+
+For `ticketing.backend: gitea`, `agent-dev` uses the pinned `tea` CLI. Log in once with
+the login name from `ai-project.json` (`ticketing.gitea.login`) and an access token:
+
+```text
+docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow tea login add --name <login> --url https://<gitea-host> --token <token>
+```
+
+The login lives in the `agent-home` volume (`~/.config/tea`) and survives `run --rm`.
+Add `--git-credentials` to also register `tea` as the Git credential helper for that host.
 
 ## Configuration and diagnostics
 
@@ -388,7 +400,7 @@ break the stated filesystem boundary and is not part of this template.
 ## Tool inventory, updates and verification
 
 `tools/inventory.json` is the single source for every pin: base image digest and its
-Node version, all Node CLIs and MCP servers, uv, Azure CLI and its `azure-devops`
+Node version, all Node CLIs and MCP servers, uv, `tea`, Azure CLI and its `azure-devops`
 extension, Serena/Superpowers revisions, the .NET SDK and `dotnet-ef`. `tools/package.json`, `tools/package-lock.json` and the Dockerfile
 `FROM`/`ARG` pins are derived from it; do not edit them by hand. The inventory is copied
 to `/opt/agent-tools/inventory.json` and every build verifies the installed versions

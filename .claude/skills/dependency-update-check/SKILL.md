@@ -29,7 +29,7 @@ node docker/tools/inventory.mjs outdated
 ```
 
 This resolves the latest upstream version for every npm package, the `node:24-bookworm-slim` base
-image, the Azure CLI Debian package + azure-devops extension, `uv`, the .NET SDK channel, and the
+image, the Azure CLI Debian package + azure-devops extension, `uv`, `tea`, the .NET SDK channel, and the
 serena / superpowers HEAD revisions — honoring `updatePolicy` in `inventory.json` (major-version
 holds, `npmFollowDependency` coupling such as `playwright` following `@playwright/mcp`). Treat its
 output as the authoritative "current pin → latest available" diff for this pass.
