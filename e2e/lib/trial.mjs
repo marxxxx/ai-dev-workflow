@@ -42,6 +42,7 @@ export function buildTrialRecord({ id, harness, trialDir, config, criteria, deps
     id, reward: 0, contract, checks, ownTests: reward?.own_tests_pass ?? 0, ...emptyOutcome(criteria),
     durations: deps.durations(result), tokens, cost: ccusage.cost, ccusage,
     userTokens: deps.userTokens(result), errors: deps.errors(harness, trialDir, result), soft: deps.softSignals(harness, trialDir),
+    tools: deps.toolUsage(harness, trialDir, config.mcpServers ?? []),
   };
   return { ...record, reward: rewardOf(record) };
 }

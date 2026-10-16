@@ -38,3 +38,10 @@ test('a failed review surfaces as the judge error class; a usage limit only as q
     errors: { quota: true } })]).errorClasses, ['quota']);
   assert.deepEqual(summarizeTrials([t({ errors: { harbor: 'NonZeroAgentExitCodeError', quota: true } })]).errorClasses, ['harbor', 'quota']);
 });
+
+test('summary counts MCP calls and the trials that used each server', () => {
+  const t = (mcp) => ({ reward: 1, checks: {}, tools: { builtin: {}, mcp } });
+  const s = summarizeTrials([t({ serena: {}, playwright: { browser_navigate: 2, browser_click: 1 } }),
+    t({ serena: { find_symbol: 1 }, playwright: { browser_navigate: 1 } }), { reward: 1, checks: {} }]);
+  assert.deepEqual(s.mcp, { serena: { calls: 1, trials: 1 }, playwright: { calls: 4, trials: 2 } });
+});

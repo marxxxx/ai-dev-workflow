@@ -7,6 +7,7 @@
   },
   "repetitions": 3,
   "app": { "port": 3000 },
+  "mcpServers": ["serena", "playwright", "context7"],
   "harnesses": {
     "claude-code": {
       "agent": "agents.claude_subscription:ClaudeSubscription",

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { loadConfig, configHash, harnessVersion } from './config.mjs';
@@ -30,4 +30,11 @@ test('harnessVersion reads the pin from the inventory', () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('mcpServers lists every server the image launcher always configures', () => {
+  const config = loadConfig();
+  const source = readFileSync(path.join(config.root, 'docker/launch-agent.mjs'), 'utf8');
+  const block = source.match(/function managedServers[\s\S]*?const servers = \{([\s\S]*?)\n  \};/)[1];
+  assert.deepEqual(config.mcpServers, [...block.matchAll(/^    (\w+): \{/gm)].map((m) => m[1]));
 });

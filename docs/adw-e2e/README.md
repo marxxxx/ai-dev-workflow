@@ -39,6 +39,8 @@ Run the self-test inside **WSL2**. Native Windows is not supported, and the pref
     node e2e/run.mjs verify docs/adw-e2e/<ts>/<task>/<harness> [--trial <id>]   # re-judge stored PR heads, no agent run
     node e2e/run.mjs calibrate [--task <task>] [--runs 2]   # judge the known variants per task; needed after any verifier change
 
+In Claude Code, the `e2e-run` skill (`.claude/skills/e2e-run/`) runs this for given harnesses and ends with a short overview against the previous run, linking to the reports.
+
 The simulated user, the E2E verifier, the review judge and the claude-code harness all draw on the one Claude subscription. Each trial adds two Sonnet runs (verifier and review); a calibration adds 20 per task. A full run (every task × harness) can exhaust the subscription's 5-hour limit: run one harness per limit window (`--harness`); it covers every task. The codex harness draws on the ChatGPT subscription's limit the same way. A trial that hits either limit (`quota` error class) aborts the run; the partial result is marked `aborted` and is never used as a baseline. Delete it and rerun after the reset. A `verify` that hits a limit writes nothing; a `calibrate` that hits it writes nothing for the task it was on (earlier tasks keep their result).
 
 Raw Harbor output: `e2e/jobs/<ts>/<task>/` (inspect with `harbor view e2e/jobs/<ts>/<task>`).
@@ -70,6 +72,7 @@ To re-render a `report.md` from its `run.json` (e.g. after a report template cha
 | review | 1–5 per criterion from a code review with read access to the repo: requirements, scope, tests, conventions, architecture, code quality |
 | tokens | Target agent only, from its own session logs (cross-checked with ccusage) |
 | cost | Target agent only, in USD at API list price, from ccusage (`ccusage.version` in `e2e/config.json`, pinned so its bundled price table stays the same between runs). The run report adds input, output, cache read, cache write, total and cost per model for each trial. A cost rise at equal tokens points to a model mix shift (e.g. more main-model, fewer subagent-model turns). |
+| MCP usage | Information only, never a check: calls per MCP server and tool for every server in `mcpServers` (`e2e/config.json`, kept equal to the servers `docker/launch-agent.mjs` always configures), so an unused server shows `0`; plus the built-in tool counts. From the agent's own session logs. |
 
 A report that says **Verifier not calibrated** has no passing calibration for its verifier hash (prompts, verifier/review models, review criteria, acceptance criteria). Run `calibrate` before trusting acceptance and review.
 
@@ -83,7 +86,7 @@ Variance is large between identical runs. Compare rates and medians, never singl
   `e2e/tasks/<task>/` holds only what is stack-specific: `task.toml`, `environment/Dockerfile`, the seed repo and
   the calibration patches. The runner mirrors `_shared/` into each task before use (git-ignored copies): edit
   only `_shared/`; a shared file that is also tracked in a task stops the run.
-- `e2e/config.json`: models, repetitions, thresholds, rubric. Any change shows in the fingerprint,
+- `e2e/config.json`: models, repetitions, thresholds, rubric, the MCP servers counted in the report. Any change shows in the fingerprint,
   so treat it as a deliberate comparison.
 - Acceptance criteria (`acceptance-criteria.md`) describe observable behaviour only: no endpoints, parameters or field names, and only what the briefing (`instruction.md`) actively communicates or what follows unambiguously from the ticket.
 - Any change to the criteria, the verifier or review prompt, their models or `review.criteria` changes the verifier hash: run `calibrate`, and keep the calibration variants (`calibration/*.patch`, `expected.json`) in step with the criteria.

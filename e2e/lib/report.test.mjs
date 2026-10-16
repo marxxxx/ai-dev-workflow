@@ -8,7 +8,8 @@ const trial = { id: 'codex-1', reward: 0, contract: 1, checks: { spec_comment: 1
   review: { conventions: 4 }, reviewReasons: { conventions: 'follows AGENTS.md' }, reviewError: null,
   durations: { agent: 225, total: 287 }, tokens: { total: 916414 }, cost: 1.2345,
   ccusage: { models: { 'gpt-6.1-sol': { input: 140697, output: 35620, cacheRead: 2992000, cacheWrite: 0, total: 3168317, cost: 0.9368 } } }, errors: { harbor: null, bridge: null, tool: 1, timeout: false },
-  soft: { superpowersActive: true } };
+  soft: { superpowersActive: true },
+  tools: { builtin: { CommandExecution: 30, FileChange: 4 }, mcp: { serena: {}, playwright: { browser_navigate: 2, browser_click: 1 } } } };
 const run = { schema: 2, task: 'demo-todo', harness: 'codex', calibration: '2026-10-12T0900Z', config: { model: 'openai/gpt-6.1-sol' },
   fingerprint: { adw: { version: '0.24.0', sha: 'abc' }, verifierHash: 'f00dfeed', models: { verifier: 'claude-sonnet-5-5', review: 'claude-sonnet-5-5' } },
   trials: [trial], summary: summarizeTrials([trial]) };
@@ -53,4 +54,17 @@ test('compare report shows verdict, signals, fingerprint diff and an uncalibrate
   for (const s of ['# Compare demo-todo · codex: **worse**', '**worse**', 'check:ac:AC4', 'regression', 'skill.codex']) assert.ok(md.includes(s), s);
   assert.doesNotMatch(md, /not calibrated/);
   assert.match(renderCompare({ task: 'demo-todo', harness: 'codex', base: '/b', cand: '/c', result, calibrated: false }), /Verifier not calibrated/);
+});
+
+test('run report shows MCP usage per server, unused servers included, and built-in tool counts', () => {
+  const md = renderRunReport(run);
+  for (const s of ['## MCP usage', '| Server | Trials using | Calls |', '| serena | 0/1 | 0 |', '| playwright | 1/1 | 3 |',
+    'MCP: serena 0 · playwright 3 (browser_navigate 2, browser_click 1)', 'built-in: CommandExecution 30, FileChange 4']) assert.ok(md.includes(s), s);
+});
+
+test('summary lists MCP calls per server; runs without tool data render a dash', () => {
+  const md = renderSummary([run, { ...run, harness: 'opencode', summary: { ...run.summary, mcp: {} } }]);
+  assert.match(md, /\| MCP calls \|/);
+  assert.match(md, /\| serena 0 · playwright 3 \|/);
+  assert.match(md, /\| demo-todo \| opencode \|.*\| — \|\n/);
 });
