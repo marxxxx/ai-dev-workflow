@@ -48,6 +48,7 @@ test('sync rewrites Dockerfile pins from the inventory', t => {
     inventory.baseImage.reference = 'node:24-bookworm-slim@sha256:abc';
     inventory.systemTools.uv = '9.9.9';
     inventory.systemTools.azureDevOpsCliExtension = '8.8.8';
+    inventory.systemTools.tea = '7.7.7';
     inventory.sourceRevisions.serena = 'f'.repeat(40);
     inventory.derivedImages.dotnetSdk = '10.0.999';
     inventory.derivedImages.dotnetEf = '10.0.99';
@@ -57,6 +58,7 @@ test('sync rewrites Dockerfile pins from the inventory', t => {
   assert.match(dockerfile, /^FROM node:24-bookworm-slim@sha256:abc$/m);
   assert.match(dockerfile, /^ARG UV_VERSION=9\.9\.9$/m);
   assert.match(dockerfile, /^ARG AZURE_DEVOPS_EXTENSION_VERSION=8\.8\.8$/m);
+  assert.match(dockerfile, /^ARG TEA_VERSION=7\.7\.7$/m);
   assert.match(dockerfile, new RegExp(`^ARG SERENA_REVISION=${'f'.repeat(40)}$`, 'm'));
   const dotnetDockerfile = readFileSync(path.join(root, 'Dockerfile.dotnet'), 'utf8');
   assert.match(dotnetDockerfile, /^ARG DOTNET_SDK_VERSION=10\.0\.999$/m);
@@ -109,7 +111,7 @@ function sampleInventory() {
       'typescript-serena': 'npm:typescript@5.9.3',
       yarn: '1.22.22',
     },
-    systemTools: { azureCliDebianPackage: '2.90.0-1~bookworm', azureDevOpsCliExtension: '1.0.8', uv: '0.12.13' },
+    systemTools: { azureCliDebianPackage: '2.90.0-1~bookworm', azureDevOpsCliExtension: '1.0.8', tea: '0.15.1', uv: '0.12.13' },
     sourceRevisions: { serena: 'a'.repeat(40), superpowers: 'b'.repeat(40) },
     derivedImages: { dotnetSdk: '10.0.401', dotnetEf: '10.0.11' },
     updatePolicy: {
@@ -142,6 +144,10 @@ function fakeSources() {
       assert.equal(repo, 'astral-sh/uv');
       return '0.13.0';
     },
+    giteaLatestRelease: async (host, repo) => {
+      assert.deepEqual([host, repo], ['https://gitea.com', 'gitea/tea']);
+      return 'v0.16.0';
+    },
     debianPackages: async () => 'Package: azure-cli\nVersion: 2.91.0-1~bookworm\n',
     azureCliExtensionVersions: async name => {
       assert.equal(name, 'azure-devops');
@@ -170,6 +176,7 @@ test('resolves the latest versions within the update policy', async () => {
     'typescript-serena': 'npm:typescript@5.9.4',
     azureCliDebianPackage: '2.91.0-1~bookworm',
     azureDevOpsCliExtension: '1.0.9',
+    tea: '0.16.0',
     uv: '0.13.0',
     serena: 'c'.repeat(40),
     dotnetSdk: '10.0.402',

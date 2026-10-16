@@ -7,6 +7,7 @@ ARG SERENA_REVISION=96c27473f4402c649f8d01ea7ba00eb0d1061fba
 ARG SUPERPOWERS_REVISION=bb92a77741419a4ab5f06e711a283343f1ada0c3
 ARG AZURE_CLI_VERSION=2.91.0-1~bookworm
 ARG AZURE_DEVOPS_EXTENSION_VERSION=1.0.9
+ARG TEA_VERSION=0.15.1
 
 ENV DEBIAN_FRONTEND=noninteractive \
     APP_USER=dev \
@@ -49,6 +50,16 @@ RUN set -eux; \
     az extension add --name azure-devops --version "${AZURE_DEVOPS_EXTENSION_VERSION}" --yes --only-show-errors; \
     chmod -R a+rX "${AZURE_EXTENSION_DIR}"; \
     rm -rf /root/.azure
+
+# Gitea CLI for ticketing.backend gitea, checked against the checksum published next to the binary.
+RUN set -eux; \
+    file="tea-${TEA_VERSION}-linux-$(dpkg --print-architecture)"; \
+    cd /tmp; \
+    curl -fsSLO "https://dl.gitea.com/tea/${TEA_VERSION}/${file}"; \
+    curl -fsSLO "https://dl.gitea.com/tea/${TEA_VERSION}/${file}.sha256"; \
+    sha256sum -c "${file}.sha256"; \
+    install -m 0755 "${file}" /usr/local/bin/tea; \
+    rm "${file}" "${file}.sha256"
 
 # Keep a stable non-root identity while allowing entrypoint remapping for Linux hosts.
 RUN set -eux; \

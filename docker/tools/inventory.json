@@ -23,6 +23,7 @@
   "systemTools": {
     "azureCliDebianPackage": "2.91.0-1~bookworm",
     "azureDevOpsCliExtension": "1.0.9",
+    "tea": "0.15.1",
     "uv": "0.13.1"
   },
   "sourceRevisions": {

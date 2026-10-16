@@ -28,6 +28,7 @@ const DOCKERFILE_ARGS = {
     SUPERPOWERS_REVISION: inventory => inventory.sourceRevisions.superpowers,
     AZURE_CLI_VERSION: inventory => inventory.systemTools.azureCliDebianPackage,
     AZURE_DEVOPS_EXTENSION_VERSION: inventory => inventory.systemTools.azureDevOpsCliExtension,
+    TEA_VERSION: inventory => inventory.systemTools.tea,
   },
   'Dockerfile.dotnet': {
     DOTNET_SDK_VERSION: inventory => inventory.derivedImages.dotnetSdk,
@@ -211,6 +212,8 @@ export async function resolveUpdates(inventory, sources) {
 
   propose('uv', ['systemTools', 'uv'], inventory.systemTools.uv,
     (await sources.githubLatestRelease('astral-sh/uv')).replace(/^v/, ''));
+  propose('tea', ['systemTools', 'tea'], inventory.systemTools.tea,
+    (await sources.giteaLatestRelease('https://gitea.com', 'gitea/tea')).replace(/^v/, ''));
   const azureCli = inventory.systemTools.azureCliDebianPackage;
   const suffix = /~[^~]+$/.exec(azureCli)?.[0] ?? '';
   propose('azureCliDebianPackage', ['systemTools', 'azureCliDebianPackage'], azureCli,
@@ -288,6 +291,9 @@ export function createSources(fetchImpl = globalThis.fetch) {
       const headers = { Accept: 'application/vnd.github+json' };
       if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
       return (await getJson(`https://api.github.com/repos/${repository}/releases/latest`, headers)).tag_name;
+    },
+    async giteaLatestRelease(host, repository) {
+      return (await getJson(`${host}/api/v1/repos/${repository}/releases/latest`)).tag_name;
     },
     async debianPackages(distribution) {
       const url = `https://packages.microsoft.com/repos/azure-cli/dists/${distribution}/main/binary-amd64/Packages.gz`;
