@@ -23,8 +23,8 @@ produces `latest` only.
 
 The build context is the standalone `docker/` directory. The base includes all
 three agents, local Serena, Playwright MCP and its matching Chromium, Context7,
-Azure DevOps MCP v2, Azure CLI with its `azure-devops` extension, Superpowers and
-ccusage. The Node variant adds native compilation tools, package managers and
+Azure DevOps MCP v2, Azure CLI with its `azure-devops` extension, the Docker CLI with
+`buildx` and `compose` (no daemon), Superpowers and ccusage. The Node variant adds native compilation tools, package managers and
 TypeScript semantic tooling; the .NET variant adds an exact SDK version, the matching `dotnet-ef` tool, Serena's C#
 language server, and trusts the ASP.NET Core HTTPS development certificate for `localhost`. Project dependency
 installation remains the consuming project's responsibility.
@@ -222,6 +222,8 @@ The only host filesystem bind is the selected project, writable by the agents.
 Runtime home, caches and project-defined data volumes are additional container
 state. The default uses a private Compose bridge network, an init process, 1 GiB
 browser shared memory and no host Docker socket, privileged mode or host networking.
+The opt-in [Docker daemon](#docker-inside-the-container-opt-in) keeps the host socket out,
+binds only the project and adds a privileged sidecar, which does lift this boundary.
 Outbound network access remains available. Credentials define remote API access;
 filesystem isolation does not make Azure DevOps read-only.
 
@@ -258,7 +260,8 @@ docker compose --env-file .env.ai-dev -f compose.ai-dev.yml -f compose.ai-dev.ce
 
 `COMPOSE_FILE=compose.ai-dev.yml:compose.ai-dev.certs.yml` (`;` as separator on Windows)
 avoids repeating both `-f`. The overlay applies unchanged to the repo-root self-dev
-`compose.ai-dev.yml`.
+`compose.ai-dev.yml`. With the Docker daemon overlay, also add its
+[certs companion](#docker-inside-the-container-opt-in).
 
 On every start the entrypoint, still as root, splits each certificate into its own file
 under `/usr/local/share/ca-certificates/agent-extra/` (DER is converted), runs
@@ -380,17 +383,77 @@ not see this trust; browsers on the host do not trust the container's certificat
 Company root certificates are a separate mechanism and *are* visible to Node through
 `NODE_EXTRA_CA_CERTS` — see [Corporate TLS inspection](#corporate-tls-inspection).
 
-The default topology does **not** support Testcontainers or other Docker API clients.
-A MongoDB sidecar does not satisfy that requirement. Full integration testing needs
-an explicitly designed dedicated-daemon environment; exposing the host socket would
-break the stated filesystem boundary and is not part of this template.
+The default topology has no Docker daemon. For image builds, Compose-based workloads
+and Testcontainers, add the opt-in daemon described next.
+
+## Docker inside the container (opt-in)
+
+The images ship the Docker CLI with the `buildx` and `compose` plugins, but no daemon.
+[`docker-compose.dind.yml`](docker-compose.dind.yml) adds one: a `docker` sidecar running
+the pinned `docker:<version>-dind`. Copy it alongside `compose.ai-dev.yml` as
+`compose.ai-dev.dind.yml` and pass it as a second `-f`:
+
+```text
+docker compose -p my-project-ai -f compose.ai-dev.yml -f compose.ai-dev.dind.yml run --rm ai-dev-workflow claude
+docker compose -p my-project-ai -f compose.ai-dev.yml -f compose.ai-dev.dind.yml down   # stops the daemon
+```
+
+`run` starts the daemon and waits until it is healthy. `run --rm` leaves it running, so stop
+it with `down`. `down --volumes` also deletes the daemon's images, build cache and nested
+volumes, which otherwise persist per Compose project name in the `docker-data` volume.
+The overlay works with Docker Desktop on Windows and with Docker Engine on Linux, and also
+applies to the repo-root self-dev `compose.ai-dev.yml`.
+
+**Security: this is root-equivalent.** The daemon runs in a *privileged, rootful* container.
+Every agent in the container can use its socket, and so it can become root on the host
+(Linux) or in the Docker Desktop VM, which reaches the host drives (Windows), for example
+with `docker run --privileged`. That is why the overlay is opt-in. Use it only where that
+is acceptable. Rootless dind would avoid this, but Ubuntu 23.10 and later block it by
+default (`kernel.apparmor_restrict_unprivileged_userns=1`). The agent container itself keeps
+its dropped capabilities and non-root user. It reaches the daemon only through a Unix socket
+on a shared volume (`/run/dind/docker.sock`, owned by the runtime group), and there is no TCP
+listener.
+
+What works as on a host:
+
+- **Image builds**: `docker build`, `docker buildx` and Compose `build:`. The build context is
+  sent from the agent container.
+- **Compose workloads with project binds**: the sidecar mounts the same project at
+  `/workspace`, so `./nginx/...` in a Compose file inside the project, or `-v /workspace/...`,
+  resolves to the project files. Absolute paths outside `/workspace`, such as `/var/wt/data`,
+  are created *inside the sidecar*, never on the host. Windows-only paths such as
+  `D:/db/...` need a project-specific override file.
+- **Published ports on `localhost`**: the agent shares the sidecar's network namespace, so
+  `docker run -p 5000:80`, Compose `ports:` and Playwright all use `http://localhost:5000`.
+  This includes ports below 1024. To reach a port from the host, publish it on the
+  `docker` service. `ports:` on `ai-dev-workflow` conflicts with the shared namespace.
+- **Testcontainers**: the overlay sets `DOCKER_HOST`, `TESTCONTAINERS_HOST_OVERRIDE=localhost`
+  and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` (for Ryuk). No project configuration is needed.
+
+Limits:
+
+- Named volumes that mask project subdirectories in the agent container, such as a
+  container-only `node_modules`, are not visible to the sidecar. A nested container
+  bind-mounting such a path sees the host directory.
+- On Linux, files that nested containers write into the project are owned by the uid those
+  containers run as, often root. The agent can still delete them from directories it owns.
+- Proxy: the sidecar receives the same `HTTP(S)_PROXY`/`NO_PROXY` variables for its image
+  pulls. On every start the agent writes them to `proxies.default` in `~/.docker/config.json`,
+  which the Docker CLI injects into builds and containers. Service names that nested
+  containers call over HTTP must then be in `NO_PROXY`.
+- Behind TLS inspection, also add
+  [`docker-compose.dind-certs.yml`](docker-compose.dind-certs.yml) as
+  `compose.ai-dev.dind-certs.yml` so that the daemon trusts `AGENT_CA_DIR`. It accepts PEM
+  files only. Trust inside the `RUN` steps of the project's own Dockerfiles stays the
+  project's responsibility.
 
 ## Tool inventory, updates and verification
 
 `tools/inventory.json` is the single source for every pin: base image digest and its
 Node version, all Node CLIs and MCP servers, uv, Azure CLI and its `azure-devops`
-extension, Serena/Superpowers revisions, the .NET SDK and `dotnet-ef`. `tools/package.json`, `tools/package-lock.json` and the Dockerfile
-`FROM`/`ARG` pins are derived from it; do not edit them by hand. The inventory is copied
+extension, the Docker CLI packages and the dind image of the opt-in overlay, Serena/Superpowers
+revisions, the .NET SDK and `dotnet-ef`. `tools/package.json`, `tools/package-lock.json`, the Dockerfile
+`FROM`/`ARG` pins and the `image:` line of `docker-compose.dind.yml` are derived from it; do not edit them by hand. The inventory is copied
 to `/opt/agent-tools/inventory.json` and every build verifies the installed versions
 against it (`tools/verify-versions.mjs`). OS packages still use apt repositories, so
 this is a versioned tool runtime, not a claim of byte-identical rebuilds.
@@ -413,8 +476,8 @@ node docker/tools/inventory.mjs check        # drift gate (CI and build.mjs)
   depends on, so the installed Chromium matches the MCP.
 - `dotnetChannel`: the SDK and `dotnet-ef` follow the latest patch of this channel.
 
-Serena and Superpowers follow their default-branch HEAD; the base image keeps its tag
-and refreshes the digest. Raise a hold or channel deliberately by editing the policy.
+Serena and Superpowers follow their default-branch HEAD; the base and dind images keep
+their tags (`docker:29-dind` follows the latest 29.x) and refresh the digest. Raise a hold or channel deliberately by editing the policy.
 
 Update workflow:
 
@@ -448,4 +511,6 @@ recreate the container and verify retained authentication; start a real Codex
 on a harmless read-only fixture task, use Serena and Playwright, and perform an ADO
 read from the primary agent and a subagent. Check Git
 remote access separately. Record actual results; an unperformed or blocked login,
-model call, application E2E or Testcontainers run is not a passing automated check.
+model call or application E2E run is not a passing automated check. `verify-runtime.sh`
+covers the dind overlay (`tests/dind-smoke.mjs`: build, Compose with project binds and
+`localhost` ports, Testcontainers, host boundary) on Linux. It needs network access.
