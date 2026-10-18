@@ -264,14 +264,14 @@ an engine warning, not a clear error.
 The workflow ships a **container runtime** with Claude Code, Codex, OpenCode, Serena,
 Playwright/Chromium, Context7, Azure DevOps MCP, Azure CLI (with the `azure-devops` extension),
 Superpowers and ccusage.
-Prepare the consuming project with the generator on the host, build the tool image separately,
-then mount that project at `/workspace`. A project-scoped Docker volume stores the container's
-own home and one-time interactive logins. The image does not install or run the generator.
+Answer **yes** to *Set up the dev container?* during `init`: it writes `compose.ai-dev.yml`
+(preset with the published image for the detected stack: Node, .NET or generic), a
+certificate overlay, the launchers `ai-dev.sh` / `ai-dev.ps1` and `AI-DEV.md` with the logins
+for your coding agents and ticketing backend, then prints the exact next steps. These files are
+project-owned. Run the generator on the host; the image does not install or run it.
 
 ```bash
-export PROJECT_ROOT="$(pwd)" AGENT_IMAGE=ai-dev-workflow
-export HOST_UID="$(id -u)" HOST_GID="$(id -g)"
-docker compose -p my-project-ai -f docker/docker-compose.yml run --rm ai-dev-workflow codex --yolo
+./ai-dev.sh claude --dangerously-skip-permissions   # PowerShell: .\ai-dev.ps1 …
 ```
 
 Two derived images add app-facing runtimes (`ai-dev-workflow-node`, `ai-dev-workflow-dotnet`). The
@@ -290,9 +290,9 @@ docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow bash
 
 See [`docker/README.md`](docker/README.md) → *Working on this repo in a container*.
 
-Behind a TLS-inspecting corporate proxy, mount the company root certificates with the
-`docker/docker-compose.certs.yml` overlay and pass the proxy variables; the published images
-install them at startup, so no per-company image build is needed. See
+Behind a TLS-inspecting corporate proxy, set `AGENT_CA_DIR` and the proxy variables in the
+project's git-ignored `.env.ai-dev`; the launchers add the certificate overlay and the published
+images install the certificates at startup, so no per-company image build is needed. See
 [`docker/README.md`](docker/README.md) → *Corporate TLS inspection*.
 
 **End-to-end self-test.** `node e2e/run.mjs run` exercises the whole workflow in Claude Code, Codex
