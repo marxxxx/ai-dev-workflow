@@ -10,7 +10,7 @@ $root = $PSScriptRoot
 # is already set in the environment.
 $envFile = Join-Path $root '.env.ai-dev'
 if (Test-Path -LiteralPath $envFile) {
-  foreach ($raw in Get-Content -LiteralPath $envFile) {
+  foreach ($raw in Get-Content -LiteralPath $envFile -Encoding UTF8) {
     $line = $raw.TrimEnd("`r")
     if ($line -eq '' -or $line.StartsWith('#')) { continue }
     if ($line.StartsWith('export ')) { $line = $line.Substring(7) }

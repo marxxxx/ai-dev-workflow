@@ -38,10 +38,17 @@ export function detectStack(projectRoot) {
   return 'generic';
 }
 
-/** Compose project-name slug: lowercase, runs of chars outside [a-z0-9_-] → '-', trimmed. */
-export function composeSlug(name) {
-  const slug = String(name).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
-  return slug || 'project';
+/**
+ * Compose project-name slug: lowercase, runs of chars outside [a-z0-9_-] → '-', trimmed so it
+ * starts with [a-z0-9] as Compose requires. The first candidate that leaves anything wins; the
+ * shared 'project' default is the last resort, since projects with the same slug share a home volume.
+ */
+export function composeSlug(...candidates) {
+  for (const name of candidates) {
+    const slug = String(name).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^[-_]+|-+$/g, '');
+    if (slug) return slug;
+  }
+  return 'project';
 }
 
 const readTemplate = (rel) => fs.readFileSync(path.join(TEMPLATE_DIR, rel), 'utf8');
@@ -57,8 +64,8 @@ function fill(text, values) {
  * The container files for a project, relative to its root, in write order. Throws when a
  * template still carries a placeholder after rendering.
  */
-export function renderContainerFiles({ name, stack, backend, giteaLogin = '' }) {
-  const slug = composeSlug(name);
+export function renderContainerFiles({ name, stack, backend, giteaLogin = '', projectDir = '' }) {
+  const slug = composeSlug(name, path.basename(projectDir));
   const node = stack === 'node';
   const values = {
     SLUG: slug,
@@ -104,7 +111,7 @@ export function ensureLine(file, line) {
 export function writeContainerFiles(projectRoot, opts) {
   const written = [];
   const skipped = [];
-  for (const f of renderContainerFiles(opts)) {
+  for (const f of renderContainerFiles({ ...opts, projectDir: projectRoot })) {
     const dest = path.join(projectRoot, f.path);
     if (fs.existsSync(dest)) { skipped.push(f.path); continue; }
     fs.writeFileSync(dest, f.content);
@@ -127,7 +134,7 @@ const TICKETING_LOGIN = {
 export function nextSteps({ backend, version }) {
   const steps = [
     `npx @strobl_dev/adw@${version} generate  (renders .claude/.codex/.opencode/.agents)`,
-    './ai-dev.sh claude  (log in once; or: codex login --device-auth / opencode auth login)',
+    './ai-dev.sh claude  (log in once; or: ./ai-dev.sh codex login --device-auth / ./ai-dev.sh opencode auth login)',
     TICKETING_LOGIN[backend],
     'Create AGENTS.md: ./ai-dev.sh claude, then /init (add an "End-to-end testing" section for agent-dev\'s e2e check)',
     'Commit ai-project.json, the generated dirs and the container files.',

@@ -152,3 +152,31 @@ test('nextSteps lists the versioned generate command and the backend login, numb
   assert.doesNotMatch(file, /gh auth|tea login|az login/);
   assert.deepEqual(steps(file), [1, 2, 3, 4, 5]);
 });
+
+test('composeSlug never starts with an underscore (Compose rejects it)', () => {
+  assert.equal(composeSlug('_internal'), 'internal');
+  assert.equal(composeSlug('-_x'), 'x');
+});
+
+test('composeSlug falls back to the next candidate before the shared "project" default', () => {
+  assert.equal(composeSlug('日本', 'My Repo'), 'my-repo');
+  assert.equal(composeSlug('日本', '日本'), 'project');
+});
+
+test('writeContainerFiles names a non-Latin project after its directory, not the shared fallback', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeContainerFiles(root, { name: 'Проект', stack: 'generic', backend: 'file' });
+    const compose = fs.readFileSync(path.join(root, 'compose.ai-dev.yml'), 'utf8');
+    assert.match(compose, new RegExp(`^name: ${composeSlug(path.basename(root))}-ai$`, 'm'));
+    assert.doesNotMatch(compose, /^name: project-ai$/m);
+  } finally {
+    cleanup();
+  }
+});
+
+test('nextSteps prefixes every container command with the launcher', () => {
+  const text = nextSteps({ backend: 'file', version: '1' });
+  assert.ok(text.includes('./ai-dev.sh codex login --device-auth'));
+  assert.ok(text.includes('./ai-dev.sh opencode auth login'));
+});

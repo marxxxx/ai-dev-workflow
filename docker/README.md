@@ -83,8 +83,8 @@ PowerShell uses `.\ai-dev.ps1` with the same arguments. The launchers resolve th
 from their own location, export it as `PROJECT_ROOT`, set `HOST_UID`/`HOST_GID` from `id` on
 POSIX hosts, load the optional git-ignored `.env.ai-dev` (per-machine settings such as
 `AGENT_IMAGE`, `AGENT_CA_DIR`, proxy variables; never overriding the environment) and run
-`docker compose … run --rm ai-dev-workflow <args>`. Arguments pass through unchanged; no flags
-are added.
+`docker compose … run --rm ai-dev-workflow <args>`. Arguments pass through unchanged and no
+flags are added; in PowerShell quote a bare `--` as `'--'`, which PowerShell otherwise consumes.
 
 No host `HOME` variable or home bind is needed. Docker Desktop uses the default
 container IDs `1000:1000`; it mediates ownership for Windows bind mounts. Paths

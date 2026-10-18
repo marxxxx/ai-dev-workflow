@@ -13,7 +13,9 @@ container files are yours to edit. Requires Docker (Docker Desktop on Windows/ma
 
 PowerShell: `.\ai-dev.ps1` instead of `./ai-dev.sh`. If scripts are blocked, run
 `powershell -ExecutionPolicy Bypass -File .\ai-dev.ps1` once, or
-`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. If `./ai-dev.sh` reports
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. PowerShell swallows a bare `--`
+and empty arguments before the script sees them: write `'--'` (e.g. `.\ai-dev.ps1 npm test '--' --watch`),
+or open a shell with `.\ai-dev.ps1` and type the command there. If `./ai-dev.sh` reports
 *permission denied* (for example after a commit from Windows), run `chmod +x ai-dev.sh` or
 `sh ai-dev.sh`.
 
