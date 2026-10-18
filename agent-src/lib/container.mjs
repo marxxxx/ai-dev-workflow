@@ -115,3 +115,27 @@ export function writeContainerFiles(projectRoot, opts) {
   if (ensureLine(path.join(projectRoot, '.gitattributes'), 'ai-dev.sh text eol=lf')) written.push('.gitattributes');
   return { written, skipped };
 }
+
+// One-line ticketing login per backend for the next-steps printout; `file` has none.
+const TICKETING_LOGIN = {
+  github: './ai-dev.sh gh auth login && ./ai-dev.sh gh auth setup-git',
+  gitea: './ai-dev.sh tea login add  (flags: AI-DEV.md, section 3)',
+  'azure-devops': './ai-dev.sh az login --use-device-code --allow-no-subscriptions',
+};
+
+/** The numbered next steps printed by `init` after a container setup, specific to `backend`. */
+export function nextSteps({ backend, version }) {
+  const steps = [
+    `npx @strobl_dev/adw@${version} generate  (renders .claude/.codex/.opencode/.agents)`,
+    './ai-dev.sh claude  (log in once; or: codex login --device-auth / opencode auth login)',
+    TICKETING_LOGIN[backend],
+    'Create AGENTS.md: ./ai-dev.sh claude, then /init (add an "End-to-end testing" section for agent-dev\'s e2e check)',
+    'Commit ai-project.json, the generated dirs and the container files.',
+    'Start working: ./ai-dev.sh claude --dangerously-skip-permissions, then ask for agent-dev on a ticket.',
+  ].filter(Boolean);
+  return [
+    'Next steps:',
+    ...steps.map((s, i) => `  ${i + 1}. ${s}`),
+    '  Details: AI-DEV.md  (PowerShell: .\\ai-dev.ps1 instead of ./ai-dev.sh)',
+  ].join('\n');
+}

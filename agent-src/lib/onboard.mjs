@@ -7,6 +7,7 @@ import readline from 'node:readline';
 import { SRC_DIR, argValue } from './constants.mjs';
 import { detectRepoSlug } from './identity.mjs';
 import { readJson, buildProjectConfig } from './config.mjs';
+import { STACKS, detectStack, writeContainerFiles, nextSteps } from './container.mjs';
 
 /**
  * The next-step guidance printed after onboarding: create AGENTS.md with the coding agent's native
@@ -64,6 +65,7 @@ export function cmdScaffold(projectRoot) {
  *   askRequired(label, key, def) → like ask but never returns empty
  *   askChoice(label, key, opts, def) → constrained to `opts`
  *   close()                      → release any resources
+ *   scripted                     → true for the --answers prompter (absent answers mean "no" to opt-ins)
  * `key` is a stable identifier per question (readline ignores it; scripted looks answers up by it).
  */
 export function createReadlinePrompter() {
@@ -82,7 +84,7 @@ export function createReadlinePrompter() {
       console.log(`  (choose one of: ${choices.join(', ')})`);
     }
   };
-  return { ask, askRequired, askChoice, close: () => rl.close() };
+  return { ask, askRequired, askChoice, close: () => rl.close(), scripted: false };
 }
 
 /**
@@ -117,7 +119,7 @@ export function createScriptedPrompter(values) {
     }
     return v;
   };
-  return { ask, askRequired, askChoice, close: () => {} };
+  return { ask, askRequired, askChoice, close: () => {}, scripted: true };
 }
 
 /**
@@ -151,6 +153,36 @@ export async function runInterview(prompter, { detectRepoSlug, projectRoot }) {
 }
 
 /**
+ * The dev-container questions. Interactive runs default to yes; an answers file without
+ * `container.enabled` means no, so existing automation keeps getting only ai-project.json.
+ */
+export async function askContainer(prompter, projectRoot) {
+  const enabled = await prompter.ask('Set up the dev container? (Y/n)', 'container.enabled', prompter.scripted ? 'n' : 'y');
+  if (!/^(y|yes|true)$/i.test(enabled)) return { enabled: false };
+  const stack = await prompter.askChoice('Container stack', 'container.stack', STACKS, detectStack(projectRoot));
+  return { enabled: true, stack };
+}
+
+/** The ai-dev-workflow version, for the `npx @strobl_dev/adw@<version>` line of the next steps. */
+function packageVersion() {
+  return readJson(path.join(SRC_DIR, '..', 'package.json'), 'package.json', true).version;
+}
+
+/** Write the container files for `config` and print what happened plus the next steps. */
+function setUpContainer(projectRoot, stack, config) {
+  const backend = config.ticketing?.backend || 'file';
+  const { written, skipped } = writeContainerFiles(projectRoot, {
+    name: config.project?.name || path.basename(projectRoot),
+    stack,
+    backend,
+    giteaLogin: config.ticketing?.gitea?.login || '',
+  });
+  for (const f of written) console.log(`Wrote ${f}`);
+  for (const f of skipped) console.log(`${f} exists — left untouched.`);
+  console.log(`\n${nextSteps({ backend, version: packageVersion() })}`);
+}
+
+/**
  * Onboarding. Prompter resolution order:
  *   1. injected `prompter` (tests) — run the interview with it.
  *   2. `--answers <file>` on argv — scripted prompter fed by that JSON (no TTY needed).
@@ -177,14 +209,24 @@ export async function cmdInit(projectRoot, { prompter } = {}) {
   try {
     if (fs.existsSync(dest)) {
       const ow = await active.ask('ai-project.json exists — overwrite? (y/N)', 'overwrite', 'N');
-      if (!/^y(es)?$/i.test(ow)) { console.log('Left untouched.'); return 0; }
+      if (!/^y(es)?$/i.test(ow)) {
+        console.log('ai-project.json left untouched.');
+        const container = await askContainer(active, projectRoot);
+        if (container.enabled) setUpContainer(projectRoot, container.stack, readExistingConfig(dest));
+        return 0;
+      }
     }
 
     const answers = await runInterview(active, { detectRepoSlug, projectRoot });
     const config = buildProjectConfig(answers);
+    const container = await askContainer(active, projectRoot);
     fs.writeFileSync(dest, JSON.stringify(config, null, 2) + '\n');
 
     console.log(`\nCreated ${dest}`);
+    if (container.enabled) {
+      setUpContainer(projectRoot, container.stack, config);
+      return 0;
+    }
 
     console.log(`\n${DEPENDENCIES}`);
     console.log(`\n${AGENTS_MD_GUIDANCE}`);
@@ -192,5 +234,15 @@ export async function cmdInit(projectRoot, { prompter } = {}) {
     return 0;
   } finally {
     active.close();
+  }
+}
+
+/** An existing ai-project.json, read leniently: anything unreadable counts as empty. */
+function readExistingConfig(file) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
   }
 }

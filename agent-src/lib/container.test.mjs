@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { STACKS, detectStack, composeSlug, renderContainerFiles, ensureLine, writeContainerFiles } from './container.mjs';
+import { STACKS, detectStack, composeSlug, renderContainerFiles, ensureLine, writeContainerFiles, nextSteps } from './container.mjs';
 import { makeTmpRoot } from '../test-helpers.mjs';
 
 const IMAGES = {
@@ -133,4 +133,22 @@ test('ensureLine appends once, on its own line, and creates missing files', () =
   } finally {
     cleanup();
   }
+});
+
+test('nextSteps lists the versioned generate command and the backend login, numbered without gaps', () => {
+  const steps = (text) => text.split('\n').map((l) => l.match(/^ {2}(\d+)\. /)?.[1]).filter(Boolean).map(Number);
+
+  const github = nextSteps({ backend: 'github', version: '1.2.3' });
+  assert.match(github, /^ {2}1\. npx @strobl_dev\/adw@1\.2\.3 generate/m);
+  assert.ok(github.includes('./ai-dev.sh gh auth login && ./ai-dev.sh gh auth setup-git'));
+  assert.deepEqual(steps(github), [1, 2, 3, 4, 5, 6]);
+  assert.ok(github.includes('AI-DEV.md'));
+  assert.ok(github.includes('.\\ai-dev.ps1'));
+
+  assert.ok(nextSteps({ backend: 'gitea', version: '1' }).includes('./ai-dev.sh tea login add'));
+  assert.ok(nextSteps({ backend: 'azure-devops', version: '1' }).includes('./ai-dev.sh az login --use-device-code --allow-no-subscriptions'));
+
+  const file = nextSteps({ backend: 'file', version: '1' });
+  assert.doesNotMatch(file, /gh auth|tea login|az login/);
+  assert.deepEqual(steps(file), [1, 2, 3, 4, 5]);
 });
