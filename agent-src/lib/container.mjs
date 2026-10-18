@@ -83,3 +83,35 @@ export function renderContainerFiles({ name, stack, backend, giteaLogin = '' }) 
   }
   return files;
 }
+
+/**
+ * Append `line` to `file` unless a (trimmed) line already equals it; creates the file when
+ * missing. Returns whether the file changed.
+ */
+export function ensureLine(file, line) {
+  const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+  if (current.split(/\r?\n/).some((l) => l.trim() === line)) return false;
+  const sep = current && !current.endsWith('\n') ? '\n' : '';
+  fs.writeFileSync(file, `${current}${sep}${line}\n`);
+  return true;
+}
+
+/**
+ * Write the container files into `projectRoot`, each only when missing, then make sure
+ * `.env.ai-dev` is git-ignored and `ai-dev.sh` keeps LF endings. Returns the relative paths
+ * written and those left untouched.
+ */
+export function writeContainerFiles(projectRoot, opts) {
+  const written = [];
+  const skipped = [];
+  for (const f of renderContainerFiles(opts)) {
+    const dest = path.join(projectRoot, f.path);
+    if (fs.existsSync(dest)) { skipped.push(f.path); continue; }
+    fs.writeFileSync(dest, f.content);
+    if (f.mode) fs.chmodSync(dest, f.mode);
+    written.push(f.path);
+  }
+  if (ensureLine(path.join(projectRoot, '.gitignore'), '.env.ai-dev')) written.push('.gitignore');
+  if (ensureLine(path.join(projectRoot, '.gitattributes'), 'ai-dev.sh text eol=lf')) written.push('.gitattributes');
+  return { written, skipped };
+}

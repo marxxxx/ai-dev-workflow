@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { STACKS, detectStack, composeSlug, renderContainerFiles } from './container.mjs';
+import { STACKS, detectStack, composeSlug, renderContainerFiles, ensureLine, writeContainerFiles } from './container.mjs';
 import { makeTmpRoot } from '../test-helpers.mjs';
 
 const IMAGES = {
@@ -77,5 +77,60 @@ test('renderContainerFiles returns the five files in order, no placeholder left,
       assert.equal(fileOf(files, 'ai-dev.sh').mode, 0o755);
       assert.equal(fileOf(files, 'ai-dev.ps1').mode, undefined);
     }
+  }
+});
+
+const OPTS = { name: 'Demo', stack: 'node', backend: 'github' };
+
+test('writeContainerFiles writes all files into an empty root', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const { written, skipped } = writeContainerFiles(root, OPTS);
+    assert.deepEqual(written, ['compose.ai-dev.yml', 'compose.ai-dev.certs.yml', 'ai-dev.sh', 'ai-dev.ps1',
+      'AI-DEV.md', '.gitignore', '.gitattributes']);
+    assert.deepEqual(skipped, []);
+    assert.equal(fs.readFileSync(path.join(root, '.gitignore'), 'utf8'), '.env.ai-dev\n');
+    assert.equal(fs.readFileSync(path.join(root, '.gitattributes'), 'utf8'), 'ai-dev.sh text eol=lf\n');
+    if (process.platform !== 'win32') {
+      assert.equal(fs.statSync(path.join(root, 'ai-dev.sh')).mode & 0o777, 0o755);
+    }
+  } finally {
+    cleanup();
+  }
+});
+
+test('writeContainerFiles leaves existing files untouched and reports them', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'compose.ai-dev.yml'), 'mine');
+    fs.writeFileSync(path.join(root, '.gitignore'), '.env.ai-dev\n');
+    const { written, skipped } = writeContainerFiles(root, OPTS);
+    assert.equal(fs.readFileSync(path.join(root, 'compose.ai-dev.yml'), 'utf8'), 'mine');
+    assert.deepEqual(skipped, ['compose.ai-dev.yml']);
+    assert.ok(!written.includes('compose.ai-dev.yml'));
+    assert.ok(!written.includes('.gitignore'), 'an unchanged .gitignore is not reported as written');
+  } finally {
+    cleanup();
+  }
+});
+
+test('ensureLine appends once, on its own line, and creates missing files', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const file = path.join(root, '.gitignore');
+    fs.writeFileSync(file, 'node_modules');
+    assert.equal(ensureLine(file, '.env.ai-dev'), true);
+    assert.equal(fs.readFileSync(file, 'utf8'), 'node_modules\n.env.ai-dev\n');
+    assert.equal(ensureLine(file, '.env.ai-dev'), false);
+    assert.equal(fs.readFileSync(file, 'utf8'), 'node_modules\n.env.ai-dev\n');
+
+    fs.writeFileSync(file, 'a\r\n  .env.ai-dev  \r\n');
+    assert.equal(ensureLine(file, '.env.ai-dev'), false);
+
+    const fresh = path.join(root, 'new-file');
+    assert.equal(ensureLine(fresh, 'x'), true);
+    assert.equal(fs.readFileSync(fresh, 'utf8'), 'x\n');
+  } finally {
+    cleanup();
   }
 });
