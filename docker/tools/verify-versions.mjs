@@ -15,6 +15,8 @@ export function versionOf(spec) {
 }
 
 export function outputHasVersion(output, version) {
+  // tea prints its version in bold even without a terminal.
+  output = output.replace(/\x1b\[[0-9;]*m/g, '');
   const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`(^|[^0-9A-Za-z.])v?${escaped}($|[^0-9A-Za-z.])`).test(output);
 }
@@ -28,6 +30,7 @@ export function versionChecks(inventory, variant) {
     { label: 'codex', expected: npm('@openai/codex'), command: [`${BIN}/codex`, '--version'] },
     { label: 'opencode', expected: npm('opencode-ai'), command: [`${BIN}/opencode`, '--version'] },
     { label: 'uv', expected: inventory.systemTools.uv, command: ['uv', '--version'] },
+    { label: 'tea', expected: inventory.systemTools.tea, command: ['tea', '--version'] },
     { label: 'az', expected: inventory.systemTools.azureCliDebianPackage.split('-')[0], command: ['az', 'version', '--output', 'json'] },
     {
       label: 'az extension azure-devops', expected: inventory.systemTools.azureDevOpsCliExtension,
