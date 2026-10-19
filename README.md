@@ -9,7 +9,7 @@ The generator is a zero-dependency Node script, published to npm as
 [`@strobl_dev/adw`](https://www.npmjs.com/package/@strobl_dev/adw). The consuming project does
 **not** need to be a Node project. It works in any repo (C#/.NET, Go, Rust, …) — the only
 requirement is Node on the machine that runs the generator (your dev box and CI). Pin a version
-(e.g. `@0.25.0`) so devs and CI stay in sync.
+(e.g. `@0.27.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -32,7 +32,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
-npx @strobl_dev/adw@0.25.0 init
+npx @strobl_dev/adw@0.27.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -42,12 +42,12 @@ npx @strobl_dev/adw@0.25.0 init
 #    with your coding agent's native /init.)
 
 # 3. generate the platform files
-npx @strobl_dev/adw@0.25.0 generate
+npx @strobl_dev/adw@0.27.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the version (`@0.25.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the version (`@0.27.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 Versions up to v0.23.0 were only distributed from Git (`npx github:marxxxx/ai-dev-workflow#v0.23.0`).
 npm 12 refuses git specs by default (`EALLOWGIT`); add `--allow-git=all` if you still need one.
@@ -226,8 +226,8 @@ the developer journal/handoff, and the e2e include are gone; ticket states shrin
 longer produces; run `upgrade` instead, which removes them and then generates:
 
 ```bash
-npx @strobl_dev/adw@0.25.0 upgrade --dry-run   # list what would change
-npx @strobl_dev/adw@0.25.0 upgrade
+npx @strobl_dev/adw@0.27.0 upgrade --dry-run   # list what would change
+npx @strobl_dev/adw@0.27.0 upgrade
 ```
 
 It deletes these files, but only where they still carry the generator's `DO NOT EDIT` banner (a
@@ -264,14 +264,14 @@ an engine warning, not a clear error.
 The workflow ships a **container runtime** with Claude Code, Codex, OpenCode, Serena,
 Playwright/Chromium, Context7, Azure DevOps MCP, Azure CLI (with the `azure-devops` extension),
 Superpowers and ccusage.
-Prepare the consuming project with the generator on the host, build the tool image separately,
-then mount that project at `/workspace`. A project-scoped Docker volume stores the container's
-own home and one-time interactive logins. The image does not install or run the generator.
+Answer **yes** to *Set up the dev container?* during `init`: it writes `compose.ai-dev.yml`
+(preset with the published image for the detected stack: Node, .NET or generic), a
+certificate overlay, the launchers `ai-dev.sh` / `ai-dev.ps1` and `AI-DEV.md` with the logins
+for your coding agents and ticketing backend, then prints the exact next steps. These files are
+project-owned. Run the generator on the host; the image does not install or run it.
 
 ```bash
-export PROJECT_ROOT="$(pwd)" AGENT_IMAGE=ai-dev-workflow
-export HOST_UID="$(id -u)" HOST_GID="$(id -g)"
-docker compose -p my-project-ai -f docker/docker-compose.yml run --rm ai-dev-workflow codex --yolo
+./ai-dev.sh claude --dangerously-skip-permissions   # PowerShell: .\ai-dev.ps1 …
 ```
 
 Two derived images add app-facing runtimes (`ai-dev-workflow-node`, `ai-dev-workflow-dotnet`). The
@@ -290,9 +290,9 @@ docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow bash
 
 See [`docker/README.md`](docker/README.md) → *Working on this repo in a container*.
 
-Behind a TLS-inspecting corporate proxy, mount the company root certificates with the
-`docker/docker-compose.certs.yml` overlay and pass the proxy variables; the published images
-install them at startup, so no per-company image build is needed. See
+Behind a TLS-inspecting corporate proxy, set `AGENT_CA_DIR` and the proxy variables in the
+project's git-ignored `.env.ai-dev`; the launchers add the certificate overlay and the published
+images install the certificates at startup, so no per-company image build is needed. See
 [`docker/README.md`](docker/README.md) → *Corporate TLS inspection*.
 
 **End-to-end self-test.** `node e2e/run.mjs run` exercises the whole workflow in Claude Code, Codex

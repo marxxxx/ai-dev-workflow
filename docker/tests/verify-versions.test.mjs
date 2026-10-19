@@ -15,6 +15,7 @@ test('matches a version as a whole token in command output', () => {
   assert.ok(outputHasVersion('uv 0.12.13 (x86_64-unknown-linux-gnu)', '0.12.13'));
   assert.ok(outputHasVersion('"azure-cli": "2.90.0",', '2.90.0'));
   assert.ok(outputHasVersion('Entity Framework Core .NET Command-line Tools\n10.0.12\n', '10.0.12'));
+  assert.ok(outputHasVersion('Version: \x1b[1m0.15.1\x1b[0m\tgolang: 1.26.5', '0.15.1'));
   assert.ok(!outputHasVersion('1.22.22', '1.22.2'));
   assert.ok(!outputHasVersion('11.22.2', '1.22.2'));
 });
@@ -22,7 +23,7 @@ test('matches a version as a whole token in command output', () => {
 test('each variant checks the base tools plus its own', () => {
   const labels = variant => versionChecks(inventory, variant).map(check => check.label);
   const base = labels('base');
-  for (const label of ['node', 'claude', 'codex', 'opencode', 'uv', 'az', 'az extension azure-devops', 'serena', 'package @playwright/mcp', 'package pnpm', 'docker', 'docker buildx', 'docker compose']) {
+  for (const label of ['node', 'claude', 'codex', 'opencode', 'uv', 'tea', 'az', 'az extension azure-devops', 'serena', 'package @playwright/mcp', 'package pnpm', 'docker', 'docker buildx', 'docker compose']) {
     assert.ok(base.includes(label), `base is missing ${label}`);
   }
   assert.ok(!base.includes('pnpm') && !base.includes('dotnet'));
@@ -36,6 +37,7 @@ test('derives expectations from the inventory', () => {
   assert.equal(byLabel.node, inventory.baseImage.node);
   assert.equal(byLabel.az, inventory.systemTools.azureCliDebianPackage.split('-')[0]);
   assert.equal(byLabel['az extension azure-devops'], inventory.systemTools.azureDevOpsCliExtension);
+  assert.equal(byLabel.tea, inventory.systemTools.tea);
   assert.equal(byLabel.tsc, inventory.npmPackages.typescript);
   assert.equal(byLabel['package typescript-serena'], '5.9.3');
   assert.equal(byLabel.serena, `rev=${inventory.sourceRevisions.serena}`);

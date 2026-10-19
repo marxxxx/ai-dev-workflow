@@ -26,6 +26,7 @@
     "dockerBuildxDebianPackage": "0.38.0-1~debian.12~bookworm",
     "dockerCliDebianPackage": "5:29.9.1-1~debian.12~bookworm",
     "dockerComposeDebianPackage": "5.6.0-1~debian.12~bookworm",
+    "tea": "0.15.1",
     "uv": "0.13.1"
   },
   "sourceRevisions": {

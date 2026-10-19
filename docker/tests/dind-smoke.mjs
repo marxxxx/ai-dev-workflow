@@ -7,11 +7,15 @@ import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { renderContainerFiles } from '../../agent-src/lib/container.mjs';
 
-const template = fileURLToPath(new URL('../docker-compose.yml', import.meta.url));
 const overlay = fileURLToPath(new URL('../docker-compose.dind.yml', import.meta.url));
 const inventory = JSON.parse(readFileSync(fileURLToPath(new URL('../tools/inventory.json', import.meta.url)), 'utf8'));
 const temporary = mkdtempSync(path.join(tmpdir(), 'agent-dind-smoke-'));
+// The compose file consuming projects get from `init`, rendered the same way.
+const template = path.join(temporary, 'compose.ai-dev.yml');
+const rendered = renderContainerFiles({ name: 'smoke', stack: 'generic', backend: 'file' });
+writeFileSync(template, rendered.find(file => file.path === 'compose.ai-dev.yml').content);
 const project = path.join(temporary, 'project with spaces');
 mkdirSync(path.join(project, 'web'), { recursive: true });
 writeFileSync(path.join(project, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' } }));

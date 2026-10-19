@@ -56,6 +56,7 @@ test('sync rewrites Dockerfile pins from the inventory', t => {
     inventory.baseImage.reference = 'node:24-bookworm-slim@sha256:abc';
     inventory.systemTools.uv = '9.9.9';
     inventory.systemTools.azureDevOpsCliExtension = '8.8.8';
+    inventory.systemTools.tea = '7.7.7';
     inventory.sourceRevisions.serena = 'f'.repeat(40);
     inventory.derivedImages.dotnetSdk = '10.0.999';
     inventory.derivedImages.dotnetEf = '10.0.99';
@@ -67,6 +68,7 @@ test('sync rewrites Dockerfile pins from the inventory', t => {
   assert.match(dockerfile, /^FROM node:24-bookworm-slim@sha256:abc$/m);
   assert.match(dockerfile, /^ARG UV_VERSION=9\.9\.9$/m);
   assert.match(dockerfile, /^ARG AZURE_DEVOPS_EXTENSION_VERSION=8\.8\.8$/m);
+  assert.match(dockerfile, /^ARG TEA_VERSION=7\.7\.7$/m);
   assert.match(dockerfile, new RegExp(`^ARG SERENA_REVISION=${'f'.repeat(40)}$`, 'm'));
   const dotnetDockerfile = readFileSync(path.join(root, 'Dockerfile.dotnet'), 'utf8');
   assert.match(dotnetDockerfile, /^ARG DOTNET_SDK_VERSION=10\.0\.999$/m);
@@ -128,6 +130,7 @@ function sampleInventory() {
       dockerBuildxDebianPackage: '0.37.0-1~debian.12~bookworm',
       dockerCliDebianPackage: '5:29.8.0-1~debian.12~bookworm',
       dockerComposeDebianPackage: '5.6.0-1~debian.12~bookworm',
+      tea: '0.15.1',
       uv: '0.12.13',
     },
     sourceRevisions: { serena: 'a'.repeat(40), superpowers: 'b'.repeat(40) },
@@ -162,6 +165,10 @@ function fakeSources() {
     githubLatestRelease: async repo => {
       assert.equal(repo, 'astral-sh/uv');
       return '0.13.0';
+    },
+    giteaLatestRelease: async (host, repo) => {
+      assert.deepEqual([host, repo], ['https://gitea.com', 'gitea/tea']);
+      return 'v0.16.0';
     },
     debianPackages: async () => 'Package: azure-cli\nVersion: 2.91.0-1~bookworm\n',
     dockerDebianPackages: async distribution => {
@@ -203,6 +210,7 @@ test('resolves the latest versions within the update policy', async () => {
     dockerCliDebianPackage: '5:29.9.1-1~debian.12~bookworm',
     dockerBuildxDebianPackage: '0.38.0-1~debian.12~bookworm',
     dindImage: { reference: 'docker:29-dind@sha256:newdind', docker: '29.9.0' },
+    tea: '0.16.0',
     uv: '0.13.0',
     serena: 'c'.repeat(40),
     dotnetSdk: '10.0.402',

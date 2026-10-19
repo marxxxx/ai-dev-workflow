@@ -4,10 +4,13 @@ import { once } from 'node:events';
 import { mkdtempSync, mkdirSync, chmodSync, readFileSync, readdirSync, writeFileSync, rmSync, copyFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { renderContainerFiles } from '../../agent-src/lib/container.mjs';
 
-const template = fileURLToPath(new URL('../docker-compose.yml', import.meta.url));
 const temporary = mkdtempSync(path.join(tmpdir(), 'agent-runtime-smoke-'));
+// The compose file consuming projects get from `init`, rendered the same way.
+const template = path.join(temporary, 'compose.ai-dev.yml');
+const rendered = renderContainerFiles({ name: 'smoke', stack: 'generic', backend: 'azure-devops' });
+writeFileSync(template, rendered.find(file => file.path === 'compose.ai-dev.yml').content);
 const project = path.join(temporary, 'project with spaces');
 mkdirSync(project);
 // Linux bind mounts keep host ownership; let the foreign fixture UID (12345) write here.

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { targetTokens, userTokens, durations, errors, e2ePerformed, softSignals } from './metrics.mjs';
+import { targetTokens, userTokens, durations, errors, e2ePerformed, softSignals, toolUsage } from './metrics.mjs';
 import { makeClaudeTrial, makeCodexTrial, makeOpenCodeTrial, RESULT } from './fixtures/make.mjs';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
@@ -121,4 +121,48 @@ test('e2ePerformed ignores navigation to another host on the same port', () => {
     writeFileSync(path.join(dir, 'agent/sessions/projects/-workspace/abc.jsonl'), nav('http://0.0.0.0:3000/'));
     assert.equal(e2ePerformed('claude-code', dir, 3000), 1);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+const SERVERS = ['serena', 'playwright', 'context7'];
+
+test('toolUsage counts claude built-ins and MCP calls per server, listing unused servers', () => {
+  const dir = makeClaudeTrial(tmp());
+  try {
+    appendFileSync(path.join(dir, 'agent/sessions/projects/-workspace/abc.jsonl'),
+      `${JSON.stringify({ type: 'assistant', message: { id: 'm3', content: [
+        { type: 'tool_use', name: 'mcp__acp__Bash', input: {} }, { type: 'tool_use', name: 'Skill', input: {} },
+        { type: 'tool_use', name: 'mcp__playwright__browser_navigate', input: {} }, { type: 'tool_use', name: 'mcp__other__ping', input: {} }] } })}\n`);
+    assert.deepEqual(toolUsage('claude-code', dir, SERVERS), {
+      builtin: { Bash: 1, Skill: 1 },
+      mcp: { serena: {}, playwright: { browser_navigate: 2 }, context7: {}, other: { ping: 1 } } });
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('toolUsage reads codex MCP calls from completed items, also inside code-mode exec', () => {
+  const dir = makeCodexTrial(tmp());
+  try {
+    const item = (i) => `${JSON.stringify({ type: 'event_msg', payload: { type: 'item_completed', item: i } })}\n`;
+    appendFileSync(path.join(dir, 'agent/sessions/2026/10/10/rollout-1.jsonl'),
+      item({ type: 'McpToolCall', server: 'serena', tool: 'initial_instructions' }) +
+      item({ type: 'McpToolCall', server: 'serena', tool: 'find_symbol' }) +
+      item({ type: 'CommandExecution', command: ['bash'] }) + item({ type: 'FileChange' }) +
+      item({ type: 'AgentMessage' }) + item({ type: 'Reasoning' }) + item({ type: 'UserMessage' }));
+    assert.deepEqual(toolUsage('codex', dir, SERVERS), {
+      builtin: { CommandExecution: 1, FileChange: 1 },
+      mcp: { serena: { initial_instructions: 1, find_symbol: 1 }, playwright: {}, context7: {} } });
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('toolUsage splits opencode tool names at the configured server prefixes', () => {
+  const dir = makeOpenCodeTrial(tmp());
+  try {
+    assert.deepEqual(toolUsage('opencode', dir, SERVERS), {
+      builtin: { bash: 1 }, mcp: { serena: {}, playwright: { browser_navigate: 1 }, context7: {} } });
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('toolUsage of a trial without session logs lists the configured servers unused', () => {
+  const dir = tmp();
+  try { assert.deepEqual(toolUsage('codex', dir, ['serena']), { builtin: {}, mcp: { serena: {} } }); }
+  finally { rmSync(dir, { recursive: true, force: true }); }
 });

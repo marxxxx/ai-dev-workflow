@@ -67,7 +67,10 @@ pipeline: **config → tokens → units → renderers → outputs**.
   keys that earlier versions wrote and the current one no longer does. It deletes a file only if the
   file carries the banner of that exact unit. When you remove or rename a unit, include, or project
   key, add the old one there.
-- **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` only; recommended tooling is
+- **`container.mjs`** + `container/` — the dev-container files `init` offers to write
+  (`compose.ai-dev.yml`, certs overlay, `ai-dev.sh`/`.ps1`, `AI-DEV.md`) from `@@KEY@@` templates.
+  Written once when missing, then **project-owned**: never rendered, checked or upgraded by the pipeline.
+- **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` (and, on request, the container files); recommended tooling is
   *printed*, never installed or documented with install steps.
 
 Units: one skill, `agent-dev`. It adds only the ticket edges around the unmodified superpowers chain:

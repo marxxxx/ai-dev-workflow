@@ -12,7 +12,7 @@ fail() {
 [[ "$(id -u)" -ne 0 ]] || fail "verification must run as the non-root runtime user"
 [[ -r /opt/agent-tools/inventory.json ]] || fail "tool inventory is missing"
 
-for command in node npm git gh rg az uv uvx serena playwright-mcp context7-mcp mcp-server-azuredevops ccusage; do
+for command in node npm git gh rg tea az uv uvx serena playwright-mcp context7-mcp mcp-server-azuredevops ccusage; do
   command -v "$command" >/dev/null || fail "$command is not on PATH"
 done
 
@@ -33,6 +33,7 @@ ccusage --version
 az version --output none
 az devops --help >/dev/null
 uv --version
+tea --version
 serena --help >/dev/null
 node /usr/local/lib/agent-runtime/verify-versions.mjs "$variant"
 

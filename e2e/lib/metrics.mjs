@@ -92,6 +92,34 @@ export function toolCalls(harness, trialDir) {
     .map((p) => ({ name: p.tool, text: JSON.stringify(p.state?.input ?? {}) }));
 }
 
+// Codex runs MCP tools inside its code-mode exec, so its calls come from the completed items.
+const CODEX_NON_TOOL_ITEMS = new Set(['UserMessage', 'AgentMessage', 'Reasoning', 'SubAgentActivity']);
+
+// Calls per tool name: built-ins, and MCP tools grouped by server. Every configured server is
+// listed, so an unused one shows up with no calls. opencode joins server and tool with "_", so
+// only the configured server names can split its names.
+export function toolUsage(harness, trialDir, servers) {
+  const usage = { builtin: {}, mcp: Object.fromEntries(servers.map((s) => [s, {}])) };
+  const count = (bucket, name) => { bucket[name] = (bucket[name] ?? 0) + 1; };
+  const mcp = (server, tool) => count(usage.mcp[server] ??= {}, tool);
+  if (harness === 'codex') {
+    for (const e of codexEvents(trialDir)) {
+      const item = e.payload?.type === 'item_completed' ? e.payload.item : null;
+      if (item?.type === 'McpToolCall') mcp(item.server, item.tool);
+      else if (item?.type && !CODEX_NON_TOOL_ITEMS.has(item.type)) count(usage.builtin, item.type);
+    }
+    return usage;
+  }
+  const prefixes = [...servers].sort((a, b) => b.length - a.length);
+  for (const { name } of toolCalls(harness, trialDir)) {
+    const parts = harness === 'claude-code' ? name.match(/^mcp__(.+?)__(.+)$/)?.slice(1) : null;
+    const server = harness === 'opencode' ? prefixes.find((s) => name.startsWith(`${s}_`)) : parts?.[0];
+    if (!server || server === 'acp') count(usage.builtin, parts?.[1] ?? name); // the ACP bridge serves Claude's built-ins
+    else mcp(server, parts?.[1] ?? name.slice(server.length + 1));
+  }
+  return usage;
+}
+
 function toolErrorCount(harness, trialDir) {
   if (harness === 'claude-code') {
     return claudeEvents(trialDir).flatMap((e) => (e.type === 'user' && Array.isArray(e.message?.content) ? e.message.content : []))

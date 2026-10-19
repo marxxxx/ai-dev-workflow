@@ -1,6 +1,6 @@
 {
   "name": "@strobl_dev/adw",
-  "version": "0.25.0",
+  "version": "0.27.0",
   "description": "Single-source agent & skill definitions for Claude Code, Codex, and OpenCode, generated per project from a small config. Language-agnostic: usable in any repo (incl. C#/.NET) via npx; only requires Node to run the generator.",
   "type": "module",
   "bin": {
@@ -13,6 +13,7 @@
   "files": [
     "agent-src/skills",
     "agent-src/includes",
+    "agent-src/container",
     "agent-src/generate.mjs",
     "agent-src/lib/constants.mjs",
     "agent-src/lib/serialize.mjs",
@@ -26,6 +27,7 @@
     "agent-src/lib/cost.mjs",
     "agent-src/lib/pipeline.mjs",
     "agent-src/lib/upgrade.mjs",
+    "agent-src/lib/container.mjs",
     "agent-src/config/ai-workflow.json",
     "agent-src/config/ai-project.template.json",
     "agent-src/README.md",
