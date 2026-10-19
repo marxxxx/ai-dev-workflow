@@ -102,6 +102,23 @@ test('an endless agent stops at maxTurns', async () => {
   assert.equal(asking.error, 'max-turns');
 });
 
+test('a reply citing no stored answer goes to the human instead, so an invented answer never counts as replayed', async () => {
+  const msg = `Lange Erklärung.\n\n${'x'.repeat(400)}\nWelche Farbe soll der Button haben?`;
+  const session = stubSession([msg, 'fertig']);
+  const decide = stubDecide([{ action: 'reply', text: 'Blau.', usedIds: [] }, { action: 'done', stuck: false }]);
+  const store = memStore();
+  const asked = [];
+  const askHuman = async (message, question) => { asked.push({ message, question }); return 'Rot.'; };
+  const r = await runConversation({ ticket: 7, harness: 'codex', opening: OPENING, session, decide, askHuman, store, maxTurns: 10 });
+  assert.equal(r.humanAsked, 1);
+  assert.deepEqual(session.sent, [OPENING, 'Rot.']);
+  assert.equal(asked[0].message, msg);
+  // The question is the end of the agent message, where its question is.
+  assert.ok(asked[0].question.endsWith('Welche Farbe soll der Button haben?'));
+  assert.ok(asked[0].question.length <= 301);
+  assert.deepEqual(store.answers.at(-1), { id: 'A6', question: asked[0].question, answer: 'Rot.', source: 'human' });
+});
+
 test('a stuck agent ends done with stuck', async () => {
   const r = await runConversation({ ticket: 7, harness: 'codex', opening: OPENING, session: stubSession(['Ich komme nicht weiter.']),
     decide: () => ({ action: 'done', stuck: true }), askHuman: noHuman, store: memStore(), maxTurns: 5 });

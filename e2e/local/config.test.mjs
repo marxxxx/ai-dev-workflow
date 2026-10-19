@@ -38,6 +38,13 @@ test('an explicit role harness and model are kept', () => {
   assert.equal(c.verifier.harness, 'codex');
 });
 
+test('a role with a model but no harness keeps the model on the agent harness', () => {
+  const c = loadLocalConfig(project({ agent: { harness: 'codex', model: 'm1' }, verifier: { model: 'gpt-5-mini' } }));
+  assert.equal(c.verifier.harness, 'codex');
+  assert.equal(c.verifier.model, 'gpt-5-mini');
+  assert.equal(c.review.model, null);
+});
+
 test('errors: unknown key, bad harness, missing harness', () => {
   assert.throws(() => loadLocalConfig(project({ bogus: 1 }), { harness: 'codex' }), /unknown e2e setting: bogus/);
   assert.throws(() => loadLocalConfig(project({ review: { harness: 'nope' } }), { harness: 'codex' }), /e2e\.review\.harness must be one of claude-code, codex, opencode/);

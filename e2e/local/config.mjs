@@ -33,11 +33,11 @@ export function loadLocalConfig(projectRoot, { harness, model } = {}) {
   for (const role of ROLES) checkHarness(role, merged[role].harness);
   if (!agent.harness) throw new Error('no agent harness: pass one or set e2e.agent.harness');
 
-  // A role without its own harness follows the agent's harness and that CLI's default model.
+  // A role without its own harness follows the agent's harness; without its own model, that CLI's default model (null).
   const roles = {};
   for (const role of ROLES) {
     const r = merged[role];
-    roles[role] = r.harness ? r : { ...r, harness: agent.harness, model: null };
+    roles[role] = { ...r, harness: r.harness ?? agent.harness, model: r.model ?? null };
   }
   return { root, ...merged, agent, ...roles };
 }

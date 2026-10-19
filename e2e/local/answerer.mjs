@@ -82,6 +82,9 @@ export const askHumanTty = ({ input = process.stdin, output = process.stdout } =
   rl.on('close', () => { if (!answered) reject(new Error('no answer: input closed')); });
 });
 
+// The end of an agent message, where its question is, as the stored question.
+const tail = (text) => { const t = String(text).replace(/\s+/g, ' ').trim(); return t.length > 300 ? `…${t.slice(-300)}` : t; };
+
 // Turns count the prompts sent to the agent. `ticket` is the ticket number; `store` is { list(), append({question, answer}) }.
 // Errors become a result: agent-timeout, quota, `agent: …` or `answerer: …`; an interrupt aborts the run.
 export async function runConversation({ ticket, harness, opening, session, decide, askHuman, store, maxTurns = 60 }) {
@@ -105,6 +108,8 @@ export async function runConversation({ ticket, harness, opening, session, decid
     if (answer.action === 'done') return { ...result, done: true, stuck: answer.stuck };
     // Checked before a human is asked, so the last allowed turn never costs an answer that is not sent.
     if (result.turns >= maxTurns) { result.error = 'max-turns'; break; }
+    // A reply citing no stored answer is invented: the human answers instead, so the run stays honest about replay.
+    if (answer.action === 'reply' && !answer.usedIds.length) answer = { action: 'askHuman', question: tail(message), specApproval: false };
     let text;
     if (answer.action === 'reply') text = answer.text;
     else {
