@@ -81,6 +81,7 @@ and logged in — see [Gitea backend setup](docs/gitea-backend-setup.md).
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
 | `upgrade` | Delete the files the pre-v0.23 workflow generated and strip obsolete keys from `ai-project.json`, then `generate`. Only deletes files carrying the generator's banner for a removed unit; other skills and subagents are never touched. `--dry-run` lists the changes without writing anything. See [Updating](#updating). |
 | `init` | Interactive onboarding: prompts for project name, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), then writes `ai-project.json` — the only file it creates. It prints the [tooling](#tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
+| `e2e` | `adw e2e <base-commit> <ticket> [harness]`: replay `agent-dev` on one of your tickets in a throwaway clone and score the result. See [E2E on your project](#e2e-on-your-project). |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
 
@@ -258,6 +259,54 @@ you still need to `agent-custom/skills/agent-dev/append.md`. Tickets left in ret
 **Upgrading to v0.20.0.** The generator now requires **Node >= 24** (previously `>=18`). Upgrade Node
 on dev boxes and CI runners before bumping the pinned tag — older runtimes are unsupported and only get
 an engine warning, not a clear error.
+
+## E2E on your project
+
+`adw e2e` replays the `agent-dev` workflow on one of your real tickets, at a fixed commit, and scores
+the outcome. Compare runs after you change `agent-custom/`, `AGENTS.md`, the model or the adw version.
+
+```bash
+npx @strobl_dev/adw e2e <base-commit> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m]
+```
+
+The ticket is read once from your real backend (`gh`, `tea`, Azure DevOps REST, or the file backend;
+`--ticket-file` is the manual fallback) and never written. Every run happens in a throwaway clone at
+`<base-commit>` on the `file` ticketing backend, with its remote pointing at a local bare repo, so
+nothing reaches your tracker or your real remote. The first run asks you the spec questions and
+confirms drafted acceptance criteria; later runs replay your stored answers.
+
+Prerequisites:
+
+- the container files from `init` (`compose.ai-dev.yml`), and an ai-dev image that includes `acpx`;
+- a login or provider environment for each harness any role uses (`./ai-dev.sh claude`, `codex login`,
+  `opencode auth login`, or provider variables listed in `e2e.env`);
+- an `AGENTS.md` section "End-to-end testing" saying how to start and exercise the app, if you want the
+  app-level check (`e2e.testCommand` optionally runs your own tests too).
+
+Each of the four LLM roles (agent, answerer, verifier, review) has its own harness and model, so a
+project can stay inside the providers it may use. In `ai-project.json`:
+
+```json
+"e2e": {
+  "agent":    { "harness": "codex",       "model": "gpt-6.1-sol" },
+  "answerer": { "harness": "opencode",    "model": "azure/gpt-6.1-mini" },
+  "verifier": { "harness": "opencode",    "model": "azure/gpt-6.1", "timeoutSec": 900 },
+  "review":   { "harness": "opencode",    "model": "azure/gpt-6.1" },
+  "env": ["AZURE_API_KEY", "AZURE_RESOURCE_NAME"]
+}
+```
+
+A role you leave out uses the agent's harness with that CLI's default model, so one login is enough.
+`env` lists variable names passed into the containers by name.
+
+Under `.adw/e2e/<ticket>/`, commit `ticket.md`, `answers.json` and `acceptance.md`; `runs/` holds the
+per-run records and reports and is git-ignored (add `.adw/e2e/*/runs/` to `.gitignore`). A run is
+compared with the newest earlier fully replayed run with the same base commit, ticket and harness.
+
+Trade-offs: no calibration, one repetition by default, and your first-time answers shape the result, so
+scores are less precise than the Harbor self-test. Variance between identical runs is large: compare
+medians over several repetitions, never single runs. When a judge shares the agent's harness and model,
+the report warns that it is self-judging.
 
 ## Run in a container
 

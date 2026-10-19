@@ -70,6 +70,11 @@ pipeline: **config → tokens → units → renderers → outputs**.
 - **`container.mjs`** + `container/` — the dev-container files `init` offers to write
   (`compose.ai-dev.yml`, certs overlay, `ai-dev.sh`/`.ps1`, `AI-DEV.md`) from `@@KEY@@` templates.
   Written once when missing, then **project-owned**: never rendered, checked or upgraded by the pipeline.
+- **`e2e/local/`** — the `adw e2e` command (`cli.mjs`, dispatched from `generate.mjs`): replays
+  `agent-dev` on a consumer project's real ticket in a throwaway clone on the `file` backend, driven
+  through the project's ai-dev container (`acpx`). The ticket is read once, never written. It ships
+  in the package together with the `e2e/lib` modules it imports, each listed in `files`
+  (`e2e/local/package.test.mjs` fails if the import closure of `cli.mjs` is not).
 - **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` (and, on request, the container files); recommended tooling is
   *printed*, never installed or documented with install steps.
 
@@ -101,7 +106,7 @@ hand-edit them (`node docker/tools/inventory.mjs update | sync | check`). See `d
 
 ## E2E self-test (`e2e/`)
 
-Hand-maintained, not generated, not shipped in the npm package. `node e2e/run.mjs run` runs the full
+Hand-maintained, not generated. The Harbor parts (`run.mjs`, `harbor.mjs`, tasks, agents) are not shipped in the npm package; `e2e/local/` and the shared `e2e/lib` modules it imports are. `node e2e/run.mjs run` runs the full
 `agent-dev` workflow through Harbor (pinned in `e2e/config.json`) in all three harnesses and on
 every task in `config.tasks` (`demo-todo` in Node, `demo-todo-dotnet` in Blazor Server) with a
 simulated user and a throwaway Gitea; results land in

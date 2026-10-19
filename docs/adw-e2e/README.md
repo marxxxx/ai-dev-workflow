@@ -91,3 +91,9 @@ Variance is large between identical runs. Compare rates and medians, never singl
 - Acceptance criteria (`acceptance-criteria.md`) describe observable behaviour only: no endpoints, parameters or field names, and only what the briefing (`instruction.md`) actively communicates or what follows unambiguously from the ticket.
 - Any change to the criteria, the verifier or review prompt, their models or `review.criteria` changes the verifier hash: run `calibrate`, and keep the calibration variants (`calibration/*.patch`, `expected.json`) in step with the criteria.
 - Never add checks on superpowers internals: path names, worktrees, TDD order, review steps.
+
+## Local runs on your project
+
+This self-test runs on synthetic tasks through Harbor. To run the same kind of check on your own
+project and a real ticket, with no Harbor or Python, use `adw e2e`: see "E2E on your project" in the
+top-level `README.md`.
