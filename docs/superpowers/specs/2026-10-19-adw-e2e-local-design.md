@@ -36,8 +36,8 @@ time, and 1 repetition by default). In return we get easy use. Decisions made:
    `acpx <agent> prompt` via `compose exec`. The opening message is
    `Nutze den agent-dev Skill für Ticket <n>.` (the `/agent-dev <n>` fallback is reused from
    `instruction.md`).
-5. **Answer loop (replay + human).** After each agent turn, an **answerer** (`claude -p`, Sonnet,
-   no tools) gets the ticket, `answers.json` and the agent's message. It returns one of:
+5. **Answer loop (replay + human).** After each agent turn, an **answerer** (one-shot LLM call, harness and
+   model configurable, no tools) gets the ticket, `answers.json` and the agent's message. It returns one of:
    - `{reply, usedIds}`: the message is covered by stored answers, so it is replayed.
    - `{askHuman, question}`: something new. The terminal shows the agent's message, the user types
      the answer, the pair is appended to `answers.json`, then sent.
@@ -130,7 +130,44 @@ Parameterize the ticket number in both variants. Gitea keeps `1`.
   `e2e_performed` are `null`.
 - **Own tests:** run only when `ai-project.json` sets `e2e.testCommand`. Otherwise `ownTests` is
   `null`, and the local reward needs contract = 1 and acceptance = 1.
-- **Credentials:** a Claude token is always needed (answerer + judges), taken from
-  `CLAUDE_CODE_OAUTH_TOKEN` or `~/.config/adw/e2e.env`. Codex and OpenCode auth files come from
-  their default paths. They are copied into the trial container only and scrubbed from collected
-  logs.
+- **Credentials:** see "Provider choice per role" below; no provider is mandatory. Auth files are
+  copied into the trial containers only and scrubbed from collected logs.
+
+## Provider choice per role (added 2026-10-19)
+Each of the four LLM roles has its own harness and model, so a project can stay inside the
+providers it is allowed to use:
+
+```json
+"e2e": {
+  "agent":    { "harness": "codex",       "model": "gpt-6.1-sol" },
+  "answerer": { "harness": "opencode",    "model": "azure/gpt-6.1-mini" },
+  "verifier": { "harness": "opencode",    "model": "azure/gpt-6.1", "timeoutSec": 900 },
+  "review":   { "harness": "claude-code", "model": "claude-sonnet-5-5", "timeoutSec": 600 },
+  "env": ["AZURE_API_KEY", "AZURE_RESOURCE_NAME"]
+}
+```
+
+- **Harnesses:** `claude-code`, `codex`, `opencode`. OpenCode reaches any provider it supports
+  (Azure OpenAI, Bedrock, Mistral, local models) through `provider/model` ids and its own config.
+  Claude Code reaches Bedrock or Vertex through its env switches.
+- **Defaults:** `agent` comes from `<harness>`/`--model` on the CLI, else `e2e.agent`. Each other
+  role defaults to the agent's harness with that CLI's default model, so a single login is enough
+  out of the box. When a judge shares the agent's harness and model, the report warns about
+  self-judging.
+- **`e2e.env`:** names of provider variables passed by name (never by value in argv) into every
+  container: agent, answerer and judges.
+- **Credentials:** staged per harness that any role uses: the Claude token, the Codex
+  `auth.json`, the OpenCode `auth.json`. Preflight names the role and the missing login.
+- **One-shot runner** for answerer, drafting and judges, inside the project's container:
+  - claude-code: `claude -p --output-format stream-json`
+  - codex: `codex exec --json -o <file> -m <model> -s <mode> --skip-git-repo-check --ephemeral`,
+    with MCP via `-c mcp_servers.*`
+  - opencode: `opencode run --format json -m <model>`, with tool permissions and MCP through
+    `OPENCODE_CONFIG_CONTENT`
+
+  The JSON answer is taken from the final message text in every case.
+- **Tool profiles** (`none` | `read` | `verify`) map to each harness's allow/deny or sandbox
+  flags on a best-effort basis. The hard guarantee is the container: the review checkout and the
+  diff are mounted read-only, and the verifier works on a throwaway copy.
+- **The Harbor self-test keeps Claude judges.** `verifierHash` changes only when a judge's
+  harness is not `claude-code`, so the existing calibrations stay valid.

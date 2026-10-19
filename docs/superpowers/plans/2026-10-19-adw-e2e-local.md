@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** `npx @strobl_dev/adw e2e <base-commit> <ticket> <harness>` runs `agent-dev` on a consumer
+**Goal:** `npx @strobl_dev/adw e2e <base-commit> <ticket> [harness]` runs `agent-dev` on a consumer
 project's real ticket in a sandbox. It replays stored clarification answers and asks the human only
 about new questions. Afterwards it judges and measures the run and compares it with the previous one.
+Every LLM role (agent, answerer, verifier, review) runs on the harness and model the project
+configures.
 
 **Architecture:** New shipped modules in `e2e/local/` orchestrate one run:
 - store (layout and persistence)
@@ -16,13 +18,16 @@ about new questions. Afterwards it judges and measures the run and compares it w
 - file-backend contract
 - record and compare
 
-They reuse the Harbor self-test's judges, metrics, report and compare from `e2e/lib/`. The judges
-get an injectable container-argument builder so they can run through the project's compose file.
+A new harness-neutral one-shot runner (`e2e/lib/llm.mjs`) handles answerer, drafting and judges
+for claude-code, codex and opencode. The existing judges, metrics, report and compare in
+`e2e/lib/` are reused; the judges move onto the runner and get an injectable container-argument
+builder.
 
 **Tech Stack:** Node ≥24 builtins only, `node:test`, Docker Compose, `acpx` + ACP adapters in the
-product image, `claude -p` for answerer and judges.
+product image. The one-shot CLIs are `claude -p`, `codex exec` and `opencode run`.
 
-**Spec:** `docs/superpowers/specs/2026-10-19-adw-e2e-local-design.md` (read the "Refinements" section too)
+**Spec:** `docs/superpowers/specs/2026-10-19-adw-e2e-local-design.md` (read the "Refinements" and
+"Provider choice per role" sections too)
 
 ## Global Constraints
 - Zero runtime dependencies; LF line endings; match the terse, comment-per-intent style of `e2e/lib/`.
@@ -32,11 +37,16 @@ product image, `claude -p` for answerer and judges.
   `.adw/e2e/<n>/runs/`. The CLI writes `.adw/e2e/.gitignore` containing `*/runs/` when it is missing.
 - Opening message: `Nutze den agent-dev Skill für Ticket <n>.` The fallback after "unknown skill"
   is `/agent-dev <n>` for claude-code and `$agent-dev <n>` otherwise.
-- Default models: answerer `claude-sonnet-5-5`, verifier `claude-sonnet-5-5` (900 s), review
-  `claude-sonnet-5-5` (600 s). The rubric and thresholds are copied from `e2e/config.json`. The
-  harness model defaults to the CLI's own default unless `--model` is given.
+- Harnesses: exactly `claude-code`, `codex`, `opencode`, for every role.
+- Role defaults: `agent` comes from CLI `[harness]`/`--model`, else `e2e.agent`. `answerer`,
+  `verifier` and `review` each default to `{ harness: <agent harness>, model: null }`, where null
+  means the CLI's default model. Timeouts: answerer 300 s, verifier 900 s, review 600 s.
+- Provider env: the variable names in `e2e.env` are forwarded by name (`-e NAME`, never
+  `NAME=value` in argv) into every container.
+- The rubric and thresholds are copied from `e2e/config.json`.
 - Checks never inspect superpowers internals (paths, worktrees, TDD order).
-- Harbor self-test behaviour stays unchanged. `npm test` stays green after every task.
+- Harbor self-test behaviour stays unchanged: its judges remain claude-code, and `verifierHash`
+  for claude-code judges is byte-identical to today. `npm test` stays green after every task.
 
 ## Review Focus
 1. **Base commit predates `ai-project.json` or generated files.** The sandbox must still produce a
@@ -45,47 +55,106 @@ product image, `claude -p` for answerer and judges.
 2. **The agent never finishes (stuck, timeout, quota).** The loop must stop after
    `maxTurns` (default 60) or the agent turn timeout. The trial is recorded with an error class,
    containers are torn down, and the run is marked not comparable. Test in Task 7.
-3. **Ctrl-C during a human prompt or an agent turn.** Compose projects are removed and no partial
-   `answers.json` write happens (answers are written atomically via a temp file + rename). Test in
-   Tasks 2 and 9.
-4. **No PR branch pushed.** Bundle creation must not throw. The trial gets `emptyOutcome` and a
-   failing `branch_pushed`. Test in Task 5.
-5. **Secrets in collected logs.** The Codex/OpenCode auth copies and the Claude token must not
-   remain in `runs/` (`scanForSecrets` reports zero after `scrubSecretsInTree`). Test in Task 6.
+3. **A role's harness has no login, or a configured `e2e.env` variable is unset.** Preflight must
+   fail before any container starts, and name the role, the harness and the missing login or
+   variable. It must not fail later in the middle of a judge. Test in Task 10.
+4. **A judge's CLI prints no parsable JSON, or exits with a quota or API error** (each harness
+   reports these differently). The result is an unjudged outcome with a labelled error, never a
+   crash and never a failed criterion. The quota error is classified for every harness. Test in
+   Task 1.
+5. **Secrets in collected logs.** Auth copies of every staged harness must not remain in `runs/`
+   (`scanForSecrets` reports zero after `scrubSecretsInTree`). Test in Task 6.
 
 ---
 
-### Task 1: Judges accept an injectable container-argument builder
+### Task 1: Harness-neutral one-shot LLM runner; judges move onto it
 
 **Files:**
-- Modify: `e2e/lib/claude.mjs`, `e2e/lib/verifier.mjs`, `e2e/lib/review.mjs`, `e2e/lib/postverify.mjs`
-- Test: `e2e/lib/claude.test.mjs`, `e2e/lib/verifier.test.mjs`, `e2e/lib/review.test.mjs`, `e2e/lib/postverify.test.mjs`
+- Create: `e2e/lib/llm.mjs`, `e2e/lib/fixtures/llm/{claude-code,codex,opencode}-{ok,quota}.jsonl`
+- Modify: `e2e/lib/claude.mjs` (keep `resultJson` working on top of the new text-level parser),
+  `e2e/lib/verifier.mjs`, `e2e/lib/review.mjs`, `e2e/lib/postverify.mjs`
+- Test: `e2e/lib/llm.test.mjs`, plus updates to `verifier.test.mjs`, `review.test.mjs` and
+  `postverify.test.mjs`
 
 **Interfaces:**
-- Produces:
-  - `buildClaudeComposeArgs({ composeFile, project, service = 'ai-dev-workflow', name, checkout, model, uid, gid, mounts = [], claudeArgs })`
-    returns `['compose', '-f', composeFile, '-p', project, 'run', '--rm', '-T', '--name', name,
-    '-e', 'HOST_UID=…', …, '-v', '<checkout>:/workspace', …mounts, service, 'claude', '-p', …same
-    flags as buildClaudeDockerArgs…, …claudeArgs]`. The `PROJECT_ROOT` env for compose is set by
-    the caller.
-  - `runVerifier({ …, buildArgs = buildClaudeDockerArgs })` and `runReview({ …, buildArgs = buildClaudeDockerArgs })`
-    pass `{ image, name, checkout, model, uid, gid, mounts, claudeArgs }` to `buildArgs`.
-  - `postVerify({ …, buildArgs })` forwards `buildArgs` to both.
-  - Cleanup after a timeout stays `docker rm -f <name>`, because compose `run --name` names the
-    container the same way.
+- Produces (`llm.mjs`):
+  - `HARNESSES = ['claude-code', 'codex', 'opencode']`
+  - `TOOL_PROFILES = ['none', 'read', 'verify']`
+  - `oneShotCommand({ harness, model, tools, playwright = false }) -> { argv: string[], env: Record<string,string> }`.
+    This is the command inside the container. The prompt goes on stdin.
+    - claude-code: `claude -p [--model m] --output-format stream-json --verbose --setting-sources user --strict-mcp-config` plus, by profile:
+      - none: `--tools ""`
+      - read: `--allowedTools Read,Grep,Glob --disallowedTools Bash,Edit,Write,NotebookEdit,Task,WebFetch,WebSearch`
+        (= `REVIEW_*`)
+      - verify: `--mcp-config <playwright json> --allowedTools Bash,Read,Grep,Glob,mcp__playwright --disallowedTools Edit,Write,NotebookEdit,Task,WebFetch,WebSearch`
+        (= `VERIFIER_*`)
+    - codex: `codex exec --json --skip-git-repo-check --ephemeral -o /tmp/adw-last.txt [-m m]`
+      `-s read-only` for none/read and `-s danger-full-access` for verify (the container is the
+      boundary). Verify adds
+      `-c mcp_servers.playwright.command="playwright-mcp" -c 'mcp_servers.playwright.args=["--headless","--browser","chromium","--isolated"]'`.
+      The prompt is `-` (stdin).
+    - opencode: `opencode run --format json [-m provider/model]` with env
+      `OPENCODE_CONFIG_CONTENT` set to `{"permission":{...},"mcp":{...}}`:
+      - none: edit, bash and webfetch all `deny`
+      - read: edit `deny`, bash `deny`, webfetch `deny`
+      - verify: edit `deny`, bash `allow`, plus `mcp.playwright = {type:"local", command:["playwright-mcp","--headless","--browser","chromium","--isolated"]}`
 
-- [ ] **Step 1: Write failing tests.** `buildClaudeComposeArgs` puts the service before `claude`,
-  includes `-v <checkout>:/workspace` and each mount, and uses `--setting-sources user
-  --strict-mcp-config`. `runVerifier` with a stub `buildArgs` receives the verifier's
-  `claudeArgs` (contains `--mcp-config`) and its result is passed to `run`. `postVerify` passes
-  `buildArgs` through (stub deps capture it).
-- [ ] **Step 2: Run** `node --test e2e/lib/claude.test.mjs e2e/lib/verifier.test.mjs e2e/lib/review.test.mjs e2e/lib/postverify.test.mjs`. Expect FAIL.
-- [ ] **Step 3: Implement.** Refactor `buildClaudeDockerArgs` to share the claude flag tail with
-  the compose builder. Build the verifier's `claudeArgs` in `runVerifier` and drop
-  `buildVerifierDockerArgs` (update its test to the new seam). The `verifierHash` material
-  stays identical.
-- [ ] **Step 4: Run** `npm test`. Expect PASS, and the existing `verifierHash` test value is unchanged.
-- [ ] **Step 5: Commit** `refactor(e2e): judges take an injectable container-argument builder`
+      The prompt is read from stdin; if `opencode run` refuses stdin, pass it with
+      `-f /tmp/adw-prompt.md` and a one-line message. Verify which one against the real CLI.
+  - `parseOneShot(harness, stdout) -> { text: string|null, error: string|null }`:
+    - claude-code: the existing `cliJson`/`cliError` logic.
+    - codex: the last `item.completed` event whose `item.type === 'agent_message'` gives the
+      text; `turn.failed`/`error` events give the error.
+    - opencode: the concatenated `text` parts of the last assistant message; `error` events give
+      the error.
+
+    Record the fixtures from one real call per harness, and confirm the event names against
+    them.
+  - `answerJson(text) -> object`: the fenced, whole-text or brace-span JSON extraction moved out
+    of `claude.mjs` `resultJson` (unchanged behaviour; `resultJson` now calls it).
+  - `isQuotaError(error) -> boolean`: claude `usage_limit_reached`, codex
+    `usageLimitExceeded|usage_limit`, opencode/HTTP `429|rate.?limit|quota`. `claude.mjs`
+    `isQuota` re-exports it.
+  - `callLlm({ role, harness, model, tools, playwright, input, buildArgs, name, checkout, mounts, env, timeoutMs, run, onStdout }) -> object`.
+    It builds `buildArgs({ name, checkout, mounts, argv, env })` (container argv), runs it with
+    the `callClaude`-style error, timeout and interrupt handling, then applies
+    `parseOneShot` → `answerJson`. It throws labelled errors (`<role> (<harness>): …`).
+  - `dockerRunArgs({ image, uid, gid, envNames = [], authMounts = [] }) -> buildArgs` and
+    `composeRunArgs({ composeFile, certsFile = null, project, service = 'ai-dev-workflow', uid, gid, envNames = [], authMounts = [] }) -> buildArgs`.
+    Both keep today's `E2E_VERIFY=1`, `AGENT_TOOLSTACK_ONLY=1` and `HOST_UID/GID`. They forward
+    `CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_FORCE_OAUTH` and each name in `envNames` by name, mount the
+    checkout at `/workspace` and each `authMounts` entry read-only (e.g. codex
+    `auth.json` → `/home/dev/.codex/auth.json`).
+  - `runVerifier({ config, …, buildArgs = dockerRunArgs({ image, … }) })` and `runReview(...)`
+    read `config.verifier.harness ?? 'claude-code'` and `config.review.harness ?? 'claude-code'`,
+    call `callLlm` with profile `verify` or `read`, and mount the review checkout and the diff
+    `:ro`.
+  - `postVerify({ …, buildArgs })` forwards `buildArgs` to both.
+  - `verifierHash` adds `{ harness }` to its material **only** when a judge's harness is not
+    `claude-code`.
+  - Cleanup after a timeout stays `docker rm -f <name>`.
+
+- [ ] **Step 1: Write failing tests:**
+  - `oneShotCommand` for each harness × profile, with the exact argv and env from above
+  - `parseOneShot` on each `*-ok.jsonl` fixture gives the expected text, and each `*-quota.jsonl`
+    gives an error that `isQuotaError` accepts (Review Focus 4)
+  - `answerJson` behaviour: the existing `resultJson` tests keep passing unchanged
+  - `callLlm` with a stub `run`:
+    - unparsable output gives `<role> (codex): answer holds no JSON object…`
+    - a non-zero exit with an opencode error event gives a labelled error
+  - `composeRunArgs` puts the service last before the argv, forwards `envNames` by name only (no
+    `=` in argv), and mounts auth files `:ro`
+  - `runVerifier` with `config.verifier.harness = 'codex'` and a stub `run` sends the codex argv
+  - `verifierHash` for claude-code judges equals the value pinned in the existing test, and
+    changes when `review.harness = 'opencode'`
+- [ ] **Step 2: Run** `node --test e2e/lib/llm.test.mjs e2e/lib/claude.test.mjs e2e/lib/verifier.test.mjs e2e/lib/review.test.mjs e2e/lib/postverify.test.mjs`. Expect FAIL.
+- [ ] **Step 3: Record fixtures** with one trivial prompt per harness inside
+  `ai-dev-workflow-node:latest`, e.g.
+  `echo 'Answer {"ok":true}' | codex exec --json --skip-git-repo-check --ephemeral -`. Strip ids
+  and tokens before committing them.
+- [ ] **Step 4: Implement** `llm.mjs` and move the judges onto it.
+- [ ] **Step 5: Run** `npm test`. Expect PASS.
+- [ ] **Step 6: Commit** `refactor(e2e): harness-neutral one-shot runner; judges run on any harness`
 
 ### Task 2: Local config and `.adw/e2e` store
 
@@ -95,9 +164,15 @@ product image, `claude -p` for answerer and judges.
 
 **Interfaces:**
 - Produces (`config.mjs`):
-  - `loadLocalConfig(projectRoot) -> { root, verifier:{model,timeoutSec}, review:{model,timeoutSec,criteria}, answerer:{model,timeoutSec}, thresholds, ccusage:{version}, maxTurns, turnTimeoutSec, testCommand|null, appPort|null, mcpServers }`.
-  - It deep-merges `defaults.json` with `ai-project.json` `.e2e`. An unknown key in `.e2e` throws
-    `unknown e2e setting: <key>`.
+  - `loadLocalConfig(projectRoot, { harness, model } = {}) -> { root, agent:{harness,model}, answerer:{harness,model,timeoutSec}, verifier:{harness,model,timeoutSec}, review:{harness,model,timeoutSec,criteria}, env:string[], thresholds, ccusage:{version}, maxTurns, turnTimeoutSec, testCommand|null, appPort|null, mcpServers }`.
+  - It deep-merges `defaults.json` with `ai-project.json` `.e2e`, then applies the CLI
+    `harness`/`model` to `agent`. Each role without its own `harness` inherits
+    `agent.harness`, with `model: null`.
+  - It throws `unknown e2e setting: <key>` on an unknown key, and
+    `e2e.<role>.harness must be one of claude-code, codex, opencode` on a bad harness.
+  - It throws `no agent harness: pass one or set e2e.agent.harness` when there is none.
+  - `selfJudged(config) -> string[]`: the roles among `verifier` and `review` whose
+    harness+model equal the agent's. The report prints a warning for these.
 - Produces (`store.mjs`), every path absolute under `<root>/.adw/e2e/<ticket>/`:
   - `ticketDir(root, ticket)`, `readTicket(dir) -> {title, body}|null`, `writeTicket(dir, {title, body})`
     (format: `# <title>\n\n<body>\n`).
@@ -112,7 +187,12 @@ product image, `claude -p` for answerer and judges.
     `run.json.fingerprint.baseCommit === baseCommit`, `!aborted` and `comparable === true`.
 
 - [ ] **Step 1: Write failing tests:**
-  - merge precedence (project overrides the default model) and the unknown-key error
+  - merge precedence (project overrides the default model; the CLI harness overrides `e2e.agent`)
+  - role inheritance: `e2e: { agent: { harness: 'codex' } }` gives the answerer, verifier and
+    review `{ harness: 'codex', model: null }`
+  - an explicit `review: { harness: 'opencode', model: 'azure/x' }` is kept
+  - errors for an unknown key, a bad harness and a missing agent harness
+  - `selfJudged`
   - `readAnswers` defaults
   - `appendAnswer` gives ids `A6`, `A7` and leaves no temp file behind
   - ticket round trip
@@ -248,10 +328,20 @@ product image, `claude -p` for answerer and judges.
     These layouts are the ones `metrics.mjs`/`ccusage.mjs` read under `<trialDir>/agent`.
   - `acpxConfig(cmd) -> { agents:{target:{command,args}}, defaultAgent:'target', defaultPermissions:'approve-all', ttl:0, timeout:<turnTimeoutSec>, format:'quiet' }`
   - `composeProject(root, trialId) -> 'adw-e2e-<kebab(basename root)>-<trialId>'` (lowercase, ≤63 chars)
-  - `startSession({ root, work, harness, model, project, creds, exec }) -> Session`:
+  - `stageCredentials({ harnesses, env = process.env, home = homedir() }) -> { envNames: string[], authFiles: {harness, from, to}[], secrets: string[], missing: {harness, what}[] }`.
+    It is a pure lookup with no copying:
+    - claude-code: `CLAUDE_CODE_OAUTH_TOKEN`, or `CLAUDE_CODE_USE_BEDROCK`/`CLAUDE_CODE_USE_VERTEX`
+      (provider mode, no token needed)
+    - codex: `~/.codex/auth.json` or `OPENAI_API_KEY`
+    - opencode: `~/.local/share/opencode/auth.json`. When it is missing, it is not reported as
+      missing, because opencode providers may be configured by env alone.
+
+    `secrets` uses `secretLeaves` from `e2e/lib/secrets.mjs` (export it).
+  - `startSession({ root, work, harness, model, project, creds, envNames, exec }) -> Session`:
     1. `PROJECT_ROOT=<work> docker compose -f <root>/compose.ai-dev.yml [-f compose.ai-dev.certs.yml when AGENT_CA_DIR] -p <project> run -d --name <project>-agent ai-dev-workflow sleep infinity` (`run` also starts the project's `depends_on` services); then wait until `exec … true` succeeds.
-    2. Copy the creds in: codex `auth.json` → `$AGENT_LOGS/auth.json`; opencode `auth.json` →
-       `$AGENT_LOGS/opencode/xdg-data/opencode/auth.json`. The Claude token goes in as env.
+    2. Copy the agent harness's auth in: codex `auth.json` → `$AGENT_LOGS/auth.json`; opencode
+       `auth.json` → `$AGENT_LOGS/opencode/xdg-data/opencode/auth.json`. The Claude token and
+       every `envNames` entry go in by name.
     3. Write `.acpxrc.json` into `work`.
     4. Run `acpx sessions ensure`.
   - `Session.prompt(text) -> Promise<string>`: `docker exec -i -u dev <project>-agent acpx prompt <text>` (a `run` container is addressed by name, not by service),
@@ -283,7 +373,9 @@ product image, `claude -p` for answerer and judges.
 - Test: `e2e/local/answerer.test.mjs`
 
 **Interfaces:**
-- Consumes: `callClaude` (`e2e/lib/claude.mjs`), `appendAnswer` (Task 2), `Session.prompt` (Task 6).
+- Consumes: `callLlm` with profile `none` (Task 1) on `config.answerer.harness`/`.model`,
+  `appendAnswer` (Task 2), `Session.prompt` (Task 6). The answerer runs as a separate one-shot
+  container (`composeRunArgs`), never inside the agent's session container.
 - Produces:
   - `buildAnswererPrompt({ ticket, answers, message, specApproved }) -> string`. The rules:
     - Reply only from the stored answers, in the user's voice: short, German, one or two
@@ -328,7 +420,8 @@ product image, `claude -p` for answerer and judges.
 - Test: `e2e/local/acceptance.test.mjs`
 
 **Interfaces:**
-- Consumes: `parseCriteria` (`e2e/lib/criteria.mjs`), `callClaude`.
+- Consumes: `parseCriteria` (`e2e/lib/criteria.mjs`), and `callLlm` with profile `none` on the
+  answerer's harness and model.
 - Produces:
   - `buildDraftPrompt({ ticket, answers })`. It carries the rule lines of
     `e2e/tasks/_shared/acceptance-criteria.md`: observable behaviour only, no endpoints or field
@@ -362,7 +455,9 @@ product image, `claude -p` for answerer and judges.
     `checks.e2e_performed` is `e2ePerformed(...)`, or `null` without a port.
   - `localReward(t)`: 1 iff every non-null check is 1, `ownTests` is 1 or null, and acceptance is
     1. It is `null` iff acceptance is `null` and everything else passes.
-  - `localFingerprint({ root, harness, model, image, imageId, cliVersion, baseCommit, dir, config, verifierHash }) -> { adw:{version}, baseCommit, harness:{id, cliVersion, model}, image:{ref,id}, ticket, answers, acceptance, models:{answerer,verifier,review}, verifierHash, config }`.
+  - `localFingerprint({ root, image, imageId, cliVersions, baseCommit, dir, config, verifierHash }) -> { adw:{version}, baseCommit, image:{ref,id}, roles:{agent,answerer,verifier,review: {harness, model, cliVersion}}, ticket, answers, acceptance, verifierHash, config }`.
+    `cliVersions` maps each used harness to its `--version` output. A change of any role's
+    harness or model therefore shows up in `diffFingerprints`.
     The `ticket`, `answers` and `acceptance` fields are sha256 of the stored files.
   - `writeRun({ runDir, fingerprint, trials, aborted }) -> run`. It writes `run.json` (schema 2,
     `comparable: !aborted && trials.every(t => t.humanAsked === 0)`) and `report.md`.
@@ -391,17 +486,21 @@ product image, `claude -p` for answerer and judges.
 **Interfaces:**
 - Consumes: everything from Tasks 1–9.
 - Produces:
-  - `parseE2eArgs(argv) -> { baseCommit, ticket:number, harness, repetitions:1, model:null, ticketFile:null, baseline:null, root }`.
-    Harness ∈ `claude-code|codex|opencode`; the ticket is a positive integer. Usage errors exit 2
+  - `parseE2eArgs(argv) -> { baseCommit, ticket:number, harness:string|null, repetitions:1, model:null, ticketFile:null, baseline:null, root }`.
+    `[harness]` is optional (it falls back to `e2e.agent.harness`, Task 2). When given, it must
+    be one of `claude-code|codex|opencode`. The ticket is a positive integer. Usage errors exit 2
     with the usage line.
   - `runE2e(opts, deps) -> exit code`. The order:
-    1. preflight (docker, `compose.ai-dev.yml`, Claude token, harness auth, `git rev-parse --verify <base>^{commit}`)
+    1. preflight: docker; `compose.ai-dev.yml`; `stageCredentials` over the set of role
+       harnesses, where each `missing` entry fails with `<role> uses <harness>: <what> not found`;
+       each `e2e.env` name is set; `git rev-parse --verify <base>^{commit}`. Then print the role
+       table (role → harness/model) and any `selfJudged` warning.
     2. `ensureGitignore`
     3. import the ticket if `ticket.md` is missing
     4. per repetition: sandbox → session → conversation → collect → contract + own tests (when
        `testCommand`, run via `compose run` in the work tree) → close
     5. on the first finished trial without `acceptance.md`: draft + confirm
-    6. `postVerify` with `buildArgs = buildClaudeComposeArgs` bound to the project's compose,
+    6. `postVerify` with `buildArgs = composeRunArgs({ …project compose, envNames, authMounts for the judge harnesses })`,
        when a bundle exists and criteria exist and `hasE2eSection(AGENTS.md)`. Otherwise
        `unjudgedOutcome` with the reason, or `emptyOutcome` without a bundle.
     7. `writeRun`, `compareWithBaseline`
@@ -411,7 +510,11 @@ product image, `claude -p` for answerer and judges.
     SIGINT/SIGTERM tear down the compose projects and exit 130 (Review Focus 3).
 
 - [ ] **Step 1: Write failing tests:**
-  - `parseE2eArgs` valid and invalid inputs
+  - `parseE2eArgs` valid and invalid inputs, including the missing optional harness
+  - preflight with `review.harness = 'codex'` and no codex auth fails with
+    `review uses codex: ~/.codex/auth.json or OPENAI_API_KEY not found`; an unset `e2e.env` name
+    fails, and both happen before any compose call (Review Focus 3)
+  - judges receive their own role's harness (stubbed `postVerify` captures `config.verifier.harness`)
   - `runE2e` with all deps stubbed: the order of calls, the acceptance draft only when the file
     is missing, the verifier skipped without an E2E section, teardown called when the
     conversation throws, exit 130 and teardown on an `InterruptError`
@@ -425,11 +528,12 @@ product image, `claude -p` for answerer and judges.
 - Modify: `package.json` `files`. Add each shipped module individually:
   - `e2e/local/{cli,config,store,ticket-import,sandbox,contract,session,answerer,acceptance,record}.mjs`
   - `e2e/local/defaults.json`
-  - `e2e/lib/{claude,verifier,review,postverify,bundle,metrics,ccusage,compare,fingerprint,config,tasks,fsutil,secrets,summary,report,criteria,trial}.mjs`
+  - `e2e/lib/{llm,claude,verifier,review,postverify,bundle,metrics,ccusage,compare,fingerprint,config,tasks,fsutil,secrets,summary,report,criteria,trial}.mjs`
   - `e2e/tasks/_shared/instruction.md` and `e2e/tasks/_shared/acceptance-criteria.md` if read at runtime
 - Modify: `README.md` (an "E2E on your project" section with the command, prerequisites
-  — `init` container files, the ai-dev image with acpx, a Claude token, an `AGENTS.md` E2E
-  section — and the precision trade-offs), `docs/adw-e2e/README.md` ("Local runs on your
+  — `init` container files, the ai-dev image with acpx, a login or provider env for each
+  harness in use, an `AGENTS.md` E2E section — the `e2e` role config with an Azure-via-opencode
+  example, and the precision and self-judging trade-offs), `docs/adw-e2e/README.md` ("Local runs on your
   project"), `agent-src/container/AI-DEV.md` (one line saying `adw e2e` uses this compose file),
   and `AGENTS.md` (the `e2e/local/` architecture bullet; the e2e section no longer says "not
   shipped" for these modules).
@@ -452,5 +556,8 @@ product image, `claude -p` for answerer and judges.
   "no baseline" (the first run was not comparable).
 - [ ] Run it a third time. Expect a compare verdict against run 2 that is printed and written to
   `compare.md`.
+- [ ] Provider mix: set `e2e: { verifier: { harness: 'codex' }, review: { harness: 'opencode' }, answerer: { harness: 'opencode' } }`
+  and run a fourth time. Expect a fully replayed run whose fingerprint diff names the changed roles,
+  `acceptance` and `review` filled in (not unjudged), and no auth files under `runs/`.
 - [ ] Regression: `node e2e/run.mjs run --task demo-todo --harness claude-code --repetitions 1`
   still passes.
