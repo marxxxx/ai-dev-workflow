@@ -13,8 +13,8 @@ export const fallbackCommand = (harness, ticket) => `${harness === 'claude-code'
 
 // Untrusted text (ticket, answers, agent message) goes inside these tags; a tag of the same name inside it is defused.
 const DATA_TAGS = ['ticket', 'stored_answers', 'agent_message'];
-const defuse = (text) => String(text ?? '').replace(new RegExp(`<(/?)(${DATA_TAGS.join('|')})\\b`, 'gi'), '&lt;$1$2');
-const data = (tag, text) => `<${tag}>\n${defuse(text)}\n</${tag}>`;
+export const defuse = (text) => String(text ?? '').replace(new RegExp(`<(/?)(${DATA_TAGS.join('|')})\\b`, 'gi'), '&lt;$1$2');
+export const data = (tag, text) => `<${tag}>\n${defuse(text)}\n</${tag}>`;
 
 // `ticket` is { title, body } (store.mjs readTicket); `answers` the current answers.json entries.
 // The rules come first, the data next, the output format last, so it is the last thing the model reads.
