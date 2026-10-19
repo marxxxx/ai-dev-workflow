@@ -10,6 +10,8 @@
 //   ai-dev-workflow init                          interactive onboarding → ai-project.json
 //   ai-dev-workflow init --answers <file.json>    non-interactive onboarding from a JSON answers file
 //   ai-dev-workflow upgrade [--dry-run]           delete ≤0.22 generated files + obsolete config keys, then generate
+//   ai-dev-workflow e2e <base-commit> <ticket> [harness] [--repetitions n] [--model m] [--ticket-file f] [--baseline runDir]
+//                                                 replayable E2E run of agent-dev on a ticket (e2e/local/cli.mjs)
 //   ai-dev-workflow <cmd> --root <dir>            target a project root other than cwd
 //
 // `--check` is still accepted as a legacy alias for the `check` command.
@@ -49,12 +51,15 @@ function resolveProjectRoot(argv) {
   return argValue(argv, '--root') ? path.resolve(argValue(argv, '--root')) : process.cwd();
 }
 
-/** The first non-flag argument is the command; `--root`/`--answers` and their values are skipped. */
+// Flags that take a value: the value is never the command.
+const VALUE_FLAGS = ['--root', '--answers', '--repetitions', '--model', '--ticket-file', '--baseline'];
+
+/** The first non-flag argument is the command; value flags and their values are skipped. */
 function parseCommand(argv) {
   const args = argv.slice(2);
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a === '--root' || a === '--answers') { i++; continue; } // skip the value that follows the flag
+    if (VALUE_FLAGS.includes(a)) { i++; continue; } // skip the value that follows the flag
     if (a.startsWith('-')) continue;
     return a;
   }
@@ -63,6 +68,18 @@ function parseCommand(argv) {
 
 function main() {
   const command = parseCommand(process.argv);
+
+  if (command === 'e2e') {
+    // Everything after the command word goes to the e2e CLI, which resolves --root itself.
+    const args = process.argv.slice(2);
+    args.splice(args.indexOf('e2e'), 1);
+    import('../e2e/local/cli.mjs')
+      .then((cli) => cli.main(args))
+      .then((code) => process.exit(code))
+      .catch((err) => { console.error(`e2e failed: ${err.message}`); process.exit(1); });
+    return;
+  }
+
   const projectRoot = resolveProjectRoot(process.argv);
 
   if (command === 'init') {
@@ -73,7 +90,7 @@ function main() {
   }
 
   if (command !== 'generate' && command !== 'check' && command !== 'upgrade') {
-    console.error(`Unknown command "${command}". Use: generate | check | init | upgrade`);
+    console.error(`Unknown command "${command}". Use: generate | check | init | upgrade | e2e`);
     process.exit(1);
   }
 

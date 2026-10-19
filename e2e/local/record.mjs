@@ -77,9 +77,11 @@ export function writeRun({ runDir, ticket, fingerprint, trials, aborted }) {
   return run;
 }
 
-// runDir is <dir>/runs/<ts>/<harness>; the baseline is the newest earlier comparable run on the same base commit.
-export function compareWithBaseline({ dir, runDir, run, config }) {
-  const baseline = findLocalBaseline({ dir, harness: run.harness, before: path.basename(path.dirname(runDir)), baseCommit: run.fingerprint.baseCommit });
+// runDir is <dir>/runs/<ts>/<harness>; the baseline is the newest earlier comparable run on the same base commit,
+// unless `baseline` (a run dir, --baseline) names one.
+export function compareWithBaseline({ dir, runDir, run, config, baseline: explicit = null }) {
+  const baseline = explicit ? path.resolve(explicit)
+    : findLocalBaseline({ dir, harness: run.harness, before: path.basename(path.dirname(runDir)), baseCommit: run.fingerprint.baseCommit });
   if (!baseline) return null;
   const base = JSON.parse(readFileSync(path.join(baseline, 'run.json'), 'utf8'));
   const result = compareRuns(base, run, config.thresholds);

@@ -146,3 +146,16 @@ test('compareWithBaseline: identical runs compare as same and write compare.md; 
     assert.equal(existsSync(path.join(other.runDir, 'compare.md')), false);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('compareWithBaseline: an explicit baseline dir wins over the lookup, even another base commit', () => {
+  const dir = tmp();
+  try {
+    const t = trialIn(path.join(dir, 'trial'));
+    const first = runIn(dir, '2026-10-19T1000Z', t, { baseCommit: 'cafe' });
+    const second = runIn(dir, '2026-10-19T1100Z', t);
+    const cmp = compareWithBaseline({ dir, ...second, config, baseline: first.runDir });
+    assert.equal(cmp.baseline, first.runDir);
+    assert.equal(cmp.result.verdict, compareRuns(first.run, second.run, config.thresholds).verdict);
+    assert.ok(existsSync(path.join(second.runDir, 'compare.md')));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
