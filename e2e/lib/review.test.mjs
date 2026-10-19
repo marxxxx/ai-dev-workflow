@@ -42,7 +42,7 @@ test('runReview runs in a task container: checkout at /workspace, the diff read-
   for (const k of ['CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_FORCE_OAUTH']) assert.equal(args[args.indexOf(k) - 1], '-e', `${k} by name`);
   assert.ok(!args.some((a) => a.includes('sk-secret')), 'token value on argv');
   assert.equal(seen.env.CLAUDE_CODE_OAUTH_TOKEN, 'sk-secret', 'docker inherits the token through its env');
-  assert.equal(args[args.indexOf('/tmp/pv/review:/workspace') - 1], '-v');
+  assert.equal(args[args.indexOf('/tmp/pv/review:/workspace:ro') - 1], '-v', 'the review checkout is read-only');
   assert.equal(args[args.indexOf('/tmp/pv:/diff:ro') - 1], '-v');
   assert.ok(args.indexOf('/tmp/pv:/diff:ro') < args.indexOf('img'), 'mounts precede the image');
   assert.equal(args[args.indexOf('claude') - 1], 'img');
@@ -88,10 +88,10 @@ test('an opencode review runs read-only with the diff directory readable', () =>
   const calls = [];
   const ocConfig = { ...config, review: { ...config.review, harness: 'opencode', model: 'p/m' } };
   const stdout = JSON.stringify({ type: 'text', part: { type: 'text', messageID: 'm1', text: JSON.stringify(good) } });
-  const r = runReview({ config: ocConfig, checkout: '/c', ...input, name: 'r5', buildArgs: ({ name, checkout, mounts, argv, env }) => ['run', name, checkout, ...mounts, JSON.stringify(env), ...argv],
+  const r = runReview({ config: ocConfig, checkout: '/c', ...input, name: 'r5', buildArgs: ({ name, checkout, readOnly, mounts, argv, env }) => ['run', name, `${checkout}:${readOnly ? 'ro' : 'rw'}`, ...mounts, JSON.stringify(env), ...argv],
     run: (cmd, args) => { calls.push(args); return args[0] === 'run' ? { status: 0, stdout } : { status: 0 }; } });
   assert.equal(r.error, null);
   const cmd = oneShotCommand({ harness: 'opencode', model: 'p/m', tools: 'read', addDirs: ['/diff'] });
-  assert.deepEqual(calls[0], ['run', 'r5', '/c', '/tmp/pv:/diff:ro', JSON.stringify(cmd.env), ...cmd.argv]);
+  assert.deepEqual(calls[0], ['run', 'r5', '/c:ro', '/tmp/pv:/diff:ro', JSON.stringify(cmd.env), ...cmd.argv]);
   assert.deepEqual(calls.at(-1), ['rm', '-f', 'r5']);
 });

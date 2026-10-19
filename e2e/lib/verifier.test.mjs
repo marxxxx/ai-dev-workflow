@@ -43,7 +43,8 @@ test('docker args pass auth by name only, skip the Gitea seed and mount the chec
   assert.equal(args[args.indexOf('CLAUDE_CODE_OAUTH_TOKEN') - 1], '-e');
   assert.ok(args.includes('E2E_VERIFY=1'));
   assert.ok(args.includes('AGENT_TOOLSTACK_ONLY=1'));
-  assert.ok(args.includes('/tmp/co:/workspace'));
+  assert.equal(args[args.indexOf('/tmp/co:/workspace') - 1], '-v', 'the verifier runs the app in a writable checkout');
+  assert.ok(!args.includes('/tmp/co:/workspace:ro'));
   assert.equal(args[args.indexOf('claude') - 1], 'adw-e2e-demo-todo');
   assert.equal(args[args.indexOf('--model') + 1], 'claude-sonnet-5-5');
   assert.equal(args[args.indexOf('--setting-sources') + 1], 'user', 'agent-authored project settings are not loaded');

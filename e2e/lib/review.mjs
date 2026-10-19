@@ -47,7 +47,7 @@ export function runReview({ config, checkout, diffPath, criteria, spec, summary,
   run = spawnSync, uid = process.getuid(), gid = process.getgid(), onTranscript, buildArgs = dockerRunArgs({ image, uid, gid }) }) {
   const { harness = 'claude-code', model = null, criteria: rubric, timeoutSec } = config.review;
   try {
-    const answer = callLlm({ role: 'review', harness, model, tools: 'read', addDirs: ['/diff'], buildArgs, name, checkout,
+    const answer = callLlm({ role: 'review', harness, model, tools: 'read', addDirs: ['/diff'], buildArgs, name, checkout, readOnly: true,
       mounts: [`${path.dirname(diffPath)}:/diff:ro`], env, timeoutMs: timeoutSec * 1000, run, onStdout: onTranscript,
       input: buildReviewPrompt({ rubric, criteria, spec, summary, diffPath: `/diff/${path.basename(diffPath)}` }) });
     return { ...validateReviewAnswer(answer, rubric), error: null };

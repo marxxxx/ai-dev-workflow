@@ -128,8 +128,19 @@ export function answerJson(text) {
   return answer;
 }
 
-// claude: usage_limit_reached; codex: usageLimitExceeded / "You've hit your usage limit"; opencode and plain HTTP: 429, rate limit, quota.
-export const isQuotaError = (error) => /usage_limit|usageLimitExceeded|hit your usage limit|\b429\b|rate.?limit|quota/i.test(error ?? '');
+// How each CLI words a usage limit in its own error (parseOneShot's `error`), never in answer text or the raw stream:
+// claude's stream carries a rate_limit_event in every normal run. claude: usage_limit_reached; codex: usageLimitExceeded /
+// "You've hit your usage limit"; opencode and plain HTTP: 429, rate limit, quota.
+const CLI_QUOTA = {
+  'claude-code': /usage_limit_reached/,
+  codex: /usage_limit|usageLimitExceeded|hit your usage limit|\b429\b|rate.?limit|quota/i,
+  opencode: /usage_limit|\b429\b|rate.?limit|quota/i,
+};
+export const isCliQuota = (harness, error) => CLI_QUOTA[harness].test(error ?? '');
+
+// A labelled callLlm error (or any judge error) that is a usage limit: callLlm marks it `<role> (<harness>): quota: …`
+// after classifying the CLI's own error; claude's usage_limit_reached is recognised anywhere, as it always was.
+export const isQuotaError = (error) => /usage_limit_reached|^[\w-]+ \([\w-]+\): quota: /.test(error ?? '');
 
 // Ctrl-C / SIGTERM ended the child: not a verdict, so it must abort the whole command, never be recorded.
 export class InterruptError extends Error {
@@ -146,29 +157,30 @@ const AUTH_ENV = ['CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_FORCE_OAUTH'];
 // E2E_VERIFY=1 skips the task image's Gitea seed hook (environment/seed/seed.sh). AGENT_TOOLSTACK_ONLY=1
 // configures only the tool stack: a calibration checkout has no ai-project.json, and a judge needs no ticketing.
 // `env` is the command's own non-secret settings (OPENCODE_CONFIG_CONTENT); `authMounts` are `host:container` login files.
-function containerFlags({ uid, gid, envNames, authMounts, name, checkout, mounts, env }) {
+// `readOnly` mounts the checkout read-only (the review judge).
+function containerFlags({ uid, gid, envNames, authMounts, name, checkout, readOnly, mounts, env }) {
   return ['--name', name, '-e', `HOST_UID=${uid}`, '-e', `HOST_GID=${gid}`, '-e', 'E2E_VERIFY=1', '-e', 'AGENT_TOOLSTACK_ONLY=1',
     ...[...AUTH_ENV, ...envNames].flatMap((k) => ['-e', k]), ...Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
-    '-v', `${checkout}:/workspace`, ...mounts.flatMap((m) => ['-v', m]), ...authMounts.flatMap((m) => ['-v', `${m}:ro`])];
+    '-v', `${checkout}:/workspace${readOnly ? ':ro' : ''}`, ...mounts.flatMap((m) => ['-v', m]), ...authMounts.flatMap((m) => ['-v', `${m}:ro`])];
 }
 
 // `docker run` of a prebuilt image (the Harbor task images).
-export const dockerRunArgs = ({ image, uid, gid, envNames = [], authMounts = [] }) => ({ name, checkout, mounts = [], argv, env = {} }) =>
-  ['run', '--rm', '-i', ...containerFlags({ uid, gid, envNames, authMounts, name, checkout, mounts, env }), image, ...argv];
+export const dockerRunArgs = ({ image, uid, gid, envNames = [], authMounts = [] }) => ({ name, checkout, readOnly = false, mounts = [], argv, env = {} }) =>
+  ['run', '--rm', '-i', ...containerFlags({ uid, gid, envNames, authMounts, name, checkout, readOnly, mounts, env }), image, ...argv];
 
 // `docker compose run` of the project's own dev-container service; -T keeps stdin a pipe for the prompt.
 export const composeRunArgs = ({ composeFile, certsFile = null, project, service = 'ai-dev-workflow', uid, gid, envNames = [], authMounts = [] }) =>
-  ({ name, checkout, mounts = [], argv, env = {} }) => ['compose', '-f', composeFile, ...(certsFile ? ['-f', certsFile] : []), '-p', project,
-    'run', '--rm', '-T', ...containerFlags({ uid, gid, envNames, authMounts, name, checkout, mounts, env }), service, ...argv];
+  ({ name, checkout, readOnly = false, mounts = [], argv, env = {} }) => ['compose', '-f', composeFile, ...(certsFile ? ['-f', certsFile] : []), '-p', project,
+    'run', '--rm', '-T', ...containerFlags({ uid, gid, envNames, authMounts, name, checkout, readOnly, mounts, env }), service, ...argv];
 
 // `run` has spawnSync's signature, `buildArgs` makes the docker argv for the container command. Returns the answer's JSON
 // object or throws an error labelled `<role> (<harness>)`. `onStdout` gets the raw output before it is judged,
 // so a failed or unparsable call keeps its transcript.
 export function callLlm({ role, harness = 'claude-code', model = null, tools, playwright = false, addDirs = [], input, buildArgs,
-  name, checkout, mounts = [], env = {}, timeoutMs, run, onStdout = () => {} }) {
+  name, checkout, readOnly = false, mounts = [], env = {}, timeoutMs, run, onStdout = () => {} }) {
   const label = `${role} (${harness})`;
   const cmd = oneShotCommand({ harness, model, tools, playwright, addDirs });
-  const args = buildArgs({ name, checkout, mounts, argv: cmd.argv, env: cmd.env });
+  const args = buildArgs({ name, checkout, readOnly, mounts, argv: cmd.argv, env: cmd.env });
   const r = run('docker', args, { input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: timeoutMs, env: { ...process.env, ...env } });
   if (r.stdout) onStdout(r.stdout);
   if (r.error?.code === 'ETIMEDOUT') throw new Error(`${label}: timed out after ${timeoutMs / 1000} s`);
@@ -176,12 +188,14 @@ export function callLlm({ role, harness = 'claude-code', model = null, tools, pl
   const signal = ['SIGINT', 'SIGTERM'].includes(r.signal) ? r.signal : INTERRUPT_STATUS[r.status];
   if (signal) throw new InterruptError(signal);
   const { text, error } = parseOneShot(harness, r.stdout);
+  // Only the CLI's own error is classified; the raw output a failed call falls back to is not.
+  const head = isCliQuota(harness, error) ? `${label}: quota:` : `${label}:`;
   if (r.status !== 0) {
     const own = harness === 'claude-code' ? cliError(r.stdout) : error ?? String(r.stdout ?? '').trim();
     const detail = [own, String(r.stderr ?? '').trim()].filter(Boolean).join(' | ');
-    throw new Error(`${label}: exit ${r.status}: ${detail.slice(0, 500)}`);
+    throw new Error(`${head} exit ${r.status}: ${detail.slice(0, 500)}`);
   }
-  if (error) throw new Error(`${label}: ${error}`);
+  if (error) throw new Error(`${head} ${error}`);
   if (text === null) throw new Error(`${label}: no answer in the ${harness} output`);
   try { return answerJson(text); } catch (err) { throw new Error(`${label}: ${err.message}`); }
 }
