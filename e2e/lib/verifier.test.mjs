@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { isInterrupt } from './claude.mjs';
-import { buildVerifierDockerArgs, buildVerifierPrompt, runVerifier, validateVerifierAnswer } from './verifier.mjs';
+import { oneShotCommand } from './llm.mjs';
+import { buildVerifierPrompt, runVerifier, validateVerifierAnswer } from './verifier.mjs';
 
 const criteria = [{ id: 'AC1', text: 'A todo can get a due date.' }, { id: 'AC2', text: 'The list shows it.' }];
 const config = { verifier: { model: 'claude-sonnet-5-5', timeoutSec: 900 } };
@@ -35,18 +36,31 @@ test('answer validation demands every criterion exactly once with a boolean verd
 });
 
 test('docker args pass auth by name only, skip the Gitea seed and mount the checkout at /workspace', () => {
-  const args = buildVerifierDockerArgs({ image: 'adw-e2e-demo-todo', name: 'v1', checkout: '/tmp/co', model: 'm', uid: 1000, gid: 1000 });
+  let args;
+  runVerifier({ config, checkout: '/tmp/co', criteria, image: 'adw-e2e-demo-todo', name: 'v1', uid: 1000, gid: 1000,
+    run: (cmd, a) => { if (a[0] === 'run') args = a; return { status: 0, stdout: answer(both) }; } });
   assert.deepEqual(args.slice(0, 5), ['run', '--rm', '-i', '--name', 'v1']);
   assert.equal(args[args.indexOf('CLAUDE_CODE_OAUTH_TOKEN') - 1], '-e');
   assert.ok(args.includes('E2E_VERIFY=1'));
   assert.ok(args.includes('AGENT_TOOLSTACK_ONLY=1'));
   assert.ok(args.includes('/tmp/co:/workspace'));
   assert.equal(args[args.indexOf('claude') - 1], 'adw-e2e-demo-todo');
-  assert.equal(args[args.indexOf('--model') + 1], 'm');
+  assert.equal(args[args.indexOf('--model') + 1], 'claude-sonnet-5-5');
   assert.equal(args[args.indexOf('--setting-sources') + 1], 'user', 'agent-authored project settings are not loaded');
   assert.equal(args[args.indexOf('--allowedTools') + 1], 'Bash,Read,Grep,Glob,mcp__playwright');
   assert.equal(args[args.indexOf('--disallowedTools') + 1], 'Edit,Write,NotebookEdit,Task,WebFetch,WebSearch');
   assert.match(args[args.indexOf('--mcp-config') + 1], /"command":"playwright-mcp"/);
+});
+
+test('a codex verifier sends the codex verify argv with the browser through the given buildArgs', () => {
+  const calls = [];
+  const codexConfig = { verifier: { ...config.verifier, harness: 'codex', model: 'gpt-x' } };
+  const stdout = JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify({ criteria: both }) } });
+  const r = runVerifier({ config: codexConfig, checkout: '/c', criteria, name: 'v6', buildArgs: ({ name, checkout, argv }) => ['run', name, checkout, ...argv],
+    run: (cmd, args) => { calls.push(args); return args[0] === 'run' ? { status: 0, stdout } : { status: 0 }; } });
+  assert.equal(r.error, null);
+  assert.deepEqual(calls[0], ['run', 'v6', '/c', ...oneShotCommand({ harness: 'codex', model: 'gpt-x', tools: 'verify', playwright: true }).argv]);
+  assert.deepEqual(calls.at(-1), ['rm', '-f', 'v6']);
 });
 
 test('runVerifier never puts the token on the command line and always removes the container', () => {
@@ -64,7 +78,7 @@ test('a timed-out or invalid verifier yields no verdicts and an error, and the c
   const calls = [];
   const timeout = (cmd, args) => { calls.push(args); return args[0] === 'run' ? { status: null, error: Object.assign(new Error('ETIMEDOUT'), { code: 'ETIMEDOUT' }) } : { status: 0 }; };
   assert.deepEqual(runVerifier({ config, checkout: '/c', criteria, image: 'img', name: 'v2', run: timeout, uid: 1, gid: 1 }),
-    { criteria: null, error: 'verifier timed out after 900 s' });
+    { criteria: null, error: 'verifier (claude-code): timed out after 900 s' });
   assert.deepEqual(calls.at(-1), ['rm', '-f', 'v2']);
   const partial = runVerifier({ config, checkout: '/c', criteria, image: 'img', name: 'v3', uid: 1, gid: 1,
     run: (cmd, args) => (args[0] === 'run' ? { status: 0, stdout: answer([both[0]]) } : { status: 0 }) });

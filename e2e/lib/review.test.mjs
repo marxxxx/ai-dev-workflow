@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { isInterrupt } from './claude.mjs';
 import { loadConfig } from './config.mjs';
 import { buildReviewPrompt, runReview, validateReviewAnswer } from './review.mjs';
+import { oneShotCommand } from './llm.mjs';
 
 const config = loadConfig();
 const rubric = config.review.criteria;
@@ -64,7 +65,7 @@ test('a failed review gives null scores and an error, and the container is still
   const run = (cmd, args) => { calls.push(args); return args[0] === 'run' ? { status: 1, stdout: '', stderr: 'boom' } : { status: 0 }; };
   const bad = runReview({ config, checkout: '/c', ...input, image: 'img', name: 'r2', run, uid: 1, gid: 1 });
   assert.deepEqual(bad.scores, Object.fromEntries(Object.keys(rubric).map((k) => [k, null])));
-  assert.match(bad.error, /review exit 1: boom/);
+  assert.match(bad.error, /^review \(claude-code\): exit 1: boom$/);
   assert.deepEqual(calls.at(-1), ['rm', '-f', 'r2']);
 });
 
@@ -81,4 +82,16 @@ test('runReview hands the raw transcript to onTranscript', () => {
   runReview({ config, checkout: '/c', ...input, image: 'img', name: 'r4', uid: 1, gid: 1, onTranscript: (s) => seen.push(s),
     run: (cmd, args) => (args[0] === 'run' ? { status: 0, stdout } : { status: 0 }) });
   assert.deepEqual(seen, [stdout]);
+});
+
+test('an opencode review runs read-only with the diff directory readable', () => {
+  const calls = [];
+  const ocConfig = { ...config, review: { ...config.review, harness: 'opencode', model: 'p/m' } };
+  const stdout = JSON.stringify({ type: 'text', part: { type: 'text', messageID: 'm1', text: JSON.stringify(good) } });
+  const r = runReview({ config: ocConfig, checkout: '/c', ...input, name: 'r5', buildArgs: ({ name, checkout, mounts, argv, env }) => ['run', name, checkout, ...mounts, JSON.stringify(env), ...argv],
+    run: (cmd, args) => { calls.push(args); return args[0] === 'run' ? { status: 0, stdout } : { status: 0 }; } });
+  assert.equal(r.error, null);
+  const cmd = oneShotCommand({ harness: 'opencode', model: 'p/m', tools: 'read', addDirs: ['/diff'] });
+  assert.deepEqual(calls[0], ['run', 'r5', '/c', '/tmp/pv:/diff:ro', JSON.stringify(cmd.env), ...cmd.argv]);
+  assert.deepEqual(calls.at(-1), ['rm', '-f', 'r5']);
 });

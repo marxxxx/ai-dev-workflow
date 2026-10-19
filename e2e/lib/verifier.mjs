@@ -1,11 +1,9 @@
-// Agentic E2E verifier: one claude -p run in a fresh task container exercises the PR head and
-// judges it against the task's acceptance criteria only.
+// Agentic E2E verifier: one one-shot LLM run (config.verifier.harness, claude-code by default) in a fresh container
+// exercises the PR head and judges it against the task's acceptance criteria only.
 import { spawnSync } from 'node:child_process';
-import { buildClaudeDockerArgs, callClaude, isInterrupt } from './claude.mjs';
+import { callLlm, dockerRunArgs, isInterrupt } from './llm.mjs';
 
-export const VERIFIER_ALLOWED_TOOLS = 'Bash,Read,Grep,Glob,mcp__playwright';
-export const VERIFIER_DENIED_TOOLS = 'Edit,Write,NotebookEdit,Task,WebFetch,WebSearch';
-const PLAYWRIGHT_MCP = JSON.stringify({ mcpServers: { playwright: { command: 'playwright-mcp', args: ['--headless', '--browser', 'chromium', '--isolated'] } } });
+export { VERIFIER_ALLOWED_TOOLS, VERIFIER_DENIED_TOOLS } from './llm.mjs';
 
 export function buildVerifierPrompt({ criteria }) {
   return `You are an acceptance tester. A coding agent changed the application in your current directory (/workspace, a git checkout of its pull request; the base branch is origin/main). Decide for each acceptance criterion below whether the running application meets it.
@@ -43,16 +41,12 @@ export function validateVerifierAnswer(answer, ids) {
   return out;
 }
 
-export function buildVerifierDockerArgs({ image, name, checkout, model, uid, gid }) {
-  return buildClaudeDockerArgs({ image, name, checkout, model, uid, gid,
-    claudeArgs: ['--mcp-config', PLAYWRIGHT_MCP, '--allowedTools', VERIFIER_ALLOWED_TOOLS, '--disallowedTools', VERIFIER_DENIED_TOOLS] });
-}
-
 export function runVerifier({ config, checkout, criteria, env = {}, image, name = `adw-verify-${process.pid}-${Date.now()}`,
-  run = spawnSync, uid = process.getuid(), gid = process.getgid(), onTranscript }) {
+  run = spawnSync, uid = process.getuid(), gid = process.getgid(), onTranscript, buildArgs = dockerRunArgs({ image, uid, gid }) }) {
+  const { harness = 'claude-code', model = null, timeoutSec } = config.verifier;
   try {
-    const answer = callClaude({ cmd: 'docker', onStdout: onTranscript, args: buildVerifierDockerArgs({ image, name, checkout, model: config.verifier.model, uid, gid }),
-      input: buildVerifierPrompt({ criteria }), env, timeoutMs: config.verifier.timeoutSec * 1000, label: 'verifier', run });
+    const answer = callLlm({ role: 'verifier', harness, model, tools: 'verify', playwright: true, input: buildVerifierPrompt({ criteria }),
+      buildArgs, name, checkout, env, timeoutMs: timeoutSec * 1000, run, onStdout: onTranscript });
     return { criteria: validateVerifierAnswer(answer, criteria.map((c) => c.id)), error: null };
   } catch (err) {
     if (isInterrupt(err)) throw err;

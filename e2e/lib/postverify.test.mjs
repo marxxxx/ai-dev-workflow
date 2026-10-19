@@ -118,6 +118,16 @@ test('verifierHash is stable and changes with criteria, models and rubric, not w
   assert.equal(verifierHash({ config: { ...config, verifier: { ...config.verifier, timeoutSec: 1 } }, criteria }), h);
 });
 
+// Pinned before the judges moved onto llm.mjs: the Harbor self-test's claude-code judges keep today's hash.
+const PINNED_HASH = 'b4e65b6b799779720d40f8594844fb61968c28a967de2a62fd93ffca1e48f271';
+
+test('verifierHash for claude-code judges is the pinned value; another judge harness changes it', () => {
+  assert.equal(verifierHash({ config, criteria }), PINNED_HASH);
+  assert.equal(verifierHash({ config: { ...config, verifier: { ...config.verifier, harness: 'claude-code' } }, criteria }), PINNED_HASH);
+  assert.notEqual(verifierHash({ config: { ...config, review: { ...config.review, harness: 'opencode' } }, criteria }), PINNED_HASH);
+  assert.notEqual(verifierHash({ config: { ...config, verifier: { ...config.verifier, harness: 'codex' } }, criteria }), PINNED_HASH);
+});
+
 test('the task image is built from the task environment as adw-e2e-<task>', () => {
   let call;
   assert.equal(buildTaskImage({ config, task: 'demo-todo', exec: (cmd, args) => { call = [cmd, ...args]; } }), 'adw-e2e-demo-todo');
@@ -136,4 +146,12 @@ test('postVerify labels each judge transcript with its kind', () => {
   const quiet = fakes();
   postVerify({ config, bundle: 'b', criteria, image: 'img', deps: quiet.deps });
   assert.doesNotThrow(() => quiet.seen.verifier.onTranscript('V'), 'transcripts are optional');
+});
+
+test('postVerify forwards buildArgs to both judges', () => {
+  const { seen, deps } = fakes();
+  const buildArgs = () => [];
+  postVerify({ config, bundle: 'b', criteria, image: 'img', buildArgs, deps });
+  assert.equal(seen.verifier.buildArgs, buildArgs);
+  assert.equal(seen.review.buildArgs, buildArgs);
 });

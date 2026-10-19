@@ -29,6 +29,9 @@ export function verifierHash({ config, criteria }) {
     reviewTools: [REVIEW_ALLOWED_TOOLS, REVIEW_DENIED_TOOLS], reviewRuntime: 'container',
     models: { verifier: config.verifier.model, review: config.review.model },
   };
+  // Only a non-default judge harness enters the material, so claude-code judges keep the hash they always had.
+  const harness = { verifier: config.verifier.harness ?? 'claude-code', review: config.review.harness ?? 'claude-code' };
+  if (Object.values(harness).some((h) => h !== 'claude-code')) material.harness = harness;
   return createHash('sha256').update(JSON.stringify(material)).digest('hex');
 }
 
@@ -44,8 +47,9 @@ function stripAgentSettings(dir) {
 
 const DEFAULT_DEPS = { checkoutBundle, runVerifier, runReview };
 
-// `onTranscript(kind, text)` receives each judge's raw claude output ('verifier', 'review'), so its verdict can be traced.
-export function postVerify({ config, bundle, criteria, spec, summary, env = {}, image, deps = DEFAULT_DEPS, onTranscript = () => {} }) {
+// `onTranscript(kind, text)` receives each judge's raw CLI output ('verifier', 'review'), so its verdict can be traced.
+// `buildArgs` (llm.mjs dockerRunArgs / composeRunArgs) picks the judges' container; by default the task image.
+export function postVerify({ config, bundle, criteria, spec, summary, env = {}, image, buildArgs, deps = DEFAULT_DEPS, onTranscript = () => {} }) {
   const nulls = Object.fromEntries(Object.keys(config.review.criteria).map((k) => [k, null]));
   const work = mkdtempSync(path.join(tmpdir(), 'adw-postverify-'));
   try {
@@ -60,10 +64,10 @@ export function postVerify({ config, bundle, criteria, spec, summary, env = {}, 
       mkdirSync(path.join(work, 'diff'));
       const diffPath = path.join(work, 'diff', 'pr.diff');
       writeFileSync(diffPath, diff);
-      verdict = deps.runVerifier({ config, checkout: path.join(work, 'verify'), criteria, env, image,
+      verdict = deps.runVerifier({ config, checkout: path.join(work, 'verify'), criteria, env, image, buildArgs,
         onTranscript: (text) => onTranscript('verifier', text) });
       review = isQuota(verdict.error) ? { scores: nulls, reasons: {}, error: verdict.error }
-        : deps.runReview({ config, checkout: path.join(work, 'review'), diffPath, criteria, spec, summary, env, image,
+        : deps.runReview({ config, checkout: path.join(work, 'review'), diffPath, criteria, spec, summary, env, image, buildArgs,
           onTranscript: (text) => onTranscript('review', text) });
     } catch (err) {
       if (isInterrupt(err)) throw err; // Ctrl-C ends the command; it is no verdict
