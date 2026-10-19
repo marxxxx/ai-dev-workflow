@@ -63,10 +63,11 @@ export function localFingerprint({ root = PACKAGE_ROOT, image, imageId, cliVersi
 }
 
 // A run that asked the human is no baseline: its answers were not yet all stored.
-export function writeRun({ runDir, ticket, fingerprint, trials, aborted }) {
+// `error` is the failure that aborted the run, if any.
+export function writeRun({ runDir, ticket, fingerprint, trials, aborted, error = null }) {
   const run = {
     schema: 2, local: true, task: `#${ticket}`, harness: fingerprint.roles.agent.harness,
-    ...(aborted ? { aborted } : {}), comparable: !aborted && trials.every((t) => t.humanAsked === 0),
+    ...(aborted ? { aborted } : {}), ...(error ? { error } : {}), comparable: !aborted && trials.every((t) => t.humanAsked === 0),
     humanAsked: trials.reduce((a, t) => a + (t.humanAsked ?? 0), 0), selfJudged: selfJudged(fingerprint.roles),
     fingerprint, calibration: null, config: { model: fingerprint.roles.agent.model ?? 'default' },
     trials, summary: summarizeTrials(trials),

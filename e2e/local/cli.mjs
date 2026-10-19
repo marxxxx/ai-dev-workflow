@@ -27,7 +27,8 @@ export const USAGE = 'usage: adw e2e <base-commit> <ticket> [claude-code|codex|o
 const SERVICE = 'ai-dev-workflow';
 const ROLES = ['agent', 'answerer', 'verifier', 'review'];
 const opening = (ticket) => `Nutze den agent-dev Skill für Ticket ${ticket}.`;
-const timestamp = () => new Date().toISOString().replace(/:\d\d\.\d+Z$/, 'Z').replace(/:/g, '');
+// YYYY-MM-DDTHHMMSSZ: a quick re-run gets its own run dir and compose names; sorts by time.
+export const timestamp = (date = new Date()) => date.toISOString().replace(/\.\d+Z$/, 'Z').replace(/:/g, '');
 // spawnSync blocks the event loop: yielding once lets a pending Ctrl-C handler run before the next step.
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -101,6 +102,8 @@ export async function runE2e(opts, deps = {}) {
     for (const p of problems) d.error(`✗ preflight: ${p}`);
     return 1;
   }
+  // Provider values are scrubbed and redacted like logins.
+  creds.secrets.push(...config.env.map((n) => d.env[n]).filter(Boolean));
   for (const r of ROLES) d.log(`${r.padEnd(9)} ${config[r].harness}/${config[r].model ?? 'default'}`);
   const self = selfJudged(config);
   if (self.length) d.log(`! ${self.join(', ')} judge with the agent's own harness and model: self-judging`);
@@ -138,7 +141,7 @@ export async function runE2e(opts, deps = {}) {
 
   const cliVersions = {};
   const trials = [];
-  let aborted = null;
+  let aborted = null; let error = null;
   try {
     for (let i = 1; i <= opts.repetitions; i++) {
       const id = `${harness}-${i}`;
@@ -239,6 +242,13 @@ export async function runE2e(opts, deps = {}) {
         // The local reward rules (null checks, no test command) win over the Harbor ones.
         const merged = applyPostVerification(trial, outcome);
         trial = { ...merged, reward: localReward(merged) };
+      } catch (err) {
+        // Finished trials survive a failing one; the run is recorded as aborted, so it is never a baseline.
+        if (isInterrupt(err)) throw err;
+        error = redactSecrets(`${id}: ${err.message}`, creds.secrets);
+        aborted = 'error';
+        d.error(`✗ ${error}: run aborted, not a valid baseline`);
+        break;
       } finally {
         if (active.has(project)) down(project);
         if (active.has(judgeProject)) down(judgeProject);
@@ -251,7 +261,7 @@ export async function runE2e(opts, deps = {}) {
 
     const fingerprint = localFingerprint({ ...imageOf(d, composeArgs, root), cliVersions, baseCommit: sha, dir, config,
       verifierHash: criteria ? verifierHash({ config, criteria }) : null });
-    const run = writeRun({ runDir, ticket: opts.ticket, fingerprint, trials, aborted });
+    const run = writeRun({ runDir, ticket: opts.ticket, fingerprint, trials, aborted, error });
     let cmp = null;
     try { cmp = compareWithBaseline({ dir, runDir, run, config, baseline: opts.baseline }); } catch (err) { d.error(`! baseline compare failed: ${err.message}`); }
     printSummary(d, run, cmp, runDir);
@@ -283,7 +293,8 @@ function printSummary(d, run, cmp, runDir) {
   d.log(`contract    ${median(run.trials.map((t) => t.contract)) ?? '—'}`);
   d.log(`acceptance  ${s.checkRates.acceptance ?? '—'}`);
   d.log(`tokens/cost ${tokens} · ${cost}`);
-  d.log(`baseline    ${cmp ? `${cmp.result.verdict} vs ${cmp.baseline}` : 'no baseline'}`);
+  const none = run.comparable ? 'no earlier fully replayed run; this run is the new baseline' : 'no baseline';
+  d.log(`baseline    ${cmp ? `${cmp.result.verdict} vs ${cmp.baseline}` : none}`);
   if (!run.comparable) d.log(`not comparable: ${run.aborted ? `aborted (${run.aborted})` : `${run.humanAsked} new answers`}`);
   d.log(`results: ${runDir}`);
 }

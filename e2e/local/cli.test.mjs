@@ -11,7 +11,7 @@ import { parseCriteria } from '../lib/criteria.mjs';
 import { InterruptError } from '../lib/llm.mjs';
 import { buildLocalTrialRecord } from './record.mjs';
 import { confirmAcceptance } from './acceptance.mjs';
-import { USAGE, main, parseE2eArgs, runE2e } from './cli.mjs';
+import { USAGE, main, parseE2eArgs, runE2e, timestamp } from './cli.mjs';
 
 const GENERATE = fileURLToPath(new URL('../../agent-src/generate.mjs', import.meta.url));
 const E2E_SECTION = '# Agents\n\n## End-to-end testing\n\nStart with `npm start`, open http://localhost:3000/.\n';
@@ -158,7 +158,7 @@ test('runE2e: the order of a first run; the ticket is imported, acceptance draft
     assert.ok(downs(s.exec).some((p) => p.endsWith('-judge')));
     const text = s.out.join('\n');
     assert.match(text, /reward\s+1/);
-    assert.match(text, /no baseline/);
+    assert.match(text, /no earlier fully replayed run; this run is the new baseline/);
     assert.doesNotMatch(text, /not comparable/);
 
     // A second run reuses ticket.md and acceptance.md: no import, no draft; it compares with the first.
@@ -255,6 +255,8 @@ test('runE2e: no PR head gives the empty outcome; a human answer marks the run n
     assert.equal(run.trials[0].acceptance, 0);
     assert.equal(run.comparable, false);
     assert.match(s.out.join('\n'), /not comparable: 2 new answers/);
+    assert.match(s.out.join('\n'), /baseline\s+no baseline/);
+    assert.doesNotMatch(s.out.join('\n'), /new baseline/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -271,6 +273,45 @@ test('runE2e: own tests run in the work tree through compose when testCommand is
     assert.equal(call.env.PROJECT_ROOT, s.seen.session.work);
     assert.equal(s.seen.record.ownTests, 0);
     assert.equal(runJson(root).trials[0].reward, 0);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('timestamp has second resolution and sorts lexicographically', () => {
+  assert.equal(timestamp(new Date('2026-10-19T10:00:05.123Z')), '2026-10-19T100005Z');
+  assert.ok(timestamp(new Date('2026-10-19T10:00:05Z')) < timestamp(new Date('2026-10-19T10:00:06Z')));
+});
+
+test('runE2e: e2e.env values are scrubbed like logins: in the session secrets and redacted from transcripts', async () => {
+  const root = project({ env: ['AZURE_API_KEY'] });
+  try {
+    const s = stubs(root);
+    s.deps.env = { ...s.deps.env, AZURE_API_KEY: 'az-secret-value', EMPTY: '' };
+    assert.equal(await runE2e(opts(root), s.deps), 0);
+    assert.ok(s.seen.session.creds.secrets.includes('az-secret-value'));
+    s.seen.decide.onStdout('{"leak":"az-secret-value"}\n');
+    const file = path.join(root, '.adw/e2e/7/runs/2026-10-19T1000Z/claude-code/claude-code-1/answerer.jsonl');
+    assert.doesNotMatch(readFileSync(file, 'utf8'), /az-secret-value/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('runE2e: an error in a later repetition keeps the finished trials in an aborted run', async () => {
+  const root = project();
+  try {
+    let n = 0;
+    const s = stubs(root, { runConversation: async () => {
+      if (++n === 2) throw new Error('docker exploded');
+      return { turns: 2, humanAsked: 0, done: true, stuck: false, error: null };
+    } });
+    assert.equal(await runE2e(opts(root, { repetitions: 3 }), s.deps), 1);
+    const run = runJson(root);
+    assert.equal(run.trials.length, 1);
+    assert.equal(run.aborted, 'error');
+    assert.equal(run.comparable, false);
+    assert.match(run.error, /claude-code-2: docker exploded/);
+    assert.equal(n, 2, 'no further repetitions');
+    assert.ok(downs(s.exec).filter((p) => p.endsWith('-judge')).length >= 2);
+    assert.match(s.out.join('\n'), /claude-code-2: docker exploded/);
+    assert.match(s.out.join('\n'), /not comparable: aborted \(error\)/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
