@@ -266,20 +266,30 @@ an engine warning, not a clear error.
 the outcome. Compare runs after you change `agent-custom/`, `AGENTS.md`, the model or the adw version.
 
 ```bash
-npx @strobl_dev/adw e2e <base-commit> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m]
+npx @strobl_dev/adw e2e <base-commit> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m] \
+  [--ticket-file <file>] [--baseline <runDir>]
 ```
 
-The ticket is read once from your real backend (`gh`, `tea`, Azure DevOps REST, or the file backend;
-`--ticket-file` is the manual fallback) and never written. Every run happens in a throwaway clone at
-`<base-commit>` on the `file` ticketing backend, with its remote pointing at a local bare repo, so
-nothing reaches your tracker or your real remote. The first run asks you the spec questions and
+The ticket is read once from your real backend and never written: `gh issue view`, `tea api`,
+`az boards work-item show` (the host needs `az` with the `azure-devops` extension, logged in or with
+`AZURE_DEVOPS_EXT_PAT` set), or the file backend. `--ticket-file <file>` is the manual fallback: a
+Markdown file whose first line is `# <title>`, followed by the body. `--baseline <runDir>` compares
+with that run (`.adw/e2e/<ticket>/runs/<ts>/<harness>`) instead of the newest earlier one.
+
+Every run happens in a throwaway clone at `<base-commit>` on the `file` ticketing backend, with its
+remote pointing at a local bare repo, so nothing reaches your tracker or your real remote. The first run asks you the spec questions and
 confirms drafted acceptance criteria; later runs replay your stored answers.
 
 Prerequisites:
 
 - the container files from `init` (`compose.ai-dev.yml`), and an ai-dev image that includes `acpx`;
-- a login or provider environment for each harness any role uses (`./ai-dev.sh claude`, `codex login`,
-  `opencode auth login`, or provider variables listed in `e2e.env`);
+- a login on the host for each harness any role uses; the containers get it from there, never from the
+  project's agent-home volume:
+  - Claude Code: run `claude setup-token` and export `CLAUDE_CODE_OAUTH_TOKEN` (or set
+    `CLAUDE_CODE_USE_BEDROCK` / `CLAUDE_CODE_USE_VERTEX` with that provider's variables in `e2e.env`);
+  - Codex: `codex login` on the host (`~/.codex/auth.json`) or `OPENAI_API_KEY`;
+  - OpenCode: `opencode auth login` on the host (`~/.local/share/opencode/auth.json`) or provider
+    variables listed in `e2e.env`;
 - an `AGENTS.md` section "End-to-end testing" saying how to start and exercise the app, if you want the
   app-level check (`e2e.testCommand` optionally runs your own tests too).
 
@@ -296,11 +306,12 @@ project can stay inside the providers it may use. In `ai-project.json`:
 }
 ```
 
-A role you leave out uses the agent's harness with that CLI's default model, so one login is enough.
+A role without its own harness uses the agent's; a role without its own model uses that CLI's default
+model. So one login is enough.
 `env` lists variable names passed into the containers by name.
 
 Under `.adw/e2e/<ticket>/`, commit `ticket.md`, `answers.json` and `acceptance.md`; `runs/` holds the
-per-run records and reports and is git-ignored (add `.adw/e2e/*/runs/` to `.gitignore`). A run is
+per-run records and reports and is git-ignored (the command writes `.adw/e2e/.gitignore`). A run is
 compared with the newest earlier fully replayed run with the same base commit, ticket and harness.
 
 Trade-offs: no calibration, one repetition by default, and your first-time answers shape the result, so
