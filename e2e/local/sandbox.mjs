@@ -31,13 +31,18 @@ export function createSandbox({ root, baseCommit, ticket, ticketText, trialDir, 
   const work = path.join(trialDir, 'work');
   const origin = path.join(trialDir, 'origin.git');
   mkdirSync(trialDir, { recursive: true });
-  git(['clone', '-q', '--no-hardlinks', '--no-checkout', path.resolve(root), work]);
+  // No template: the host's init.templateDir hooks would fire on the agent's commits in the container.
+  git(['clone', '-q', '--no-hardlinks', '--no-checkout', '--template=', path.resolve(root), work]);
   git(['-C', work, 'checkout', '-q', '--detach', baseCommit]);
   // The real remote must not be reachable from the sandbox.
   for (const remote of git(['-C', work, 'remote']).split('\n').filter(Boolean)) git(['-C', work, 'remote', 'remove', remote]);
   git(['init', '-q', '--bare', '--template=', origin]);
   git(['-C', work, 'remote', 'add', 'origin', origin]);
   git(['-C', work, 'checkout', '-q', '-B', 'main']);
+  // The clone's branch for the root's HEAD would pass for a second branch.
+  for (const b of git(['-C', work, 'for-each-ref', '--format=%(refname:short)', 'refs/heads/']).split('\n')) {
+    if (b && b !== 'main') git(['-C', work, 'branch', '-q', '-D', b]);
+  }
   git(['-C', work, 'push', '-q', 'origin', 'main']);
 
   writeFileSync(path.join(work, 'ai-project.json'), `${JSON.stringify(sandboxConfig(work, root), null, 2)}\n`);
@@ -56,6 +61,7 @@ export function createSandbox({ root, baseCommit, ticket, ticketText, trialDir, 
   git(['-C', work, 'add', '-A']);
   git([...COMMIT, '-C', work, 'commit', '-q', '-m', 'e2e setup']);
   git(['-C', work, 'push', '-q', 'origin', 'main']);
+  mkdirSync(path.join(work, '.git', 'info'), { recursive: true });
   appendFileSync(path.join(work, '.git', 'info', 'exclude'), '.acpxrc.json\n');
   return { work, origin };
 }

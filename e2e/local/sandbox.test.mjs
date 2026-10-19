@@ -48,6 +48,22 @@ test('sandbox switches to the file backend, generates, and isolates the remote',
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('the work clone takes no host template hooks and keeps only main', () => {
+  const { dir, root, base } = makeRepo(null);
+  try {
+    // A host init.templateDir with a hook, and a root checked out on another branch.
+    const template = path.join(dir, 'template');
+    mkdirSync(path.join(template, 'hooks'), { recursive: true });
+    writeFileSync(path.join(template, 'hooks', 'pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    g(['checkout', '-qb', 'develop'], root);
+    const git = (args) => execFileSync('git', [...ISOLATE, '-c', `init.templateDir=${template}`, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const { work } = createSandbox({ root, baseCommit: base, ticket: 1, ticketText: TICKET, trialDir: path.join(dir, 'trial'), git });
+    assert.equal(existsSync(path.join(work, '.git', 'hooks', 'pre-commit')), false);
+    assert.equal(g(['for-each-ref', '--format=%(refname:short)', 'refs/heads/'], work), 'main');
+    assert.match(readFileSync(path.join(work, '.git/info/exclude'), 'utf8'), /^\.acpxrc\.json$/m);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('a base commit without ai-project.json still works', () => {
   const { dir, root, base } = makeRepo(null);
   try {

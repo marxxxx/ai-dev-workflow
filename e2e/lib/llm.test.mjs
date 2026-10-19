@@ -57,6 +57,14 @@ test('parseOneShot reads the answer text of each recorded CLI', () => {
   for (const h of HARNESSES) assert.deepEqual(parseOneShot(h, fixture(`${h}-ok`)), { text: '{"ok":true}', error: null }, h);
 });
 
+test('parseOneShot: an opencode error followed by assistant text (a retry that succeeded) is no failure', () => {
+  const lines = (...o) => o.map((x) => JSON.stringify(x)).join('\n');
+  const part = (messageID, text) => ({ type: 'text', part: { type: 'text', messageID, text } });
+  const err = { type: 'error', error: { name: 'APIError', data: { message: 'Rate limit exceeded.', statusCode: 429, isRetryable: true } } };
+  assert.deepEqual(parseOneShot('opencode', lines(err, part('m2', '{"ok":true}'))), { text: '{"ok":true}', error: null });
+  assert.deepEqual(parseOneShot('opencode', lines(part('m1', 'half'), err)), { text: null, error: 'APIError: Rate limit exceeded. (HTTP 429)' });
+});
+
 test('parseOneShot reports each CLI\'s quota error, and isCliQuota classifies it per harness', () => {
   for (const h of HARNESSES) {
     const { text, error } = parseOneShot(h, fixture(`${h}-quota`));

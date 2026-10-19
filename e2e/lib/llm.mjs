@@ -88,11 +88,14 @@ function parseCodex(stdout) {
 }
 
 // opencode run --format json: text parts carry their message id; the answer is the last assistant message's text.
+// An error followed by assistant text was retried and recovered (like codex's stream errors); only a trailing one counts.
 function parseOpencode(stdout) {
-  const texts = new Map(); const errors = [];
+  const texts = new Map(); let errors = [];
   for (const e of events(stdout)) {
-    if (e.type === 'text' && e.part) texts.set(e.part.messageID, [...(texts.get(e.part.messageID) ?? []), String(e.part.text ?? '')]);
-    else if (e.type === 'error') {
+    if (e.type === 'text' && e.part) {
+      texts.set(e.part.messageID, [...(texts.get(e.part.messageID) ?? []), String(e.part.text ?? '')]);
+      errors = [];
+    } else if (e.type === 'error') {
       const { name, data } = e.error ?? {};
       const message = [name, data?.message].filter(Boolean).join(': ') || 'error';
       errors.push(data?.statusCode ? `${message} (HTTP ${data.statusCode})` : message);
