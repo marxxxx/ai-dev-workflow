@@ -8,7 +8,7 @@ export function median(values) {
   return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
 }
 
-// Unjudged values (null) count in no rate.
+// Unjudged or unchecked values (null) count in no rate; a missing check counts as failed.
 const rate = (xs) => {
   const v = xs.filter((x) => x != null);
   return v.length ? Number((v.filter((x) => x === 1).length / v.length).toFixed(2)) : null;
@@ -28,7 +28,7 @@ function mcpUsage(trials) {
 
 export function summarizeTrials(trials) {
   const checkNames = [...new Set(trials.flatMap((t) => Object.keys(t.checks ?? {})))];
-  const checkRates = Object.fromEntries(checkNames.map((c) => [c, rate(trials.map((t) => t.checks?.[c] ?? 0))]));
+  const checkRates = Object.fromEntries(checkNames.map((c) => [c, rate(trials.map((t) => (t.checks && c in t.checks ? t.checks[c] : 0)))]));
   checkRates.acceptance = rate(trials.map((t) => t.acceptance));
   checkRates.ownTests = rate(trials.map((t) => t.ownTests));
   const acIds = [...new Set(trials.flatMap((t) => Object.keys(t.acceptanceCriteria ?? {})))].sort((a, b) => acNumber(a) - acNumber(b));
