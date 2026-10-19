@@ -12,6 +12,8 @@ const HOME = '/home/dev';
 const SERVICE = 'ai-dev-workflow';
 const BIN = '/opt/agent-tools/node_modules/.bin';
 const CLI = { 'claude-code': 'claude', codex: 'codex', opencode: 'opencode' };
+const OPENCODE_MODEL_FILE = `${HOME}/.adw-e2e/opencode.json`;
+const CLAUDE_SETTINGS = `${HOME}/.claude/settings.json`;
 
 // Each harness's session logs (default locations in the container) → the layout metrics.mjs/ccusage.mjs read.
 const LOGS = {
@@ -28,10 +30,19 @@ const AUTH_ENV = {
 };
 
 // No config/data dir overrides: the image's entrypoint configures MCP and tools in the default homes.
-export function acpCommand(harness, model) {
-  if (harness === 'claude-code') return ['env', '-u', 'CLAUDECODE', ...(model ? [`ANTHROPIC_MODEL=${model}`] : []), 'claude-code-acp'];
-  if (harness === 'codex') return ['env', 'NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', 'codex-acp', ...(model ? ['-c', `model=${model}`] : [])];
-  if (harness === 'opencode') return ['env', 'OPENCODE_FAKE_VCS=git', ...(model ? [`OPENCODE_CONFIG_CONTENT=${JSON.stringify({ model })}`] : []), 'opencode', 'acp'];
+// `cli` is the image's own claude/codex (resolved in the container), which the adapters run instead of their bundled ones.
+// The model: claude-code-acp takes it from settings.json (writeModelConfig; ANTHROPIC_MODEL as Harbor also sets it),
+// codex-acp only from CODEX_CONFIG (it ignores argv), opencode from an OPENCODE_CONFIG file, since the image's
+// wrapper overwrites OPENCODE_CONFIG_CONTENT.
+export function acpCommand(harness, model, { cli = null } = {}) {
+  if (harness === 'claude-code') {
+    return ['env', '-u', 'CLAUDECODE', ...(model ? [`ANTHROPIC_MODEL=${model}`] : []), ...(cli ? [`CLAUDE_CODE_EXECUTABLE=${cli}`] : []), 'claude-code-acp'];
+  }
+  if (harness === 'codex') {
+    return ['env', 'NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', ...(model ? [`CODEX_CONFIG=${JSON.stringify({ model: model.split('/').at(-1) })}`] : []),
+      ...(cli ? [`CODEX_PATH=${cli}`] : []), 'codex-acp'];
+  }
+  if (harness === 'opencode') return ['env', 'OPENCODE_FAKE_VCS=git', ...(model ? [`OPENCODE_CONFIG=${OPENCODE_MODEL_FILE}`] : []), 'opencode', 'acp'];
   throw new Error(`unknown harness: ${harness}`);
 }
 
@@ -132,6 +143,8 @@ export function startSession({ root, work, harness, model, project, creds, envNa
     return String(r.stdout ?? '');
   };
   const inAgent = (argv, { cwd = false, ...opts } = {}) => run(['exec', '-u', 'dev', ...(cwd ? ['-w', '/workspace'] : []), name, ...argv], opts);
+  // Content by stdin (never argv) into a file in the container, owned by dev, mode 600.
+  const writeIn = (to, input) => run(['exec', '-i', '-u', 'dev', name, 'sh', '-c', 'umask 077 && mkdir -p "$(dirname "$1")" && cat > "$1"', 'sh', to], { input });
   const teardown = () => {
     exec('docker', ['rm', '-f', name]);
     exec('docker', [...compose, 'down', '-v'], { env: cenv });
@@ -153,10 +166,15 @@ export function startSession({ root, work, harness, model, project, creds, envNa
       pause(1000);
     }
     // Auth files by stdin into the default homes, owned by dev, mode 600.
-    for (const f of creds.authFiles.filter((a) => a.harness === harness)) {
-      run(['exec', '-i', '-u', 'dev', name, 'sh', '-c', 'umask 077 && mkdir -p "$(dirname "$1")" && cat > "$1"', 'sh', f.to], { input: readFileSync(f.from) });
+    for (const f of creds.authFiles.filter((a) => a.harness === harness)) writeIn(f.to, readFileSync(f.from));
+    if (model && harness === 'claude-code') {
+      // Merged after startup, so whatever the image or the project put there stays.
+      const current = inAgent(['sh', '-c', 'cat "$1" 2>/dev/null || true', 'sh', CLAUDE_SETTINGS]).trim();
+      writeIn(CLAUDE_SETTINGS, `${JSON.stringify({ ...(current ? JSON.parse(current) : {}), model }, null, 2)}\n`);
     }
-    writeFileSync(path.join(work, '.acpxrc.json'), `${JSON.stringify(acpxConfig(acpCommand(harness, model), turnTimeoutSec), null, 2)}\n`);
+    if (model && harness === 'opencode') writeIn(OPENCODE_MODEL_FILE, `${JSON.stringify({ model })}\n`);
+    const cli = harness === 'opencode' ? null : inAgent(['sh', '-c', `command -v ${CLI[harness]}`]).trim();
+    writeFileSync(path.join(work, '.acpxrc.json'), `${JSON.stringify(acpxConfig(acpCommand(harness, model, { cli }), turnTimeoutSec), null, 2)}\n`);
     inAgent(['acpx', 'sessions', 'ensure'], { cwd: true });
   } catch (e) {
     teardown();
@@ -178,19 +196,27 @@ export function startSession({ root, work, harness, model, project, creds, envNa
     },
     // Copies the harness's logs into <trialDir>/agent, drops auth copies, scrubs secrets; always tears down.
     close(trialDir) {
+      const { from, to } = LOGS[harness];
+      const agentDir = path.join(trialDir, 'agent');
+      let scrubbed = null;
       try {
         exec('docker', ['exec', '-u', 'dev', '-w', '/workspace', name, 'acpx', 'sessions', 'close']);
-        const { from, to } = LOGS[harness];
-        const agentDir = path.join(trialDir, 'agent');
         if (exec('docker', ['exec', '-u', 'dev', name, 'test', '-d', from]).status === 0) {
           mkdirSync(path.join(trialDir, to), { recursive: true });
           run(['cp', `${name}:${from}/.`, path.join(trialDir, to)]);
         }
-        for (const f of walk(agentDir).filter((f) => path.basename(f) === 'auth.json')) rmSync(f, { force: true });
-        return scrubSecretsInTree(agentDir, creds.secrets);
       } finally {
-        teardown();
+        // Also after a failed copy: a partial one may already hold auth copies or secrets.
+        try {
+          if (existsSync(agentDir)) {
+            for (const f of walk(agentDir).filter((f) => path.basename(f) === 'auth.json')) rmSync(f, { force: true });
+            scrubbed = scrubSecretsInTree(agentDir, creds.secrets);
+          }
+        } finally {
+          teardown();
+        }
       }
+      return scrubbed;
     },
     appListening: (port) => listening(inAgent(['sh', '-c', 'cat /proc/net/tcp /proc/net/tcp6 2>/dev/null; true']), port),
     cliVersion: (h) => inAgent([`${BIN}/${CLI[h]}`, '--version']).trim(),

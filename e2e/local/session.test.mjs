@@ -9,13 +9,15 @@ import { acpCommand, acpxConfig, composeEnv, composeProject, listening, parseEnv
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'adw-session-'));
 
-test('acpCommand per harness, with and without a model', () => {
+test('acpCommand per harness, with and without a model or the image CLI', () => {
   assert.deepEqual(acpCommand('claude-code', null), ['env', '-u', 'CLAUDECODE', 'claude-code-acp']);
-  assert.deepEqual(acpCommand('claude-code', 'opus'), ['env', '-u', 'CLAUDECODE', 'ANTHROPIC_MODEL=opus', 'claude-code-acp']);
+  assert.deepEqual(acpCommand('claude-code', 'opus', { cli: '/usr/local/bin/claude' }),
+    ['env', '-u', 'CLAUDECODE', 'ANTHROPIC_MODEL=opus', 'CLAUDE_CODE_EXECUTABLE=/usr/local/bin/claude', 'claude-code-acp']);
   assert.deepEqual(acpCommand('codex', null), ['env', 'NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', 'codex-acp']);
-  assert.deepEqual(acpCommand('codex', 'gpt-5'), ['env', 'NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', 'codex-acp', '-c', 'model=gpt-5']);
+  assert.deepEqual(acpCommand('codex', 'openai/gpt-5', { cli: '/usr/local/bin/codex' }),
+    ['env', 'NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', 'CODEX_CONFIG={"model":"gpt-5"}', 'CODEX_PATH=/usr/local/bin/codex', 'codex-acp']);
   assert.deepEqual(acpCommand('opencode', null), ['env', 'OPENCODE_FAKE_VCS=git', 'opencode', 'acp']);
-  assert.deepEqual(acpCommand('opencode', 'anthropic/x'), ['env', 'OPENCODE_FAKE_VCS=git', 'OPENCODE_CONFIG_CONTENT={"model":"anthropic/x"}', 'opencode', 'acp']);
+  assert.deepEqual(acpCommand('opencode', 'anthropic/x'), ['env', 'OPENCODE_FAKE_VCS=git', 'OPENCODE_CONFIG=/home/dev/.adw-e2e/opencode.json', 'opencode', 'acp']);
   assert.throws(() => acpCommand('gemini', null), /unknown harness/);
 });
 
@@ -119,7 +121,7 @@ function fixture() {
 test('startSession starts the compose run container, stages auth by stdin and ensures the acpx session', () => {
   const { dir, root, work, creds } = fixture();
   try {
-    const { calls, exec } = recorder();
+    const { calls, exec } = recorder({ results: (a) => (a.includes('command -v codex') ? { status: 0, stdout: '/usr/local/bin/codex\n' } : null) });
     startSession({ root, work, harness: 'codex', model: 'gpt-5', project: 'p1', creds, envNames: ['AZURE_X'], exec, env: { AGENT_CA_DIR: '/ca' }, turnTimeoutSec: 60 });
     const compose = ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), '-f', path.join(root, 'compose.ai-dev.certs.yml'), '-p', 'p1'];
     assert.deepEqual(calls[0].args, [...compose, 'run', '-d', '--name', 'p1-agent', '-e', 'OPENAI_API_KEY', '-e', 'AZURE_X', 'ai-dev-workflow', 'sleep', 'infinity']);
@@ -133,8 +135,38 @@ test('startSession starts the compose run container, stages auth by stdin and en
     assert.ok(!staged[0].args.join(' ').includes('AT1'));
     assert.deepEqual(calls.at(-1).args, ['exec', '-u', 'dev', '-w', '/workspace', 'p1-agent', 'acpx', 'sessions', 'ensure']);
     const rc = JSON.parse(readFileSync(path.join(work, '.acpxrc.json'), 'utf8'));
-    assert.deepEqual(rc.agents.target, { command: 'env', args: ['NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', 'codex-acp', '-c', 'model=gpt-5'] });
+    assert.deepEqual(calls.find((c) => c.args.includes('command -v codex')).args, ['exec', '-u', 'dev', 'p1-agent', 'sh', '-c', 'command -v codex']);
+    assert.deepEqual(rc.agents.target, { command: 'env',
+      args: ['NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', 'CODEX_CONFIG={"model":"gpt-5"}', 'CODEX_PATH=/usr/local/bin/codex', 'codex-acp'] });
     assert.equal(rc.timeout, 60);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('claude-code: the model is merged into settings.json, the image claude is the executable', () => {
+  const { dir, root, work, creds } = fixture();
+  try {
+    const { calls, exec } = recorder({ results: (a) => (a.includes('command -v claude') ? { status: 0, stdout: '/usr/local/bin/claude\n' }
+      : a.at(-1) === '/home/dev/.claude/settings.json' && a.includes('sh') && !a.includes('-i') ? { status: 0, stdout: '{"theme":"dark","model":"old"}' } : null) });
+    startSession({ root, work, harness: 'claude-code', model: 'opus', project: 'p1', creds, exec, env: {} });
+    const write = calls.find((c) => c.opts.input !== undefined && c.args.at(-1) === '/home/dev/.claude/settings.json');
+    assert.deepEqual(JSON.parse(write.opts.input), { theme: 'dark', model: 'opus' });
+    const rc = JSON.parse(readFileSync(path.join(work, '.acpxrc.json'), 'utf8'));
+    assert.deepEqual(rc.agents.target.args, ['-u', 'CLAUDECODE', 'ANTHROPIC_MODEL=opus', 'CLAUDE_CODE_EXECUTABLE=/usr/local/bin/claude', 'claude-code-acp']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('opencode: the model goes into an OPENCODE_CONFIG file; nothing written without a model', () => {
+  const { dir, root, work, creds } = fixture();
+  try {
+    let r = recorder();
+    startSession({ root, work, harness: 'opencode', model: 'anthropic/x', project: 'p1', creds: { ...creds, authFiles: [] }, exec: r.exec, env: {} });
+    const write = r.calls.find((c) => c.opts.input !== undefined);
+    assert.equal(write.args.at(-1), '/home/dev/.adw-e2e/opencode.json');
+    assert.deepEqual(JSON.parse(write.opts.input), { model: 'anthropic/x' });
+    assert.ok(!r.calls.some((c) => c.args.some((a) => String(a).startsWith('command -v'))));
+    r = recorder();
+    startSession({ root, work, harness: 'claude-code', model: null, project: 'p1', creds, exec: r.exec, env: {} });
+    assert.ok(!r.calls.some((c) => c.opts.input !== undefined || c.args.includes('/home/dev/.claude/settings.json')));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -222,9 +254,19 @@ test('close skips a missing log dir and runs down -v after a throwing cp', () =>
     startSession({ root, work, harness: 'codex', model: null, project: 'p1', creds, exec: r.exec, env: {} }).close(path.join(dir, 't'));
     assert.ok(!r.calls.some((c) => c.args[0] === 'cp'));
 
-    r = recorder({ throwOn: (a) => a[0] === 'cp' });
+    // A partial copy leaves an auth copy and a secret behind before cp fails: both must go.
+    const t2 = path.join(dir, 't2');
+    r = recorder({ throwOn: (a) => {
+      if (a[0] !== 'cp') return false;
+      mkdirSync(a[2], { recursive: true });
+      writeFileSync(path.join(a[2], 'auth.json'), '{"x":"AT1"}');
+      writeFileSync(path.join(a[2], 'rollout-1.jsonl'), '{"token":"AT1"}\n');
+      return true;
+    } });
     const s = startSession({ root, work, harness: 'codex', model: null, project: 'p1', creds, exec: r.exec, env: {} });
-    assert.throws(() => s.close(path.join(dir, 't2')), /boom/);
+    assert.throws(() => s.close(t2), /boom/);
+    assert.ok(!existsSync(path.join(t2, 'agent/sessions/auth.json')));
+    assert.deepEqual(scanForSecrets(path.join(t2, 'agent'), creds.secrets), []);
     assert.deepEqual(r.calls.at(-1).args.slice(-2), ['down', '-v']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
