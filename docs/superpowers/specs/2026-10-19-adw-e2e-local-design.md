@@ -171,3 +171,22 @@ providers it is allowed to use:
   diff are mounted read-only, and the verifier works on a throwaway copy.
 - **The Harbor self-test keeps Claude judges.** `verifierHash` changes only when a judge's
   harness is not `claude-code`, so the existing calibrations stay valid.
+
+## Follow-up: migrate the Harbor self-test (decided 2026-10-19, separate plan)
+After `adw e2e` ships and one side-by-side run against the Harbor self-test, the self-test moves
+onto the local runner and Harbor is removed. Decisions:
+- **File backend only.** The self-test no longer covers `ticketing-gitea.md` or PR creation. The
+  file-backend contract (`e2e/local/contract.mjs`) replaces `evaluateContract`. The Gitea seed,
+  `gitea-init.sh` and `tests/verify.mjs` are removed.
+- **Tasks become consumer projects.** Each seed repo gets an `ai-project.json` (file backend), the
+  `init` container files and an `AGENTS.md` E2E section. It also gets a committed
+  `.adw/e2e/1/{ticket.md,answers.json,acceptance.md}`: `answers.json` is derived from
+  `instruction.md`, and `acceptance.md` is today's `acceptance-criteria.md`.
+- **`--no-human` with persona fallback.** A question the stored answers don't cover goes to the
+  answerer in persona mode, with `persona.md` + `instruction.md` as hidden knowledge. That answer
+  is logged in the trial, not stored, and the trial counts as not fully replayed. The `askHuman`
+  seam of `runConversation` (Task 7) is where this plugs in.
+- **What stays:** `run.mjs` as a thin loop over tasks × harnesses × repetitions calling `runE2e`,
+  plus `summary.md`, `calibrate` (on the one-shot runner) and the quota abort rules.
+- **What goes:** Harbor, uv, Python (`e2e/agents/`), the `_shared/` mirroring and `harbor.mjs`.
+  The first migrated run starts a new baseline, since old results are not comparable.
