@@ -9,7 +9,7 @@ const expand = (p, root) => (p.startsWith('~/') ? path.join(homedir(), p.slice(2
 // (e.g. "type":"api" or "type":"oauth"), account identifiers and refresh timestamps; those are not
 // credentials and show up legitimately in session logs, so they would be false scan hits.
 const NON_SECRET_KEYS = new Set(['type', 'auth_mode', 'account_id', 'accountId', 'last_refresh']);
-function secretLeaves(value, key = '') {
+export function secretLeaves(value, key = '') {
   if (typeof value === 'string') return !NON_SECRET_KEYS.has(key) && value.length > 0 ? [value] : [];
   if (value && typeof value === 'object') {
     return Object.entries(value).flatMap(([k, v]) => secretLeaves(v, k));
