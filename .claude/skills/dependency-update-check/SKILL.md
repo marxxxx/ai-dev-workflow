@@ -15,7 +15,8 @@ one adjustable-breaking PR, one (or a few) needs-a-decision issue(s). **Never mi
 classes into one PR.**
 
 **The iron rule:** never hand-edit derived files (`docker/tools/package.json`,
-`package-lock.json`, `Dockerfile*` `ARG`/`FROM` lines). Always go through `inventory.json` +
+`package-lock.json`, `Dockerfile*` `ARG`/`FROM` lines, the `image:` line of
+`agent-src/container/compose.ai-dev.dind.yml`). Always go through `inventory.json` +
 `node docker/tools/inventory.mjs sync` (or `update`), per `docker/README.md` and `AGENTS.md`.
 
 ## Workflow
@@ -85,8 +86,8 @@ serena / superpowers commit range between the pinned revision and new HEAD) to c
 
 ## Constraints
 
-- **Never hand-edit** `docker/tools/package.json`, `package-lock.json`, or `Dockerfile*`
-  `ARG`/`FROM` lines — always route through `inventory.json` + `inventory.mjs sync`/`update`.
+- **Never hand-edit** `docker/tools/package.json`, `package-lock.json`, `Dockerfile*`
+  `ARG`/`FROM` lines or the dind overlay's `image:` line — always route through `inventory.json` + `inventory.mjs sync`/`update`.
 - Keep the three outcome classes in **separate** PRs/issues; never combine a non-breaking bump and
   a breaking adjustment in one PR.
 - If `inventory.mjs check` reports drift you did not intend, **stop and fix it** before opening any

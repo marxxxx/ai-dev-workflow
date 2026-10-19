@@ -1,7 +1,7 @@
-# Opt-in overlay: a Docker daemon for the agent (image builds, docker compose, Testcontainers).
-# Copy alongside compose.ai-dev.yml as compose.ai-dev.dind.yml and pass it as a second -f:
-#   docker compose -f compose.ai-dev.yml -f compose.ai-dev.dind.yml run --rm ai-dev-workflow
-# Stop the daemon afterwards with `docker compose -f … -f … down`; `run --rm` leaves it running.
+# Project-owned; written once by ai-dev-workflow init. Opt-in overlay: a Docker daemon for the
+# agent (image builds, docker compose, Testcontainers). The launchers add it when .env.ai-dev sets
+# AGENT_DIND=1 (see AI-DEV.md). `run --rm` leaves the daemon running; stop it with
+# `docker compose -p @@SLUG@@-ai down`.
 #
 # SECURITY: the daemon runs in a privileged, rootful sidecar. Whoever can reach its socket - every
 # agent in the container - can become root on the host (Linux) or in the Docker Desktop VM, which
@@ -11,7 +11,6 @@
 # The agent shares the daemon's network namespace, so ports published by nested containers
 # (docker run -p, compose ports:, Testcontainers) answer on localhost. Publish ports to the host
 # on the `docker` service; `ports:` on ai-dev-workflow conflicts with network_mode.
-# Also applies to the repo-root self-dev compose.ai-dev.yml (same service name).
 services:
   docker:
     image: docker:29-dind@sha256:0b6d18a4a222e71c88be6034926b4f6cde2fc33c2218643d03ccfddc65995470

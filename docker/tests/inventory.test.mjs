@@ -10,13 +10,18 @@ import {
 } from '../tools/inventory.mjs';
 
 const dockerDir = fileURLToPath(new URL('..', import.meta.url));
-const pinnedFiles = ['Dockerfile', 'Dockerfile.dotnet', 'docker-compose.dind.yml', 'tools/inventory.json', 'tools/package.json', 'tools/package-lock.json'];
+// The dind overlay is an init template under agent-src/container/, next to docker/.
+const dindOverlay = '../agent-src/container/compose.ai-dev.dind.yml';
+const pinnedFiles = ['Dockerfile', 'Dockerfile.dotnet', dindOverlay, 'tools/inventory.json', 'tools/package.json', 'tools/package-lock.json'];
 
 function fixture(t) {
-  const root = mkdtempSync(path.join(tmpdir(), 'agent-inventory-'));
-  mkdirSync(path.join(root, 'tools'));
-  for (const file of pinnedFiles) cpSync(path.join(dockerDir, file), path.join(root, file));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const base = mkdtempSync(path.join(tmpdir(), 'agent-inventory-'));
+  const root = path.join(base, 'docker');
+  for (const file of pinnedFiles) {
+    mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    cpSync(path.join(dockerDir, file), path.join(root, file));
+  }
+  t.after(() => rmSync(base, { recursive: true, force: true }));
   return root;
 }
 
@@ -47,7 +52,7 @@ test('reports a dind overlay image that disagrees with the inventory', t => {
   editJson(path.join(root, 'tools/inventory.json'), inventory => {
     inventory.dindImage.reference = 'docker:99-dind@sha256:def';
   });
-  assert.match(findDrift(root).join('\n'), /docker-compose\.dind\.yml.*docker:99-dind/);
+  assert.match(findDrift(root).join('\n'), /compose\.ai-dev\.dind\.yml.*docker:99-dind/);
 });
 
 test('sync rewrites Dockerfile pins from the inventory', t => {
@@ -74,7 +79,7 @@ test('sync rewrites Dockerfile pins from the inventory', t => {
   assert.match(dotnetDockerfile, /^ARG DOTNET_SDK_VERSION=10\.0\.999$/m);
   assert.match(dotnetDockerfile, /^ARG DOTNET_EF_VERSION=10\.0\.99$/m);
   assert.match(dockerfile, /^ARG DOCKER_CLI_VERSION=5:99\.0\.0-1~debian\.12~bookworm$/m);
-  const dind = readFileSync(path.join(root, 'docker-compose.dind.yml'), 'utf8');
+  const dind = readFileSync(path.join(root, dindOverlay), 'utf8');
   assert.match(dind, /^ {4}image: docker:99-dind@sha256:def$/m);
   assert.deepEqual(findDrift(root), []);
 });

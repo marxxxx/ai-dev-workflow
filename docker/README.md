@@ -266,8 +266,8 @@ docker compose -f compose.ai-dev.yml -f compose.ai-dev.certs.yml run --rm ai-dev
 ```
 
 The overlay ([`agent-src/container/compose.ai-dev.certs.yml`](../agent-src/container/compose.ai-dev.certs.yml))
-applies unchanged to the repo-root self-dev `compose.ai-dev.yml`. With the Docker daemon overlay, also add its
-[certs companion](#docker-inside-the-container-opt-in).
+applies unchanged to the repo-root self-dev `compose.ai-dev.yml`. With `AGENT_DIND=1` the launchers
+also add the Docker daemon's [certs companion](#docker-inside-the-container-opt-in).
 
 On every start the entrypoint, still as root, splits each certificate into its own file
 under `/usr/local/share/ca-certificates/agent-extra/` (DER is converted), runs
@@ -397,21 +397,26 @@ and Testcontainers, add the opt-in daemon described next.
 ## Docker inside the container (opt-in)
 
 The images ship the Docker CLI with the `buildx` and `compose` plugins, but no daemon.
-[`docker-compose.dind.yml`](docker-compose.dind.yml) adds one: a `docker` sidecar running
-the pinned `docker:<version>-dind`. Copy it alongside `compose.ai-dev.yml` as
-`compose.ai-dev.dind.yml` and pass it as a second `-f` (the `ai-dev.sh`/`ai-dev.ps1`
-launchers do not add it; set `PROJECT_ROOT`, `HOST_UID` and `HOST_GID` as they do):
+`init` writes [`compose.ai-dev.dind.yml`](../agent-src/container/compose.ai-dev.dind.yml) next
+to `compose.ai-dev.yml`. It adds one: a `docker` sidecar running the pinned
+`docker:<version>-dind`. Set `AGENT_DIND=1` in `.env.ai-dev` and `ai-dev.sh`/`ai-dev.ps1`
+pass it as an extra `-f`. Without the launchers:
 
 ```text
 docker compose -f compose.ai-dev.yml -f compose.ai-dev.dind.yml run --rm ai-dev-workflow claude
-docker compose -f compose.ai-dev.yml -f compose.ai-dev.dind.yml down   # stops the daemon
+docker compose -p <name>-ai down   # stops the daemon (the name: in compose.ai-dev.yml)
 ```
 
 `run` starts the daemon and waits until it is healthy. `run --rm` leaves it running, so stop
-it with `down`. `down --volumes` also deletes the daemon's images, build cache and nested
-volumes, which otherwise persist per Compose project name in the `docker-data` volume.
-The overlay works with Docker Desktop on Windows and with Docker Engine on Linux, and also
-applies to the repo-root self-dev `compose.ai-dev.yml`.
+it with `down`. Its images, build cache and nested volumes persist per Compose project in the
+`<name>-ai_docker-data` volume; `docker volume rm` deletes them (`down --volumes` would also
+delete `agent-home`). The overlay works with Docker Desktop on Windows and with Docker Engine on
+Linux, and also applies to the repo-root self-dev `compose.ai-dev.yml`.
+
+Projects set up with an earlier `init` get the two dind files by running `init` again
+(keep `ai-project.json`, accept the container step). Existing files are left untouched, so the
+older launchers do not read `AGENT_DIND`: pass the `-f` yourself or take the new launchers from
+[`agent-src/container/`](../agent-src/container/).
 
 **Security: this is root-equivalent.** The daemon runs in a *privileged, rootful* container.
 Every agent in the container can use its socket, and so it can become root on the host
@@ -450,10 +455,9 @@ Limits:
   pulls. On every start the agent writes them to `proxies.default` in `~/.docker/config.json`,
   which the Docker CLI injects into builds and containers. Service names that nested
   containers call over HTTP must then be in `NO_PROXY`.
-- Behind TLS inspection, also add
-  [`docker-compose.dind-certs.yml`](docker-compose.dind-certs.yml) as
-  `compose.ai-dev.dind-certs.yml` so that the daemon trusts `AGENT_CA_DIR`. It accepts PEM
-  files only. Trust inside the `RUN` steps of the project's own Dockerfiles stays the
+- Behind TLS inspection, the launchers also add
+  [`compose.ai-dev.dind-certs.yml`](../agent-src/container/compose.ai-dev.dind-certs.yml)
+  when `AGENT_CA_DIR` is set, so that the daemon trusts it. It accepts PEM files only. Trust inside the `RUN` steps of the project's own Dockerfiles stays the
   project's responsibility.
 
 ## Tool inventory, updates and verification
@@ -462,7 +466,7 @@ Limits:
 Node version, all Node CLIs and MCP servers, uv, `tea`, Azure CLI and its `azure-devops`
 extension, the Docker CLI packages and the dind image of the opt-in overlay, Serena/Superpowers
 revisions, the .NET SDK and `dotnet-ef`. `tools/package.json`, `tools/package-lock.json`, the Dockerfile
-`FROM`/`ARG` pins and the `image:` line of `docker-compose.dind.yml` are derived from it; do not edit them by hand. The inventory is copied
+`FROM`/`ARG` pins and the `image:` line of `agent-src/container/compose.ai-dev.dind.yml` are derived from it; do not edit them by hand. The inventory is copied
 to `/opt/agent-tools/inventory.json` and every build verifies the installed versions
 against it (`tools/verify-versions.mjs`). OS packages still use apt repositories, so
 this is a versioned tool runtime, not a claim of byte-identical rebuilds.

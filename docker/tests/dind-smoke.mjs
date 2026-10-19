@@ -9,13 +9,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderContainerFiles } from '../../agent-src/lib/container.mjs';
 
-const overlay = fileURLToPath(new URL('../docker-compose.dind.yml', import.meta.url));
 const inventory = JSON.parse(readFileSync(fileURLToPath(new URL('../tools/inventory.json', import.meta.url)), 'utf8'));
 const temporary = mkdtempSync(path.join(tmpdir(), 'agent-dind-smoke-'));
-// The compose file consuming projects get from `init`, rendered the same way.
-const template = path.join(temporary, 'compose.ai-dev.yml');
+// The compose file and dind overlay consuming projects get from `init`, rendered the same way.
 const rendered = renderContainerFiles({ name: 'smoke', stack: 'generic', backend: 'file' });
-writeFileSync(template, rendered.find(file => file.path === 'compose.ai-dev.yml').content);
+const [template, overlay] = ['compose.ai-dev.yml', 'compose.ai-dev.dind.yml'].map(name => {
+  const file = path.join(temporary, name);
+  writeFileSync(file, rendered.find(candidate => candidate.path === name).content);
+  return file;
+});
 const project = path.join(temporary, 'project with spaces');
 mkdirSync(path.join(project, 'web'), { recursive: true });
 writeFileSync(path.join(project, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' } }));

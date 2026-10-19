@@ -20,7 +20,8 @@ const DOCKER_DIR = fileURLToPath(new URL('..', import.meta.url));
 const INVENTORY = 'tools/inventory.json';
 const PACKAGE_JSON = 'tools/package.json';
 const LOCKFILE = 'tools/package-lock.json';
-const DIND_OVERLAY = 'docker-compose.dind.yml';
+// An init template; the inventory pins its image line.
+const DIND_OVERLAY = '../agent-src/container/compose.ai-dev.dind.yml';
 const DERIVED_FILES = [PACKAGE_JSON, 'Dockerfile', 'Dockerfile.dotnet', DIND_OVERLAY];
 
 const DOCKERFILE_ARGS = {

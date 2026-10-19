@@ -79,6 +79,8 @@ export function renderContainerFiles({ name, stack, backend, giteaLogin = '', pr
   const files = [
     { path: 'compose.ai-dev.yml' },
     { path: 'compose.ai-dev.certs.yml' },
+    { path: 'compose.ai-dev.dind.yml' },
+    { path: 'compose.ai-dev.dind-certs.yml' },
     { path: 'ai-dev.sh', mode: 0o755 },
     { path: 'ai-dev.ps1' },
     { path: 'AI-DEV.md' },
