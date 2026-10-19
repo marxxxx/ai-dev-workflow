@@ -89,6 +89,20 @@ test('a failed verifier gives null acceptance, and a usage limit skips the revie
   assert.deepEqual(limited.review, nulls);
 });
 
+test('skipVerifier: no verifier and no verify checkout, the reason as its error; the review still runs', () => {
+  let verified = false;
+  const { seen, deps } = fakes({ runVerifier: () => { verified = true; } });
+  const pv = postVerify({ config, bundle: 'b', criteria, image: 'img', deps, skipVerifier: 'no E2E section' });
+  assert.equal(verified, false);
+  assert.equal(seen.checkouts.length, 1);
+  assert.equal(seen.review.checkout, seen.checkouts[0]);
+  assert.equal(seen.review.diffText, 'DIFF');
+  assert.equal(pv.verifierError, 'no E2E section');
+  assert.equal(pv.acceptance, null);
+  assert.deepEqual(pv.acceptanceCriteria, { AC1: null, AC2: null });
+  assert.deepEqual(pv.review, scores);
+});
+
 test('a bundle that cannot be checked out yields errors for both roles instead of throwing', () => {
   const pv = postVerify({ config, bundle: 'b', criteria, image: 'img',
     deps: fakes({ checkoutBundle: () => { throw new Error('bundle must hold main and one PR branch, has: refs/heads/x'); } }).deps });

@@ -65,3 +65,10 @@ test('skip deletes the file and returns null', async () => {
   assert.equal(out, null);
   assert.equal(existsSync(file), false);
 });
+
+test('a prompt that throws (Ctrl-C) removes the unconfirmed draft and propagates', async () => {
+  const file = tmpFile();
+  const err = Object.assign(new Error('interrupted'), { interrupted: true });
+  await assert.rejects(confirmAcceptance({ draft: renderAcceptance('T', CRITERIA), file, prompt: async () => { throw err; }, editor: () => {} }), err);
+  assert.equal(existsSync(file), false);
+});

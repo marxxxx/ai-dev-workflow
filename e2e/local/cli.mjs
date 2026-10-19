@@ -11,7 +11,7 @@ import { HARNESSES, composeRunArgs, isInterrupt, InterruptError } from '../lib/l
 import { parseCriteria } from '../lib/criteria.mjs';
 import { median } from '../lib/summary.mjs';
 import { redactSecrets } from '../lib/secrets.mjs';
-import { applyPostVerification, emptyOutcome, unjudgedOutcome } from '../lib/trial.mjs';
+import { applyPostVerification, emptyOutcome } from '../lib/trial.mjs';
 import { postVerify, verifierHash } from '../lib/postverify.mjs';
 import { loadLocalConfig, selfJudged } from './config.mjs';
 import { appendAnswer, ensureGitignore, newRunDir, readAnswers, readTicket, ticketDir, writeTicket } from './store.mjs';
@@ -49,9 +49,9 @@ export function parseE2eArgs(argv) {
     ticketFile: v['ticket-file'] ?? null, baseline: v.baseline ?? null, root: v.root ?? process.cwd() };
 }
 
-// One line typed on the terminal (the acceptance confirmation).
+// One line typed on the terminal (the acceptance confirmation). Not a TTY readline, so Ctrl-C stays a SIGINT.
 async function promptLine(question) {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
   try { return await rl.question(question); } finally { rl.close(); }
 }
 
@@ -204,7 +204,9 @@ export async function runE2e(opts, deps = {}) {
             const draft = d.draftAcceptance({ ticket: ticketText, answers: readAnswers(dir), harness: config.answerer.harness,
               model: config.answerer.model, buildArgs: buildArgs([config.answerer.harness]), name: `${judgeProject}-acceptance`,
               checkout: work, timeoutMs: config.answerer.timeoutSec * 1000, run });
-            criteria = await d.confirmAcceptance({ draft: renderAcceptance(ticketText.title, draft), file: acceptanceFile, prompt: d.prompt });
+            // A readline aborted by Ctrl-C rejects with an AbortError: that is an interrupt, not a failed draft.
+            const prompt = (q) => Promise.resolve(d.prompt(q)).catch((err) => { throw err?.code === 'ABORT_ERR' ? new InterruptError('SIGINT') : err; });
+            criteria = await d.confirmAcceptance({ draft: renderAcceptance(ticketText.title, draft), file: acceptanceFile, prompt });
           } catch (err) {
             if (isInterrupt(err)) throw err;
             d.error(`! acceptance draft failed: ${err.message}`);
@@ -214,15 +216,18 @@ export async function runE2e(opts, deps = {}) {
         trial = d.buildLocalTrialRecord({ id, harness, trialDir, config: { ...config, appPort: port }, criteria: criteria ?? [], checks,
           ownTests, conversation, agentSeconds });
         let outcome;
-        const agentsMd = readIf(path.join(work, 'AGENTS.md'));
-        if (!collected.bundle) outcome = emptyOutcome(criteria ?? []);
-        else if (!criteria) outcome = unjudgedOutcome([], config, 'no acceptance criteria: acceptance.md missing');
-        else if (!hasE2eSection(agentsMd)) {
+        // Without criteria or an E2E section the verifier is skipped (acceptance null); the review still runs.
+        let skipVerifier;
+        if (!criteria) skipVerifier = 'verifier skipped: no acceptance criteria (acceptance.md missing)';
+        else if (!hasE2eSection(readIf(path.join(work, 'AGENTS.md')))) {
           d.log('  hint: add an "## End-to-end testing" section to AGENTS.md so the verifier can run the app');
-          outcome = unjudgedOutcome(criteria, config, 'verifier skipped: AGENTS.md has no "## End-to-end testing" section');
-        } else {
-          d.log('  post-verifying (E2E verifier, review)');
-          outcome = d.postVerify({ config, bundle: collected.bundle, criteria, env: judgeEnv, buildArgs: buildArgs([config.verifier.harness, config.review.harness]),
+          skipVerifier = 'verifier skipped: AGENTS.md has no "## End-to-end testing" section';
+        }
+        if (!collected.bundle) outcome = emptyOutcome(criteria ?? []);
+        else {
+          d.log(skipVerifier ? '  post-verifying (review)' : '  post-verifying (E2E verifier, review)');
+          outcome = d.postVerify({ config, bundle: collected.bundle, criteria: criteria ?? [], env: judgeEnv, skipVerifier,
+            buildArgs: buildArgs([...(skipVerifier ? [] : [config.verifier.harness]), config.review.harness]),
             spec: sectionOf(collected.ticketFile, 'Approved Spec'), summary: sectionOf(collected.ticketFile, 'Implementation Summary'),
             onTranscript: (kind, text) => transcript(kind)(text) });
           await tick();

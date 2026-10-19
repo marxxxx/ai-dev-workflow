@@ -1,7 +1,7 @@
 // Acceptance criteria of a ticket: drafted by an LLM from the ticket and stored answers, confirmed by the human,
 // stored in .adw/e2e/<n>/acceptance.md for the verifier.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { parseCriteria } from '../lib/criteria.mjs';
 import { callLlm } from '../lib/llm.mjs';
@@ -65,17 +65,24 @@ export function spawnEditor(file) {
 }
 
 // `draft` is the rendered markdown, `prompt` is (question) => Promise<string>. Returns the accepted criteria,
-// or null when skipped (the file is deleted: no verifier this run).
+// or null when skipped (the file is deleted: no verifier this run). A confirmation that throws (Ctrl-C) removes
+// a draft it created, so a later run never trusts unconfirmed criteria.
 export async function confirmAcceptance({ draft, file, prompt, editor = spawnEditor }) {
   mkdirSync(dirname(file), { recursive: true });
+  const existed = existsSync(file);
   writeFileSync(file, draft);
-  let note = '';
-  for (;;) {
-    const answer = String(await prompt(`${note}Acceptance criteria in ${file}: [a]ccept / [e]dit / [s]kip? `)).trim().toLowerCase();
-    note = '';
-    if (answer === 's' || answer === 'skip') { rmSync(file, { force: true }); return null; }
-    if (answer === 'e' || answer === 'edit') await editor(file);
-    else if (answer !== 'a' && answer !== 'accept') { note = 'Please answer a, e or s. '; continue; }
-    try { return parseCriteria(readFileSync(file, 'utf8')); } catch (err) { note = `${err.message}. `; }
+  try {
+    let note = '';
+    for (;;) {
+      const answer = String(await prompt(`${note}Acceptance criteria in ${file}: [a]ccept / [e]dit / [s]kip? `)).trim().toLowerCase();
+      note = '';
+      if (answer === 's' || answer === 'skip') { rmSync(file, { force: true }); return null; }
+      if (answer === 'e' || answer === 'edit') await editor(file);
+      else if (answer !== 'a' && answer !== 'accept') { note = 'Please answer a, e or s. '; continue; }
+      try { return parseCriteria(readFileSync(file, 'utf8')); } catch (err) { note = `${err.message}. `; }
+    }
+  } catch (err) {
+    if (!existed) rmSync(file, { force: true });
+    throw err;
   }
 }

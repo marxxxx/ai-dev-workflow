@@ -10,6 +10,7 @@ import { makeClaudeTrial } from '../lib/fixtures/make.mjs';
 import { parseCriteria } from '../lib/criteria.mjs';
 import { InterruptError } from '../lib/llm.mjs';
 import { buildLocalTrialRecord } from './record.mjs';
+import { confirmAcceptance } from './acceptance.mjs';
 import { USAGE, main, parseE2eArgs, runE2e } from './cli.mjs';
 
 const GENERATE = fileURLToPath(new URL('../../agent-src/generate.mjs', import.meta.url));
@@ -54,8 +55,12 @@ function stubs(root, over = {}) {
     draftAcceptance: rec('draft', (a) => { seen.draft = a; return [{ id: 'AC1', text: 'a date shows' }]; }),
     confirmAcceptance: rec('confirm', async ({ draft, file }) => { writeFileSync(file, draft); return parseCriteria(draft); }),
     prompt: async () => 'a',
-    postVerify: rec('postVerify', (a) => { seen.postVerify = a; return { acceptanceCriteria: { AC1: 'pass' }, acceptanceEvidence: { AC1: 'seen' }, acceptance: 1,
-      verifierError: null, review: { scope: 5 }, reviewReasons: { scope: 'ok' }, reviewError: null }; }),
+    postVerify: rec('postVerify', (a) => {
+      seen.postVerify = a;
+      const skip = a.skipVerifier;
+      return { acceptanceCriteria: Object.fromEntries(a.criteria.map((c) => [c.id, skip ? null : 'pass'])), acceptanceEvidence: skip ? null : { AC1: 'seen' },
+        acceptance: skip ? null : 1, verifierError: skip ?? null, review: { scope: 5 }, reviewReasons: { scope: 'ok' }, reviewError: null };
+    }),
     buildLocalTrialRecord: rec('record', (a) => { seen.record = a; return buildLocalTrialRecord({ ...a, deps: DEPS }); }),
     now: () => '2026-10-19T1000Z', clock: () => 0,
     log: (s) => out.push(String(s)), error: (s) => out.push(String(s)),
@@ -192,18 +197,46 @@ test('runE2e: judges and answerer get their own role harness, provider env by na
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('runE2e: without an E2E section in AGENTS.md the verifier is skipped and the trial unjudged', async () => {
+test('runE2e: without an E2E section in AGENTS.md the verifier is skipped with a hint, the review still runs', async () => {
   const root = project();
   try {
     const s = stubs(root);
     const sandbox = s.deps.createSandbox;
     s.deps.createSandbox = (a) => { const r = sandbox(a); writeFileSync(path.join(r.work, 'AGENTS.md'), '# Agents\n'); return r; };
     assert.equal(await runE2e(opts(root), s.deps), 0);
-    assert.equal(s.calls.includes('postVerify'), false);
+    assert.match(s.seen.postVerify.skipVerifier, /End-to-end testing/);
+    assert.deepEqual(s.seen.postVerify.criteria.map((c) => c.id), ['AC1']);
+    assert.match(s.out.join('\n'), /hint: add an "## End-to-end testing" section/);
     const t = runJson(root).trials[0];
     assert.equal(t.acceptance, null);
     assert.match(t.verifierError, /End-to-end testing/);
+    assert.deepEqual(t.review, { scope: 5 });
     assert.equal(t.checks.e2e_performed, null, 'no port without the section or e2e.appPort');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('runE2e: skipped acceptance criteria skip the verifier; the review runs with no criteria', async () => {
+  const root = project();
+  try {
+    const s = stubs(root, { confirmAcceptance: async () => null });
+    assert.equal(await runE2e(opts(root), s.deps), 0);
+    assert.deepEqual(s.seen.postVerify.criteria, []);
+    assert.match(s.seen.postVerify.skipVerifier, /no acceptance criteria/);
+    const t = runJson(root).trials[0];
+    assert.equal(t.acceptance, null);
+    assert.deepEqual(t.review, { scope: 5 });
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('runE2e: Ctrl-C at the acceptance prompt (readline AbortError) aborts with 130 and leaves no draft', async () => {
+  const root = project();
+  try {
+    const s = stubs(root, { confirmAcceptance, prompt: async () => { throw Object.assign(new Error('Aborted with Ctrl+C'), { code: 'ABORT_ERR', name: 'AbortError' }); } });
+    assert.equal(await runE2e(opts(root), s.deps), 130);
+    assert.equal(existsSync(path.join(root, '.adw/e2e/7/acceptance.md')), false);
+    assert.equal(s.calls.includes('postVerify'), false);
+    assert.ok(downs(s.exec).some((p) => p.endsWith('-judge')));
+    assert.doesNotMatch(s.out.join('\n'), /acceptance draft failed/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

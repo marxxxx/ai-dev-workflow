@@ -49,23 +49,25 @@ const DEFAULT_DEPS = { checkoutBundle, runVerifier, runReview };
 
 // `onTranscript(kind, text)` receives each judge's raw CLI output ('verifier', 'review'), so its verdict can be traced.
 // `buildArgs` (llm.mjs dockerRunArgs / composeRunArgs) picks the judges' container; by default the task image.
-export function postVerify({ config, bundle, criteria, spec, summary, env = {}, image, buildArgs, deps = DEFAULT_DEPS, onTranscript = () => {} }) {
+// `skipVerifier` (a reason) leaves acceptance unjudged with that reason as its error; the review still runs.
+export function postVerify({ config, bundle, criteria, spec, summary, env = {}, image, buildArgs, skipVerifier, deps = DEFAULT_DEPS, onTranscript = () => {} }) {
   const nulls = Object.fromEntries(Object.keys(config.review.criteria).map((k) => [k, null]));
   const work = mkdtempSync(path.join(tmpdir(), 'adw-postverify-'));
   try {
     let verdict; let review;
     try {
       // Separate checkouts: the verifier runs the app in its tree, the review reads a pristine one.
-      const { diff } = deps.checkoutBundle(bundle, path.join(work, 'verify'));
-      deps.checkoutBundle(bundle, path.join(work, 'review'));
-      stripAgentSettings(path.join(work, 'verify'));
+      const { diff } = deps.checkoutBundle(bundle, path.join(work, skipVerifier ? 'review' : 'verify'));
+      if (!skipVerifier) deps.checkoutBundle(bundle, path.join(work, 'review'));
+      if (!skipVerifier) stripAgentSettings(path.join(work, 'verify'));
       stripAgentSettings(path.join(work, 'review'));
       // The diff gets its own directory: the review's --add-dir exposes only the diff, never the checkouts.
       mkdirSync(path.join(work, 'diff'));
       const diffPath = path.join(work, 'diff', 'pr.diff');
       writeFileSync(diffPath, diff);
-      verdict = deps.runVerifier({ config, checkout: path.join(work, 'verify'), criteria, env, image, buildArgs,
-        onTranscript: (text) => onTranscript('verifier', text) });
+      verdict = skipVerifier ? { criteria: null, error: skipVerifier }
+        : deps.runVerifier({ config, checkout: path.join(work, 'verify'), criteria, env, image, buildArgs,
+          onTranscript: (text) => onTranscript('verifier', text) });
       review = isQuota(verdict.error) ? { scores: nulls, reasons: {}, error: verdict.error }
         : deps.runReview({ config, checkout: path.join(work, 'review'), diffPath, criteria, spec, summary, env, image, buildArgs,
           onTranscript: (text) => onTranscript('review', text) });
