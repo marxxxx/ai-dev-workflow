@@ -29,6 +29,11 @@ const AUTH_ENV = {
   opencode: [],
 };
 
+// What docker/entrypoint.sh exports when the certs overlay installs a CA bundle; docker exec skips the entrypoint,
+// so the run sets them (container paths, no secrets) for every exec to inherit.
+const CA_ENV = ['NODE_EXTRA_CA_CERTS=/etc/ssl/agent-extra-ca.pem', 'SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt',
+  'REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt'];
+
 // No config/data dir overrides: the image's entrypoint configures MCP and tools in the default homes.
 // `cli` is the image's own claude/codex (resolved in the container), which the adapters run instead of their bundled ones.
 // The model: claude-code-acp takes it from settings.json (writeModelConfig; ANTHROPIC_MODEL as Harbor also sets it),
@@ -153,7 +158,8 @@ export function startSession({ root, work, harness, model, project, creds, envNa
   // Logins go in by name, so their values never reach argv.
   const names = [...creds.envNames.filter((n) => AUTH_ENV[harness].includes(n)), ...envNames];
   try {
-    run([...compose, 'run', '-d', '--name', name, ...names.flatMap((n) => ['-e', n]), SERVICE, 'sleep', 'infinity'], { env: cenv });
+    run([...compose, 'run', '-d', '--name', name, ...[...names, ...(cenv.AGENT_CA_DIR ? CA_ENV : [])].flatMap((n) => ['-e', n]),
+      SERVICE, 'sleep', 'infinity'], { env: cenv });
     for (let t = 0; ; t++) {
       const r = exec('docker', ['exec', '-u', 'dev', name, 'sh', '-c', READY]);
       if (r.status === 0) break;
@@ -175,7 +181,9 @@ export function startSession({ root, work, harness, model, project, creds, envNa
     if (model && harness === 'opencode') writeIn(OPENCODE_MODEL_FILE, `${JSON.stringify({ model })}\n`);
     const cli = harness === 'opencode' ? null : inAgent(['sh', '-c', `command -v ${CLI[harness]}`]).trim();
     writeFileSync(path.join(work, '.acpxrc.json'), `${JSON.stringify(acpxConfig(acpCommand(harness, model, { cli }), turnTimeoutSec), null, 2)}\n`);
-    inAgent(['acpx', 'sessions', 'ensure'], { cwd: true });
+    try { inAgent(['acpx', 'sessions', 'ensure'], { cwd: true }); } catch (e) {
+      throw new Error(`${e.message} (the project's ai-dev image must include acpx: rebuild or pull an ai-dev-workflow image from this adw version)`);
+    }
   } catch (e) {
     teardown();
     throw e;

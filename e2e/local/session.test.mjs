@@ -124,7 +124,10 @@ test('startSession starts the compose run container, stages auth by stdin and en
     const { calls, exec } = recorder({ results: (a) => (a.includes('command -v codex') ? { status: 0, stdout: '/usr/local/bin/codex\n' } : null) });
     startSession({ root, work, harness: 'codex', model: 'gpt-5', project: 'p1', creds, envNames: ['AZURE_X'], exec, env: { AGENT_CA_DIR: '/ca' }, turnTimeoutSec: 60 });
     const compose = ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), '-f', path.join(root, 'compose.ai-dev.certs.yml'), '-p', 'p1'];
-    assert.deepEqual(calls[0].args, [...compose, 'run', '-d', '--name', 'p1-agent', '-e', 'OPENAI_API_KEY', '-e', 'AZURE_X', 'ai-dev-workflow', 'sleep', 'infinity']);
+    // The entrypoint's CA exports are lost on docker exec: the run sets them (paths only) so every exec inherits them.
+    assert.deepEqual(calls[0].args, [...compose, 'run', '-d', '--name', 'p1-agent', '-e', 'OPENAI_API_KEY', '-e', 'AZURE_X',
+      '-e', 'NODE_EXTRA_CA_CERTS=/etc/ssl/agent-extra-ca.pem', '-e', 'SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt',
+      '-e', 'REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt', 'ai-dev-workflow', 'sleep', 'infinity']);
     assert.equal(calls[0].opts.env.PROJECT_ROOT, work);
     assert.deepEqual(calls[1].args.slice(0, 4), ['exec', '-u', 'dev', 'p1-agent']);
     // Only the codex auth file, by stdin, never on argv.
@@ -174,8 +177,10 @@ test('startSession forwards the claude token by name and tears down when ensure 
   const { dir, root, work, creds } = fixture();
   try {
     const { calls, exec } = recorder({ results: (a) => (a.includes('ensure') ? { status: 1, stdout: '', stderr: 'nope' } : null) });
-    assert.throws(() => startSession({ root, work, harness: 'claude-code', model: null, project: 'p1', creds, exec, env: {} }), /nope/);
+    assert.throws(() => startSession({ root, work, harness: 'claude-code', model: null, project: 'p1', creds, exec, env: {} }),
+      /nope.*ai-dev image must include acpx/s);
     assert.ok(calls[0].args.includes('CLAUDE_CODE_OAUTH_TOKEN'));
+    assert.ok(!calls[0].args.some((a) => a.startsWith('NODE_EXTRA_CA_CERTS')), 'no CA env without AGENT_CA_DIR');
     assert.ok(!calls[0].args.includes('OPENAI_API_KEY'));
     assert.equal(calls[0].args.filter((a) => a === '-f').length, 1, 'no certs overlay without AGENT_CA_DIR');
     assert.deepEqual(calls.at(-1).args.slice(-2), ['down', '-v']);
