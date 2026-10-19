@@ -6,10 +6,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 // Nothing here may depend on the host's git config: no hooks, no global ignores, no autocrlf.
-const ISOLATE = ['-c', 'core.hooksPath=/dev/null', '-c', 'core.excludesFile=/dev/null', '-c', 'core.autocrlf=false'];
+export const ISOLATE = ['-c', 'core.hooksPath=/dev/null', '-c', 'core.excludesFile=/dev/null', '-c', 'core.autocrlf=false'];
 const defaultGit = (args) => execFileSync('git', [...ISOLATE, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 256 * 1024 * 1024 });
 // Commits made here must not depend on the host's git identity or signing setup.
-const COMMIT = ['-c', 'user.name=ADW E2E', '-c', 'user.email=e2e@adw.local', '-c', 'commit.gpgsign=false'];
+export const COMMIT = ['-c', 'user.name=ADW E2E', '-c', 'user.email=e2e@adw.local', '-c', 'commit.gpgsign=false'];
 // Fixed diff format: host diff.* settings (prefixes, external diff, textconv, colour) must not change the diff.
 const DIFF = ['--no-ext-diff', '--no-textconv', '--no-color', '--src-prefix=a/', '--dst-prefix=b/'];
 
