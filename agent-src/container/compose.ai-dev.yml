@@ -1,7 +1,10 @@
-# Run-only template: copy into a consuming project; build images separately.
+# Project-owned; written once by ai-dev-workflow init. Start it with ./ai-dev.sh or .\ai-dev.ps1
+# (see AI-DEV.md). Add services, ports and dependency volumes as your project needs; keep the
+# /workspace bind, agent-home, the capability set and the HOST_UID/HOST_GID settings.
+name: @@SLUG@@-ai
 services:
   ai-dev-workflow:
-    image: ${AGENT_IMAGE:-ai-dev-workflow}
+    image: ${AGENT_IMAGE:-@@IMAGE@@}
     working_dir: /workspace
     init: true
     stdin_open: true
@@ -39,6 +42,7 @@ services:
       - type: volume
         source: agent-home
         target: /home/dev
+@@NODE_MOUNT@@
       # Container-only dependency trees. Each entry masks the host directory below it,
       # so the host install stays intact and Linux binaries never reach it. Add one per
       # node_modules of your project, and declare the volume at the bottom of this file.
@@ -49,4 +53,5 @@ services:
 
 volumes:
   agent-home:
+@@NODE_VOLUME@@
   # deps-apps-web:

@@ -26,10 +26,11 @@ agent-src/
   generate.mjs                 # entrypoint: zero-dependency Node CLI (parse argv + dispatch)
   lib/                         # feature modules the entrypoint composes:
     constants.mjs serialize.mjs identity.mjs config.mjs tokens.mjs units.mjs
-    ticketing.mjs cost.mjs renderers.mjs onboard.mjs pipeline.mjs upgrade.mjs
+    ticketing.mjs cost.mjs renderers.mjs onboard.mjs pipeline.mjs upgrade.mjs container.mjs
   config/
     ai-workflow.json           # PACKAGE-owned config: ticket states/comment titles + runtime include paths
     ai-project.template.json   # scaffold template copied by `init` when non-interactive
+  container/                   # dev-container templates `init` writes once (project-owned afterwards)
   includes/
     ticketing-github.md        # ticket read/comment/status/PR — GitHub (gh CLI)
     ticketing-gitea.md         # … — Gitea (tea CLI, verified vs. 0.15.1)

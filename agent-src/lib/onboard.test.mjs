@@ -112,3 +112,74 @@ test('cmdInit asks only for name and repository slug as identity; the PR target 
     cleanup();
   }
 });
+
+test('cmdInit with container.enabled y writes the container files for the chosen stack', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'dotnet' } };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')), buildProjectConfig(GITHUB_ANSWERS),
+      'container answers are not stored in ai-project.json');
+    assert.ok(fs.readFileSync(path.join(root, 'compose.ai-dev.yml'), 'utf8').includes('marxx/ai-dev-workflow:dotnet-latest'));
+    assert.ok(fs.readFileSync(path.join(root, 'AI-DEV.md'), 'utf8').includes('gh auth setup-git'));
+    for (const f of ['compose.ai-dev.certs.yml', 'ai-dev.sh', 'ai-dev.ps1', '.gitignore', '.gitattributes']) {
+      assert.ok(fs.existsSync(path.join(root, f)), f);
+    }
+  } finally {
+    cleanup();
+  }
+});
+
+test('cmdInit container stack defaults to the detected one', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'package.json'), '{}');
+    const answers = { ...FILE_ANSWERS, container: { enabled: 'y' } };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    assert.ok(fs.readFileSync(path.join(root, 'compose.ai-dev.yml'), 'utf8').includes('marxx/ai-dev-workflow:node-latest'));
+  } finally {
+    cleanup();
+  }
+});
+
+test('cmdInit with declined overwrite still writes container files from the existing config', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const dest = path.join(root, 'ai-project.json');
+    const existing = JSON.stringify(buildProjectConfig(GITEA_ANSWERS), null, 2) + '\n';
+    fs.writeFileSync(dest, existing);
+    const answers = { container: { enabled: 'y', stack: 'generic' } };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    assert.equal(fs.readFileSync(dest, 'utf8'), existing);
+    assert.match(fs.readFileSync(path.join(root, 'compose.ai-dev.yml'), 'utf8'), /^name: gitea-demo-ai$/m);
+    assert.ok(fs.readFileSync(path.join(root, 'AI-DEV.md'), 'utf8').includes('myserver'));
+  } finally {
+    cleanup();
+  }
+});
+
+test('cmdInit with declined overwrite and an incomplete ai-project.json falls back to dir name and file backend', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'ai-project.json'), '{"keep":true}');
+    const answers = { container: { enabled: 'y', stack: 'generic' } };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    const slug = path.basename(root).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+    assert.ok(fs.readFileSync(path.join(root, 'compose.ai-dev.yml'), 'utf8').includes(`name: ${slug}-ai`));
+    assert.ok(!fs.readFileSync(path.join(root, 'AI-DEV.md'), 'utf8').includes('gh auth'));
+  } finally {
+    cleanup();
+  }
+});
+
+test('cmdInit declining both overwrite and container writes nothing', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'ai-project.json'), '{"keep":true}');
+    const answers = { container: { enabled: 'n' } };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    assert.deepEqual(fs.readdirSync(root), ['ai-project.json']);
+  } finally {
+    cleanup();
+  }
+});

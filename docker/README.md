@@ -53,53 +53,48 @@ To publish a local build instead: `docker login`, then
 Consuming projects can use `AGENT_IMAGE=marxx/ai-dev-workflow:node-latest` without a
 local build, or pin `marxx/ai-dev-workflow:node-2026.09.11`.
 
-Copy `docker/docker-compose.yml` into the consuming project as `compose.ai-dev.yml`.
-It is a run-only template: no checkout/build path back to this repository is needed.
-Select a locally built image or an image you have published separately.
+## Set up a consuming project
 
-## Prepare and launch (PowerShell)
+Run `init` in the project and answer **yes** to *Set up the dev container?*. It detects the
+stack (`node`, `dotnet` or `generic`) and writes, each only when missing:
 
-Run the project's existing host-side generation command first. Then, from that
-project directory:
+| File | Purpose |
+|---|---|
+| `compose.ai-dev.yml` | The service, preset with the matching published image and a stable Compose project name (`name: <project>-ai`) |
+| `compose.ai-dev.certs.yml` | Company root-certificate overlay, added automatically when `AGENT_CA_DIR` is set |
+| `ai-dev.sh`, `ai-dev.ps1` | The single launch command for POSIX shells and PowerShell |
+| `AI-DEV.md` | Start, agent logins, the login for the project's ticketing backend, proxy setup |
 
-```powershell
-$env:PROJECT_ROOT = (Get-Location).Path
-$env:AGENT_IMAGE = 'ai-dev-workflow-node'
-# Use a distinct stable Compose project name for each consuming project.
-docker compose -p my-project-ai -f compose.ai-dev.yml config --quiet
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow codex login --device-auth
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow codex --yolo
-# Other commands:
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow claude --dangerously-skip-permissions
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow opencode
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow bash
+It also git-ignores `.env.ai-dev` and pins `ai-dev.sh` to LF in `.gitattributes`, then prints the
+exact next steps. The files belong to the project from then on; `generate` never touches them.
+A project that already has `ai-project.json` gets them by running `init` again and declining the
+overwrite. Non-interactively: `init --answers <file>` with
+`"container": { "enabled": "y", "stack": "node" }`.
+
+Run the project's host-side generation first, then from the project root:
+
+```text
+./ai-dev.sh                                         # bash in the container
+./ai-dev.sh codex login --device-auth               # one-time logins …
+./ai-dev.sh claude --dangerously-skip-permissions   # … then work
 ```
+
+PowerShell uses `.\ai-dev.ps1` with the same arguments. The launchers resolve the project root
+from their own location, export it as `PROJECT_ROOT`, set `HOST_UID`/`HOST_GID` from `id` on
+POSIX hosts, load the optional git-ignored `.env.ai-dev` (per-machine settings such as
+`AGENT_IMAGE`, `AGENT_CA_DIR`, proxy variables; never overriding the environment) and run
+`docker compose … run --rm ai-dev-workflow <args>`. Arguments pass through unchanged and no
+flags are added; in PowerShell quote a bare `--` as `'--'`, which PowerShell otherwise consumes.
 
 No host `HOME` variable or home bind is needed. Docker Desktop uses the default
 container IDs `1000:1000`; it mediates ownership for Windows bind mounts. Paths
-with spaces work. `PROJECT_ROOT` must be absolute and already exist. A missing
-source directory is rejected rather than created automatically.
+with spaces work. External linked-worktree Git directories are unsupported: use a
+standalone clone or a layout whose Git directory is entirely inside the mounted
+project. No unrelated host path is mounted automatically.
 
-## Prepare and launch (POSIX)
-
-After the project's host-side generation, from its root:
-
-```bash
-export PROJECT_ROOT="$(pwd)" AGENT_IMAGE=ai-dev-workflow-node
-export HOST_UID="$(id -u)" HOST_GID="$(id -g)"
-docker compose -p my-project-ai -f compose.ai-dev.yml config --quiet
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow codex login --device-auth
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow codex --yolo
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow claude --dangerously-skip-permissions
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow opencode
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow bash
-```
-
-The template may remain outside the consuming project: supply its absolute path
-with `-f`, the same explicit `PROJECT_ROOT`, and a unique `-p` project name. Relative
-workspace paths are rejected at startup. External linked-worktree Git directories
-are unsupported: use a standalone clone or a layout whose Git directory is entirely
-inside the mounted project. No unrelated host path is mounted automatically.
+Without the launchers, Compose needs an absolute, existing `PROJECT_ROOT` (relative
+workspace paths are rejected at startup); the `name:` in the file keeps the Compose
+project, and with it the `agent-home` volume, stable.
 
 ## Working on this repo in a container
 
@@ -141,8 +136,8 @@ just as it does on the host.
 
 The Compose project owns an `agent-home` named volume at `/home/dev`. It persists
 across `run --rm` and image updates; another Compose project name gets another home.
-Keep the same `-p` value to retain logins. `docker compose down` retains volumes;
-`down --volumes` deletes them and therefore deletes saved credentials and sessions.
+The generated `name:` keeps it stable; `docker volume rm <project>-ai_agent-home` deletes it and
+therefore deletes saved credentials and sessions.
 
 Codex uses file-based credential storage under `/home/dev/.codex`. Complete its
 one-time ChatGPT device login in a host browser. The account must permit device
@@ -165,11 +160,11 @@ mcp-server-azuredevops <organization> -d core work work-items --authentication a
 
 ADO's browser-based interactive MCP login does not support this headless runtime.
 Instead, authenticate Azure CLI interactively with device code. From either host
-shell (append `--tenant <tenant-id>` when needed):
+shell (`.\ai-dev.ps1` in PowerShell; append `--tenant <tenant-id>` when needed):
 
 ```text
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow az login --use-device-code --allow-no-subscriptions --output none
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow az account show --query tenantId --output tsv
+./ai-dev.sh az login --use-device-code --allow-no-subscriptions --output none
+./ai-dev.sh az account show --query tenantId --output tsv
 ```
 
 `AZURE_TENANT_ID` is an optional runtime input for tenant selection. No PAT or
@@ -197,7 +192,7 @@ For `ticketing.backend: gitea`, `agent-dev` uses the pinned `tea` CLI. Log in on
 the login name from `ai-project.json` (`ticketing.gitea.login`) and an access token:
 
 ```text
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow tea login add --name <login> --url https://<gitea-host> --token <token>
+./ai-dev.sh tea login add --name <login> --url https://<gitea-host> --token <token>
 ```
 
 The login lives in the `agent-home` volume (`~/.config/tea`) and survives `run --rm`.
@@ -213,9 +208,9 @@ receives inline runtime overrides. Host-side generated `npx` definitions remain
 portable and unchanged. Custom servers such as `dxdocs` remain available.
 
 ```text
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow verify-agent-config.sh
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow codex mcp list
-docker compose -p my-project-ai -f compose.ai-dev.yml run --rm ai-dev-workflow opencode debug config
+./ai-dev.sh verify-agent-config.sh
+./ai-dev.sh codex mcp list
+./ai-dev.sh opencode debug config
 ```
 
 Configuration parse errors abort startup with a diagnostic. Shell and login commands
@@ -254,23 +249,22 @@ read-only mount at startup.
 1. Put the company root certificates in one host directory. Accepted files (top level
    only) are `*.crt`, `*.pem`, `*.cer` and `*.cert`, as PEM or DER; a PEM bundle with
    several certificates is fine. Other files are skipped with a warning.
-2. Copy [`docker-compose.certs.yml`](docker-compose.certs.yml) alongside
-   `compose.ai-dev.yml` as `compose.ai-dev.certs.yml` and set `AGENT_CA_DIR` to that
-   directory's absolute path.
-3. Set the proxy variables (`HTTPS_PROXY`, `HTTP_PROXY`, `NO_PROXY`; both upper- and
+2. Set `AGENT_CA_DIR` to that directory's absolute path in the project's `.env.ai-dev`.
+3. Set the proxy variables there too (`HTTPS_PROXY`, `HTTP_PROXY`, `NO_PROXY`; both upper- and
    lowercase are passed through because Go, Node, curl/git and Python read different ones).
    Keep `localhost,127.0.0.1,::1` in `NO_PROXY`, or the agent's own E2E traffic to the app
    under test is routed through the corporate proxy.
-4. Pass the overlay as a second `-f`:
+4. Start as usual. `ai-dev.sh`/`ai-dev.ps1` add `compose.ai-dev.certs.yml` as a second `-f`
+   whenever `AGENT_CA_DIR` is set.
 
-```powershell
-docker compose --env-file .env.ai-dev -f compose.ai-dev.yml -f compose.ai-dev.certs.yml `
-  run --rm ai-dev-workflow claude
+Without the launchers, pass the overlay yourself:
+
+```text
+docker compose -f compose.ai-dev.yml -f compose.ai-dev.certs.yml run --rm ai-dev-workflow claude
 ```
 
-`COMPOSE_FILE=compose.ai-dev.yml:compose.ai-dev.certs.yml` (`;` as separator on Windows)
-avoids repeating both `-f`. The overlay applies unchanged to the repo-root self-dev
-`compose.ai-dev.yml`.
+The overlay ([`agent-src/container/compose.ai-dev.certs.yml`](../agent-src/container/compose.ai-dev.certs.yml))
+applies unchanged to the repo-root self-dev `compose.ai-dev.yml`.
 
 On every start the entrypoint, still as root, splits each certificate into its own file
 under `/usr/local/share/ca-certificates/agent-extra/` (DER is converted), runs
@@ -331,6 +325,8 @@ limit for Serena to 300 s (its default of 60 s would cut that first call off).
 named volume for each `node_modules` of your project. Mounted below the bind, it masks the
 host directory: the host install stays intact and usable, the container gets its own Linux
 tree, and on Docker Desktop it is markedly faster than going through the bind mount.
+For the `node` stack, `init` already declares one for the root `node_modules`
+(`deps-node-modules`); add one per nested tree.
 
 ```yaml
 services:
@@ -362,7 +358,7 @@ start it also checks the project for artifacts that *no* volume masks — an unm
 and prints what to add: the missing volume entry for the first case, the missing
 `ArtifactsPath` redirect for the second. That check is advisory and never fails the start.
 
-The copied `compose.ai-dev.yml` is yours to edit: add the database or other services your
+The generated `compose.ai-dev.yml` is yours to edit: add the database or other services your
 development setup needs, publish ports, pass credentials through `environment`. The
 `PROJECT_ROOT` bind on `/workspace` and the `agent-home` volume are what the workflow
 itself depends on; the capability, `security_opt` and `HOST_UID`/`HOST_GID` settings the
