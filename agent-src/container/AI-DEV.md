@@ -42,6 +42,8 @@ Then work with:
 
 and ask the agent to work on a ticket with `agent-dev`.
 
+`adw e2e` replays `agent-dev` on one of your tickets using this compose file (see the ai-dev-workflow README, "E2E on your project").
+
 ## 3. Ticketing and Git
 
 @@TICKETING@@

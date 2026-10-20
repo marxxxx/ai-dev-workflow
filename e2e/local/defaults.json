@@ -1,0 +1,27 @@
+{
+  "agent": { "harness": null, "model": null },
+  "answerer": { "harness": null, "model": null, "timeoutSec": 300 },
+  "verifier": { "harness": null, "model": null, "timeoutSec": 900 },
+  "review": {
+    "harness": null,
+    "model": null,
+    "timeoutSec": 600,
+    "criteria": {
+      "requirements": "Do the posted spec and the diff capture every acceptance criterion? (measures interview quality by its outcome)",
+      "scope": "No unrequested features and no unrelated changes?",
+      "tests": "Do the agent's new tests meaningfully cover the new behaviour? Were existing tests deleted or weakened?",
+      "conventions": "Does the code follow AGENTS.md and the repository's idioms (naming, error handling, test style)?",
+      "architecture": "Does the change fit the existing structure (where logic lives, layering, reuse instead of duplication)?",
+      "codeQuality": "Is the code readable and correct at the edges, without needless complexity?"
+    }
+  },
+  "env": [],
+  "secretEnv": [],
+  "thresholds": { "tokensMedianRise": 0.5, "costMedianRise": 0.5, "agentTimeMedianRise": 0.5, "judgeMedianDrop": 1 },
+  "ccusage": { "version": "20.0.32" },
+  "maxTurns": 60,
+  "turnTimeoutSec": 1800,
+  "testCommand": null,
+  "appPort": null,
+  "mcpServers": ["serena", "playwright", "context7"]
+}

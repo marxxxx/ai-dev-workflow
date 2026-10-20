@@ -63,6 +63,8 @@ test('an unjudged trial has a reward only while nothing already forces zero', ()
   assert.equal(rewardOf({ ...unjudged, contract: 0.9231 }), 0, 'a contract miss already fails the trial');
   assert.equal(rewardOf({ acceptance: 1, contract: 1, ownTests: 1 }), 1);
   assert.equal(rewardOf({ acceptance: 0.5, contract: 1, ownTests: 1 }), 0);
+  assert.equal(rewardOf({ acceptance: 1, contract: 1, ownTests: null }), 1, 'no own tests to run (local runs without testCommand)');
+  assert.equal(rewardOf({ ...unjudged, ownTests: null }), null);
 });
 
 test('unjudgedOutcome leaves every verdict null and carries the error for both roles', () => {

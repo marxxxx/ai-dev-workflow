@@ -1,0 +1,2 @@
+{"type":"step_start","timestamp":1792430033866,"sessionID":"ses_0","part":{"id":"prt_x","messageID":"msg_1","sessionID":"ses_0","type":"step-start"}}
+{"type":"error","timestamp":1792430034019,"sessionID":"ses_0","error":{"name":"APIError","data":{"message":"Rate limit exceeded. Please try again later.","statusCode":429,"isRetryable":true}}}

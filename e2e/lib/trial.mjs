@@ -15,8 +15,10 @@ const readJson = (f) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : n
 export const section = (comments = [], title) => comments.filter((c) => c.body.trimStart().startsWith(`## ${title}`)).map((c) => c.body).join('\n\n');
 
 // null only when the verifier could not judge and nothing else already fails the trial: a broken verifier is no agent failure.
-export const rewardOf = (t) => (t.acceptance === null && t.contract === 1 && t.ownTests === 1 ? null
-  : t.contract === 1 && t.ownTests === 1 && t.acceptance === 1 ? 1 : 0);
+// ownTests null means no test command to run (local runs), which fails nothing.
+const ownTestsPass = (t) => (t.ownTests ?? 1) === 1;
+export const rewardOf = (t) => (t.acceptance === null && t.contract === 1 && ownTestsPass(t) ? null
+  : t.contract === 1 && ownTestsPass(t) && t.acceptance === 1 ? 1 : 0);
 
 // A trial without a PR head to verify: every criterion failed, nothing reviewed.
 export function emptyOutcome(criteria) {
