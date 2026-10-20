@@ -281,16 +281,19 @@ test('timestamp has second resolution and sorts lexicographically', () => {
   assert.ok(timestamp(new Date('2026-10-19T10:00:05Z')) < timestamp(new Date('2026-10-19T10:00:06Z')));
 });
 
-test('runE2e: e2e.env values are scrubbed like logins: in the session secrets and redacted from transcripts', async () => {
-  const root = project({ env: ['AZURE_API_KEY'] });
+test('runE2e: only e2e.secretEnv values are scrubbed like logins; other e2e.env values stay as they are', async () => {
+  const root = project({ env: ['AZURE_API_KEY', 'AZURE_RESOURCE_NAME'], secretEnv: ['AZURE_API_KEY'] });
   try {
     const s = stubs(root);
-    s.deps.env = { ...s.deps.env, AZURE_API_KEY: 'az-secret-value', EMPTY: '' };
+    s.deps.env = { ...s.deps.env, AZURE_API_KEY: 'az-secret-value', AZURE_RESOURCE_NAME: 'acme', EMPTY: '' };
     assert.equal(await runE2e(opts(root), s.deps), 0);
     assert.ok(s.seen.session.creds.secrets.includes('az-secret-value'));
-    s.seen.decide.onStdout('{"leak":"az-secret-value"}\n');
+    assert.ok(!s.seen.session.creds.secrets.includes('acme'));
+    s.seen.decide.onStdout('{"leak":"az-secret-value","name":"acme"}\n');
     const file = path.join(root, '.adw/e2e/7/runs/2026-10-19T1000Z/claude-code/claude-code-1/answerer.jsonl');
-    assert.doesNotMatch(readFileSync(file, 'utf8'), /az-secret-value/);
+    const text = readFileSync(file, 'utf8');
+    assert.doesNotMatch(text, /az-secret-value/);
+    assert.match(text, /acme/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

@@ -302,13 +302,14 @@ project can stay inside the providers it may use. In `ai-project.json`:
   "answerer": { "harness": "opencode",    "model": "azure/gpt-6.1-mini" },
   "verifier": { "harness": "opencode",    "model": "azure/gpt-6.1", "timeoutSec": 900 },
   "review":   { "harness": "opencode",    "model": "azure/gpt-6.1" },
-  "env": ["AZURE_API_KEY", "AZURE_RESOURCE_NAME"]
+  "env": ["AZURE_API_KEY", "AZURE_RESOURCE_NAME"],
+  "secretEnv": ["AZURE_API_KEY"]
 }
 ```
 
 A role without its own harness uses the agent's; a role without its own model uses that CLI's default
 model. So one login is enough.
-`env` lists variable names passed into the containers by name.
+`env` lists variable names passed into the containers by name. Values of names in `e2e.secretEnv` are removed from transcripts and logs; other `e2e.env` values are kept as they are, so list every key or token there.
 
 Under `.adw/e2e/<ticket>/`, commit `ticket.md`, `answers.json` and `acceptance.md`; `runs/` holds the
 per-run records and reports and is git-ignored (the command writes `.adw/e2e/.gitignore`). A run is

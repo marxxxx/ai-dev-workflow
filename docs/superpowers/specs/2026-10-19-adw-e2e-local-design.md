@@ -156,6 +156,9 @@ providers it is allowed to use:
   self-judging.
 - **`e2e.env`:** names of provider variables passed by name (never by value in argv) into every
   container: agent, answerer and judges.
+- **`e2e.secretEnv`:** the subset of `e2e.env` names whose values are secret (default `[]`; a name
+  not in `e2e.env` is a config error). Only these values are scrubbed from logs and redacted from
+  transcripts; other `e2e.env` values (names, regions) stay readable.
 - **Credentials:** staged per harness that any role uses: the Claude token, the Codex
   `auth.json`, the OpenCode `auth.json`. Preflight names the role and the missing login.
 - **One-shot runner** for answerer, drafting and judges, inside the project's container:

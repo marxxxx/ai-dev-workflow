@@ -27,6 +27,9 @@ export function loadLocalConfig(projectRoot, { harness, model } = {}) {
   const project = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')).e2e ?? {}) : {};
   for (const key of Object.keys(project)) if (!(key in DEFAULTS)) throw new Error(`unknown e2e setting: ${key}`);
   const merged = merge(DEFAULTS, project);
+  if (!Array.isArray(merged.secretEnv) || !merged.secretEnv.every((n) => typeof n === 'string')) throw new Error('e2e.secretEnv must be an array of strings');
+  const stray = merged.secretEnv.filter((n) => !merged.env.includes(n));
+  if (stray.length) throw new Error(`e2e.secretEnv names must also be listed in e2e.env: ${stray.join(', ')}`);
 
   const agent = { harness: harness ?? merged.agent.harness, model: model ?? merged.agent.model };
   checkHarness('agent', agent.harness);

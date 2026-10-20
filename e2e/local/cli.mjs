@@ -102,8 +102,8 @@ export async function runE2e(opts, deps = {}) {
     for (const p of problems) d.error(`✗ preflight: ${p}`);
     return 1;
   }
-  // Provider values are scrubbed and redacted like logins.
-  creds.secrets.push(...config.env.map((n) => d.env[n]).filter(Boolean));
+  // Only the values of e2e.secretEnv names are scrubbed and redacted like logins; other e2e.env values stay readable.
+  creds.secrets.push(...config.secretEnv.map((n) => d.env[n]).filter(Boolean));
   for (const r of ROLES) d.log(`${r.padEnd(9)} ${config[r].harness}/${config[r].model ?? 'default'}`);
   const self = selfJudged(config);
   if (self.length) d.log(`! ${self.join(', ')} judge with the agent's own harness and model: self-judging`);

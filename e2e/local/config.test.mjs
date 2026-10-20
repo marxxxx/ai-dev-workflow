@@ -52,6 +52,15 @@ test('errors: unknown key, bad harness, missing harness', () => {
   assert.throws(() => loadLocalConfig(project({})), /no agent harness: pass one or set e2e\.agent\.harness/);
 });
 
+test('secretEnv: defaults to [], accepts a subset of env, rejects strays and non-string arrays', () => {
+  assert.deepEqual(loadLocalConfig(project({}), { harness: 'codex' }).secretEnv, []);
+  const ok = loadLocalConfig(project({ env: ['A', 'B'], secretEnv: ['B'] }), { harness: 'codex' });
+  assert.deepEqual(ok.secretEnv, ['B']);
+  assert.throws(() => loadLocalConfig(project({ env: ['A'], secretEnv: ['A', 'B', 'C'] }), { harness: 'codex' }), /e2e\.secretEnv names must also be listed in e2e\.env: B, C/);
+  assert.throws(() => loadLocalConfig(project({ env: ['A'], secretEnv: 'A' }), { harness: 'codex' }), /e2e\.secretEnv must be an array of strings/);
+  assert.throws(() => loadLocalConfig(project({ env: ['A'], secretEnv: [1] }), { harness: 'codex' }), /e2e\.secretEnv must be an array of strings/);
+});
+
 test('a project without ai-project.json uses defaults', () => {
   const c = loadLocalConfig(mkdtempSync(join(tmpdir(), 'adw-cfg-')), { harness: 'claude-code' });
   assert.equal(c.testCommand, null);
