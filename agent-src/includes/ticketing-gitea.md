@@ -1,7 +1,7 @@
 # Ticketing: Gitea Issues
 
 Generated from `agent-src/includes/ticketing-gitea.md` for {{project.name}} — do not edit by hand.
-Use the `tea` CLI (verified against 0.15.1) for every ticket operation. Issues live in
+Use the `tea` CLI (verified against 0.16.0) for every ticket operation. Issues live in
 `{{repo.slug}}`.
 
 - Every command passes `--login "{{ticketing.gitea.login}}" --repo {{repo.slug}}`. Keep the quotes:

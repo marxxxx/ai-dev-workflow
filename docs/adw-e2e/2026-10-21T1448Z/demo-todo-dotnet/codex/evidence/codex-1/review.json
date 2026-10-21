@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered, and the spec adds clear PATCH omitted/null semantics, UTC handling and the filter modes.",
+    "scope": "It stays within the ticket, apart from a small .gitignore change for .worktrees and a committed plan document, neither of which was requested.",
+    "tests": "Store and API tests are thorough, covering PATCH omitted vs null, invalid dates with no mutation, all three filter modes and the page markup. Some tests use the real UTC date, which could fail around midnight, and the interactive checkbox is only checked by hand in the browser.",
+    "conventions": "It follows the repo rules: ValidationException in the store, data-testid on new elements, no new packages, and the page calls the store directly. The new tests are slightly verbose, with fully qualified CultureInfo.",
+    "architecture": "Parsing and the overdue logic sit in the store and the page reuses it, though the TodoPatch init-tracking pattern is a bit unusual and IsOverdue reads the clock inside the record.",
+    "codeQuality": "The code is readable and handles edge cases such as strict parsing, no mutation on invalid input and date range limits. The clock is read in several places and the HasDueDate trick adds some complexity."
+  },
+  "error": null
+}

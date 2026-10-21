@@ -15,7 +15,7 @@ test('harbor args pin agent, model, version and the constrained simulated user',
   assert.ok(a.includes(`version=${pin}`));
   assert.ok(a.includes('reasoning_effort=high'));
   assert.equal(pair('--user-model'), 'claude-sonnet-5-5');
-  assert.ok(a.includes('disallowed_tools=Skill,Edit,Write,NotebookEdit,Task'));
+  assert.ok(a.includes('disallowed_tools=Skill,Edit,Write,NotebookEdit,Task,ScheduleWakeup,CronCreate'));
   assert.equal(pair('--bridge'), 'acp');
   assert.equal(pair('--job-name'), 'codex-1');
   assert.equal(pair('-o'), '/j');

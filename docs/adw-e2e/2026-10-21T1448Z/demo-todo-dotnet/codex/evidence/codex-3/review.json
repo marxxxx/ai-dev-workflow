@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 3,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered: optional date on create, PATCH to change or remove it, HTTP 400 for invalid dates, the overdue API filter, date display, the \"überfällig\" marker and the \"nur überfällige\" checkbox.",
+    "scope": "The change stays on the feature. The `isOverdue` response field and the 400 for an invalid `overdue` value are small additions the spec approved.",
+    "tests": "Store, API, PATCH-semantics, validation, UTC-boundary and filter tests are good. Nothing tests that ticking the checkbox filters the list (only the initial render is checked), and an existing exact-JSON assertion was loosened.",
+    "conventions": "The change follows AGENTS.md: `ValidationException` thrown from the store, no new packages, `data-testid` on new elements, and the page calls the store directly.",
+    "architecture": "Parsing and filtering sit in the shared `TodoStore`, and the page and API reuse `List(onlyOverdue)`. The `TodoPatch` `HasDueDate` workaround for missing versus null is slightly heavy, but it works.",
+    "codeQuality": "The code is concise and correct at the edges: strict `yyyy-MM-dd` parsing, validation before the lock, and atomic rejection on invalid input. `IsOverdue` reads the clock on each call, which is acceptable."
+  },
+  "error": null
+}

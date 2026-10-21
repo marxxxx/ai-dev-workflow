@@ -1,19 +1,19 @@
 {
   "baseImage": {
-    "reference": "node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
-    "node": "24.21.0"
+    "reference": "node:24-bookworm-slim@sha256:91acba91b842bec0bf7ea6f5e09c644c7ccad72c4996ed9616d861d1c7cd60d4",
+    "node": "24.22.0"
   },
   "npmPackages": {
-    "@anthropic-ai/claude-code": "2.1.299",
+    "@anthropic-ai/claude-code": "2.1.306",
     "@azure-devops/mcp": "2.10.0",
-    "@openai/codex": "0.162.1",
+    "@openai/codex": "0.163.0",
     "@playwright/mcp": "0.0.83",
-    "@upstash/context7-mcp": "4.4.1",
-    "ccusage": "20.0.32",
+    "@upstash/context7-mcp": "4.4.4",
+    "ccusage": "20.0.38",
     "jsonc-parser": "3.3.1",
-    "opencode-ai": "1.19.0",
+    "opencode-ai": "1.19.3",
     "playwright": "1.64.0-alpha-1790635538000",
-    "pnpm": "12.11.2",
+    "pnpm": "12.14.0",
     "smol-toml": "1.9.1",
     "typescript": "7.0.2",
     "typescript-language-server": "6.0.2",
@@ -23,12 +23,12 @@
   "systemTools": {
     "azureCliDebianPackage": "2.91.0-1~bookworm",
     "azureDevOpsCliExtension": "1.0.9",
-    "tea": "0.15.1",
-    "uv": "0.13.1"
+    "tea": "0.16.0",
+    "uv": "0.13.4"
   },
   "sourceRevisions": {
     "serena": "96c27473f4402c649f8d01ea7ba00eb0d1061fba",
-    "superpowers": "bb92a77741419a4ab5f06e711a283343f1ada0c3"
+    "superpowers": "b739a8af570e10a95898f2bdf6cec97467fa6c12"
   },
   "derivedImages": {
     "dotnetSdk": "10.0.402",
