@@ -1,0 +1,21 @@
+{
+  "criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass",
+    "AC5": "pass",
+    "AC6": "pass",
+    "AC7": "pass"
+  },
+  "evidence": {
+    "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-20\"} returned 201 with dueDate \"2026-10-20\". A POST without dueDate returned 201 with dueDate null. The date is a plain YYYY-MM-DD value with no time part.",
+    "AC2": "PATCH /todos/1 {\"dueDate\":\"2026-10-01\"} returned 200 and the new date. PATCH {\"dueDate\":null} returned 200 with dueDate null. I did the same on todo 4: set a date, then null, and both worked.",
+    "AC3": "POST with dueDate \"2026-02-30\", \"21.10.2026\", \"2026-10-21T10:00:00Z\" and the number 5 each returned 400. PATCH with \"2026-13-01\" also returned 400.",
+    "AC4": "Today is 2026-10-21 UTC. GET /todos?overdue=true listed the past-dated, not-done todos. Todos due today or in the future, and the todo with no due date, were absent. After PATCHing todo 1 to done:true, it dropped out of the overdue list and showed overdue:false. The remaining overdue todo (id 5, due 2026-01-01) stayed in the list.",
+    "AC5": "The page at / showed \"fällig: <date>\" for each todo with a due date (2026-10-01, 2026-10-21, 2026-10-22, 2026-01-01). The todo without a due date showed no date.",
+    "AC6": "In the page snapshot only 'pastdone' (due 2026-01-01, not done) had the bold word \"überfällig\". The done todo with a past date, the todo due today, the future todo and the todo with no date had no marker.",
+    "AC7": "The page has a checkbox labelled \"nur überfällige\". Before clicking it the list showed 5 todos. After I checked it, the list showed only 'pastdone', the one overdue todo."
+  },
+  "error": null
+}

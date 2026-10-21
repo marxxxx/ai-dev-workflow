@@ -1,0 +1,440 @@
+{
+  "schema": 2,
+  "task": "demo-todo-dotnet",
+  "harness": "codex",
+  "fingerprint": {
+    "adw": {
+      "version": "0.27.0",
+      "sha": "d8bf3ac8a80414d6cedfe3ed11a547dfad202b1a",
+      "dirty": true
+    },
+    "skill": {
+      "claude": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "codex": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "opencode": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:9905aed6ff6a01bbb005f626e5bf6af85f9bde49ed2b27cee46a1f2302aecce8"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-dotnet:latest",
+      "id": "sha256:105a229b3f56b9006f5827099dbd192209c1ae16b164cbbbae0301dafb9c1632",
+      "inventory": "0fdc72c7d77ac4ba89ffe1399c59889caa06ccb0c6d6da5e65855eb0f432d268",
+      "harnessVersion": "0.163.0",
+      "superpowers": "b739a8af570e10a95898f2bdf6cec97467fa6c12"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "d0da995efeca9c264b60d5b89daaaf8676038179c9502bfb8a4f804ba286495b",
+      "lib": "4674f72ba86ec174e083cc0a55aa210119fcf023f49cc94ee29ca36d8c1b6ba9"
+    },
+    "config": "f5c6aa7f243698fed6e9f44aec0e45008b7e243da239048257ac835fa7ac58a9",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "openai/gpt-6.1-sol",
+      "subagents": null,
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "97b469c292d464a6c68fcccd17afdf3d38df899f35f3cdeb94731fa5d561bc13"
+  },
+  "calibration": "2026-10-13T1704Z",
+  "config": {
+    "model": "openai/gpt-6.1-sol",
+    "subagentModel": null,
+    "agentKwargs": {
+      "reasoning_effort": "high"
+    },
+    "repetitions": 3
+  },
+  "trials": [
+    {
+      "id": "codex-1",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria are covered, and the spec adds clear PATCH omitted/null semantics, UTC handling and the filter modes.",
+        "scope": "It stays within the ticket, apart from a small .gitignore change for .worktrees and a committed plan document, neither of which was requested.",
+        "tests": "Store and API tests are thorough, covering PATCH omitted vs null, invalid dates with no mutation, all three filter modes and the page markup. Some tests use the real UTC date, which could fail around midnight, and the interactive checkbox is only checked by hand in the browser.",
+        "conventions": "It follows the repo rules: ValidationException in the store, data-testid on new elements, no new packages, and the page calls the store directly. The new tests are slightly verbose, with fully qualified CultureInfo.",
+        "architecture": "Parsing and the overdue logic sit in the store and the page reuses it, though the TodoPatch init-tracking pattern is a bit unusual and IsOverdue reads the clock inside the record.",
+        "codeQuality": "The code is readable and handles edge cases such as strict parsing, no mutation on invalid input and date range limits. The clock is read in several places and the HasDueDate trick adds some complexity."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 13,
+        "agent": 1414,
+        "verifier": 17,
+        "total": 1495
+      },
+      "tokens": {
+        "input": 135756,
+        "output": 34503,
+        "cacheRead": 3846912,
+        "cacheWrite": 0,
+        "total": 4017171
+      },
+      "cost": 1.001233,
+      "ccusage": {
+        "ccusageTotal": 4017171,
+        "deviation": 0,
+        "warning": null,
+        "cost": 1.001233,
+        "models": {
+          "gpt-6.1-sol": {
+            "input": 135756,
+            "output": 34503,
+            "cacheRead": 3846912,
+            "cacheWrite": 0,
+            "total": 4017171,
+            "cost": 1.001233
+          }
+        }
+      },
+      "userTokens": {
+        "total": 234298
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 0,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "CommandExecution": 78,
+          "FileChange": 13,
+          "ImageView": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 2,
+            "browser_run_code_unsafe": 3,
+            "browser_close": 2
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "codex-2",
+      "reward": 0,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "fail",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "fail"
+      },
+      "acceptance": 0.7143,
+      "verifierError": null,
+      "review": {
+        "requirements": 2,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff leave out AC4's API filter for overdue todos and AC7's \"nur überfällige\" control, so two of the seven acceptance criteria are missing. AC1–AC3, AC5 and AC6 are covered.",
+        "scope": "The code changes stay on due dates and overdue state. The only extra is a plan document with verification notes committed under docs/.",
+        "tests": "Store, API and page tests thoroughly cover dates, overdue edge cases, PATCH omit versus null, and invalid inputs. The exact-JSON assertion was loosened to property checks, which is justified by the new fields. Nothing tests the missing filter.",
+        "conventions": "The change follows AGENTS.md: the store throws ValidationException, new elements get data-testid, no new packages, and tests were written first. The badge text \"Überfällig\" is capitalized.",
+        "architecture": "Logic stays in the shared TodoStore records and Home.razor reads from the store directly. The omitted-versus-null PATCH handling uses a slightly clever init-setter presence flag.",
+        "codeQuality": "The code is compact and readable, handles edge cases such as UTC, today, and leap days, and is covered by invalid-date tests. The mutable-looking patch record with a private init flag is a bit subtle."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 9,
+        "agent": 1283,
+        "verifier": 17,
+        "total": 1360
+      },
+      "tokens": {
+        "input": 176073,
+        "output": 28278,
+        "cacheRead": 4082304,
+        "cacheWrite": 0,
+        "total": 4286655
+      },
+      "cost": 1.043156,
+      "ccusage": {
+        "ccusageTotal": 4286655,
+        "deviation": 0,
+        "warning": null,
+        "cost": 1.043156,
+        "models": {
+          "gpt-6.1-sol": {
+            "input": 176073,
+            "output": 28278,
+            "cacheRead": 4082304,
+            "cacheWrite": 0,
+            "total": 4286655,
+            "cost": 1.043157
+          }
+        }
+      },
+      "userTokens": {
+        "total": 159958
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 0,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "CommandExecution": 54,
+          "FileChange": 7,
+          "ImageView": 2,
+          "CollabAgentToolCall": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 1,
+            "browser_run_code_unsafe": 2,
+            "browser_take_screenshot": 3,
+            "browser_console_messages": 1
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "codex-3",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 3,
+        "conventions": 4,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria are covered: optional date on create, PATCH to change or remove it, HTTP 400 for invalid dates, the overdue API filter, date display, the \"überfällig\" marker and the \"nur überfällige\" checkbox.",
+        "scope": "The change stays on the feature. The `isOverdue` response field and the 400 for an invalid `overdue` value are small additions the spec approved.",
+        "tests": "Store, API, PATCH-semantics, validation, UTC-boundary and filter tests are good. Nothing tests that ticking the checkbox filters the list (only the initial render is checked), and an existing exact-JSON assertion was loosened.",
+        "conventions": "The change follows AGENTS.md: `ValidationException` thrown from the store, no new packages, `data-testid` on new elements, and the page calls the store directly.",
+        "architecture": "Parsing and filtering sit in the shared `TodoStore`, and the page and API reuse `List(onlyOverdue)`. The `TodoPatch` `HasDueDate` workaround for missing versus null is slightly heavy, but it works.",
+        "codeQuality": "The code is concise and correct at the edges: strict `yyyy-MM-dd` parsing, validation before the lock, and atomic rejection on invalid input. `IsOverdue` reads the clock on each call, which is acceptable."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 13,
+        "agent": 885,
+        "verifier": 18,
+        "total": 967
+      },
+      "tokens": {
+        "input": 103299,
+        "output": 32033,
+        "cacheRead": 3491712,
+        "cacheWrite": 0,
+        "total": 3627044
+      },
+      "cost": 0.876099,
+      "ccusage": {
+        "ccusageTotal": 3627044,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.876099,
+        "models": {
+          "gpt-6.1-sol": {
+            "input": 103299,
+            "output": 32033,
+            "cacheRead": 3491712,
+            "cacheWrite": 0,
+            "total": 3627044,
+            "cost": 0.876099
+          }
+        }
+      },
+      "userTokens": {
+        "total": 159942
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 0,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "CommandExecution": 70,
+          "FileChange": 9,
+          "ImageView": 2
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 2,
+            "browser_run_code_unsafe": 3,
+            "browser_take_screenshot": 1,
+            "browser_console_messages": 2,
+            "browser_close": 2
+          },
+          "context7": {}
+        }
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 0.67,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 1,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 0.67,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 1,
+      "ac:AC4": 0.67,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 0.67
+    },
+    "median": {
+      "tokens": 4017171,
+      "cost": 1.001233,
+      "agent": 1283
+    },
+    "mcp": {
+      "serena": {
+        "calls": 0,
+        "trials": 0
+      },
+      "playwright": {
+        "calls": 24,
+        "trials": 3
+      },
+      "context7": {
+        "calls": 0,
+        "trials": 0
+      }
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 4,
+      "tests": 4,
+      "conventions": 4,
+      "architecture": 4,
+      "codeQuality": 4
+    },
+    "errorClasses": []
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the diff, and the spec adds sensible detail such as the UTC boundary, atomic PATCH and the empty-result state.",
+    "scope": "The status line, loading state and disabled toggle are small UI extras beyond the ticket, and the atomic PATCH refactor changes existing behaviour, but both stay close to the feature.",
+    "tests": "API tests cover validation, PATCH, clearing, the UTC boundary and the filter thoroughly with mocked time, and no existing tests were weakened. The UI has no automated test, and the new page markers (the overdue-filter checkbox and the 'überfällig' marker) are not asserted in the served-page test.",
+    "conventions": "The change uses ValidationError, adds data-testid to new elements, has no new dependencies, and follows the existing test style.",
+    "architecture": "Filter and validation logic sit in the store and the app only passes the query flag. The client duplicates the overdue rule, and the UTC date computation appears in both the store and the UI.",
+    "codeQuality": "Date validation is correct and PATCH is atomic. The client calculates overdue using the browser's clock, which can disagree with the server's, and any value other than 'true' for the overdue param silently returns everything."
+  },
+  "error": null
+}

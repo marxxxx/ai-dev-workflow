@@ -1,0 +1,24 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\n\nVereinbarter Umfang für Ticket #1:\n\n- Todos bekommen ein optionales `dueDate` als echtes Kalenderdatum im Format `YYYY-MM-DD`. POST setzt das Datum, PATCH ändert es oder entfernt es mit `null`. Ohne Datum wird `dueDate: null` zurückgegeben. Ungültige Werte führen über `ValidationError` zu HTTP 400; fehlgeschlagene Änderungen lassen das Todo unverändert.\n- Überfällig ist ein Todo genau dann, wenn es nicht erledigt ist und sein Fälligkeitsdatum vor dem heutigen Datum in UTC liegt. Heute fällige Todos und Todos ohne Datum sind nie überfällig.\n- `GET /todos?overdue=true` liefert nur überfällige Todos. Ohne Filter bleibt die vollständige Liste erhalten.\n- Die Liste zeigt vorhandene Fälligkeitsdaten und markiert überfällige Todos sichtbar mit dem Wort „überfällig“.\n- Ein beschrifteter Schalter „nur überfällige“ wechselt zwischen vollständiger Liste und dem API-Filter; initial werden alle Todos angezeigt.\n- Umsetzung mit Node-Bordmitteln ohne zusätzliche Abhängigkeiten. Neue UI-Testziele bekommen `data-testid`.\n- TDD für Kalenderdatumsvalidierung, POST/PATCH, Entfernen des Datums, UTC-Tagesgrenze und Filter einschließlich erledigter Todos und Todos ohne Datum.\n- Vom Nutzer ausdrücklich gewünschter End-to-End-Test durch den Agenten im laufenden Browser: Datum/Markierung, offene und erledigte Todos, heute/zukünftig/ohne Datum sowie Ein-/Ausschalten des Schalters. Screenshots außerhalb des Repositorys; Anwendung danach stoppen.\n\nDie Änderung ist klein; die vollständige Beschreibung steht hier, ohne separate Spec- oder Plandatei. Abschluss als Draft-PR gegen `main`, keine Zusammenführung und kein Schließen des Tickets.",
+      "created_at": "2026-10-21T15:38:23Z"
+    },
+    {
+      "body": "## Implementation Summary\n\n**Approach** — Todos haben ein optionales Kalenderdatum `dueDate` (`YYYY-MM-DD`). POST setzt es; PATCH ändert oder entfernt es mit `null`. Echte Kalenderdaten werden mit Node-Bordmitteln validiert; ungültige Werte ergeben HTTP 400. Änderungen werden vollständig validiert, bevor gespeicherte Daten verändert werden.\n\n**Consequences** — API-Antworten enthalten `dueDate` (ohne Datum: `null`). `GET /todos?overdue=true` liefert nur offene Todos mit Datum vor dem heutigen UTC-Tag. Die Liste zeigt das Datum, die sichtbare Markierung „überfällig“ und den Schalter „nur überfällige“, der den API-Filter nutzt.\n\n**Possible side effects** — Das JSON-Schema erhält ein zusätzliches Feld. Fehlgeschlagene PATCH-Anfragen ändern keine Teilfelder mehr. Keine neuen Abhängigkeiten; Speicherung bleibt im Arbeitsspeicher.\n\n**Watch when testing** — 25 automatisierte Tests bestanden, auch mit Server-Zeitzone Pacific/Honolulu. TDD: API-Tests und Browserprüfung des fehlenden Schalters schlugen vor der Implementierung erwartungsgemäß fehl. End to end durch den Agenten mit Playwright getestet: Datum, Markierung, heute/zukünftig/erledigt/ohne Datum, beide Filterrichtungen, leeres Ergebnis, Erledigen, Datumsentfernung und Ladefehler mit Wiederherstellung. UTC-Mitternacht zusätzlich mit Browser-Zeitzone Pacific/Honolulu geprüft. Screenshots: `/tmp/ticket-1-all-todos.png`, `/tmp/ticket-1-overdue-only.png`. Test-App anschließend gestoppt. Unabhängiges Code-Review ohne Befunde.\n\nSpec: Approved Spec im Ticket #1 · Plan: kleine Änderung ohne separate Plandatei.\n\nTicket: #1 — Fälligkeitsdatum für Todos.\n\nPR: http://gitea:3000/adw/demo-todo/pulls/2 (Draft).",
+      "created_at": "2026-10-21T15:43:25Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-21T15:36:34Z → 2026-10-21T15:43:59.988Z · Models: gpt-6.1-sol, claude-sonnet-5-5\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 123068 | 15149 | 1269071 | 6255 | 1413543 | 0.549553 |\n\nSessions counted: codex:2026/10/21/rollout-2026-10-21T15-36-21-01a15f1b-372d-7a51-8d46-9aa5584dc4e5, codex:2026/10/21/rollout-2026-10-21T15-41-54-01a15f20-4bde-7d93-a002-7aa7d7b0b0ac, claude:2624573b-f9d1-4b7d-8594-9132e20bc17c.\n\nUSD is a local ccusage@20 estimate. Every session on this machine active in the window is counted, including unrelated ones.",
+      "created_at": "2026-10-21T15:44:00Z"
+    }
+  ]
+}

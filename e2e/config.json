@@ -32,7 +32,7 @@
   "simulatedUser": {
     "agent": "claude-code",
     "model": "claude-sonnet-5-5",
-    "disallowedTools": "Skill,Edit,Write,NotebookEdit,Task",
+    "disallowedTools": "Skill,Edit,Write,NotebookEdit,Task,ScheduleWakeup,CronCreate",
     "appendSystemPrompt": "You are only the human user. You never do the engineering work yourself: no skills, no ticket commands, no code edits. Your only channel to the coding agent is acpx prompt."
   },
   "verifier": { "model": "claude-sonnet-5-5", "timeoutSec": 900 },
