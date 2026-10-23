@@ -68,7 +68,7 @@ pipeline: **config → tokens → units → renderers → outputs**.
   file carries the banner of that exact unit. When you remove or rename a unit, include, or project
   key, add the old one there.
 - **`container.mjs`** + `container/` — the dev-container files `init` offers to write
-  (`compose.ai-dev.yml`, certs overlay, `ai-dev.sh`/`.ps1`, `AI-DEV.md`) from `@@KEY@@` templates.
+  (`compose.ai-dev.yml`, certs and opt-in dind overlays, `ai-dev.sh`/`.ps1`, `AI-DEV.md`) from `@@KEY@@` templates.
   Written once when missing, then **project-owned**: never rendered, checked or upgraded by the pipeline.
 - **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` (and, on request, the container files); recommended tooling is
   *printed*, never installed or documented with install steps.
@@ -96,7 +96,8 @@ publishes to npm via trusted publishing (it skips versions already on npm).
 ## Container images (`docker/`)
 
 Hand-maintained, not generated. `docker/tools/inventory.json` is the single source for tool pins;
-`docker/tools/package.json`, its lockfile and Dockerfile `FROM`/`ARG` pins are derived — never
+`docker/tools/package.json`, its lockfile, Dockerfile `FROM`/`ARG` pins and the `image:` line of
+`agent-src/container/compose.ai-dev.dind.yml` are derived — never
 hand-edit them (`node docker/tools/inventory.mjs update | sync | check`). See `docker/README.md`.
 
 ## E2E self-test (`e2e/`)

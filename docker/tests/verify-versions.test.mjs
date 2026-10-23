@@ -23,7 +23,7 @@ test('matches a version as a whole token in command output', () => {
 test('each variant checks the base tools plus its own', () => {
   const labels = variant => versionChecks(inventory, variant).map(check => check.label);
   const base = labels('base');
-  for (const label of ['node', 'claude', 'codex', 'opencode', 'uv', 'tea', 'az', 'az extension azure-devops', 'serena', 'package @playwright/mcp', 'package pnpm']) {
+  for (const label of ['node', 'claude', 'codex', 'opencode', 'uv', 'tea', 'az', 'az extension azure-devops', 'serena', 'package @playwright/mcp', 'package pnpm', 'docker', 'docker buildx', 'docker compose']) {
     assert.ok(base.includes(label), `base is missing ${label}`);
   }
   assert.ok(!base.includes('pnpm') && !base.includes('dotnet'));
@@ -41,6 +41,17 @@ test('derives expectations from the inventory', () => {
   assert.equal(byLabel.tsc, inventory.npmPackages.typescript);
   assert.equal(byLabel['package typescript-serena'], '5.9.3');
   assert.equal(byLabel.serena, `rev=${inventory.sourceRevisions.serena}`);
+});
+
+test('expects the upstream version of an epoch-prefixed Debian package', () => {
+  const pinned = structuredClone(inventory);
+  pinned.systemTools.dockerCliDebianPackage = '5:29.9.1-1~debian.12~bookworm';
+  pinned.systemTools.dockerBuildxDebianPackage = '0.38.0-1~debian.12~bookworm';
+  pinned.systemTools.dockerComposeDebianPackage = '5.6.0-1~debian.12~bookworm';
+  const byLabel = Object.fromEntries(versionChecks(pinned, 'base').map(check => [check.label, check.expected]));
+  assert.equal(byLabel.docker, '29.9.1');
+  assert.equal(byLabel['docker buildx'], '0.38.0');
+  assert.equal(byLabel['docker compose'], '5.6.0');
 });
 
 test('reports mismatching, failing and missing tools', t => {

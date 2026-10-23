@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Container tool pins. tools/inventory.json is the single source of truth; this script
-// renders the derived pins (tools/package.json + lockfile, Dockerfile FROM/ARGs), checks
+// renders the derived pins (tools/package.json + lockfile, Dockerfile FROM/ARGs, the dind
+// overlay's image), checks
 // them for drift and resolves upstream updates. Host-side only; Node builtins only.
 //
 //   node docker/tools/inventory.mjs check              exit 1 if a derived pin drifted
@@ -19,7 +20,9 @@ const DOCKER_DIR = fileURLToPath(new URL('..', import.meta.url));
 const INVENTORY = 'tools/inventory.json';
 const PACKAGE_JSON = 'tools/package.json';
 const LOCKFILE = 'tools/package-lock.json';
-const DERIVED_FILES = [PACKAGE_JSON, 'Dockerfile', 'Dockerfile.dotnet'];
+// An init template; the inventory pins its image line.
+const DIND_OVERLAY = '../agent-src/container/compose.ai-dev.dind.yml';
+const DERIVED_FILES = [PACKAGE_JSON, 'Dockerfile', 'Dockerfile.dotnet', DIND_OVERLAY];
 
 const DOCKERFILE_ARGS = {
   Dockerfile: {
@@ -28,12 +31,21 @@ const DOCKERFILE_ARGS = {
     SUPERPOWERS_REVISION: inventory => inventory.sourceRevisions.superpowers,
     AZURE_CLI_VERSION: inventory => inventory.systemTools.azureCliDebianPackage,
     AZURE_DEVOPS_EXTENSION_VERSION: inventory => inventory.systemTools.azureDevOpsCliExtension,
+    DOCKER_CLI_VERSION: inventory => inventory.systemTools.dockerCliDebianPackage,
+    DOCKER_BUILDX_VERSION: inventory => inventory.systemTools.dockerBuildxDebianPackage,
+    DOCKER_COMPOSE_VERSION: inventory => inventory.systemTools.dockerComposeDebianPackage,
     TEA_VERSION: inventory => inventory.systemTools.tea,
   },
   'Dockerfile.dotnet': {
     DOTNET_SDK_VERSION: inventory => inventory.derivedImages.dotnetSdk,
     DOTNET_EF_VERSION: inventory => inventory.derivedImages.dotnetEf,
   },
+};
+
+const DOCKER_DEBIAN_PACKAGES = {
+  dockerCliDebianPackage: 'docker-ce-cli',
+  dockerBuildxDebianPackage: 'docker-buildx-plugin',
+  dockerComposeDebianPackage: 'docker-compose-plugin',
 };
 
 // Tracked at the default branch HEAD, which is what the Dockerfile fetches by revision.
@@ -69,6 +81,8 @@ export function renderDerivedFiles(inventory, current) {
     }
     rendered[file] = text;
   }
+  rendered[DIND_OVERLAY] = replaceLine(current[DIND_OVERLAY], /^ {4}image: docker:[^\r\n]*/m,
+    `    image: ${inventory.dindImage.reference}`, DIND_OVERLAY);
   return rendered;
 }
 
@@ -183,9 +197,15 @@ export async function resolveUpdates(inventory, sources) {
     if (!isDeepStrictEqual(from, to)) changes.push({ name, path: keyPath, from, to, ...extra });
   };
 
-  const [repoTag] = inventory.baseImage.reference.split('@');
-  const image = await sources.dockerImage(repoTag);
-  propose('baseImage', ['baseImage'], inventory.baseImage, { reference: `${repoTag}@${image.digest}`, node: image.nodeVersion });
+  // Keeps the tag, refreshes the digest and records the version the image declares in its env.
+  const image = async (name, key, variable) => {
+    const [repoTag] = inventory[name].reference.split('@');
+    const { digest, env } = await sources.dockerImage(repoTag);
+    if (!env[variable]) throw new Error(`${repoTag} does not declare ${variable}`);
+    propose(name, [name], inventory[name], { reference: `${repoTag}@${digest}`, [key]: env[variable] });
+  };
+  await image('baseImage', 'node', 'NODE_VERSION');
+  await image('dindImage', 'docker', 'DOCKER_VERSION');
 
   const packuments = new Map();
   const packument = name => {
@@ -218,6 +238,13 @@ export async function resolveUpdates(inventory, sources) {
   const suffix = /~[^~]+$/.exec(azureCli)?.[0] ?? '';
   propose('azureCliDebianPackage', ['systemTools', 'azureCliDebianPackage'], azureCli,
     latestDebianVersion(await sources.debianPackages(suffix.slice(1)), 'azure-cli', suffix));
+  const dockerDistribution = /~([^~]+)$/.exec(inventory.systemTools.dockerCliDebianPackage)?.[1] ?? '';
+  const dockerPackages = await sources.dockerDebianPackages(dockerDistribution);
+  for (const [name, debianPackage] of Object.entries(DOCKER_DEBIAN_PACKAGES)) {
+    const current = inventory.systemTools[name];
+    const pinnedSuffix = /~debian[^~]*~[^~]+$/.exec(current)?.[0] ?? '';
+    propose(name, ['systemTools', name], current, latestDebianVersion(dockerPackages, debianPackage, pinnedSuffix));
+  }
   propose('azureDevOpsCliExtension', ['systemTools', 'azureDevOpsCliExtension'], inventory.systemTools.azureDevOpsCliExtension,
     latestVersion(await sources.azureCliExtensionVersions('azure-devops')));
   for (const [name, url] of Object.entries(SOURCE_REPOSITORIES)) {
@@ -231,7 +258,7 @@ export async function resolveUpdates(inventory, sources) {
 }
 
 export function inventoryNames(inventory) {
-  return ['baseImage', ...Object.keys(inventory.npmPackages), ...Object.keys(inventory.systemTools),
+  return ['baseImage', 'dindImage', ...Object.keys(inventory.npmPackages), ...Object.keys(inventory.systemTools),
     ...Object.keys(inventory.sourceRevisions), ...Object.keys(inventory.derivedImages)];
 }
 
@@ -277,9 +304,8 @@ export function createSources(fetchImpl = globalThis.fetch) {
       if (!digest || !platform) throw new Error(`${repoTag} is not a multi-platform image index with linux/amd64`);
       const manifest = await getJson(`${registry}/manifests/${platform.digest}`, { ...auth, Accept: platform.mediaType });
       const config = await getJson(`${registry}/blobs/${manifest.config.digest}`, auth);
-      const nodeVersion = config.config.Env.find(entry => entry.startsWith('NODE_VERSION='))?.split('=')[1];
-      if (!nodeVersion) throw new Error(`${repoTag} does not declare NODE_VERSION`);
-      return { digest, nodeVersion };
+      const env = Object.fromEntries((config.config.Env ?? []).map(entry => [entry.slice(0, entry.indexOf('=')), entry.slice(entry.indexOf('=') + 1)]));
+      return { digest, env };
     },
     async gitHead(url) {
       const result = spawnSync('git', ['ls-remote', url, 'HEAD'], { encoding: 'utf8' });
@@ -299,6 +325,10 @@ export function createSources(fetchImpl = globalThis.fetch) {
       const url = `https://packages.microsoft.com/repos/azure-cli/dists/${distribution}/main/binary-amd64/Packages.gz`;
       return gunzipSync(Buffer.from(await (await get(url)).arrayBuffer())).toString('utf8');
     },
+    async dockerDebianPackages(distribution) {
+      const url = `https://download.docker.com/linux/debian/dists/${distribution}/stable/binary-amd64/Packages.gz`;
+      return gunzipSync(Buffer.from(await (await get(url)).arrayBuffer())).toString('utf8');
+    },
     async azureCliExtensionVersions(name) {
       const index = await getJson('https://azcliextensionsync.blob.core.windows.net/index1/index.json');
       return (index.extensions?.[name] ?? []).map(entry => entry.metadata?.version).filter(Boolean);
@@ -314,7 +344,9 @@ export function createSources(fetchImpl = globalThis.fetch) {
 }
 
 function describe(value) {
-  return typeof value === 'object' ? `${value.reference} (node ${value.node})` : value;
+  if (typeof value !== 'object') return value;
+  const { reference, ...versions } = value;
+  return `${reference} (${Object.entries(versions).map(([name, version]) => `${name} ${version}`).join(', ')})`;
 }
 
 function printChanges(changes) {

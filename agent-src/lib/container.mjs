@@ -79,6 +79,8 @@ export function renderContainerFiles({ name, stack, backend, giteaLogin = '', pr
   const files = [
     { path: 'compose.ai-dev.yml' },
     { path: 'compose.ai-dev.certs.yml' },
+    { path: 'compose.ai-dev.dind.yml' },
+    { path: 'compose.ai-dev.dind-certs.yml' },
     { path: 'ai-dev.sh', mode: 0o755 },
     { path: 'ai-dev.ps1' },
     { path: 'AI-DEV.md' },
@@ -104,13 +106,37 @@ export function ensureLine(file, line) {
 }
 
 /**
- * Write the container files into `projectRoot`, each only when missing, then make sure
- * `.env.ai-dev` is git-ignored and `ai-dev.sh` keeps LF endings. Returns the relative paths
- * written and those left untouched.
+ * Append `KEY=value` to the env file `file` unless it already assigns KEY (a value set by hand
+ * always wins); creates the file when missing. Returns whether the file changed.
  */
-export function writeContainerFiles(projectRoot, opts) {
+export function setEnvVar(file, key, value) {
+  const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+  const assigns = new RegExp(`^\\s*(export\\s+)?${key}\\s*=`);
+  if (current.split(/\r?\n/).some((l) => assigns.test(l))) return false;
+  const sep = current && !current.endsWith('\n') ? '\n' : '';
+  fs.writeFileSync(file, `${current}${sep}${key}=${value}\n`);
+  return true;
+}
+
+/** Printed by `init` when the Docker daemon overlay is enabled. */
+export const DIND_WARNING = [
+  'WARNING: the Docker overlay (AGENT_DIND=1) reduces isolation.',
+  '  It runs a privileged Docker daemon next to the agent, and every agent in the container can',
+  '  reach its socket. That is root-equivalent: on Linux the agent can become root on the host; on',
+  '  Windows/macOS it can become root in the Docker Desktop VM, which reaches your drives.',
+  '  Enable it only where that is acceptable. Remove AGENT_DIND from .env.ai-dev to turn it off.',
+].join('\n');
+
+/**
+ * Write the container files into `projectRoot`, each only when missing, then make sure
+ * `.env.ai-dev` is git-ignored and `ai-dev.sh` keeps LF endings. `opts.env` settings are added to
+ * `.env.ai-dev` unless it already assigns them. Returns the relative paths written, those left
+ * untouched and the setting keys kept as they were.
+ */
+export function writeContainerFiles(projectRoot, { env = {}, ...opts }) {
   const written = [];
   const skipped = [];
+  const kept = [];
   for (const f of renderContainerFiles({ ...opts, projectDir: projectRoot })) {
     const dest = path.join(projectRoot, f.path);
     if (fs.existsSync(dest)) { skipped.push(f.path); continue; }
@@ -120,7 +146,13 @@ export function writeContainerFiles(projectRoot, opts) {
   }
   if (ensureLine(path.join(projectRoot, '.gitignore'), '.env.ai-dev')) written.push('.gitignore');
   if (ensureLine(path.join(projectRoot, '.gitattributes'), 'ai-dev.sh text eol=lf')) written.push('.gitattributes');
-  return { written, skipped };
+  let envChanged = false;
+  for (const [key, value] of Object.entries(env)) {
+    if (setEnvVar(path.join(projectRoot, '.env.ai-dev'), key, value)) envChanged = true;
+    else kept.push(key);
+  }
+  if (envChanged) written.push('.env.ai-dev');
+  return { written, skipped, kept };
 }
 
 // One-line ticketing login per backend for the next-steps printout; `file` has none.

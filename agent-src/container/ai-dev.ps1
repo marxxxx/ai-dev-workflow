@@ -36,6 +36,11 @@ if ((Test-Path Variable:IsWindows) -and -not $IsWindows) {
 
 $composeArgs = @('compose', '-f', (Join-Path $root 'compose.ai-dev.yml'))
 if ($env:AGENT_CA_DIR) { $composeArgs += @('-f', (Join-Path $root 'compose.ai-dev.certs.yml')) }
+# Opt-in Docker daemon (AGENT_DIND=1): root-equivalent on the host, see AI-DEV.md.
+if ($env:AGENT_DIND -eq '1') {
+  $composeArgs += @('-f', (Join-Path $root 'compose.ai-dev.dind.yml'))
+  if ($env:AGENT_CA_DIR) { $composeArgs += @('-f', (Join-Path $root 'compose.ai-dev.dind-certs.yml')) }
+}
 $composeArgs += @('run', '--rm', 'ai-dev-workflow') + $args
 
 & docker @composeArgs

@@ -8,6 +8,9 @@ ARG SUPERPOWERS_REVISION=b739a8af570e10a95898f2bdf6cec97467fa6c12
 ARG AZURE_CLI_VERSION=2.91.0-1~bookworm
 ARG AZURE_DEVOPS_EXTENSION_VERSION=1.0.9
 ARG TEA_VERSION=0.16.0
+ARG DOCKER_CLI_VERSION=5:29.9.1-1~debian.12~bookworm
+ARG DOCKER_BUILDX_VERSION=0.38.0-1~debian.12~bookworm
+ARG DOCKER_COMPOSE_VERSION=5.6.0-1~debian.12~bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive \
     APP_USER=dev \
@@ -22,8 +25,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     UV_PYTHON_INSTALL_DIR=/opt/uv/python \
     PATH=/usr/local/bin:/opt/uv/bin:/opt/agent-tools/node_modules/.bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# System utilities, GitHub CLI, Azure CLI and libraries required by Chromium. openssl is listed
-# explicitly: the entrypoint uses it to convert mounted DER company root certificates.
+# System utilities, GitHub CLI, Azure CLI, Docker CLI and libraries required by Chromium. openssl is
+# listed explicitly: the entrypoint uses it to convert mounted DER company root certificates. The
+# Docker CLI (with buildx and compose) has no daemon here; the opt-in dind overlay provides one.
 # Vendor/apt repository contents remain mutable; inventory.json does not claim byte-identical builds.
 RUN set -eux; \
     apt-get update; \
@@ -41,8 +45,14 @@ RUN set -eux; \
     chmod go+r /etc/apt/keyrings/microsoft.gpg; \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ bookworm main" \
       > /etc/apt/sources.list.d/azure-cli.list; \
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc; \
+    chmod go+r /etc/apt/keyrings/docker.asc; \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable" \
+      > /etc/apt/sources.list.d/docker.list; \
     apt-get update; \
-    apt-get install -y --no-install-recommends gh "azure-cli=${AZURE_CLI_VERSION}"; \
+    apt-get install -y --no-install-recommends gh "azure-cli=${AZURE_CLI_VERSION}" \
+      "docker-ce-cli=${DOCKER_CLI_VERSION}" "docker-buildx-plugin=${DOCKER_BUILDX_VERSION}" \
+      "docker-compose-plugin=${DOCKER_COMPOSE_VERSION}"; \
     rm -rf /var/lib/apt/lists/*
 
 # Azure CLI extensions live in the image, not in the persisted ~/.azure of the home volume.
@@ -111,7 +121,7 @@ RUN set -eux; \
     rm -rf /opt/superpowers/.git
 
 COPY --chmod=0755 configure-agents.sh entrypoint.sh agent-wrapper.sh verify-agent-config.sh verify-tools.sh /usr/local/bin/
-COPY launch-agent.mjs validate-workspace.mjs workspace-mounts.mjs check-host-artifacts.mjs tools/verify-browser.mjs tools/verify-mcp.mjs tools/verify-semantic.mjs tools/verify-versions.mjs /usr/local/lib/agent-runtime/
+COPY launch-agent.mjs validate-workspace.mjs workspace-mounts.mjs check-host-artifacts.mjs docker-proxy-config.mjs tools/verify-browser.mjs tools/verify-mcp.mjs tools/verify-semantic.mjs tools/verify-versions.mjs /usr/local/lib/agent-runtime/
 RUN set -eux; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/claude; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/codex; \

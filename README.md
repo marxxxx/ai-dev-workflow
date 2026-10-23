@@ -267,7 +267,9 @@ Superpowers and ccusage.
 Answer **yes** to *Set up the dev container?* during `init`: it writes `compose.ai-dev.yml`
 (preset with the published image for the detected stack: Node, .NET or generic), a
 certificate overlay, the launchers `ai-dev.sh` / `ai-dev.ps1` and `AI-DEV.md` with the logins
-for your coding agents and ticketing backend, then prints the exact next steps. These files are
+for your coding agents and ticketing backend, then prints the exact next steps. It also asks
+whether to enable the Docker overlay (`AGENT_DIND=1`, root-equivalent) and company root
+certificates (`AGENT_CA_DIR`), and writes those to the git-ignored `.env.ai-dev`. These files are
 project-owned. Run the generator on the host; the image does not install or run it.
 
 ```bash
