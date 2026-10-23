@@ -25,8 +25,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     UV_PYTHON_INSTALL_DIR=/opt/uv/python \
     PATH=/usr/local/bin:/opt/uv/bin:/opt/agent-tools/node_modules/.bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# System utilities, GitHub CLI, Azure CLI and libraries required by Chromium. openssl is listed
-# explicitly: the entrypoint uses it to convert mounted DER company root certificates.
+# System utilities, GitHub CLI, Azure CLI, Docker CLI and libraries required by Chromium. openssl is
+# listed explicitly: the entrypoint uses it to convert mounted DER company root certificates. The
+# Docker CLI (with buildx and compose) has no daemon here; the opt-in dind overlay provides one.
 # Vendor/apt repository contents remain mutable; inventory.json does not claim byte-identical builds.
 RUN set -eux; \
     apt-get update; \
