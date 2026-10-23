@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 4,
+    "scope": 3,
+    "tests": 5,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven ACs are covered, but the marker is rendered as capitalised \"Überfällig\" where AC6 says the word \"überfällig\", which is a small and possibly case-sensitive deviation.",
+    "scope": "The UI adds an error banner with a hidden alert element and extra failure-handling tests that no AC asked for, and it commits large plan and spec docs.",
+    "tests": "Store, API and UI tests cover UTC boundaries, leap years, atomic PATCH, filter values, stale responses and failure paths; the one existing test was only updated for the new fields.",
+    "conventions": "The change uses ValidationError mapped to 400, adds data-testid on new elements, has no new dependencies and follows the repo's test style.",
+    "architecture": "Date logic lives in the store, with a thin HTTP layer and an injectable clock, but the UI tests run the inline script through a hand-rolled vm DOM double.",
+    "codeQuality": "Validation is atomic and the clock is read once per list, but the validator has a redundant length check, and fetching `/todos?overdue=false` is never needed."
+  },
+  "error": null
+}

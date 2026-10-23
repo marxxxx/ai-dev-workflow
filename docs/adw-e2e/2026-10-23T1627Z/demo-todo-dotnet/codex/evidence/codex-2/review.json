@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 4,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover AC1–AC7, including the PATCH omitted-versus-null distinction and the 400 cases; the marker text is \"Überfällig\" rather than the AC's lowercase \"überfällig\", a minor deviation.",
+    "scope": "The code changes stay within the ticket. The plan and spec docs are extra but follow the project's workflow.",
+    "tests": "Store and API tests cover date lifecycle, invalid dates, overdue boundaries, the filter and the prerendered markup. The interactive checkbox toggle has no automated test, and the one existing assertion that changed was updated only for the additive fields.",
+    "conventions": "The change uses records, the existing store and middleware, and data-testid attributes, as the code around it does. I did not read AGENTS.md in detail.",
+    "architecture": "Overdue logic lives once in Todo.IsOverdue and the store's List filter, shared by the API and the page, with no new endpoint or HTTP calls from the page.",
+    "codeQuality": "The code is compact and correct. The init-setter presence flag on TodoPatch is a little clever but works, and IsOverdue calls DateTime.UtcNow directly, so it can't be tested with a fixed clock."
+  },
+  "error": null
+}
