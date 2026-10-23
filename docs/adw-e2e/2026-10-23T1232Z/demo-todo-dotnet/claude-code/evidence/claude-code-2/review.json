@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and the diff cover all seven acceptance criteria: optional DateOnly, change and clear through Optional<T>, 400 on invalid dates, the overdue filter, the due date display, the \"überfällig\" mark and the \"nur überfällige\" checkbox. The spec also pins edge cases such as today not being overdue and the UTC rule.",
+    "scope": "The changes stay on the ticket. The extra `@preservewhitespace` and the whitespace test are a justified fix for the new spans, and the plan and spec docs follow the repo's workflow.",
+    "tests": "Tests cover the store rule, the filter, PATCH missing/value/null, invalid dates, the page markup and the UTC-offset clock. The checkbox filter behaviour is only checked in the E2E run, not by an automated test, and the one changed assertion is an additive expected-JSON update.",
+    "conventions": "The change follows AGENTS.md: no new packages, validation stays in the store and the existing 400 path, data-testids on all new UI elements, and TDD with commits split per task.",
+    "architecture": "Logic stays in TodoStore, which the API and the page share, and TimeProvider is injected through DI. Storing a Todo with a placeholder Overdue=false and filling it in on read is slightly awkward.",
+    "codeQuality": "The code is small and readable, with correct handling of absent versus null and of the UTC date. Minor nits: WithOverdue calls the clock once per item, and the Optional converter uses reflection and a null-forgiving `!`."
+  },
+  "error": null
+}

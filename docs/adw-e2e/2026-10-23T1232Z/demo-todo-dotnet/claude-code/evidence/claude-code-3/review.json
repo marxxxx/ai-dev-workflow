@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover AC1–AC7, including the edge cases of an empty string, a null value that removes the date, and the UTC boundary.",
+    "scope": "The change stays on the ticket. It also adds the spec and plan documents and a public TimeProvider constructor, which are minor extras.",
+    "tests": "The store, API and page tests are good and no existing tests were weakened. The existing JSON assertion was only updated for the new fields. The checkbox filter and the 'Keine überfälligen Todos' hint have no xUnit test, and the page test never checks the 'todo-due-date' test id.",
+    "conventions": "ValidationException in the store, data-testids on new elements and TDD all follow AGENTS.md. AGENTS.md itself was not updated with the four new data-testids, although it lists the existing ones.",
+    "architecture": "The overdue rule lives only in the store, the API and the page share it, and the time source is injected. The Optional<T> type cleanly separates an absent field from a null one.",
+    "codeQuality": "The code is clear and the edge cases are handled. The custom Optional converter and the explicit @(\" \") spacing add some complexity, and Optional.Read uses a null-forgiving '!' on the deserialized value."
+  },
+  "error": null
+}

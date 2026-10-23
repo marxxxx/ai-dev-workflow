@@ -1,0 +1,6 @@
+649e041 fix: separate title, due date and overdue marker on the list page (#1)
+a54b136 feat: due date, overdue marker and filter on the list page (#1)
+d3f08a9 feat: dueDate, overdue and ?overdue filter in the API (#1)
+dfca4f0 feat: due date and overdue rule in TodoStore (#1)
+3137ea1 Plan: Fälligkeitsdatum für Todos (#1)
+5e2757d Spec: Fälligkeitsdatum für Todos (#1)
