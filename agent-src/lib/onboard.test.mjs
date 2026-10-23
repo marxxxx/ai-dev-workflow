@@ -8,6 +8,14 @@ import path from 'node:path';
 import { cmdInit, createScriptedPrompter, buildProjectConfig } from '../generate.mjs';
 import { makeTmpRoot } from '../test-helpers.mjs';
 
+/** Collect console.log output until restore(). */
+function captureLog() {
+  const lines = [];
+  const orig = console.log;
+  console.log = (...a) => lines.push(a.join(' '));
+  return { text: () => lines.join('\n'), restore: () => { console.log = orig; } };
+}
+
 const FILE_ANSWERS = {
   name: 'File Demo',
   repoSlug: 'me/file-demo', backend: 'file',
@@ -126,6 +134,58 @@ test('cmdInit with container.enabled y writes the container files for the chosen
       assert.ok(fs.existsSync(path.join(root, f)), f);
     }
   } finally {
+    cleanup();
+  }
+});
+
+test('cmdInit container without dind or certs answers writes no .env.ai-dev', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'generic' } };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    assert.ok(!fs.existsSync(path.join(root, '.env.ai-dev')));
+  } finally {
+    cleanup();
+  }
+});
+
+test('cmdInit with container.dind y sets AGENT_DIND=1 and prints the isolation warning', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  const out = captureLog();
+  try {
+    const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'generic', dind: 'y' } };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    assert.equal(fs.readFileSync(path.join(root, '.env.ai-dev'), 'utf8'), 'AGENT_DIND=1\n');
+    assert.match(out.text(), /root-equivalent/);
+  } finally {
+    out.restore();
+    cleanup();
+  }
+});
+
+test('cmdInit with container.certs y and a directory sets AGENT_CA_DIR to it', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const caDir = path.join(root, 'certs');
+    fs.mkdirSync(caDir);
+    const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'generic', certs: 'y', caDir } };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    assert.equal(fs.readFileSync(path.join(root, '.env.ai-dev'), 'utf8'), `AGENT_CA_DIR=${caDir}\n`);
+  } finally {
+    cleanup();
+  }
+});
+
+test('cmdInit with container.certs y and no directory writes an empty AGENT_CA_DIR and a hint', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  const out = captureLog();
+  try {
+    const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'generic', dind: 'y', certs: 'y' } };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    assert.equal(fs.readFileSync(path.join(root, '.env.ai-dev'), 'utf8'), 'AGENT_DIND=1\nAGENT_CA_DIR=\n');
+    assert.match(out.text(), /AGENT_CA_DIR is empty/);
+  } finally {
+    out.restore();
     cleanup();
   }
 });

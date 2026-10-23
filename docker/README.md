@@ -66,10 +66,14 @@ stack (`node`, `dotnet` or `generic`) and writes, each only when missing:
 | `AI-DEV.md` | Start, agent logins, the login for the project's ticketing backend, proxy setup |
 
 It also git-ignores `.env.ai-dev` and pins `ai-dev.sh` to LF in `.gitattributes`, then prints the
-exact next steps. The files belong to the project from then on; `generate` never touches them.
-A project that already has `ai-project.json` gets them by running `init` again and declining the
-overwrite. Non-interactively: `init --answers <file>` with
-`"container": { "enabled": "y", "stack": "node" }`.
+exact next steps. Two opt-in questions (both default to no) write settings into `.env.ai-dev`,
+never overriding a key already set there: the Docker overlay sets `AGENT_DIND=1` after printing
+its isolation warning, and company certificates set `AGENT_CA_DIR` to the directory you name — or
+leave it empty, with a hint, when you answer blank. The files belong to the project from then on;
+`generate` never touches them. A project that already has `ai-project.json` gets them by running
+`init` again and declining the overwrite. Non-interactively: `init --answers <file>` with
+`"container": { "enabled": "y", "stack": "node", "dind": "y", "certs": "y", "caDir": "/abs/certs" }`
+(`dind`, `certs` and `caDir` optional).
 
 Run the project's host-side generation first, then from the project root:
 

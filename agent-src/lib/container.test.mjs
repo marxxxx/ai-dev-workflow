@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { STACKS, detectStack, composeSlug, renderContainerFiles, ensureLine, writeContainerFiles, nextSteps } from './container.mjs';
+import { STACKS, detectStack, composeSlug, renderContainerFiles, ensureLine, setEnvVar, writeContainerFiles, nextSteps } from './container.mjs';
 import { makeTmpRoot } from '../test-helpers.mjs';
 
 const IMAGES = {
@@ -132,6 +132,49 @@ test('ensureLine appends once, on its own line, and creates missing files', () =
     const fresh = path.join(root, 'new-file');
     assert.equal(ensureLine(fresh, 'x'), true);
     assert.equal(fs.readFileSync(fresh, 'utf8'), 'x\n');
+  } finally {
+    cleanup();
+  }
+});
+
+test('setEnvVar adds KEY=value once and never overrides an existing assignment', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const file = path.join(root, '.env.ai-dev');
+    assert.equal(setEnvVar(file, 'AGENT_DIND', '1'), true);
+    assert.equal(setEnvVar(file, 'AGENT_CA_DIR', ''), true);
+    assert.equal(fs.readFileSync(file, 'utf8'), 'AGENT_DIND=1\nAGENT_CA_DIR=\n');
+    assert.equal(setEnvVar(file, 'AGENT_CA_DIR', '/certs'), false);
+    assert.equal(fs.readFileSync(file, 'utf8'), 'AGENT_DIND=1\nAGENT_CA_DIR=\n');
+
+    fs.writeFileSync(file, '# AGENT_DIND=1\r\nexport AGENT_CA_DIR=/x');
+    assert.equal(setEnvVar(file, 'AGENT_CA_DIR', '/y'), false, 'an export-prefixed assignment counts');
+    assert.equal(setEnvVar(file, 'AGENT_DIND', '1'), true, 'a commented-out assignment does not count');
+    assert.equal(fs.readFileSync(file, 'utf8'), '# AGENT_DIND=1\r\nexport AGENT_CA_DIR=/x\nAGENT_DIND=1\n');
+  } finally {
+    cleanup();
+  }
+});
+
+test('writeContainerFiles writes the requested settings into .env.ai-dev and reports kept ones', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, '.env.ai-dev'), 'AGENT_CA_DIR=/mine\n');
+    const { written, kept } = writeContainerFiles(root, { ...OPTS, env: { AGENT_DIND: '1', AGENT_CA_DIR: '' } });
+    assert.equal(fs.readFileSync(path.join(root, '.env.ai-dev'), 'utf8'), 'AGENT_CA_DIR=/mine\nAGENT_DIND=1\n');
+    assert.ok(written.includes('.env.ai-dev'));
+    assert.deepEqual(kept, ['AGENT_CA_DIR']);
+  } finally {
+    cleanup();
+  }
+});
+
+test('writeContainerFiles without settings creates no .env.ai-dev', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const { kept } = writeContainerFiles(root, OPTS);
+    assert.ok(!fs.existsSync(path.join(root, '.env.ai-dev')));
+    assert.deepEqual(kept, []);
   } finally {
     cleanup();
   }
