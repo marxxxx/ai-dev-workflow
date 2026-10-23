@@ -6,6 +6,8 @@ A coding agent is connected to this workspace. You talk to it only by running:
 
 - Your first action must send the opening message with that command. Send exactly one message per
   command; it blocks until the agent finishes its turn (long waits are normal — use a long timeout).
+  If the command is moved to the background, wait for its completion notification; never schedule
+  a wakeup.
 - Every reply to the agent must go through `acpx prompt`. Text you write outside that command
   reaches no one, and ending your turn without the command ends the session.
 - Never edit, create or delete files, never change `.acpxrc.json`, never start other agents or

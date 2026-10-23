@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered: optional date on create, change and remove via PATCH, 400 on invalid dates, an overdue API filter, date and \"überfällig\" in the list, and the \"nur überfällige\" checkbox.",
+    "scope": "The change stays on the ticket, but it adds an `overdue=false` filter value and a stale-response guard that nobody asked for, and it changes `update` to copy instead of mutate.",
+    "tests": "API and store tests are thorough, including the UTC boundary, leap days, invalid-input atomicity and the filter. The one existing assertion was updated rather than weakened. The UI changes (date, \"überfällig\", checkbox) have no automated test, only manual Playwright runs.",
+    "conventions": "The change uses ValidationError mapped to 400, adds no dependencies, and gives the new UI elements data-testid attributes. It follows the idioms already in the code. The AGENTS.md TDD rule can't be confirmed from the diff.",
+    "architecture": "Validation and overdue computation live in the store, and the app only parses the query. The filter runs in the app layer over `store.list()` rather than in the store, which is acceptable.",
+    "codeQuality": "The code is clear, and the date validation round-trips through Date for correctness. The UI doesn't handle fetch failures and clears the list before each load, which can flicker."
+  },
+  "error": null
+}

@@ -33,7 +33,7 @@ agent-src/
   container/                   # dev-container templates `init` writes once (project-owned afterwards)
   includes/
     ticketing-github.md        # ticket read/comment/status/PR — GitHub (gh CLI)
-    ticketing-gitea.md         # … — Gitea (tea CLI, verified vs. 0.15.1)
+    ticketing-gitea.md         # … — Gitea (tea CLI, verified vs. 0.16.0)
     ticketing-file.md          # … — file-based (.tickets/)
     ticketing-azure-devops.md  # … — Azure DevOps (@azure-devops/mcp)
     cost.md                    # how agent-dev totals a run's ccusage sessions + posts the summary
