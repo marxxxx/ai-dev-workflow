@@ -41,6 +41,17 @@
     "reference": "docker:29-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977",
     "docker": "29.9.2"
   },
+  "agentSkills": {
+    "cli": "1.7.4",
+    "skills": {
+      "show-me": {
+        "purpose": "compact views of a spec or plan for review",
+        "repository": "humanlayer/skills",
+        "path": "plugins/show-me/skills/show-me",
+        "revision": "653b6411c1f70c275a18e37673b042ff99f67ceb"
+      }
+    }
+  },
   "updatePolicy": {
     "npmMajorHolds": {
       "@azure-devops/mcp": 2,

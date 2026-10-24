@@ -14,6 +14,7 @@ const DEPS = {
   durations: () => ({ setup: 1, agent: 2, verifier: 3, total: 6 }),
   errors: () => ({ harbor: null, bridge: null, tool: 0, timeout: false, quota: false }),
   e2ePerformed: () => 1,
+  showMeRead: () => 1,
   softSignals: () => ({ superpowersActive: true }),
   toolUsage: (h, d, servers) => ({ builtin: { Bash: 2 }, mcp: Object.fromEntries(servers.map((s) => [s, {}])) }),
   ccusageUsage: () => ({ ccusageTotal: 10, deviation: 0, warning: null, cost: 0.42, models: {} }),
@@ -24,7 +25,7 @@ test('trial record merges verifier rewards, host e2e check and metrics; acceptan
   try {
     mkdirSync(path.join(dir, 'verifier'));
     writeFileSync(path.join(dir, 'result.json'), JSON.stringify(RESULT));
-    const checks = Object.fromEntries(CONTRACT_CHECKS.filter((c) => c !== 'e2e_performed').map((c) => [c, 1]));
+    const checks = Object.fromEntries(CONTRACT_CHECKS.filter((c) => !['e2e_performed', 'show_me_read'].includes(c)).map((c) => [c, 1]));
     writeFileSync(path.join(dir, 'verifier/reward.json'), JSON.stringify({ ...checks, own_tests_pass: 1 }));
     const t = buildTrialRecord({ id: 'codex-1', harness: 'codex', trialDir: dir, config, criteria, deps: { ...DEPS, e2ePerformed: () => 0 } });
     assert.equal(t.checks.e2e_performed, 0);
@@ -87,7 +88,7 @@ test('a trial without verifier output scores zero instead of throwing', () => {
   try {
     writeFileSync(path.join(dir, 'result.json'), JSON.stringify({ ...RESULT, exception_info: { exception_type: 'RuntimeError' } }));
     const t = buildTrialRecord({ id: 'x-1', harness: 'codex', trialDir: dir, config, criteria,
-      deps: { ...DEPS, targetTokens: () => null, e2ePerformed: () => 0, errors: () => ({ harbor: 'RuntimeError', bridge: null, tool: 0, timeout: false }) } });
+      deps: { ...DEPS, targetTokens: () => null, e2ePerformed: () => 0, showMeRead: () => 0, errors: () => ({ harbor: 'RuntimeError', bridge: null, tool: 0, timeout: false }) } });
     assert.equal(t.reward, 0);
     assert.equal(t.contract, 0);
     assert.equal(t.acceptance, 0);

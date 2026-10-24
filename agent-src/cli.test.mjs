@@ -285,3 +285,89 @@ test('upgrade fails before deleting anything when the config cannot be rendered'
     cleanup();
   }
 });
+
+const SKILL_PINS = JSON.parse(fs.readFileSync(new URL('./config/skills.json', import.meta.url), 'utf8'));
+const SHOW_ME = SKILL_PINS.skills['show-me'];
+
+/** Run the CLI with the fake npx logging into `root`; returns the result plus each logged argv. */
+function runWithNpxLog(root, args, env = {}) {
+  const log = path.join(root, '..', `${path.basename(root)}-npx.log`);
+  fs.rmSync(log, { force: true });
+  const result = runCli(args, { env: { FAKE_NPX_LOG: log, ...env } });
+  const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l)) : [];
+  fs.rmSync(log, { force: true });
+  return { ...result, calls };
+}
+
+test('upgrade records the show-me opt-in, installs the pinned commit, and leaves check quiet', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const { status, stdout, stderr, calls } = runWithNpxLog(root, ['upgrade', '--root', root]);
+    assert.equal(status, 0, stderr);
+    assert.deepEqual(calls, [[
+      '--yes', `skills@${SKILL_PINS.cli}`, 'add',
+      `https://github.com/${SHOW_ME.repository}/tree/${SHOW_ME.revision}/${SHOW_ME.path}`,
+      '-y', '-a', 'claude-code', 'codex', 'opencode',
+    ]]);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')).skills, { 'show-me': true });
+    assert.match(stdout, /Installed show-me/);
+    const check = runCli(['check', '--root', root]);
+    assert.equal(check.status, 0);
+    assert.doesNotMatch(check.stderr, /show-me/);
+    assert.deepEqual(runWithNpxLog(root, ['upgrade', '--root', root]).calls, [], 'a current install is not repeated');
+  } finally {
+    cleanup();
+  }
+});
+
+test('upgrade --dry-run names the show-me install without running it', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const { status, stdout, calls } = runWithNpxLog(root, ['upgrade', '--dry-run', '--root', root]);
+    assert.equal(status, 0);
+    assert.deepEqual(calls, []);
+    assert.match(stdout, /Would install show-me/);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')).skills, undefined);
+  } finally {
+    cleanup();
+  }
+});
+
+test('upgrade still succeeds when the show-me install fails, and prints the manual command', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const { status, stderr } = runWithNpxLog(root, ['upgrade', '--root', root], { FAKE_NPX_FAIL: '1' });
+    assert.equal(status, 0);
+    assert.match(stderr, /show-me could not be installed/);
+    assert.match(stderr, /npx --yes skills@/);
+    assert.ok(fs.existsSync(path.join(root, '.claude', 'skills', 'agent-dev', 'SKILL.md')), 'generation still happened');
+  } finally {
+    cleanup();
+  }
+});
+
+test('upgrade respects a show-me opt-out', () => {
+  const { root, cleanup } = tmpProject({ ...MINIMAL_PROJECT, skills: { 'show-me': false } });
+  try {
+    const { status, calls } = runWithNpxLog(root, ['upgrade', '--root', root]);
+    assert.equal(status, 0);
+    assert.deepEqual(calls, []);
+    assert.doesNotMatch(runCli(['check', '--root', root]).stderr, /show-me/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('generate and check point at upgrade when show-me is missing, without failing', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const generate = runCli(['generate', '--root', root]);
+    assert.equal(generate.status, 0);
+    assert.match(generate.stderr, /show-me is not installed.*upgrade/);
+    const check = runCli(['check', '--root', root]);
+    assert.equal(check.status, 0, 'a missing skill is not drift');
+    assert.match(check.stderr, /show-me is not installed/);
+  } finally {
+    cleanup();
+  }
+});

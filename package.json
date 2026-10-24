@@ -28,8 +28,10 @@
     "agent-src/lib/pipeline.mjs",
     "agent-src/lib/upgrade.mjs",
     "agent-src/lib/container.mjs",
+    "agent-src/lib/skills.mjs",
     "agent-src/config/ai-workflow.json",
     "agent-src/config/ai-project.template.json",
+    "agent-src/config/skills.json",
     "agent-src/README.md",
     "LICENSE"
   ],

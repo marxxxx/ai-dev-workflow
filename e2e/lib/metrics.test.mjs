@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { targetTokens, userTokens, durations, errors, e2ePerformed, softSignals, toolUsage } from './metrics.mjs';
+import { targetTokens, userTokens, durations, errors, e2ePerformed, showMeRead, softSignals, toolUsage } from './metrics.mjs';
 import { makeClaudeTrial, makeCodexTrial, makeOpenCodeTrial, RESULT } from './fixtures/make.mjs';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
@@ -100,6 +100,22 @@ test('e2ePerformed detects Playwright navigation to the app port in every harnes
       assert.equal(e2ePerformed(h, d, 300), 0, h);
     }
   } finally { for (const [, d] of dirs) rmSync(d, { recursive: true, force: true }); }
+});
+
+test('showMeRead detects a read of the show-me SKILL.md in every harness', () => {
+  const makers = [['claude-code', makeClaudeTrial], ['codex', makeCodexTrial], ['opencode', makeOpenCodeTrial]];
+  const dirs = [];
+  try {
+    for (const [h, make] of makers) {
+      const without = make(tmp());
+      const withRead = make(tmp(), { read: '.agents/skills/show-me/SKILL.md' });
+      const other = make(tmp(), { read: '.agents/skills/agent-dev/SKILL.md' });
+      dirs.push(without, withRead, other);
+      assert.equal(showMeRead(h, without), 0, h);
+      assert.equal(showMeRead(h, withRead), 1, h);
+      assert.equal(showMeRead(h, other), 0, h);
+    }
+  } finally { for (const d of dirs) rmSync(d, { recursive: true, force: true }); }
 });
 
 test('softSignals reports the superpowers bootstrap', () => {

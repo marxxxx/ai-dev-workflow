@@ -41,6 +41,10 @@ it occurs, wherever the workflow puts it.
   user flows), also ask the user whether you should test it end to end in the running app or they
   prefer to test it manually. If they want you to but `AGENTS.md` has no end-to-end section, say so
   right away. Record the answer, together with the checks it covers, in the agreed scope.
+- **Spec or plan written, handed to the user for review** — lead with a **show-me** view of its
+  design, so the user can judge it without reading the whole file; the file stays the record.
+  show-me is user-invoked only, so read `.agents/skills/show-me/SKILL.md` and follow it. If it is
+  missing, say once that adw's `upgrade` command installs it, then continue without it.
 - **Scope agreed** (brainstorming hands over to building, at whatever size it chose) — the ticket
   must say what gets built. If the user asked for a new ticket, create it now with the ticket
   include's commands (it starts in `in-progress`): a short title and the agreed scope as its
