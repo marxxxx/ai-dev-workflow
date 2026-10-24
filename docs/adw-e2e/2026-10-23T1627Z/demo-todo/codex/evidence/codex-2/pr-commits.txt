@@ -1,0 +1,9 @@
+a671168 docs: complete ticket 1 implementation plan
+e839e7d docs: record completed verification and review
+a210aa3 fix: clear stale filter results and report loading failures
+40fab44 feat: show due dates and toggle overdue todos in the list
+ec05005 feat: filter overdue todos through the API
+ac848b4 feat: add optional due dates and UTC overdue status
+e636bdd docs: plan due date and overdue filter implementation
+31e989b docs: add overdue API and list filters to ticket 1 scope
+ec704d6 docs: specify optional todo due dates for ticket 1

@@ -1,0 +1,6 @@
+75a5d3d test: clearing dueDate removes todo from overdue filter
+6fa83c8 docs: plan for due date on todos (ticket #1)
+4e5142b feat: show due date, overdue marker and overdue-only toggle in list
+c791b62 feat: filter overdue todos via GET /todos?overdue=true (UTC)
+6038d68 feat: optional dueDate on todos with YYYY-MM-DD validation
+25c0b71 docs: spec for due date on todos (ticket #1)

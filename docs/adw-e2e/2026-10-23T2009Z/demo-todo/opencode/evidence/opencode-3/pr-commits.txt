@@ -1,0 +1,5 @@
+3e33218 chore: ignore playwright-mcp tool artifacts
+4baddc7 feat: show due date and overdue marker, add overdue filter button
+5ac1647 feat: filter overdue todos via GET /todos?overdue=true
+28fb275 feat: add optional dueDate to todos with validation
+a3754d1 docs: add spec and plan for due date feature (ticket #1)

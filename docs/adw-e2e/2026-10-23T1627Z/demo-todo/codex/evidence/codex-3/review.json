@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 5,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover AC1–AC7: optional, changeable and removable dates, 400 on invalid input, a UTC overdue filter, date display, the lowercase marker and the labelled checkbox.",
+    "scope": "Error banner and rollback of the filter on load failure go beyond the ACs, though the spec records them; the committed plan and spec docs are process artifacts.",
+    "tests": "Store, API and page tests cover leap days, years below 0100, UTC midnight, atomic PATCH, filter results, and stale or failed requests; the one existing assertion was extended rather than weakened.",
+    "conventions": "Uses ValidationError mapped to HTTP 400, no dependencies, tests written first, data-testid on all new elements, and textContent for titles.",
+    "architecture": "Overdue logic stays in the store with an injectable clock and the route only filters, but the page script is tested through a hand-built vm DOM stub.",
+    "codeQuality": "Validation runs before any mutation and the date round-trip check is correct at the edges; the page's request counter and rollback logic is slightly intricate but sound."
+  },
+  "error": null
+}

@@ -1,0 +1,7 @@
+ticket_review=0
+summary_comment=0
+cost_comment=0
+pr_draft=0
+branch_naming=0
+pr_title_naming=0
+own_tests_pass=0

@@ -1,0 +1,10 @@
+  Determining projects to restore...
+  Restored /tmp/pr-vQQe49/src/DemoTodo/DemoTodo.csproj (in 533 ms).
+  Restored /tmp/pr-vQQe49/tests/DemoTodo.Tests/DemoTodo.Tests.csproj (in 545 ms).
+  DemoTodo -> /tmp/pr-vQQe49/src/DemoTodo/bin/Debug/net10.0/DemoTodo.dll
+/tmp/pr-vQQe49/tests/DemoTodo.Tests/TodoApiTests.cs(105,9): warning xUnit2013: Do not use Assert.Equal() to check for collection size. Use Assert.Single instead. (https://xunit.net/xunit.analyzers/rules/xUnit2013) [/tmp/pr-vQQe49/tests/DemoTodo.Tests/DemoTodo.Tests.csproj]
+  DemoTodo.Tests -> /tmp/pr-vQQe49/tests/DemoTodo.Tests/bin/Debug/net10.0/DemoTodo.Tests.dll
+Test run for /tmp/pr-vQQe49/tests/DemoTodo.Tests/bin/Debug/net10.0/DemoTodo.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    16, Skipped:     0, Total:    16, Duration: 1 s - DemoTodo.Tests.dll (net10.0)

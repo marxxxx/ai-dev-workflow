@@ -1,0 +1,54 @@
+
+> demo-todo@1.0.0 test
+> node --test
+
+✔ creates and lists todos (34.987818ms)
+✔ rejects an empty title (7.919242ms)
+✔ marks a todo done (6.869311ms)
+✔ serves the list page (6.258194ms)
+✔ due dates survive create, single read, list and partial updates (16.689327ms)
+✔ invalid dates return HTTP 400 for POST and PATCH without changing todos (47.379962ms)
+✔ overdue filter only returns open past-due todos and does not change the full list (10.093956ms)
+✔ overdue filter follows the UTC date when the day changes (4.370322ms)
+✔ page renders optional dates, exact lowercase markers and done status (3.296354ms)
+✔ checkbox filters and restores the list, including no matches (1.182696ms)
+✔ rapid filter changes ignore responses belonging to an older selection (0.940006ms)
+✔ a late initial response cannot overwrite the chosen filter (1.091668ms)
+✔ failed network filter reload restores the displayed selection and allows retry (1.308736ms)
+✔ failed HTTP filter reload restores the displayed selection and allows retry (1.919717ms)
+✔ an older failed request cannot alter a newer successful selection (4.716494ms)
+✔ due date is optional and overdue compares calendar days in UTC (2.620256ms)
+✔ sets, preserves and removes dates, and recomputes status when done changes (0.350723ms)
+✔ rejects invalid date "" without changing data (0.666248ms)
+✔ rejects invalid date "2026-2-03" without changing data (0.215183ms)
+✔ rejects invalid date "2026-02-3" without changing data (0.237487ms)
+✔ rejects invalid date "2026-10-23T00:00:00Z" without changing data (0.197913ms)
+✔ rejects invalid date " 2026-10-23" without changing data (0.216336ms)
+✔ rejects invalid date "2026-10-23\n" without changing data (0.164101ms)
+✔ rejects invalid date 20261023 without changing data (0.213633ms)
+✔ rejects invalid date false without changing data (0.266859ms)
+✔ rejects invalid date {} without changing data (0.1682ms)
+✔ rejects invalid date [] without changing data (0.177793ms)
+✔ rejects invalid date "0000-01-01" without changing data (0.149013ms)
+✔ rejects invalid date "10000-01-01" without changing data (1.014167ms)
+✔ rejects invalid date "2026-02-30" without changing data (0.127898ms)
+✔ rejects invalid date "2026-02-29" without changing data (0.114569ms)
+✔ rejects invalid date "1900-02-29" without changing data (0.151028ms)
+✔ rejects invalid date "2026-04-31" without changing data (0.170274ms)
+✔ rejects invalid date "2026-00-01" without changing data (0.18208ms)
+✔ rejects invalid date "2026-13-01" without changing data (0.106659ms)
+✔ rejects invalid date "2026-01-00" without changing data (0.097753ms)
+✔ rejects invalid date "2026-01-32" without changing data (0.100875ms)
+✔ validates every patch field before changing any field (0.187784ms)
+✔ accepts real leap days and years below 0100 (0.124897ms)
+✔ get and list recompute overdue across UTC midnight without a write (0.141897ms)
+✔ UTC today does not depend on the clock offset (0.104005ms)
+✔ unknown todos and deletion retain their behavior (0.112957ms)
+ℹ tests 42
+ℹ suites 0
+ℹ pass 42
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 250.804867

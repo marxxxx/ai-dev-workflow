@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered, including the 30 February case returning 400, and the spec adds sensible edge rules such as today not being overdue and PATCH omission versus null.",
+    "scope": "The change stays on the feature. The only extras are a `.worktrees/` entry in `.gitignore` and the plan and spec docs, which are small and workflow-driven.",
+    "tests": "Store, API and prerender page tests are thorough: UTC midnight, PATCH preservation, invalid dates, filter order and an empty result. The checkbox toggle is never exercised in an automated test, only in the manual Playwright run, and the one existing test that changed only had its expected JSON updated for the new fields.",
+    "conventions": "It follows AGENTS.md: no new packages, a failing test first, `data-testid` on the new elements, and validation errors mapped through the existing 400 handling. The test style matches the existing tests.",
+    "architecture": "Logic stays in the shared `TodoStore`, which is injected with a `TimeProvider`. Status is derived at read time through a single `Snapshot` path, so the API and the page share one rule and the page still calls the store directly.",
+    "codeQuality": "The code is clean and handles the edge cases correctly: one captured `today` per operation, no stored overdue flag, and an omitted `dueDate` kept distinct from null. The `HasDueDate` presence-tracking property on the patch record is slightly intricate."
+  },
+  "error": null
+}

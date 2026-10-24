@@ -1,0 +1,442 @@
+{
+  "schema": 2,
+  "task": "demo-todo-dotnet",
+  "harness": "opencode",
+  "fingerprint": {
+    "adw": {
+      "version": "0.28.0",
+      "sha": "4c6196612bf8d5cda078fb168d0843e19286a923",
+      "dirty": true
+    },
+    "skill": {
+      "claude": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "codex": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "opencode": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:9905aed6ff6a01bbb005f626e5bf6af85f9bde49ed2b27cee46a1f2302aecce8"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-dotnet:latest",
+      "id": "sha256:0150386d54bedb60ce043bcddee75b3a451c1eb5dc658af364ccd46ddfeacc16",
+      "inventory": "be1ece0171d7af148100fdcf1ba8aa846a6a088e455ab86b227b30b6a32614ec",
+      "harnessVersion": "1.19.4",
+      "superpowers": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "d0da995efeca9c264b60d5b89daaaf8676038179c9502bfb8a4f804ba286495b",
+      "lib": "4674f72ba86ec174e083cc0a55aa210119fcf023f49cc94ee29ca36d8c1b6ba9"
+    },
+    "config": "1ff0716c9335e44bede9e57b40bcf1538fd283d6c6850d494fb142cff041ebf0",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "mistral/mistral-large-4",
+      "subagents": null,
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "02affc8ba4e07c87b38ccd27fe73c2ce3c0081fc46b00875b175a50e6051e960"
+  },
+  "calibration": "2026-10-13T1704Z",
+  "config": {
+    "model": "mistral/mistral-large-4",
+    "subagentModel": null,
+    "agentKwargs": {},
+    "repetitions": 3
+  },
+  "trials": [
+    {
+      "id": "opencode-1",
+      "reward": 0,
+      "contract": 0.5385,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 0,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 0,
+        "cost_comment": 0,
+        "only_allowed_comments": 1,
+        "pr_draft": 0,
+        "branch_naming": 0,
+        "pr_title_naming": 0,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 0,
+      "acceptanceCriteria": {
+        "AC1": "fail",
+        "AC2": "fail",
+        "AC3": "fail",
+        "AC4": "fail",
+        "AC5": "fail",
+        "AC6": "fail",
+        "AC7": "fail"
+      },
+      "acceptance": 0,
+      "verifierError": null,
+      "review": null,
+      "reviewReasons": null,
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 2701,
+        "verifier": 1,
+        "total": 2759
+      },
+      "tokens": {
+        "input": 226732,
+        "output": 28313,
+        "cacheRead": 5875128,
+        "cacheWrite": 0,
+        "total": 6130173
+      },
+      "cost": 1.249222,
+      "ccusage": {
+        "ccusageTotal": 6130173,
+        "deviation": 0,
+        "warning": null,
+        "cost": 1.249222,
+        "models": {
+          "mistral-large-4": {
+            "input": 226732,
+            "output": 28313,
+            "cacheRead": 5875128,
+            "cacheWrite": 0,
+            "total": 6130173,
+            "cost": 1.249222
+          }
+        }
+      },
+      "userTokens": {
+        "total": 280655
+      },
+      "errors": {
+        "harbor": "AgentTimeoutError",
+        "bridge": null,
+        "tool": 7,
+        "timeout": true,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 6,
+          "bash": 57,
+          "read": 17,
+          "todowrite": 6,
+          "write": 4,
+          "edit": 22,
+          "task": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 1,
+            "browser_wait_for": 1,
+            "browser_snapshot": 3,
+            "browser_click": 3,
+            "browser_take_screenshot": 2
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "opencode-2",
+      "reward": 0,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "fail",
+        "AC4": "fail",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "fail"
+      },
+      "acceptance": 0.5714,
+      "verifierError": null,
+      "review": {
+        "requirements": 2,
+        "scope": 4,
+        "tests": 3,
+        "conventions": 3,
+        "architecture": 2,
+        "codeQuality": 2
+      },
+      "reviewReasons": {
+        "requirements": "The spec explicitly excluded filtering, so AC4 (API overdue-only) and AC7 (the \"nur überfällige\" control) are missing from both the spec and the diff, and the UTC definition of today was not captured.",
+        "scope": "Nothing unrequested was added beyond the plan and spec docs, but the PATCH handler was fully rewritten with manual JSON parsing.",
+        "tests": "The new tests cover set, clear, POST-invalid and the overdue/done/today boundaries, but there is no test for an invalid date in PATCH or for an impossible date such as 30 February, and the overdue assertions use local DateTime.Today.",
+        "conventions": "The change follows TDD, uses data-testid attributes and keeps the record style, but it bypasses the ValidationException-to-400 pattern and uses fully qualified System.Text.Json names inline.",
+        "architecture": "The PATCH handler now hand-parses JSON in Program.cs and drops model binding. The overdue logic sits inline in Home.razor, so the API and UI cannot share it, and the DueDateSet flag leaks into the store-level record.",
+        "codeQuality": "PATCH calls DateOnly.Parse, which throws FormatException (likely a 500) on an invalid date. It also tolerates an empty or malformed body only by throwing, silently ignores wrongly typed fields, and uses local DateTime.Today instead of UTC."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 2701,
+        "verifier": 11,
+        "total": 2769
+      },
+      "tokens": {
+        "input": 320947,
+        "output": 52018,
+        "cacheRead": 6782916,
+        "cacheWrite": 0,
+        "total": 7155881
+      },
+      "cost": 1.603531,
+      "ccusage": {
+        "ccusageTotal": 7155881,
+        "deviation": 0,
+        "warning": null,
+        "cost": 1.603531,
+        "models": {
+          "mistral-large-4": {
+            "input": 320947,
+            "output": 52018,
+            "cacheRead": 6782916,
+            "cacheWrite": 0,
+            "total": 7155881,
+            "cost": 1.603532
+          }
+        }
+      },
+      "userTokens": {
+        "total": 150736
+      },
+      "errors": {
+        "harbor": "AgentTimeoutError",
+        "bridge": null,
+        "tool": 4,
+        "timeout": true,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 7,
+          "bash": 105,
+          "read": 16,
+          "todowrite": 6,
+          "write": 2,
+          "edit": 13,
+          "task": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 2,
+            "browser_wait_for": 2,
+            "browser_snapshot": 2,
+            "browser_take_screenshot": 1,
+            "browser_run_code_unsafe": 1
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "opencode-3",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 4,
+        "codeQuality": 3
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria are covered, including set, change and clear on PATCH, UTC overdue, 400 on invalid dates, the \"überfällig\" marker and the \"nur überfällige\" control.",
+        "scope": "The change stays within the ticket; the only extras are the plan and spec docs and the custom PATCH converter, which the clear-by-null requirement justifies.",
+        "tests": "Store, API and page tests cover overdue, UTC today, done, 400 and null-clear cases, but nothing tests the filter checkbox's behaviour, the page test never checks that a non-overdue todo lacks the marker, and the one edited existing assertion only gained `dueDate:null`.",
+        "conventions": "The code uses the repo's data-testid, ValidationException and 400-mapping idioms and the existing test style, though the converter class sits in TodoStore.cs instead of its own file.",
+        "architecture": "Logic stays in TodoStore and the minimal API with the Razor page reusing the store, but the JSON converter is placed in the store file and the overdue test is instance-based rather than injectable for the clock.",
+        "codeQuality": "The hand-written TodoPatchJsonConverter silently ignores wrongly typed title, done and dueDate values, so `\"dueDate\": 123` clears the date instead of returning 400. It also parses the body into a JsonDocument by hand, which is more complex than needed."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 939,
+        "verifier": 10,
+        "total": 1007
+      },
+      "tokens": {
+        "input": 123679,
+        "output": 56559,
+        "cacheRead": 7077172,
+        "cacheWrite": 0,
+        "total": 7257410
+      },
+      "cost": 1.395424,
+      "ccusage": {
+        "ccusageTotal": 7257410,
+        "deviation": 0,
+        "warning": null,
+        "cost": 1.395424,
+        "models": {
+          "mistral-large-4": {
+            "input": 123679,
+            "output": 56559,
+            "cacheRead": 7077172,
+            "cacheWrite": 0,
+            "total": 7257410,
+            "cost": 1.395424
+          }
+        }
+      },
+      "userTokens": {
+        "total": 216731
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 4,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 5,
+          "bash": 48,
+          "read": 8,
+          "todowrite": 8,
+          "write": 3,
+          "invalid": 1,
+          "edit": 15
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 1,
+            "browser_wait_for": 3,
+            "browser_snapshot": 3,
+            "browser_take_screenshot": 3,
+            "browser_click": 3,
+            "browser_find": 1
+          },
+          "context7": {}
+        }
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 0.33,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 0.67,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 0.67,
+      "cost_comment": 0.67,
+      "only_allowed_comments": 1,
+      "pr_draft": 0.67,
+      "branch_naming": 0.67,
+      "pr_title_naming": 0.67,
+      "e2e_performed": 1,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 0.33,
+      "ownTests": 0.67,
+      "ac:AC1": 0.67,
+      "ac:AC2": 0.67,
+      "ac:AC3": 0.33,
+      "ac:AC4": 0.33,
+      "ac:AC5": 0.67,
+      "ac:AC6": 0.67,
+      "ac:AC7": 0.33
+    },
+    "median": {
+      "tokens": 7155881,
+      "cost": 1.395424,
+      "agent": 2701
+    },
+    "mcp": {
+      "serena": {
+        "calls": 0,
+        "trials": 0
+      },
+      "playwright": {
+        "calls": 32,
+        "trials": 3
+      },
+      "context7": {
+        "calls": 0,
+        "trials": 0
+      }
+    },
+    "reviewMedian": {
+      "requirements": 3.5,
+      "scope": 4,
+      "tests": 3.5,
+      "conventions": 3.5,
+      "architecture": 3,
+      "codeQuality": 2.5
+    },
+    "errorClasses": [
+      "harbor",
+      "timeout"
+    ]
+  }
+}

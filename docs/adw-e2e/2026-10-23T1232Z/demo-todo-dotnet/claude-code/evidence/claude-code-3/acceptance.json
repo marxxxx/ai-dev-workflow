@@ -1,0 +1,21 @@
+{
+  "criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass",
+    "AC5": "pass",
+    "AC6": "pass",
+    "AC7": "pass"
+  },
+  "evidence": {
+    "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-22\"} returned 201 with \"dueDate\":\"2026-10-22\". A POST without dueDate returned 201 with dueDate null. The value is a date only (YYYY-MM-DD).",
+    "AC2": "PATCH /todos/4 with {\"dueDate\":\"2026-10-01\"} returned 200 and the todo now had that date. PATCH /todos/1 with {\"dueDate\":null} returned 200 with dueDate null. A later PATCH with only {\"title\":...} left the due date unchanged.",
+    "AC3": "POST with dueDate 2026-02-30, 23.10.2026 and 2026-10-23T10:00:00 each returned 400 with {\"error\":\"dueDate must be a valid date (YYYY-MM-DD)\"}. PATCH with dueDate 2026-02-30 also returned 400.",
+    "AC4": "Today is 2026-10-23 (UTC). A todo due 2026-10-22 had overdue true. Todos due today (2026-10-23) and 2027-01-01 had overdue false. A todo with no due date had overdue false. A todo due 2026-01-01 had overdue true while open and false once marked done. GET /todos?overdue=true returned only the overdue todo, id 4, which was the only overdue one at that moment.",
+    "AC5": "The page at / showed \"fällig am 22.10.2026\", \"fällig am 23.10.2026\", \"fällig am 01.01.2027\", \"fällig am 01.10.2026\" and \"fällig am 01.01.2026\" next to the matching todos.",
+    "AC6": "On the page, \"überfällig\" appeared only on the open todos due 22.10.2026 and 01.10.2026. The todos due today, in the future, with a past date but done, and without a due date had no marker.",
+    "AC7": "The page has a checkbox labelled \"nur überfällige\". After I clicked it, the list showed only the two overdue todos (past, none2)."
+  },
+  "error": null
+}

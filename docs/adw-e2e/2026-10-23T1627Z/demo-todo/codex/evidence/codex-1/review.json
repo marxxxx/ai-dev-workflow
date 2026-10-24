@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria, including the UTC rule, the exact labels, and the HTTP 400 mapping, and they add edge cases such as atomic PATCH and leap years.",
+    "scope": "The code stays within the ticket, apart from a clock-injection parameter that the spec allows. The only extras are the plan and spec documents, which come from the process.",
+    "tests": "The store and API tests are thorough, covering validation, atomicity, UTC midnight, filtering, and an empty result, and no existing tests were weakened. UI rendering of the date, the label, and the filter behaviour is checked only manually, and the automated page test only inspects the checkbox HTML.",
+    "conventions": "The change uses Node built-ins only, throws ValidationError for bad dates, writes tests first, and gives new elements data-testid attributes, as AGENTS.md requires.",
+    "architecture": "Validation lives in the store and the derived overdue status is computed once in the API, so the page only reads the value. The `present` helper's default `today` parameter is a little awkward and is computed separately in the list route.",
+    "codeQuality": "The code is clean and correct at the edges: it handles stale requests with a generation counter, uses textContent, and applies PATCH changes atomically. The page's reload has no error handling for failed fetches."
+  },
+  "error": null
+}

@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, including the boundary cases (due today, done, no date, `PATCH` with `null`, and a 400 for an invalid date or a non-boolean filter).",
+    "scope": "The change stays on the ticket; the plan and spec documents and the `AGENTS.md` locator update follow the repo's workflow, and the only extras are a small `UsesTheRegisteredClock` test and the `FixedTimeProvider` helper.",
+    "tests": "The tests cover the boundary, the UTC clock, `PATCH` semantics, the filter, the 400 cases and the page output, and no existing test was weakened (only the one JSON expectation was updated); the interactive filter checkbox is only checked by hand in E2E.",
+    "conventions": "The change follows `AGENTS.md`: `ValidationException` thrown in the store, no new packages, `data-testid` on every new element, tests written first, and the locators documented.",
+    "architecture": "The overdue rule lives once in `Todo.IsOverdue`, the API and the page share it, the store owns parsing and the clock, and `TodoView` keeps the computed `overdue` out of the stored record.",
+    "codeQuality": "The code is clean and handles the edge cases; the `@(\" \")` whitespace workaround in `Home.razor` is a little awkward, and the `Optional` converter's `!` on a null deserialize is slightly loose but harmless."
+  },
+  "error": null
+}

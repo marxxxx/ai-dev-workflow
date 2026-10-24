@@ -1,0 +1,579 @@
+diff --git a/.gitignore b/.gitignore
+index c2658d7..541e27d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1 +1,3 @@
+-node_modules/
++.playwright-mcp/
++.serena/
++.superpowers/
+diff --git a/docs/superpowers/plans/2026-10-23-due-date.md b/docs/superpowers/plans/2026-10-23-due-date.md
+new file mode 100644
+index 0000000..069dc1b
+--- /dev/null
++++ b/docs/superpowers/plans/2026-10-23-due-date.md
+@@ -0,0 +1,283 @@
++# Due Date Implementation Plan
++
++> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
++
++**Goal:** Todos bekommen ein optionales Fälligkeitsdatum (`YYYY-MM-DD`); API und Liste zeigen überfällige Todos an, API filtert per `?overdue=true`, Liste hat einen `nur überfällige`-Button.
++
++**Architecture:** `dueDate` als optionales Feld (`string | null`) im Todo-Objekt, validiert in `src/store.mjs` (bestehendes ValidationError-Muster). Der API-Filter `GET /todos?overdue=true` wird in `src/app.mjs` umgesetzt (store.list() bleibt unverändert). Die UI in `public/index.html` rendert `fällig: <datum>` und `überfällig` clientseitig und toggelt per Button. Überfällig-Logik überall: `!done && dueDate !== null && dueDate < heute (UTC, YYYY-MM-DD)`.
++
++**Tech Stack:** Node 24 builtins only (`node:http`, `node:test`), zero dependencies, clientseitiges Vanilla-JS in `public/index.html`.
++
++**Spec:** `docs/superpowers/specs/2026-10-23-due-date-design.md`
++
++## Global Constraints
++
++- Zero dependencies — Node builtins only.
++- Validation errors are `ValidationError` from `src/store.mjs` and map to HTTP 400.
++- TDD: write a failing test in `test/` first.
++- UI elements tests rely on carry a `data-testid` (existing: `todo-list`, `todo-item`, `todo-title`; new: `todo-due`, `todo-overdue`, `filter-overdue`).
++- `dueDate` format: `YYYY-MM-DD` only, validated as a real calendar date.
++- Overdue: `!done && dueDate !== null && dueDate < today`, `today = new Date().toISOString().slice(0, 10)` (UTC). String comparison is sufficient for `YYYY-MM-DD`.
++- No styling for overdue todos — the word `überfällig` is the only marker.
++- E2E: agent tests in the running app via Playwright (AGENTS.md end-to-end section).
++
++## Review Focus
++
++- Invalid `dueDate` values (wrong format, impossible date like `2026-02-30`, wrong type) must yield HTTP 400, not 500 — pinned in Task 1 tests.
++- `dueDate: null` in PATCH must clear the date; a todo without a date is never overdue — pinned in Tasks 1 and 2 tests.
++- Boundary: a todo due *today* is not overdue; a done todo with a past date is not overdue — pinned in Task 2 tests.
++- `GET /todos` without query params must stay byte-identical in behavior (all todos, unchanged shape plus `dueDate: null`) — pinned in Task 2 tests.
++- UI filter button must toggle both ways without a refetch, and overdue marking must use UTC today — exercised in the E2E step of Task 3.
++
++---
++
++### Task 1: Store — `dueDate` field with validation
++
++**Files:**
++- Modify: `src/store.mjs`
++- Modify: `test/app.test.mjs` (store-level tests via API, matching existing test style)
++
++**Interfaces:**
++- Produces: todo objects of shape `{ id, title, done, dueDate: string | null }`; `store.add({ title, dueDate? })` and `store.update(id, { dueDate? })` accept/validate `dueDate`.
++- Consumes: nothing new.
++
++- [ ] **Step 1: Write the failing tests**
++
++Add to `test/app.test.mjs` (same `withServer`/`json` helpers):
++
++```js
++test('creates a todo with a due date', () =>
++  withServer(async (base) => {
++    const created = await fetch(`${base}/todos`, json('POST', { title: 'Bericht', dueDate: '2026-11-01' }));
++    assert.equal(created.status, 201);
++    assert.deepEqual(await created.json(), { id: 1, title: 'Bericht', done: false, dueDate: '2026-11-01' });
++  }));
++
++test('creates a todo without a due date (dueDate defaults to null)', () =>
++  withServer(async (base) => {
++    const created = await fetch(`${base}/todos`, json('POST', { title: 'A' }));
++    assert.equal((await created.json()).dueDate, null);
++  }));
++
++test('rejects invalid due dates', () =>
++  withServer(async (base) => {
++    for (const dueDate of ['2026-13-01', '2026-02-30', '01.11.2026', '2026-11-01T10:00:00Z', 42]) {
++      const res = await fetch(`${base}/todos`, json('POST', { title: 'A', dueDate }));
++      assert.equal(res.status, 400, `dueDate=${JSON.stringify(dueDate)} should be rejected`);
++    }
++  }));
++
++test('updates and clears the due date via PATCH', () =>
++  withServer(async (base) => {
++    await fetch(`${base}/todos`, json('POST', { title: 'A' }));
++    const set = await fetch(`${base}/todos/1`, json('PATCH', { dueDate: '2026-12-24' }));
++    assert.equal((await set.json()).dueDate, '2026-12-24');
++    const cleared = await fetch(`${base}/todos/1`, json('PATCH', { dueDate: null }));
++    assert.equal((await cleared.json()).dueDate, null);
++    const invalid = await fetch(`${base}/todos/1`, json('PATCH', { dueDate: 'gestern' }));
++    assert.equal(invalid.status, 400);
++  }));
++```
++
++- [ ] **Step 2: Run tests to verify they fail**
++
++Run: `npm test`
++Expected: the new tests FAIL (todos have no `dueDate`; invalid dates are not rejected).
++
++- [ ] **Step 3: Implement `dueDate` in `src/store.mjs`**
++
++- Add a module-level helper `isValidDueDate(value)`: returns true iff `typeof value === 'string'`, matches `/^\d{4}-\d{2}-\d{2}$/`, and `new Date(value + 'T00:00:00Z')` round-trips to the same `YYYY-MM-DD` (rejects `2026-02-30` etc.).
++- In `add({ title, dueDate })`: default `dueDate` to `null`; if `dueDate !== null` and not valid, throw `new ValidationError('dueDate must be a YYYY-MM-DD date or null')`. Store `dueDate` on the todo.
++- In `update(id, patch)`: if `'dueDate' in patch`, apply the same validation (including `null` to clear); assign `todo.dueDate`.
++- Keep the existing `title`/`done` logic untouched.
++
++- [ ] **Step 4: Run tests to verify they pass**
++
++Run: `npm test`
++Expected: ALL tests PASS (old and new).
++
++- [ ] **Step 5: Commit**
++
++```bash
++git add src/store.mjs test/app.test.mjs
++git commit -m "feat: add optional dueDate field to todos with validation"
++```
++
++### Task 2: API — `GET /todos?overdue=true` filter
++
++**Files:**
++- Modify: `src/app.mjs`
++- Modify: `test/app.test.mjs`
++
++**Interfaces:**
++- Consumes: `store.list()` from Task 1 (todos now include `dueDate`).
++- Produces: `GET /todos?overdue=true` returns only todos with `!done && dueDate !== null && dueDate < todayUtc`; `GET /todos` unchanged.
++
++- [ ] **Step 1: Write the failing tests**
++
++Add to `test/app.test.mjs`. Use fixed dates relative to today computed in the test: `const today = new Date().toISOString().slice(0, 10);` and derive yesterday/tomorrow with `new Date(Date.now() ± 86400000).toISOString().slice(0, 10)`.
++
++```js
++test('GET /todos?overdue=true returns only overdue todos', () =>
++  withServer(async (base) => {
++    const today = new Date().toISOString().slice(0, 10);
++    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
++    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
++    await fetch(`${base}/todos`, json('POST', { title: 'overdue', dueDate: yesterday }));
++    await fetch(`${base}/todos`, json('POST', { title: 'due today', dueDate: today }));
++    await fetch(`${base}/todos`, json('POST', { title: 'future', dueDate: tomorrow }));
++    await fetch(`${base}/todos`, json('POST', { title: 'no date' }));
++    await fetch(`${base}/todos`, json('POST', { title: 'done overdue', dueDate: yesterday }));
++    await fetch(`${base}/todos/5`, json('PATCH', { done: true }));
++    const res = await fetch(`${base}/todos?overdue=true`);
++    assert.equal(res.status, 200);
++    const list = await res.json();
++    assert.deepEqual(list.map((t) => t.title), ['overdue']);
++  }));
++
++test('GET /todos without params still returns all todos', () =>
++  withServer(async (base) => {
++    await fetch(`${base}/todos`, json('POST', { title: 'A', dueDate: '2020-01-01' }));
++    await fetch(`${base}/todos`, json('POST', { title: 'B' }));
++    const list = await (await fetch(`${base}/todos`)).json();
++    assert.equal(list.length, 2);
++  }));
++```
++
++- [ ] **Step 2: Run tests to verify they fail**
++
++Run: `npm test`
++Expected: the `?overdue=true` test FAILS (filter not implemented; all 5 todos returned).
++
++- [ ] **Step 3: Implement the filter in `src/app.mjs`**
++
++- Add a module-level helper `isOverdue(todo, todayUtc)`: `return !todo.done && todo.dueDate !== null && todo.dueDate < todayUtc;`.
++- In the `GET /todos` branch: `const todos = store.list(); if (url.searchParams.get('overdue') === 'true') { const todayUtc = new Date().toISOString().slice(0, 10); return send(200, todos.filter((t) => isOverdue(t, todayUtc))); } return send(200, todos);`
++- Do not change `store.list()` or any other route.
++
++- [ ] **Step 4: Run tests to verify they pass**
++
++Run: `npm test`
++Expected: ALL tests PASS.
++
++- [ ] **Step 5: Commit**
++
++```bash
++git add src/app.mjs test/app.test.mjs
++git commit -m "feat: filter overdue todos via GET /todos?overdue=true"
++```
++
++### Task 3: UI — due date display, overdue marker, filter button
++
++**Files:**
++- Modify: `public/index.html`
++- Verify: `npm test` (the `serves the list page` test must still pass)
++
++**Interfaces:**
++- Consumes: `GET /todos` JSON (todos include `dueDate`).
++- Produces: rendered list items with `data-testid="todo-due"` (`fällig: <datum>`) and, when overdue, `data-testid="todo-overdue"` (`überfällig`); a `<button data-testid="filter-overdue">nur überfällige</button>` above the list that toggles visibility of non-overdue items.
++
++- [ ] **Step 1: Write the failing check**
++
++Extend the existing `serves the list page` test in `test/app.test.mjs` (or add a new test) asserting the HTML contains `data-testid="filter-overdue"` and `nur überfällige`:
++
++```js
++test('list page has the overdue filter button', () =>
++  withServer(async (base) => {
++    const html = await (await fetch(`${base}/`)).text();
++    assert.match(html, /data-testid="filter-overdue"/);
++    assert.match(html, /nur überfällige/);
++  }));
++```
++
++- [ ] **Step 2: Run test to verify it fails**
++
++Run: `npm test`
++Expected: the new test FAILS (button not in the HTML).
++
++- [ ] **Step 3: Implement the UI in `public/index.html`**
++
++Inside the existing `<script type="module">`, keeping the current structure:
++
++- Compute `const todayUtc = new Date().toISOString().slice(0, 10);` and `const isOverdue = (todo) => !todo.done && todo.dueDate !== null && todo.dueDate < todayUtc;`.
++- Add `<button data-testid="filter-overdue" type="button">nur überfällige</button>` in the body, above the `<ul data-testid="todo-list">`.
++- When rendering each todo: if `todo.dueDate` is not null, append `<span data-testid="todo-due">` with text ` fällig: ${todo.dueDate}`; if `isOverdue(todo)`, append `<span data-testid="todo-overdue">` with text ` überfällig`. No CSS/styling.
++- Store each `<li>` together with its overdue flag (e.g. `li.dataset.overdue = String(isOverdue(todo))`).
++- Button click handler toggles a boolean `onlyOverdue`; on toggle, set `li.style.display = (onlyOverdue && li.dataset.overdue !== 'true') ? 'none' : ''` for every item. No refetch.
++
++- [ ] **Step 4: Run tests to verify they pass**
++
++Run: `npm test`
++Expected: ALL tests PASS.
++
++- [ ] **Step 5: Commit**
++
++```bash
++git add public/index.html test/app.test.mjs
++git commit -m "feat: show due dates and overdue marker, add 'nur überfällige' filter"
++```
++
++### Task 4: End-to-end verification (agent-run, Playwright)
++
++**Files:**
++- None (verification only; screenshots saved outside the repo, e.g. `/tmp`)
++
++**Interfaces:**
++- Consumes: the running app on `PORT=3000` (`npm start`), base URL `http://localhost:3000`.
++
++- [ ] **Step 1: Start the app**
++
++Run from the repo root: `PORT=3000 npm start &`
++Wait for readiness: `GET http://localhost:3000/health` returns `{"ok":true}`.
++
++- [ ] **Step 2: Seed data via the API**
++
++```bash
++TODAY=$(date -u +%F); YESTERDAY=$(date -u -d 'yesterday' +%F); TOMORROW=$(date -u -d 'tomorrow' +%F)
++curl -s -X POST localhost:3000/todos -H 'content-type: application/json' -d "{\"title\":\"Überfällig\",\"dueDate\":\"$YESTERDAY\"}"
++curl -s -X POST localhost:3000/todos -H 'content-type: application/json' -d "{\"title\":\"Heute fällig\",\"dueDate\":\"$TODAY\"}"
++curl -s -X POST localhost:3000/todos -H 'content-type: application/json' -d "{\"title\":\"Später\",\"dueDate\":\"$TOMORROW\"}"
++curl -s -X POST localhost:3000/todos -H 'content-type: application/json' -d '{"title":"Ohne Datum"}'
++```
++
++Verify the API filter: `curl -s 'localhost:3000/todos?overdue=true'` returns exactly the `Überfällig` todo.
++
++- [ ] **Step 3: Drive the UI with Playwright**
++
++- Open `http://localhost:3000/`.
++- Assert 4 items under `[data-testid="todo-list"]`; the `Überfällig` item contains `fällig: <yesterday>` and `überfällig` (`[data-testid="todo-overdue"]`); the others have no `todo-overdue`.
++- Click `[data-testid="filter-overdue"]`; assert only the `Überfällig` item is visible.
++- Click again; assert all 4 items are visible again.
++- Save screenshots to `/tmp` (outside the repo): one of the unfiltered list, one of the filtered list.
++
++- [ ] **Step 4: Stop the app**
++
++Kill the background `npm start` process.
++
++- [ ] **Step 5: Commit nothing (no repo changes expected)**
++
++If any file changed during E2E, investigate before committing. Otherwise no commit.
++
++### Task 5: Integration — push branch, open draft PR
++
++**Files:**
++- None
++
++- [ ] **Step 1: Push the branch**
++
++```bash
++git push -u origin 1_faelligkeitsdatum
++```
++
++- [ ] **Step 2: Open a draft PR**
++
++```bash
++tea pulls create --login "e2e" --repo adw/demo-todo \
++  --base main --head 1_faelligkeitsdatum \
++  --title "WIP: 1: Fälligkeitsdatum für Todos" \
++  --description "Implements ticket #1: optional dueDate (YYYY-MM-DD) on todos, overdue marker in the list, GET /todos?overdue=true filter, and a 'nur überfällige' toggle button. Spec: docs/superpowers/specs/2026-10-23-due-date-design.md · Plan: docs/superpowers/plans/2026-10-23-due-date.md"
++```
++
++- [ ] **Step 3: Report**
++
++Post the Implementation Summary and Cost Summary as ticket comments (per `.agents/includes/cost.md`), then move the ticket to `status:review`. Never merge, never publish the PR, never close the ticket.
+diff --git a/docs/superpowers/specs/2026-10-23-due-date-design.md b/docs/superpowers/specs/2026-10-23-due-date-design.md
+new file mode 100644
+index 0000000..69e4a57
+--- /dev/null
++++ b/docs/superpowers/specs/2026-10-23-due-date-design.md
+@@ -0,0 +1,74 @@
++# Design: Fälligkeitsdatum für Todos (Ticket #1)
++
++## Intent
++
++Todos bekommen ein optionales Fälligkeitsdatum (`YYYY-MM-DD`), damit man in der
++API und in der Liste sieht, was überfällig ist.
++
++## Goals
++
++- API: `POST /todos` und `PATCH /todos/:id` akzeptieren ein optionales Feld
++  `dueDate` im Format `YYYY-MM-DD` (reines Datum, keine Uhrzeit).
++- Ungültige Werte (falsches Format, ungültiges Datum wie `2026-02-30`, falscher
++  Typ) werden mit `ValidationError` abgelehnt → HTTP 400, wie bestehende Felder.
++- `dueDate: null` löscht das Datum (bei PATCH); bei POST ist das Feld optional.
++- Liste (`/`): Jedes Todo mit Datum zeigt `fällig: YYYY-MM-DD` an. Ist das Todo
++  nicht erledigt und das Datum liegt vor dem heutigen Tag, wird es als
++  überfällig markiert (Text `überfällig`, kein Styling).
++- Todos ohne Datum sind nie überfällig und zeigen keinen Fälligkeitstext.
++- API-Filter: `GET /todos?overdue=true` liefert nur überfällige Todos
++  (nicht erledigt, `dueDate` vor dem heutigen UTC-Datum; Todos ohne Datum
++  nie überfällig). Ohne Parameter bleibt die Antwort unverändert (alle Todos).
++- Liste (`/`): Ein Bedienelement mit der Beschriftung `nur überfällige`
++  (Button, `data-testid="filter-overdue"`) blendet alle nicht überfälligen
++  Todos aus; erneutes Klicken zeigt wieder alle. Die Überfällig-Prüfung in
++  der UI nutzt das heutige UTC-Datum.
++
++## Non-Goals
++
++- Keine Uhrzeit (reines Datum `YYYY-MM-DD`).
++- Kein Pflichtfeld: bestehende Todos ohne `dueDate` bleiben gültig.
++- Kein Sortieren, keine Erinnerungen/Benachrichtigungen.
++- Kein Styling für überfällige Todos – das Wort `überfällig` reicht.
++
++## Constraints
++
++- Zero dependencies, Node builtins only.
++- `ValidationError` aus `src/store.mjs` → HTTP 400 (bestehende Konvention).
++- TDD: erst fehlschlagender Test in `test/`, dann Implementierung.
++- UI-Elemente, die Tests brauchen, bekommen `data-testid` (bestehend:
++  `todo-list`, `todo-item`, `todo-title`; neu: `todo-due`, `todo-overdue`).
++- E2E-Test durch den Agenten per Playwright gegen die laufende App
++  (AGENTS.md-End-to-end-Abschnitt).
++
++## Approaches
++
++1. **Optionales Feld im bestehenden Todo-Objekt** (gewählt): `add`/`update`
++   validieren `dueDate` gegen `^\d{4}-\d{2}-\d{2}$` und echtes Kalenderdatum.
++   Rückwärtskompatibel, folgt dem bestehenden Store-Muster.
++2. **Separate Struktur/Endpunkte für Fälligkeiten**: verworfen – Overkill für
++   die Demo-App, bläht API und UI auf.
++3. **Datum ohne Validierung speichern**: verworfen – ungültige Daten in der API,
++   widerspricht der Store-Konvention.
++
++## How (Entscheidungen)
++
++- `dueDate` ist `string | null` im Todo-Objekt; Default bei `add` ist `null`.
++- Validierung in `store.mjs` (wie `title`/`done`), nicht in `app.mjs`.
++- Überfällig-Prüfung: `!done && dueDate !== null && dueDate < heute`, wobei
++  `heute` das heutige Datum in UTC als `YYYY-MM-DD` ist
++  (`new Date().toISOString().slice(0, 10)`). String-Vergleich reicht bei
++  `YYYY-MM-DD`. Server (API-Filter) und UI nutzen dieselbe UTC-Logik.
++- API-Filter in `app.mjs`: `GET /todos?overdue=true` filtert mit der
++  Überfällig-Logik; `store.list()` bleibt unverändert.
++- UI: `index.html` rendert pro Todo ein `<span data-testid="todo-due">` mit
++  `fällig: <datum>`; bei Überfällig zusätzlich `<span data-testid="todo-overdue">`
++  mit dem Text `überfällig` (kein Styling).
++- Filter-Button: `<button data-testid="filter-overdue">nur überfällige</button>`
++  über der Liste; Klick toggelt die Anzeige auf nur überfällige Todos und
++  zurück (reines Client-seitiges Ein-/Ausblenden, kein erneutes Fetch).
++
++## Left to the builder
++
++- Reihenfolge: Tests (store + API + Filter) → store.mjs → app.mjs → index.html → E2E.
++- Branch: `1_faelligkeitsdatum`, PR-Titel: `1: Fälligkeitsdatum für Todos`.
+diff --git a/public/index.html b/public/index.html
+index de8f94a..ce7e333 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -3,10 +3,15 @@
+ <head><meta charset="utf-8"><title>demo-todo</title></head>
+ <body>
+   <h1>Todos</h1>
++  <button data-testid="filter-overdue" type="button">nur überfällige</button>
+   <ul data-testid="todo-list"></ul>
+   <script type="module">
+     const list = document.querySelector('[data-testid="todo-list"]');
++    const filterButton = document.querySelector('[data-testid="filter-overdue"]');
++    const todayUtc = new Date().toISOString().slice(0, 10);
++    const isOverdue = (todo) => !todo.done && todo.dueDate !== null && todo.dueDate < todayUtc;
+     const todos = await (await fetch('/todos')).json();
++    const items = [];
+     for (const todo of todos) {
+       const li = document.createElement('li');
+       li.dataset.testid = 'todo-item';
+@@ -14,8 +19,29 @@
+       title.dataset.testid = 'todo-title';
+       title.textContent = todo.title + (todo.done ? ' ✓' : '');
+       li.append(title);
++      if (todo.dueDate !== null) {
++        const due = document.createElement('span');
++        due.dataset.testid = 'todo-due';
++        due.textContent = ` fällig: ${todo.dueDate}`;
++        li.append(due);
++      }
++      if (isOverdue(todo)) {
++        li.dataset.overdue = 'true';
++        const overdue = document.createElement('span');
++        overdue.dataset.testid = 'todo-overdue';
++        overdue.textContent = ' überfällig';
++        li.append(overdue);
++      }
+       list.append(li);
++      items.push(li);
+     }
++    let onlyOverdue = false;
++    filterButton.addEventListener('click', () => {
++      onlyOverdue = !onlyOverdue;
++      for (const li of items) {
++        li.style.display = onlyOverdue && li.dataset.overdue !== 'true' ? 'none' : '';
++      }
++    });
+   </script>
+ </body>
+ </html>
+diff --git a/src/app.mjs b/src/app.mjs
+index 9db56cc..65a0c8f 100644
+--- a/src/app.mjs
++++ b/src/app.mjs
+@@ -15,7 +15,14 @@ export function createApp(store = createStore()) {
+         return res.end(await readFile(new URL('../public/index.html', import.meta.url)));
+       }
+       if (url.pathname === '/health') return send(200, { ok: true });
+-      if (url.pathname === '/todos' && req.method === 'GET') return send(200, store.list());
++      if (url.pathname === '/todos' && req.method === 'GET') {
++        const todos = store.list();
++        if (url.searchParams.get('overdue') === 'true') {
++          const todayUtc = new Date().toISOString().slice(0, 10);
++          return send(200, todos.filter((t) => !t.done && t.dueDate !== null && t.dueDate < todayUtc));
++        }
++        return send(200, todos);
++      }
+       if (url.pathname === '/todos' && req.method === 'POST') {
+         return send(201, store.add(await readJson(req)));
+       }
+diff --git a/src/store.mjs b/src/store.mjs
+index 3caed3c..d91912b 100644
+--- a/src/store.mjs
++++ b/src/store.mjs
+@@ -1,3 +1,9 @@
++function isValidDueDate(value) {
++  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
++  const date = new Date(`${value}T00:00:00Z`);
++  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
++}
++
+ // In-memory todo store.
+ export function createStore() {
+   const todos = new Map();
+@@ -9,11 +15,14 @@ export function createStore() {
+     get(id) {
+       return todos.get(id);
+     },
+-    add({ title }) {
++    add({ title, dueDate = null }) {
+       if (typeof title !== 'string' || title.trim() === '') {
+         throw new ValidationError('title is required');
+       }
+-      const todo = { id: nextId++, title: title.trim(), done: false };
++      if (dueDate !== null && !isValidDueDate(dueDate)) {
++        throw new ValidationError('dueDate must be a YYYY-MM-DD date or null');
++      }
++      const todo = { id: nextId++, title: title.trim(), done: false, dueDate };
+       todos.set(todo.id, todo);
+       return todo;
+     },
+@@ -30,6 +39,12 @@ export function createStore() {
+         if (typeof patch.done !== 'boolean') throw new ValidationError('done must be a boolean');
+         todo.done = patch.done;
+       }
++      if ('dueDate' in patch) {
++        if (patch.dueDate !== null && !isValidDueDate(patch.dueDate)) {
++          throw new ValidationError('dueDate must be a YYYY-MM-DD date or null');
++        }
++        todo.dueDate = patch.dueDate;
++      }
+       return todo;
+     },
+     remove(id) {
+diff --git a/test/app.test.mjs b/test/app.test.mjs
+index 2ce65b0..9607672 100644
+--- a/test/app.test.mjs
++++ b/test/app.test.mjs
+@@ -25,7 +25,7 @@ test('creates and lists todos', () =>
+     const created = await fetch(`${base}/todos`, json('POST', { title: 'Milch kaufen' }));
+     assert.equal(created.status, 201);
+     const list = await (await fetch(`${base}/todos`)).json();
+-    assert.deepEqual(list, [{ id: 1, title: 'Milch kaufen', done: false }]);
++    assert.deepEqual(list, [{ id: 1, title: 'Milch kaufen', done: false, dueDate: null }]);
+   }));
+ 
+ test('rejects an empty title', () =>
+@@ -41,9 +41,73 @@ test('marks a todo done', () =>
+     assert.equal((await res.json()).done, true);
+   }));
+ 
++test('creates a todo with a due date', () =>
++  withServer(async (base) => {
++    const created = await fetch(`${base}/todos`, json('POST', { title: 'Bericht', dueDate: '2026-11-01' }));
++    assert.equal(created.status, 201);
++    assert.deepEqual(await created.json(), { id: 1, title: 'Bericht', done: false, dueDate: '2026-11-01' });
++  }));
++
++test('creates a todo without a due date (dueDate defaults to null)', () =>
++  withServer(async (base) => {
++    const created = await fetch(`${base}/todos`, json('POST', { title: 'A' }));
++    assert.equal((await created.json()).dueDate, null);
++  }));
++
++test('rejects invalid due dates', () =>
++  withServer(async (base) => {
++    for (const dueDate of ['2026-13-01', '2026-02-30', '01.11.2026', '2026-11-01T10:00:00Z', 42]) {
++      const res = await fetch(`${base}/todos`, json('POST', { title: 'A', dueDate }));
++      assert.equal(res.status, 400, `dueDate=${JSON.stringify(dueDate)} should be rejected`);
++    }
++  }));
++
++test('updates and clears the due date via PATCH', () =>
++  withServer(async (base) => {
++    await fetch(`${base}/todos`, json('POST', { title: 'A' }));
++    const set = await fetch(`${base}/todos/1`, json('PATCH', { dueDate: '2026-12-24' }));
++    assert.equal((await set.json()).dueDate, '2026-12-24');
++    const cleared = await fetch(`${base}/todos/1`, json('PATCH', { dueDate: null }));
++    assert.equal((await cleared.json()).dueDate, null);
++    const invalid = await fetch(`${base}/todos/1`, json('PATCH', { dueDate: 'gestern' }));
++    assert.equal(invalid.status, 400);
++  }));
++
++test('GET /todos?overdue=true returns only overdue todos', () =>
++  withServer(async (base) => {
++    const today = new Date().toISOString().slice(0, 10);
++    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
++    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
++    await fetch(`${base}/todos`, json('POST', { title: 'overdue', dueDate: yesterday }));
++    await fetch(`${base}/todos`, json('POST', { title: 'due today', dueDate: today }));
++    await fetch(`${base}/todos`, json('POST', { title: 'future', dueDate: tomorrow }));
++    await fetch(`${base}/todos`, json('POST', { title: 'no date' }));
++    await fetch(`${base}/todos`, json('POST', { title: 'done overdue', dueDate: yesterday }));
++    await fetch(`${base}/todos/5`, json('PATCH', { done: true }));
++    const res = await fetch(`${base}/todos?overdue=true`);
++    assert.equal(res.status, 200);
++    const list = await res.json();
++    assert.deepEqual(list.map((t) => t.title), ['overdue']);
++  }));
++
++test('GET /todos without params still returns all todos', () =>
++  withServer(async (base) => {
++    await fetch(`${base}/todos`, json('POST', { title: 'A', dueDate: '2020-01-01' }));
++    await fetch(`${base}/todos`, json('POST', { title: 'B' }));
++    const list = await (await fetch(`${base}/todos`)).json();
++    assert.equal(list.length, 2);
++  }));
++
+ test('serves the list page', () =>
+   withServer(async (base) => {
+     const res = await fetch(`${base}/`);
+     assert.equal(res.status, 200);
+     assert.match(await res.text(), /data-testid="todo-list"/);
+   }));
++
++test('list page has the overdue filter button', () =>
++  withServer(async (base) => {
++    const html = await (await fetch(`${base}/`)).text();
++    assert.match(html, /data-testid="filter-overdue"/);
++    assert.match(html, /nur überfällige/);
++  }));

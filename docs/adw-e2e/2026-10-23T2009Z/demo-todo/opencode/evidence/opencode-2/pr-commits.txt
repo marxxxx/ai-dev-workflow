@@ -1,0 +1,6 @@
+6aa32e6 chore: ignore tool scratch directories
+b86146b feat: show due dates and overdue marker, add 'nur überfällige' filter
+10d10ed feat: filter overdue todos via GET /todos?overdue=true
+e589d40 feat: add optional dueDate field to todos with validation
+8360542 Add implementation plan for ticket #1: due date for todos
+e3936c2 Add approved spec for ticket #1: due date for todos

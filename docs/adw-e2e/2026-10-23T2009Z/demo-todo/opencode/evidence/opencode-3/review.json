@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover AC1–AC7: optional date on POST, set and clear on PATCH, 400 on invalid dates, the overdue filter, date display, the \"überfällig\" marker and the \"nur überfällige\" button.",
+    "scope": "The change stays on the feature; the only extras are the `.gitignore` entry for `.playwright-mcp/` and committed spec and plan docs, which are minor.",
+    "tests": "New tests cover POST and PATCH validation, setting and clearing the date, and an overdue filter with yesterday, today, tomorrow, no-date and done cases, and the existing deepEqual test was extended rather than weakened; the UI has no automated test beyond a manual E2E run.",
+    "conventions": "The code uses `ValidationError` for HTTP 400, adds no dependencies, gives new UI elements a `data-testid`, and follows TDD; the E2E screenshots were saved in the repo's `.playwright-mcp/` directory instead of outside the repository as AGENTS.md requires.",
+    "architecture": "Validation and filtering live in the store and `app.mjs` only passes the query parameter through; the UI repeats the overdue rule on the client, which the spec chose deliberately.",
+    "codeQuality": "The code is clean and handles edge cases such as date round-tripping and null; `parseDueDate` throws the same error in two places, and the page computes `today` once at load so it goes stale in a long-open tab."
+  },
+  "error": null
+}

@@ -1,0 +1,21 @@
+{
+  "criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass",
+    "AC5": "pass",
+    "AC6": "pass",
+    "AC7": "pass"
+  },
+  "evidence": {
+    "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-01\"} returned 201 with dueDate \"2026-10-01\". Creating a todo without dueDate returned 201 with dueDate null. The value is a plain YYYY-MM-DD date, and a datetime string was rejected.",
+    "AC2": "PATCH /todos/4 with {\"dueDate\":\"2026-09-01\"} returned 200 with the new date. PATCH with {\"dueDate\":null} returned 200 with dueDate null. A later GET /todos/2 after the same removal also showed null. PATCH with a new date set it again.",
+    "AC3": "POST with dueDate \"2026-02-30\", \"23.10.2026\", \"2026-10-23T10:00:00Z\", \"abc\" and the number 5 each returned 400 with 'dueDate must be a YYYY-MM-DD date or null'. PATCH with \"2026-02-30\" also returned 400.",
+    "AC4": "Test data, with today 2026-10-23: past-due open todo, future-due todo, due-today todo, no-due todo, past-due todo marked done. GET /todos?overdue=true returned only the past-due open todo (id 1, 2026-10-01). Future, today, no-due and done todos were excluded.",
+    "AC5": "The page at / showed 'past fällig: 2026-10-01', 'future fällig: 2026-12-01', 'today fällig: 2026-10-23' and 'pastdone ✓ fällig: 2026-10-02'. The todo without a due date showed none.",
+    "AC6": "In the page snapshot only the 'past' todo (open, due 2026-10-01) carried 'überfällig'. The future, due-today, no-due and done-past-due todos did not.",
+    "AC7": "The page has a button 'nur überfällige'. Clicking it left only the 'past ... überfällig' item in the list. The other four items were hidden."
+  },
+  "error": null
+}

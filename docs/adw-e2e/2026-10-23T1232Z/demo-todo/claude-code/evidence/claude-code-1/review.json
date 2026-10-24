@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered in the spec and the diff, including the UTC rule, the 400 cases, and the exact UI wording.",
+    "scope": "The change adds JSON-object body validation and makes a rejected PATCH atomic, which nobody asked for; the summary does disclose both and they are small.",
+    "tests": "Store and API tests cover the validation, UTC boundary, filter and PATCH null cases, and no existing tests were weakened; the page behaviour (date format, marker) is only checked through a static HTML string match, and there is no test for a PATCH that is rejected without changing anything.",
+    "conventions": "The change uses ValidationError mapped to 400, adds data-testid on every new UI element, uses only builtins, and writes tests first.",
+    "architecture": "The overdue rule lives only in the store's view helper, and the app and page reuse it, so the logic is not duplicated.",
+    "codeQuality": "The code is clean and handles edge cases such as the leap day and the PATCH ordering; the Date.parse check is redundant given the round-trip comparison, and render() has no handling for failed fetches."
+  },
+  "error": null
+}

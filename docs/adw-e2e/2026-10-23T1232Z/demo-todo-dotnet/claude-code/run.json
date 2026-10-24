@@ -1,0 +1,485 @@
+{
+  "schema": 2,
+  "task": "demo-todo-dotnet",
+  "harness": "claude-code",
+  "fingerprint": {
+    "adw": {
+      "version": "0.28.0",
+      "sha": "e440089a92a5d01c965ef0827b0ad775a4601224",
+      "dirty": true
+    },
+    "skill": {
+      "claude": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "codex": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "opencode": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:9905aed6ff6a01bbb005f626e5bf6af85f9bde49ed2b27cee46a1f2302aecce8"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-dotnet:latest",
+      "id": "sha256:0150386d54bedb60ce043bcddee75b3a451c1eb5dc658af364ccd46ddfeacc16",
+      "inventory": "be1ece0171d7af148100fdcf1ba8aa846a6a088e455ab86b227b30b6a32614ec",
+      "harnessVersion": "2.1.309",
+      "superpowers": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "d0da995efeca9c264b60d5b89daaaf8676038179c9502bfb8a4f804ba286495b",
+      "lib": "4674f72ba86ec174e083cc0a55aa210119fcf023f49cc94ee29ca36d8c1b6ba9"
+    },
+    "config": "1ff0716c9335e44bede9e57b40bcf1538fd283d6c6850d494fb142cff041ebf0",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "claude-opus-5-5",
+      "subagents": "claude-sonnet-5-5",
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "02affc8ba4e07c87b38ccd27fe73c2ce3c0081fc46b00875b175a50e6051e960"
+  },
+  "calibration": "2026-10-13T1704Z",
+  "config": {
+    "model": "claude-opus-5-5",
+    "subagentModel": "claude-sonnet-5-5",
+    "agentKwargs": {
+      "max_budget_usd": "20"
+    },
+    "repetitions": 3
+  },
+  "trials": [
+    {
+      "id": "claude-code-1",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 5,
+        "architecture": 5,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria are covered by the spec and the diff, including the boundary cases (due today, done, no date, `PATCH` with `null`, and a 400 for an invalid date or a non-boolean filter).",
+        "scope": "The change stays on the ticket; the plan and spec documents and the `AGENTS.md` locator update follow the repo's workflow, and the only extras are a small `UsesTheRegisteredClock` test and the `FixedTimeProvider` helper.",
+        "tests": "The tests cover the boundary, the UTC clock, `PATCH` semantics, the filter, the 400 cases and the page output, and no existing test was weakened (only the one JSON expectation was updated); the interactive filter checkbox is only checked by hand in E2E.",
+        "conventions": "The change follows `AGENTS.md`: `ValidationException` thrown in the store, no new packages, `data-testid` on every new element, tests written first, and the locators documented.",
+        "architecture": "The overdue rule lives once in `Todo.IsOverdue`, the API and the page share it, the store owns parsing and the clock, and `TodoView` keeps the computed `overdue` out of the stored record.",
+        "codeQuality": "The code is clean and handles the edge cases; the `@(\" \")` whitespace workaround in `Home.razor` is a little awkward, and the `Optional` converter's `!` on a null deserialize is slightly loose but harmless."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 13,
+        "agent": 822,
+        "verifier": 12,
+        "total": 897
+      },
+      "tokens": {
+        "input": 146,
+        "output": 60207,
+        "cacheRead": 6345546,
+        "cacheWrite": 199036,
+        "total": 6604935
+      },
+      "cost": 3.787012,
+      "ccusage": {
+        "ccusageTotal": 6604935,
+        "deviation": 0,
+        "warning": null,
+        "cost": 3.787012,
+        "models": {
+          "claude-opus-5-5": {
+            "input": 136,
+            "output": 56266,
+            "cacheRead": 6262380,
+            "cacheWrite": 156970,
+            "total": 6475752,
+            "cost": 3.6341
+          },
+          "claude-sonnet-5-5": {
+            "input": 10,
+            "output": 3941,
+            "cacheRead": 83166,
+            "cacheWrite": 42066,
+            "total": 129183,
+            "cost": 0.152912
+          }
+        }
+      },
+      "userTokens": {
+        "total": 275620
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 7,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "Read": 11,
+          "ToolSearch": 4,
+          "Bash": 46,
+          "Skill": 6,
+          "Write": 7,
+          "Edit": 19,
+          "Agent": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 3,
+            "browser_wait_for": 5,
+            "browser_evaluate": 6,
+            "browser_take_screenshot": 5,
+            "browser_click": 2,
+            "browser_close": 1
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "claude-code-2",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 5,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and the diff cover all seven acceptance criteria: optional DateOnly, change and clear through Optional<T>, 400 on invalid dates, the overdue filter, the due date display, the \"überfällig\" mark and the \"nur überfällige\" checkbox. The spec also pins edge cases such as today not being overdue and the UTC rule.",
+        "scope": "The changes stay on the ticket. The extra `@preservewhitespace` and the whitespace test are a justified fix for the new spans, and the plan and spec docs follow the repo's workflow.",
+        "tests": "Tests cover the store rule, the filter, PATCH missing/value/null, invalid dates, the page markup and the UTC-offset clock. The checkbox filter behaviour is only checked in the E2E run, not by an automated test, and the one changed assertion is an additive expected-JSON update.",
+        "conventions": "The change follows AGENTS.md: no new packages, validation stays in the store and the existing 400 path, data-testids on all new UI elements, and TDD with commits split per task.",
+        "architecture": "Logic stays in TodoStore, which the API and the page share, and TimeProvider is injected through DI. Storing a Todo with a placeholder Overdue=false and filling it in on read is slightly awkward.",
+        "codeQuality": "The code is small and readable, with correct handling of absent versus null and of the UTC date. Minor nits: WithOverdue calls the clock once per item, and the Optional converter uses reflection and a null-forgiving `!`."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 12,
+        "agent": 667,
+        "verifier": 11,
+        "total": 740
+      },
+      "tokens": {
+        "input": 156,
+        "output": 52738,
+        "cacheRead": 6024179,
+        "cacheWrite": 174454,
+        "total": 6251527
+      },
+      "cost": 3.354255,
+      "ccusage": {
+        "ccusageTotal": 6251527,
+        "deviation": 0,
+        "warning": null,
+        "cost": 3.354255,
+        "models": {
+          "claude-opus-5-5": {
+            "input": 140,
+            "output": 47886,
+            "cacheRead": 5819463,
+            "cacheWrite": 132168,
+            "total": 5999657,
+            "cost": 3.179517
+          },
+          "claude-sonnet-5-5": {
+            "input": 16,
+            "output": 4852,
+            "cacheRead": 204716,
+            "cacheWrite": 42286,
+            "total": 251870,
+            "cost": 0.174739
+          }
+        }
+      },
+      "userTokens": {
+        "total": 286053
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 8,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "Read": 9,
+          "ToolSearch": 5,
+          "Bash": 44,
+          "Skill": 5,
+          "Write": 7,
+          "Edit": 8,
+          "Agent": 1,
+          "KillShell": 2
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 3,
+            "browser_wait_for": 5,
+            "browser_snapshot": 1,
+            "browser_take_screenshot": 5,
+            "browser_evaluate": 5,
+            "browser_click": 2,
+            "browser_close": 1
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "claude-code-3",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 5,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover AC1–AC7, including the edge cases of an empty string, a null value that removes the date, and the UTC boundary.",
+        "scope": "The change stays on the ticket. It also adds the spec and plan documents and a public TimeProvider constructor, which are minor extras.",
+        "tests": "The store, API and page tests are good and no existing tests were weakened. The existing JSON assertion was only updated for the new fields. The checkbox filter and the 'Keine überfälligen Todos' hint have no xUnit test, and the page test never checks the 'todo-due-date' test id.",
+        "conventions": "ValidationException in the store, data-testids on new elements and TDD all follow AGENTS.md. AGENTS.md itself was not updated with the four new data-testids, although it lists the existing ones.",
+        "architecture": "The overdue rule lives only in the store, the API and the page share it, and the time source is injected. The Optional<T> type cleanly separates an absent field from a null one.",
+        "codeQuality": "The code is clear and the edge cases are handled. The custom Optional converter and the explicit @(\" \") spacing add some complexity, and Optional.Read uses a null-forgiving '!' on the deserialized value."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 770,
+        "verifier": 10,
+        "total": 841
+      },
+      "tokens": {
+        "input": 156,
+        "output": 54951,
+        "cacheRead": 5979010,
+        "cacheWrite": 175235,
+        "total": 6209352
+      },
+      "cost": 3.420894,
+      "ccusage": {
+        "ccusageTotal": 6209352,
+        "deviation": 0,
+        "warning": null,
+        "cost": 3.420894,
+        "models": {
+          "claude-opus-5-5": {
+            "input": 146,
+            "output": 50500,
+            "cacheRead": 5898600,
+            "cacheWrite": 134533,
+            "total": 6083779,
+            "cost": 3.266568
+          },
+          "claude-sonnet-5-5": {
+            "input": 10,
+            "output": 4451,
+            "cacheRead": 80410,
+            "cacheWrite": 40702,
+            "total": 125573,
+            "cost": 0.154326
+          }
+        }
+      },
+      "userTokens": {
+        "total": 290871
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 8,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "Read": 9,
+          "ToolSearch": 4,
+          "Bash": 44,
+          "Skill": 5,
+          "Write": 6,
+          "Edit": 3,
+          "Agent": 1,
+          "KillShell": 2
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 3,
+            "browser_wait_for": 3,
+            "browser_snapshot": 1,
+            "browser_take_screenshot": 5,
+            "browser_evaluate": 5,
+            "browser_click": 3,
+            "browser_close": 1
+          },
+          "context7": {}
+        }
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 1,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 1,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 1,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 1,
+      "ac:AC4": 1,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 1
+    },
+    "median": {
+      "tokens": 6251527,
+      "cost": 3.420894,
+      "agent": 770
+    },
+    "mcp": {
+      "serena": {
+        "calls": 0,
+        "trials": 0
+      },
+      "playwright": {
+        "calls": 65,
+        "trials": 3
+      },
+      "context7": {
+        "calls": 0,
+        "trials": 0
+      }
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 4,
+      "tests": 4,
+      "conventions": 5,
+      "architecture": 5,
+      "codeQuality": 4
+    },
+    "errorClasses": []
+  }
+}
