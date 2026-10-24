@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 2,
+    "tests": 3,
+    "conventions": 3,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and the diff cover all seven acceptance criteria, including the UTC rule, the null/clear case, the 400 on invalid input, the 'überfällig' marker and the 'nur überfällige' button.",
+    "scope": "The .gitignore change removes the existing `node_modules/` entry, which is unrelated and risky. The added plan and spec docs are also extra files.",
+    "tests": "API and validation tests are good, including the today/done/no-date boundaries. The UI rendering, marker and toggle are only checked by a static HTML string match plus manual E2E, and the one existing assertion was updated only for the new field.",
+    "conventions": "The change uses ValidationError, data-testid attributes and TDD, but it drops `node_modules/` from .gitignore. The summary also says screenshots were saved in `.playwright-mcp/` inside the repo, while AGENTS.md says to save them outside it.",
+    "architecture": "Validation sits in the store and the filter in app.mjs, and `store.list()` is untouched, as the spec says. The overdue predicate is inlined in app.mjs and duplicated in the HTML, but that duplication is hard to avoid with zero dependencies.",
+    "codeQuality": "The code is concise and correct at the edges: it checks the date round-trip, handles null and a non-string type, and compares UTC dates as strings. The small blemish is the repeated validation block in `add` and `update`."
+  },
+  "error": null
+}

@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 3
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered, including set, change and clear on PATCH, UTC overdue, 400 on invalid dates, the \"überfällig\" marker and the \"nur überfällige\" control.",
+    "scope": "The change stays within the ticket; the only extras are the plan and spec docs and the custom PATCH converter, which the clear-by-null requirement justifies.",
+    "tests": "Store, API and page tests cover overdue, UTC today, done, 400 and null-clear cases, but nothing tests the filter checkbox's behaviour, the page test never checks that a non-overdue todo lacks the marker, and the one edited existing assertion only gained `dueDate:null`.",
+    "conventions": "The code uses the repo's data-testid, ValidationException and 400-mapping idioms and the existing test style, though the converter class sits in TodoStore.cs instead of its own file.",
+    "architecture": "Logic stays in TodoStore and the minimal API with the Razor page reusing the store, but the JSON converter is placed in the store file and the overdue test is instance-based rather than injectable for the clock.",
+    "codeQuality": "The hand-written TodoPatchJsonConverter silently ignores wrongly typed title, done and dueDate values, so `\"dueDate\": 123` clears the date instead of returning 400. It also parses the body into a JsonDocument by hand, which is more complex than needed."
+  },
+  "error": null
+}
