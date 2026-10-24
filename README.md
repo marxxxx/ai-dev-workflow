@@ -9,7 +9,7 @@ The generator is a zero-dependency Node script, published to npm as
 [`@strobl_dev/adw`](https://www.npmjs.com/package/@strobl_dev/adw). The consuming project does
 **not** need to be a Node project. It works in any repo (C#/.NET, Go, Rust, …) — the only
 requirement is Node on the machine that runs the generator (your dev box and CI). Pin a version
-(e.g. `@0.28.0`) so devs and CI stay in sync.
+(e.g. `@0.29.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -33,7 +33,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
-npx @strobl_dev/adw@0.28.0 init
+npx @strobl_dev/adw@0.29.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -43,12 +43,12 @@ npx @strobl_dev/adw@0.28.0 init
 #    with your coding agent's native /init.)
 
 # 3. generate the platform files
-npx @strobl_dev/adw@0.28.0 generate
+npx @strobl_dev/adw@0.29.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the version (`@0.28.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the version (`@0.29.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 Versions up to v0.23.0 were only distributed from Git (`npx github:marxxxx/ai-dev-workflow#v0.23.0`).
 npm 12 refuses git specs by default (`EALLOWGIT`); add `--allow-git=all` if you still need one.
@@ -224,9 +224,9 @@ and records the `skills` opt-in. Run
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
 
-**Upgrading to the show-me release.** Run `upgrade` instead of `generate`: it records
-`"skills": { "show-me": true }` in `ai-project.json` and installs the skill with `npx skills`
-(needs network access to npm and GitHub). To decline, set `"show-me": false` first. Until it is
+**Upgrading to v0.29.0.** adw now installs the show-me skill. Run `upgrade` instead of
+`generate`: it records `"skills": { "show-me": true }` in `ai-project.json` and installs the skill
+with `npx skills` (needs network access to npm and GitHub). To decline, set `"show-me": false` first. Until it is
 installed, `generate` and `check` print a note, and `agent-dev` mentions it once per review.
 
 **Upgrading to v0.25.0.** New `upgrade` command: it cleans up after the pre-v0.23 workflow (see
@@ -248,8 +248,8 @@ the developer journal/handoff, and the e2e include are gone; ticket states shrin
 longer produces; run `upgrade` instead, which removes them and then generates:
 
 ```bash
-npx @strobl_dev/adw@0.28.0 upgrade --dry-run   # list what would change
-npx @strobl_dev/adw@0.28.0 upgrade
+npx @strobl_dev/adw@0.29.0 upgrade --dry-run   # list what would change
+npx @strobl_dev/adw@0.29.0 upgrade
 ```
 
 It deletes these files, but only where they still carry the generator's `DO NOT EDIT` banner (a
