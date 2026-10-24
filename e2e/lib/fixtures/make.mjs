@@ -5,7 +5,8 @@ import path from 'node:path';
 
 const line = (o) => `${JSON.stringify(o)}\n`;
 
-export function makeClaudeTrial(dir) {
+// `read`: a file path the agent reads with the harness's own tool, as its trajectory records it.
+export function makeClaudeTrial(dir, { read } = {}) {
   const s = path.join(dir, 'agent/sessions/projects/-workspace');
   mkdirSync(path.join(s, 'abc/subagents'), { recursive: true });
   const usage = (i, o, cr, cc) => ({ input_tokens: i, output_tokens: o, cache_read_input_tokens: cr, cache_creation_input_tokens: cc });
@@ -16,6 +17,8 @@ export function makeClaudeTrial(dir) {
     line({ type: 'user', message: { content: [{ type: 'tool_result', is_error: true, content: 'Exit code 1' }] } }) +
     line({ type: 'assistant', message: { id: 'm2', model: 'claude-opus-5-5', usage: usage(5, 20, 500, 0),
       content: [{ type: 'text', text: 'done' }] } }) +
+    (read ? line({ type: 'assistant', message: { id: 'm3', model: 'claude-opus-5-5', usage: usage(0, 0, 0, 0),
+      content: [{ type: 'tool_use', name: 'Read', input: { file_path: `/workspace/${read}` } }] } }) : '') +
     'not json\n');
   writeFileSync(path.join(s, 'abc/subagents/agent-1.jsonl'),
     line({ type: 'assistant', message: { id: 's1', model: 'claude-sonnet-5-5', usage: usage(1, 10, 100, 5), content: [] } }));
@@ -23,7 +26,7 @@ export function makeClaudeTrial(dir) {
   return dir;
 }
 
-export function makeCodexTrial(dir) {
+export function makeCodexTrial(dir, { read } = {}) {
   const s = path.join(dir, 'agent/sessions/2026/10/10');
   mkdirSync(s, { recursive: true });
   const total = (i, c, o) => ({ input_tokens: i, cached_input_tokens: c, output_tokens: o, total_tokens: i + o });
@@ -31,12 +34,13 @@ export function makeCodexTrial(dir) {
     line({ type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: total(100, 80, 10) } } }) +
     line({ type: 'response_item', payload: { type: 'function_call', name: 'mcp__playwright__browser_navigate', arguments: '{"url":"http://127.0.0.1:3000"}' } }) +
     line({ type: 'response_item', payload: { type: 'function_call_output', output: 'failed to parse function arguments: unknown field' } }) +
+    (read ? line({ type: 'response_item', payload: { type: 'function_call', name: 'exec_command', arguments: JSON.stringify({ cmd: `sed -n '1,200p' ${read}` }) } }) : '') +
     line({ type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: total(1000, 900, 50) } } }));
   writeUserLog(dir, false);
   return dir;
 }
 
-export function makeOpenCodeTrial(dir) {
+export function makeOpenCodeTrial(dir, { read } = {}) {
   const d = path.join(dir, 'agent/opencode/xdg-data/opencode');
   mkdirSync(d, { recursive: true });
   const db = new DatabaseSync(path.join(d, 'opencode.db'));
@@ -48,6 +52,7 @@ export function makeOpenCodeTrial(dir) {
   const part = db.prepare('insert into part values (?, ?)');
   part.run('a', JSON.stringify({ type: 'tool', tool: 'playwright_browser_navigate', state: { status: 'completed', input: { url: 'http://localhost:3000' } } }));
   part.run('b', JSON.stringify({ type: 'tool', tool: 'bash', state: { status: 'error', input: { command: 'x' } } }));
+  if (read) part.run('c', JSON.stringify({ type: 'tool', tool: 'read', state: { status: 'completed', input: { filePath: `/workspace/${read}` } } }));
   db.close();
   writeUserLog(dir, true);
   return dir;

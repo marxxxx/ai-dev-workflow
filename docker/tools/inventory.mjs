@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Container tool pins. tools/inventory.json is the single source of truth; this script
 // renders the derived pins (tools/package.json + lockfile, Dockerfile FROM/ARGs, the dind
-// overlay's image), checks
+// overlay's image, the agent skills config adw installs into projects), checks
 // them for drift and resolves upstream updates. Host-side only; Node builtins only.
 //
 //   node docker/tools/inventory.mjs check              exit 1 if a derived pin drifted
@@ -22,7 +22,9 @@ const PACKAGE_JSON = 'tools/package.json';
 const LOCKFILE = 'tools/package-lock.json';
 // An init template; the inventory pins its image line.
 const DIND_OVERLAY = '../agent-src/container/compose.ai-dev.dind.yml';
-const DERIVED_FILES = [PACKAGE_JSON, 'Dockerfile', 'Dockerfile.dotnet', DIND_OVERLAY];
+// Read by adw init/upgrade, which install these skills into consuming projects with `npx skills`.
+const SKILLS_CONFIG = '../agent-src/config/skills.json';
+const DERIVED_FILES = [PACKAGE_JSON, 'Dockerfile', 'Dockerfile.dotnet', DIND_OVERLAY, SKILLS_CONFIG];
 
 const DOCKERFILE_ARGS = {
   Dockerfile: {
@@ -83,6 +85,10 @@ export function renderDerivedFiles(inventory, current) {
   }
   rendered[DIND_OVERLAY] = replaceLine(current[DIND_OVERLAY], /^ {4}image: docker:[^\r\n]*/m,
     `    image: ${inventory.dindImage.reference}`, DIND_OVERLAY);
+  rendered[SKILLS_CONFIG] = toJson({
+    $comment: `Derived from docker/${INVENTORY} (agentSkills): edit that, then run node docker/tools/inventory.mjs sync.`,
+    ...inventory.agentSkills,
+  });
   return rendered;
 }
 
@@ -250,6 +256,11 @@ export async function resolveUpdates(inventory, sources) {
   for (const [name, url] of Object.entries(SOURCE_REPOSITORIES)) {
     propose(name, ['sourceRevisions', name], inventory.sourceRevisions[name], await sources.gitHead(url));
   }
+  propose('skills', ['agentSkills', 'cli'], inventory.agentSkills.cli, (await packument('skills'))['dist-tags'].latest);
+  for (const [name, skill] of Object.entries(inventory.agentSkills.skills)) {
+    propose(name, ['agentSkills', 'skills', name, 'revision'], skill.revision,
+      await sources.gitHead(`https://github.com/${skill.repository}.git`));
+  }
   const channel = policy.dotnetChannel ?? inventory.derivedImages.dotnetSdk.split('.').slice(0, 2).join('.');
   propose('dotnetSdk', ['derivedImages', 'dotnetSdk'], inventory.derivedImages.dotnetSdk, await sources.dotnetLatestSdk(channel));
   const efVersions = (await sources.nugetVersions('dotnet-ef')).filter(version => version.startsWith(`${channel}.`));
@@ -259,7 +270,8 @@ export async function resolveUpdates(inventory, sources) {
 
 export function inventoryNames(inventory) {
   return ['baseImage', 'dindImage', ...Object.keys(inventory.npmPackages), ...Object.keys(inventory.systemTools),
-    ...Object.keys(inventory.sourceRevisions), ...Object.keys(inventory.derivedImages)];
+    ...Object.keys(inventory.sourceRevisions), ...Object.keys(inventory.derivedImages),
+    'skills', ...Object.keys(inventory.agentSkills.skills)];
 }
 
 // Narrows changes to the named pins; dependents (npmFollowDependency) move with their target.

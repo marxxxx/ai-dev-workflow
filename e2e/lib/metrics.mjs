@@ -150,6 +150,11 @@ export function e2ePerformed(harness, trialDir, port) {
     .some((c) => /browser_navigate/.test(c.name + c.text) && new RegExp(`(localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0):${port}(?!\\d)`).test(c.text)) ? 1 : 0;
 }
 
+// agent-dev's spec/plan review hook: the agent read show-me's SKILL.md (user-invoked only, so read as a file).
+export function showMeRead(harness, trialDir) {
+  return toolCalls(harness, trialDir).some((c) => /show-me[\\/]+SKILL\.md/.test(c.text)) ? 1 : 0;
+}
+
 export function softSignals(harness, trialDir) {
   const blob = harness === 'opencode'
     ? JSON.stringify([openCodeRows(trialDir, 'message'), openCodeRows(trialDir, 'part')])

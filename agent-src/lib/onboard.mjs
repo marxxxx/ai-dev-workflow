@@ -8,6 +8,7 @@ import { SRC_DIR, argValue } from './constants.mjs';
 import { detectRepoSlug } from './identity.mjs';
 import { readJson, buildProjectConfig } from './config.mjs';
 import { STACKS, DIND_WARNING, detectStack, writeContainerFiles, nextSteps } from './container.mjs';
+import { loadSkillPins, installSkills, reportSkills } from './skills.mjs';
 
 /**
  * The next-step guidance printed after onboarding: create AGENTS.md with the coding agent's native
@@ -41,7 +42,11 @@ const DEPENDENCIES =
   '               https://github.com/upstash/context7\n' +
   '\n' +
   '  ccusage      CLI: token/cost reporting used for agent-dev\'s cost summary\n' +
-  '               https://ccusage.com';
+  '               https://ccusage.com\n' +
+  '\n' +
+  '  show-me      Skill: compact views of a spec or plan for agent-dev\'s reviews; `init` and\n' +
+  '               `upgrade` install it into the project unless you opt out\n' +
+  '               https://github.com/humanlayer/skills';
 
 /** Template-copy scaffold — the non-interactive fallback. Never overwrites. */
 export function cmdScaffold(projectRoot) {
@@ -175,6 +180,19 @@ export async function askContainer(prompter, projectRoot) {
   return { enabled: true, stack, env };
 }
 
+/**
+ * One question per pinned third-party skill (config/skills.json). Interactive runs default to
+ * yes; an answers file without `skills.<name>` means no.
+ */
+export async function askSkills(prompter, pins = loadSkillPins()) {
+  const choices = {};
+  for (const [name, { purpose, repository }] of Object.entries(pins.skills)) {
+    const answer = await prompter.ask(`Install the ${name} skill (${purpose}, from ${repository})? (Y/n)`, `skills.${name}`, prompter.scripted ? 'n' : 'y');
+    choices[name] = yes(answer);
+  }
+  return choices;
+}
+
 const yes = (answer) => /^(y|yes|true)$/i.test(answer);
 
 /** The ai-dev-workflow version, for the `npx @strobl_dev/adw@<version>` line of the next steps. */
@@ -216,7 +234,7 @@ function setUpContainer(projectRoot, { stack, env }, config) {
  * The `--answers` path is a scripted prompter, so interactive and non-interactive init share
  * exactly one interview code path.
  */
-export async function cmdInit(projectRoot, { prompter } = {}) {
+export async function cmdInit(projectRoot, { prompter, runSkill } = {}) {
   const dest = path.join(projectRoot, 'ai-project.json');
   let active = prompter;
   if (!active) {
@@ -243,11 +261,13 @@ export async function cmdInit(projectRoot, { prompter } = {}) {
     }
 
     const answers = await runInterview(active, { detectRepoSlug, projectRoot });
-    const config = buildProjectConfig(answers);
+    const config = { ...buildProjectConfig(answers), skills: await askSkills(active) };
     const container = await askContainer(active, projectRoot);
     fs.writeFileSync(dest, JSON.stringify(config, null, 2) + '\n');
 
     console.log(`\nCreated ${dest}`);
+    const wanted = Object.keys(config.skills).filter((name) => config.skills[name]);
+    reportSkills(installSkills(projectRoot, wanted, runSkill ? { run: runSkill } : {}));
     if (container.enabled) {
       setUpContainer(projectRoot, container, config);
       return 0;

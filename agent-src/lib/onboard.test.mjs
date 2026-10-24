@@ -51,7 +51,8 @@ for (const answers of [FILE_ANSWERS, GITHUB_ANSWERS, AZURE_ANSWERS, GITEA_ANSWER
       assert.equal(code, 0);
 
       const written = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
-      assert.deepEqual(written, buildProjectConfig(answers));
+      // An answers file without skills.show-me declines it, like container.enabled.
+      assert.deepEqual(written, { ...buildProjectConfig(answers), skills: { 'show-me': false } });
 
       assert.deepEqual(fs.readdirSync(root), ['ai-project.json'], 'init wrote files beyond ai-project.json');
     } finally {
@@ -101,7 +102,7 @@ test('cmdInit overwrites an existing ai-project.json when overwrite is accepted'
     fs.writeFileSync(dest, '{"keep":true}');
     const code = await cmdInit(root, { prompter: createScriptedPrompter({ ...FILE_ANSWERS, overwrite: 'y' }) });
     assert.equal(code, 0);
-    assert.deepEqual(JSON.parse(fs.readFileSync(dest, 'utf8')), buildProjectConfig(FILE_ANSWERS));
+    assert.deepEqual(JSON.parse(fs.readFileSync(dest, 'utf8')), { ...buildProjectConfig(FILE_ANSWERS), skills: { 'show-me': false } });
   } finally {
     cleanup();
   }
@@ -126,7 +127,7 @@ test('cmdInit with container.enabled y writes the container files for the chosen
   try {
     const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'dotnet' } };
     assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')), buildProjectConfig(GITHUB_ANSWERS),
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')), { ...buildProjectConfig(GITHUB_ANSWERS), skills: { 'show-me': false } },
       'container answers are not stored in ai-project.json');
     assert.ok(fs.readFileSync(path.join(root, 'compose.ai-dev.yml'), 'utf8').includes('marxx/ai-dev-workflow:dotnet-latest'));
     assert.ok(fs.readFileSync(path.join(root, 'AI-DEV.md'), 'utf8').includes('gh auth setup-git'));
@@ -240,6 +241,59 @@ test('cmdInit declining both overwrite and container writes nothing', async () =
     assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
     assert.deepEqual(fs.readdirSync(root), ['ai-project.json']);
   } finally {
+    cleanup();
+  }
+});
+
+/** A fake `npx skills add` runner that records its calls. */
+function fakeSkillRun({ fail = false } = {}) {
+  const calls = [];
+  return { calls, run: (args, cwd) => { calls.push({ args, cwd }); return fail ? { ok: false, message: 'offline' } : { ok: true }; } };
+}
+
+test('cmdInit with skills.show-me y records the opt-in and installs the pinned skill', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  const log = captureLog();
+  try {
+    const { run, calls } = fakeSkillRun();
+    const prompter = createScriptedPrompter({ ...FILE_ANSWERS, skills: { 'show-me': 'y' } });
+    assert.equal(await cmdInit(root, { prompter, runSkill: run }), 0);
+    const written = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+    assert.deepEqual(written.skills, { 'show-me': true });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].cwd, root);
+    assert.ok(calls[0].args.some((a) => a.includes('humanlayer/skills/tree/')), calls[0].args.join(' '));
+    assert.match(log.text(), /Installed show-me/);
+  } finally {
+    log.restore();
+    cleanup();
+  }
+});
+
+test('cmdInit without a show-me answer in scripted mode installs nothing', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const { run, calls } = fakeSkillRun();
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(FILE_ANSWERS), runSkill: run }), 0);
+    assert.equal(calls.length, 0);
+  } finally {
+    cleanup();
+  }
+});
+
+test('cmdInit still succeeds when the show-me install fails, and prints the manual command', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  const warnings = [];
+  const orig = console.warn;
+  console.warn = (...a) => warnings.push(a.join(' '));
+  try {
+    const { run } = fakeSkillRun({ fail: true });
+    const prompter = createScriptedPrompter({ ...FILE_ANSWERS, skills: { 'show-me': 'y' } });
+    assert.equal(await cmdInit(root, { prompter, runSkill: run }), 0);
+    assert.match(warnings.join('\n'), /show-me could not be installed: offline[\s\S]*npx --yes skills@/);
+    assert.ok(fs.existsSync(path.join(root, 'ai-project.json')));
+  } finally {
+    console.warn = orig;
     cleanup();
   }
 });

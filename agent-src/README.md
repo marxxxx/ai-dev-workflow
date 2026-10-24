@@ -26,10 +26,11 @@ agent-src/
   generate.mjs                 # entrypoint: zero-dependency Node CLI (parse argv + dispatch)
   lib/                         # feature modules the entrypoint composes:
     constants.mjs serialize.mjs identity.mjs config.mjs tokens.mjs units.mjs
-    ticketing.mjs cost.mjs renderers.mjs onboard.mjs pipeline.mjs upgrade.mjs container.mjs
+    ticketing.mjs cost.mjs renderers.mjs onboard.mjs pipeline.mjs upgrade.mjs container.mjs skills.mjs
   config/
     ai-workflow.json           # PACKAGE-owned config: ticket states/comment titles + runtime include paths
     ai-project.template.json   # scaffold template copied by `init` when non-interactive
+    skills.json                # third-party skills (show-me) init/upgrade install with `npx skills`; derived from docker/tools/inventory.json
   container/                   # dev-container templates `init` writes once (project-owned afterwards)
   includes/
     ticketing-github.md        # ticket read/comment/status/PR — GitHub (gh CLI)
@@ -46,6 +47,7 @@ agent-src/
 <project-root>/
   ai-project.json              # PROJECT-owned config: project/repository/git identity + ticketing backend choice
   agent-custom/<agents|skills>/<name>/   # PROJECT-owned, optional: body.md (override) / append.md (extend)
+  .agents/skills/show-me/, .claude/skills/show-me, skills-lock.json   # PROJECT-owned, written by `npx skills`
 ```
 
 ## Portability: two config files + the ticketing include

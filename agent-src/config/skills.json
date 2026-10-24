@@ -1,0 +1,12 @@
+{
+  "$comment": "Derived from docker/tools/inventory.json (agentSkills): edit that, then run node docker/tools/inventory.mjs sync.",
+  "cli": "1.7.4",
+  "skills": {
+    "show-me": {
+      "purpose": "compact views of a spec or plan for review",
+      "repository": "humanlayer/skills",
+      "path": "plugins/show-me/skills/show-me",
+      "revision": "653b6411c1f70c275a18e37673b042ff99f67ceb"
+    }
+  }
+}

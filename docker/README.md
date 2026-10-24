@@ -469,8 +469,11 @@ Limits:
 `tools/inventory.json` is the single source for every pin: base image digest and its
 Node version, all Node CLIs and MCP servers, uv, `tea`, Azure CLI and its `azure-devops`
 extension, the Docker CLI packages and the dind image of the opt-in overlay, Serena/Superpowers
-revisions, the .NET SDK and `dotnet-ef`. `tools/package.json`, `tools/package-lock.json`, the Dockerfile
-`FROM`/`ARG` pins and the `image:` line of `agent-src/container/compose.ai-dev.dind.yml` are derived from it; do not edit them by hand. The inventory is copied
+revisions, the .NET SDK and `dotnet-ef`, and — outside the image — the `skills` CLI version and the
+commit of each third-party skill (`agentSkills`, today `show-me`) that `adw init`/`upgrade` install
+into consuming projects. `tools/package.json`, `tools/package-lock.json`, the Dockerfile
+`FROM`/`ARG` pins, the `image:` line of `agent-src/container/compose.ai-dev.dind.yml` and
+`agent-src/config/skills.json` are derived from it; do not edit them by hand. The inventory is copied
 to `/opt/agent-tools/inventory.json` and every build verifies the installed versions
 against it (`tools/verify-versions.mjs`). OS packages still use apt repositories, so
 this is a versioned tool runtime, not a claim of byte-identical rebuilds.
@@ -493,7 +496,8 @@ node docker/tools/inventory.mjs check        # drift gate (CI and build.mjs)
   depends on, so the installed Chromium matches the MCP.
 - `dotnetChannel`: the SDK and `dotnet-ef` follow the latest patch of this channel.
 
-Serena and Superpowers follow their default-branch HEAD; the base and dind images keep
+Serena, Superpowers and the `agentSkills` repositories follow their default-branch HEAD (the
+`skills` CLI follows npm `latest`); the base and dind images keep
 their tags (`docker:29-dind` follows the latest 29.x) and refresh the digest. Raise a hold or channel deliberately by editing the policy.
 
 Update workflow:

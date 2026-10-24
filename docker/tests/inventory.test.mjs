@@ -12,7 +12,9 @@ import {
 const dockerDir = fileURLToPath(new URL('..', import.meta.url));
 // The dind overlay is an init template under agent-src/container/, next to docker/.
 const dindOverlay = '../agent-src/container/compose.ai-dev.dind.yml';
-const pinnedFiles = ['Dockerfile', 'Dockerfile.dotnet', dindOverlay, 'tools/inventory.json', 'tools/package.json', 'tools/package-lock.json'];
+// The third-party agent skills that adw init/upgrade install into consuming projects.
+const skillsConfig = '../agent-src/config/skills.json';
+const pinnedFiles = ['Dockerfile', 'Dockerfile.dotnet', dindOverlay, skillsConfig, 'tools/inventory.json', 'tools/package.json', 'tools/package-lock.json'];
 
 function fixture(t) {
   const base = mkdtempSync(path.join(tmpdir(), 'agent-inventory-'));
@@ -53,6 +55,28 @@ test('reports a dind overlay image that disagrees with the inventory', t => {
     inventory.dindImage.reference = 'docker:99-dind@sha256:def';
   });
   assert.match(findDrift(root).join('\n'), /compose\.ai-dev\.dind\.yml.*docker:99-dind/);
+});
+
+test('reports a skills config that disagrees with the inventory', t => {
+  const root = fixture(t);
+  editJson(path.join(root, 'tools/inventory.json'), inventory => {
+    inventory.agentSkills.skills['show-me'].revision = 'e'.repeat(40);
+  });
+  assert.match(findDrift(root).join('\n'), /skills\.json/);
+});
+
+test('sync rewrites the skills config from the inventory', t => {
+  const root = fixture(t);
+  editJson(path.join(root, 'tools/inventory.json'), inventory => {
+    inventory.agentSkills.cli = '9.9.9';
+    inventory.agentSkills.skills['show-me'].revision = 'e'.repeat(40);
+  });
+  syncDerivedFiles(root, { regenerateLockfile: false });
+  const skills = JSON.parse(readFileSync(path.join(root, skillsConfig), 'utf8'));
+  assert.equal(skills.cli, '9.9.9');
+  assert.equal(skills.skills['show-me'].revision, 'e'.repeat(40));
+  assert.equal(skills.skills['show-me'].repository, 'humanlayer/skills');
+  assert.deepEqual(findDrift(root), []);
 });
 
 test('sync rewrites Dockerfile pins from the inventory', t => {
@@ -141,6 +165,10 @@ function sampleInventory() {
     sourceRevisions: { serena: 'a'.repeat(40), superpowers: 'b'.repeat(40) },
     derivedImages: { dotnetSdk: '10.0.401', dotnetEf: '10.0.11' },
     dindImage: { reference: 'docker:29-dind@sha256:old', docker: '29.8.0' },
+    agentSkills: {
+      cli: '1.7.0',
+      skills: { 'show-me': { repository: 'humanlayer/skills', path: 'plugins/show-me/skills/show-me', revision: 'd'.repeat(40) } },
+    },
     updatePolicy: {
       npmMajorHolds: { '@azure-devops/mcp': 2, 'typescript-serena': 5 },
       npmFollowDependency: { playwright: '@playwright/mcp' },
@@ -156,6 +184,7 @@ function fakeSources() {
     '@playwright/mcp': { latest: '0.0.81', versions: ['0.0.80', '0.0.81'], dependencies: { playwright: '1.64.0-alpha-2026-09-10' } },
     typescript: { latest: '7.0.3', versions: ['5.9.3', '5.9.4', '6.0.1', '7.0.3'] },
     yarn: { latest: '1.22.22', versions: ['1.22.22'] },
+    skills: { latest: '1.8.0', versions: ['1.7.0', '1.8.0'] },
   };
   return {
     npmPackument: async name => {
@@ -166,7 +195,7 @@ function fakeSources() {
       'node:24-bookworm-slim': { digest: 'sha256:new', env: { NODE_VERSION: '24.2.0' } },
       'docker:29-dind': { digest: 'sha256:newdind', env: { DOCKER_VERSION: '29.9.0' } },
     })[repoTag],
-    gitHead: async url => (url.includes('serena') ? 'c' : 'b').repeat(40),
+    gitHead: async url => (url.includes('serena') ? 'c' : url.includes('humanlayer') ? 'e' : 'b').repeat(40),
     githubLatestRelease: async repo => {
       assert.equal(repo, 'astral-sh/uv');
       return '0.13.0';
@@ -218,6 +247,8 @@ test('resolves the latest versions within the update policy', async () => {
     tea: '0.16.0',
     uv: '0.13.0',
     serena: 'c'.repeat(40),
+    skills: '1.8.0',
+    'show-me': 'e'.repeat(40),
     dotnetSdk: '10.0.402',
     dotnetEf: '10.0.12',
   });

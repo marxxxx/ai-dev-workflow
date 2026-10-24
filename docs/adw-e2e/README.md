@@ -67,7 +67,7 @@ To re-render a `report.md` from its `run.json` (e.g. after a report template cha
 | Signal | Meaning |
 |---|---|
 | reward | All contract checks, own tests (`TEST_COMMAND`) and every acceptance criterion passed; `—` when the verifier could not judge |
-| contract | Share of contract checks passed (ticket edges, naming, draft PR, e2e via Playwright, app stopped, no screenshots in the repo) |
+| contract | Share of contract checks passed (ticket edges, naming, draft PR, e2e via Playwright, show-me `SKILL.md` read for the spec/plan review, app stopped, no screenshots in the repo) |
 | acceptance / `ac:ACn` | Share of acceptance criteria an agentic verifier observed in the running app, and the pass rate per criterion (`e2e/tasks/_shared/acceptance-criteria.md`) |
 | review | 1–5 per criterion from a code review with read access to the repo: requirements, scope, tests, conventions, architecture, code quality |
 | tokens | Target agent only, from its own session logs (cross-checked with ccusage) |

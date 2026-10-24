@@ -1,12 +1,13 @@
 jobs/
 .env
-# Generated into every task's seed repo by run.mjs (agent-src/generate.mjs).
+# Generated into every task's seed repo by run.mjs (agent-src/generate.mjs init + generate).
 tasks/*/environment/seed/repo/.claude/
 tasks/*/environment/seed/repo/.agents/
 tasks/*/environment/seed/repo/.opencode/
 tasks/*/environment/seed/repo/.mcp.json
 tasks/*/environment/seed/repo/.codex/
 tasks/*/environment/seed/repo/ai-project.json
+tasks/*/environment/seed/repo/skills-lock.json
 # Mirrored from tasks/_shared/ into every task by e2e/lib/tasks.mjs: never commit the copies.
 tasks/*/instruction.md
 tasks/*/persona.md
