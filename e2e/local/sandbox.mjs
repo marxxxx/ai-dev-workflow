@@ -38,6 +38,9 @@ export function createSandbox({ root, baseCommit, ticket, ticketText, trialDir, 
   for (const remote of git(['-C', work, 'remote']).split('\n').filter(Boolean)) git(['-C', work, 'remote', 'remove', remote]);
   git(['init', '-q', '--bare', '--template=', origin]);
   git(['-C', work, 'remote', 'add', 'origin', origin]);
+  // The trial's agent-home volume is fresh, so the container has no identity; Harbor's seed sets the same one.
+  git(['-C', work, 'config', 'user.name', 'ADW E2E Agent']);
+  git(['-C', work, 'config', 'user.email', 'agent@e2e.local']);
   git(['-C', work, 'checkout', '-q', '-B', 'main']);
   // The clone's branch for the root's HEAD would pass for a second branch.
   for (const b of git(['-C', work, 'for-each-ref', '--format=%(refname:short)', 'refs/heads/']).split('\n')) {

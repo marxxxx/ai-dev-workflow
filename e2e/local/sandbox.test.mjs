@@ -64,6 +64,15 @@ test('the work clone takes no host template hooks and keeps only main', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('the work clone has its own git identity: the container has none, and an agent must not invent one', () => {
+  const { dir, root, base } = makeRepo(null);
+  try {
+    const { work } = createSandbox({ root, baseCommit: base, ticket: 1, ticketText: TICKET, trialDir: path.join(dir, 'trial') });
+    assert.equal(g(['config', '--local', 'user.name'], work), 'ADW E2E Agent');
+    assert.equal(g(['config', '--local', 'user.email'], work), 'agent@e2e.local');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('a base commit without ai-project.json still works', () => {
   const { dir, root, base } = makeRepo(null);
   try {
