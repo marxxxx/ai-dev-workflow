@@ -16,6 +16,7 @@ import { postVerify, verifierHash } from '../lib/postverify.mjs';
 import { loadLocalConfig, selfJudged } from './config.mjs';
 import { appendAnswer, ensureGitignore, newRunDir, readAnswers, readTicket, ticketDir, writeTicket } from './store.mjs';
 import { importTicket } from './ticket-import.mjs';
+import { ensureE2eImage } from './image.mjs';
 import { collectSandbox, createSandbox } from './sandbox.mjs';
 import { appPortFromAgentsMd, evaluateLocalContract, hasE2eSection } from './contract.mjs';
 import { composeEnv, composeProject, stageCredentials, startSession } from './session.mjs';
@@ -67,7 +68,7 @@ function onSignal(handler) {
 const DEFAULT_DEPS = {
   env: process.env, home: homedir(), uid: process.getuid?.() ?? 1000, gid: process.getgid?.() ?? 1000,
   exec: (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts }),
-  importTicket, createSandbox, collectSandbox, startSession, makeDecide, runConversation, askHuman: askHumanTty(),
+  importTicket, ensureE2eImage, createSandbox, collectSandbox, startSession, makeDecide, runConversation, askHuman: askHumanTty(),
   draftAcceptance, confirmAcceptance, prompt: promptLine, postVerify, buildLocalTrialRecord,
   now: timestamp, clock: () => Date.now(), log: (s) => console.log(s), error: (s) => console.error(s), onSignal, exit: (code) => process.exit(code),
 };
@@ -143,6 +144,9 @@ export async function runE2e(opts, deps = {}) {
   const trials = [];
   let aborted = null; let error = null;
   try {
+    const rootEnv = composeEnv({ root, work: root, env: d.env, uid: d.uid, gid: d.gid });
+    const layer = d.ensureE2eImage({ root, runDir, composeFiles: [composeFile, ...(rootEnv.AGENT_CA_DIR ? [certsFile] : [])],
+      env: rootEnv, exec: d.exec, log: d.log });
     for (let i = 1; i <= opts.repetitions; i++) {
       const id = `${harness}-${i}`;
       const trialDir = path.join(runDir, id);
@@ -167,7 +171,7 @@ export async function runE2e(opts, deps = {}) {
       try {
         let conversation; let appListening = null; let agentSeconds = null; let port = null;
         const session = d.startSession({ root, work, harness, model: config.agent.model, project, creds, envNames: config.env,
-          env: d.env, turnTimeoutSec: config.turnTimeoutSec });
+          env: d.env, turnTimeoutSec: config.turnTimeoutSec, overrideFile: layer.overrideFile });
         try {
           for (const h of new Set(ROLES.map((r) => config[r].harness))) {
             try { cliVersions[h] ??= session.cliVersion(h); } catch { cliVersions[h] ??= 'unknown'; }
@@ -259,7 +263,7 @@ export async function runE2e(opts, deps = {}) {
       if (trial.errors?.quota) { aborted = 'quota'; d.error(`✗ usage limit reached in ${id}: run aborted, not a valid baseline`); break; }
     }
 
-    const fingerprint = localFingerprint({ ...imageOf(d, composeArgs, root), cliVersions, baseCommit: sha, dir, config,
+    const fingerprint = localFingerprint({ image: layer.image, imageId: layer.imageId, e2eImage: layer.tag, cliVersions, baseCommit: sha, dir, config,
       verifierHash: criteria ? verifierHash({ config, criteria }) : null });
     const run = writeRun({ runDir, ticket: opts.ticket, fingerprint, trials, aborted, error });
     let cmp = null;
@@ -274,15 +278,6 @@ export async function runE2e(opts, deps = {}) {
   } finally {
     off();
   }
-}
-
-// The project image's ref and id; both null when compose or docker cannot tell.
-function imageOf(d, composeArgs, root) {
-  const env = composeEnv({ root, work: root, env: d.env, uid: d.uid, gid: d.gid });
-  const r = d.exec('docker', [...composeArgs(env, 'adw-e2e-image'), 'config', '--images', SERVICE], { env });
-  const image = r.status === 0 ? String(r.stdout ?? '').trim().split('\n')[0] || null : null;
-  const i = image ? d.exec('docker', ['image', 'inspect', '--format', '{{.Id}}', image]) : null;
-  return { image, imageId: i?.status === 0 ? String(i.stdout ?? '').trim() || null : null };
 }
 
 function printSummary(d, run, cmp, runDir) {

@@ -1,5 +1,6 @@
 // The agent under test: an acpx session in a one-off container of the project's own dev-container
-// compose service, one fresh compose project (and so a fresh agent-home volume) per trial.
+// compose service, on the project's dev image plus the e2e layer (image.mjs), one fresh compose project
+// (and so a fresh agent-home volume) per trial.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -135,11 +136,12 @@ export function listening(procNetTcp, port) {
 
 // `exec` has spawnSync's signature. Starts the container, stages the agent's auth and opens the acpx session.
 export function startSession({ root, work, harness, model, project, creds, envNames = [], exec = defaultExec, env = process.env,
-  turnTimeoutSec = 1800, readyTimeoutSec = 300 }) {
+  turnTimeoutSec = 1800, readyTimeoutSec = 300, overrideFile = null }) {
   const name = `${project}-agent`;
   const cenv = composeEnv({ root, work, env });
   const compose = ['compose', '-f', path.join(root, 'compose.ai-dev.yml'),
-    ...(cenv.AGENT_CA_DIR ? ['-f', path.join(root, 'compose.ai-dev.certs.yml')] : []), '-p', project];
+    ...(cenv.AGENT_CA_DIR ? ['-f', path.join(root, 'compose.ai-dev.certs.yml')] : []),
+    ...(overrideFile ? ['-f', overrideFile] : []), '-p', project];
   const label = `agent (${harness})`;
   const run = (args, opts = {}) => {
     const r = exec('docker', args, opts);
@@ -181,9 +183,7 @@ export function startSession({ root, work, harness, model, project, creds, envNa
     if (model && harness === 'opencode') writeIn(OPENCODE_MODEL_FILE, `${JSON.stringify({ model })}\n`);
     const cli = harness === 'opencode' ? null : inAgent(['sh', '-c', `command -v ${CLI[harness]}`]).trim();
     writeFileSync(path.join(work, '.acpxrc.json'), `${JSON.stringify(acpxConfig(acpCommand(harness, model, { cli }), turnTimeoutSec), null, 2)}\n`);
-    try { inAgent(['acpx', 'sessions', 'ensure'], { cwd: true }); } catch (e) {
-      throw new Error(`${e.message} (the project's ai-dev image must include acpx: rebuild or pull an ai-dev-workflow image from this adw version)`);
-    }
+    inAgent(['acpx', 'sessions', 'ensure'], { cwd: true });
   } catch (e) {
     teardown();
     throw e;

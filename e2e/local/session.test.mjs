@@ -165,12 +165,23 @@ test('opencode: the model goes into an OPENCODE_CONFIG file; nothing written wit
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('startSession adds the e2e override as the last compose file', () => {
+  const { dir, root, work, creds } = fixture();
+  try {
+    const { calls, exec } = recorder();
+    startSession({ root, work, harness: 'opencode', model: null, project: 'p1', creds, exec, env: { AGENT_CA_DIR: '/ca' },
+      overrideFile: '/run/compose.adw-e2e.yml' });
+    assert.deepEqual(calls[0].args.slice(0, 9), ['compose', '-f', path.join(root, 'compose.ai-dev.yml'),
+      '-f', path.join(root, 'compose.ai-dev.certs.yml'), '-f', '/run/compose.adw-e2e.yml', '-p', 'p1']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('startSession forwards the claude token by name and tears down when ensure fails', () => {
   const { dir, root, work, creds } = fixture();
   try {
     const { calls, exec } = recorder({ results: (a) => (a.includes('ensure') ? { status: 1, stdout: '', stderr: 'nope' } : null) });
     assert.throws(() => startSession({ root, work, harness: 'claude-code', model: null, project: 'p1', creds, exec, env: {} }),
-      /nope.*ai-dev image must include acpx/s);
+      /nope/);
     assert.ok(calls[0].args.includes('CLAUDE_CODE_OAUTH_TOKEN'));
     assert.ok(!calls[0].args.some((a) => a.startsWith('NODE_EXTRA_CA_CERTS')), 'no CA env without AGENT_CA_DIR');
     assert.ok(!calls[0].args.includes('OPENAI_API_KEY'));

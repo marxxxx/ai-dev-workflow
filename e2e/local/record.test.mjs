@@ -67,12 +67,12 @@ test('the fingerprint names every role and hashes the stored ticket files', () =
   try {
     writeFileSync(path.join(dir, 'ticket.md'), '# T\n\nbody\n');
     writeFileSync(path.join(dir, 'answers.json'), '[]\n');
-    const args = { image: 'ai-dev:1', imageId: 'sha256:abc', cliVersions: { 'claude-code': '2.0.0', codex: '0.9.0' },
+    const args = { image: 'ai-dev:1', imageId: 'sha256:abc', e2eImage: 'adw-e2e:abc', cliVersions: { 'claude-code': '2.0.0', codex: '0.9.0' },
       baseCommit: 'deadbeef', dir, config, verifierHash: 'f00d' };
     const fp = localFingerprint(args);
     assert.match(fp.adw.version, /^\d+\.\d+\.\d+/);
     assert.equal(fp.adw.sha, null);
-    assert.deepEqual(fp.image, { ref: 'ai-dev:1', id: 'sha256:abc' });
+    assert.deepEqual(fp.image, { ref: 'ai-dev:1', id: 'sha256:abc', e2e: 'adw-e2e:abc' });
     assert.deepEqual(fp.roles.verifier, { harness: 'codex', model: null, cliVersion: '0.9.0' });
     assert.deepEqual(fp.models, { target: 'claude-code/default', answerer: 'claude-code/default', verifier: 'codex/default', review: 'claude-code/default' });
     assert.match(fp.ticket, /^[0-9a-f]{64}$/);

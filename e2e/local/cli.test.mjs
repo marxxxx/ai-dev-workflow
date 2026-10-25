@@ -48,6 +48,7 @@ function stubs(root, over = {}) {
       return { work, origin: path.join(trialDir, 'origin.git') };
     }),
     startSession: rec('session', (a) => { seen.session = a; return session; }),
+    ensureE2eImage: rec('image', (a) => { seen.image = a; return { image: 'img:1', imageId: 'sha256:1', tag: 'adw-e2e:abc', overrideFile: '/run/o.yml' }; }),
     makeDecide: rec('makeDecide', (a) => { seen.decide = a; return () => ({ action: 'done', stuck: false }); }),
     runConversation: rec('conversation', async (a) => { seen.conversation = a; return { turns: 2, humanAsked: 0, done: true, stuck: false, error: null }; }),
     askHuman: () => 'x',
@@ -136,7 +137,7 @@ test('runE2e: the order of a first run; the ticket is imported, acceptance draft
   try {
     const s = stubs(root);
     assert.equal(await runE2e(opts(root), s.deps), 0);
-    assert.deepEqual(s.calls, ['sandbox', 'session', 'makeDecide', 'conversation', 'appListening', 'close', 'collect', 'draft', 'confirm', 'record', 'postVerify']);
+    assert.deepEqual(s.calls, ['image', 'sandbox', 'session', 'makeDecide', 'conversation', 'appListening', 'close', 'collect', 'draft', 'confirm', 'record', 'postVerify']);
     const dir = path.join(root, '.adw/e2e/7');
     assert.equal(readFileSync(path.join(dir, 'ticket.md'), 'utf8'), '# Fälligkeitsdatum\n\nTodos bekommen ein Datum.\n');
     assert.equal(readFileSync(path.join(root, '.adw/e2e/.gitignore'), 'utf8'), '*/runs/\n');
@@ -356,4 +357,30 @@ test('runE2e: SIGINT during the conversation tears down every started compose pr
     assert.ok(projects.some((p) => !p.endsWith('-judge')), projects.join(','));
     assert.ok(s.exec.some((c) => c.argv[1] === 'rm' && c.argv.at(-1).endsWith('-agent')));
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('the e2e layer is ensured once, before the first sandbox, and the session gets its override', async () => {
+  const root = project();
+  const { deps, calls, seen } = stubs(root);
+  await runE2e(opts(root, { repetitions: 2 }), deps);
+  assert.equal(calls.filter((c) => c === 'image').length, 1);
+  assert.ok(calls.indexOf('image') < calls.indexOf('sandbox'));
+  assert.equal(seen.session.overrideFile, '/run/o.yml');
+  assert.deepEqual(seen.image.composeFiles, [path.join(root, 'compose.ai-dev.yml')]);
+  assert.equal(seen.image.root, root);
+});
+
+test('a failed layer build stops before any trial', async () => {
+  const root = project();
+  const { deps, calls, out } = stubs(root, { ensureE2eImage: () => { throw new Error('docker build failed (exit 1): see the output above'); } });
+  assert.equal(await runE2e(opts(root), deps), 1);
+  assert.ok(!calls.includes('sandbox'));
+  assert.ok(out.some((l) => l.includes('docker build failed')));
+});
+
+test('run.json records the base image and the e2e layer', async () => {
+  const root = project();
+  const { deps } = stubs(root);
+  await runE2e(opts(root), deps);
+  assert.deepEqual(runJson(root).fingerprint.image, { ref: 'img:1', id: 'sha256:1', e2e: 'adw-e2e:abc' });
 });
