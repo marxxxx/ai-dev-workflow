@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { ACP_VERSIONS } from '../lib/fingerprint.mjs';
 import { scanForSecrets } from '../lib/secrets.mjs';
 import { acpCommand, acpxConfig, composeEnv, composeProject, listening, parseEnvFile, stageCredentials, startSession } from './session.mjs';
 
@@ -19,13 +18,6 @@ test('acpCommand per harness, with and without a model or the image CLI', () => 
   assert.deepEqual(acpCommand('opencode', null), ['env', 'OPENCODE_FAKE_VCS=git', 'opencode', 'acp']);
   assert.deepEqual(acpCommand('opencode', 'anthropic/x'), ['env', 'OPENCODE_FAKE_VCS=git', 'OPENCODE_CONFIG=/home/dev/.adw-e2e/opencode.json', 'opencode', 'acp']);
   assert.throws(() => acpCommand('gemini', null), /unknown harness/);
-});
-
-test('the product image pins acpx and the adapters at ACP_VERSIONS', () => {
-  const { npmPackages } = JSON.parse(readFileSync(new URL('../../docker/tools/inventory.json', import.meta.url), 'utf8'));
-  assert.equal(npmPackages.acpx, ACP_VERSIONS.acpx);
-  assert.equal(npmPackages['@zed-industries/claude-code-acp'], ACP_VERSIONS.claudeCodeAcp);
-  assert.equal(npmPackages['@agentclientprotocol/codex-acp'], ACP_VERSIONS.codexAcp);
 });
 
 test('acpxConfig shape', () => {

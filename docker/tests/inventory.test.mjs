@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  applyChanges, findDrift, latestDebianVersion, latestVersion, renderDerivedFiles,
+  applyChanges, findDrift, latestDebianVersion, latestVersion, lockfileCommand, muslWithoutLibc, renderDerivedFiles,
   resolveUpdates, selectChanges, syncDerivedFiles,
 } from '../tools/inventory.mjs';
 
@@ -14,7 +14,11 @@ const dockerDir = fileURLToPath(new URL('..', import.meta.url));
 const dindOverlay = '../agent-src/container/compose.ai-dev.dind.yml';
 // The third-party agent skills that adw init/upgrade install into consuming projects.
 const skillsConfig = '../agent-src/config/skills.json';
-const pinnedFiles = ['Dockerfile', 'Dockerfile.dotnet', dindOverlay, skillsConfig, 'tools/inventory.json', 'tools/package.json', 'tools/package-lock.json'];
+// The ACP layer adw e2e builds on a project's dev image (e2e/local/image), derived from e2eNpmPackages.
+const e2ePackage = '../e2e/local/image/package.json';
+const e2eLockfile = '../e2e/local/image/package-lock.json';
+const pinnedFiles = ['Dockerfile', 'Dockerfile.dotnet', dindOverlay, skillsConfig, e2ePackage, e2eLockfile,
+  'tools/inventory.json', 'tools/package.json', 'tools/package-lock.json'];
 
 function fixture(t) {
   const base = mkdtempSync(path.join(tmpdir(), 'agent-inventory-'));
@@ -47,6 +51,50 @@ test('reports each derived file that disagrees with the inventory', t => {
   assert.match(drift, /Dockerfile.*UV_VERSION/);
   assert.match(drift, /tools\/package\.json/);
   assert.match(drift, /package-lock\.json/);
+});
+
+test('the ACP packages are e2e-only pins', () => {
+  const inventory = JSON.parse(readFileSync(path.join(dockerDir, 'tools/inventory.json'), 'utf8'));
+  assert.deepEqual(Object.keys(inventory.e2eNpmPackages).sort(),
+    ['@agentclientprotocol/codex-acp', '@zed-industries/claude-code-acp', 'acpx']);
+  for (const name of Object.keys(inventory.e2eNpmPackages)) assert.ok(!(name in inventory.npmPackages), name);
+});
+
+test('reports an e2e package.json and lockfile that disagree with the inventory', t => {
+  const root = fixture(t);
+  editJson(path.join(root, 'tools/inventory.json'), inventory => { inventory.e2eNpmPackages.acpx = '9.9.9'; });
+  const drift = findDrift(root).join('\n');
+  assert.match(drift, /e2e\/local\/image\/package\.json/);
+  assert.match(drift, /e2e\/local\/image\/package-lock\.json: acpx resolves to 0\.11\.2, inventory pins 9\.9\.9/);
+});
+
+test('sync rewrites the e2e package.json from the inventory', t => {
+  const root = fixture(t);
+  editJson(path.join(root, 'tools/inventory.json'), inventory => { inventory.e2eNpmPackages.acpx = '9.9.9'; });
+  syncDerivedFiles(root, { regenerateLockfile: false });
+  const manifest = JSON.parse(readFileSync(path.join(root, e2ePackage), 'utf8'));
+  assert.equal(manifest.dependencies.acpx, '9.9.9');
+});
+
+test('a -musl lockfile entry without libc is drift', t => {
+  const lock = { packages: {
+    'node_modules/x-linux-x64-musl': { version: '1.0.0', libc: ['musl'] },
+    'node_modules/y-linux-x64-musl': { version: '1.0.0' },
+    'node_modules/@s/z-linux-x64-musl': { version: '1.0.0' },
+  } };
+  assert.deepEqual(muslWithoutLibc(lock), ['node_modules/y-linux-x64-musl', 'node_modules/@s/z-linux-x64-musl']);
+  const root = fixture(t);
+  editJson(path.join(root, e2eLockfile), l => {
+    l.packages['node_modules/fake-linux-x64-musl'] = { version: '1.0.0', os: ['linux'] };
+  });
+  assert.match(findDrift(root).join('\n'), /e2e\/local\/image\/package-lock\.json: node_modules\/fake-linux-x64-musl has no libc/);
+});
+
+test('lockfiles are generated with the base image npm, as the host user', () => {
+  const inventory = { baseImage: { reference: 'node:24-bookworm-slim@sha256:abc' } };
+  assert.deepEqual(lockfileCommand(inventory, '/d/tools', { uid: 1001, gid: 1002 }), ['docker', [
+    'run', '--rm', '-u', '1001:1002', '-e', 'HOME=/tmp', '-v', '/d/tools:/w', '-w', '/w', '--entrypoint', 'npm',
+    'node:24-bookworm-slim@sha256:abc', 'install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund']]);
 });
 
 test('reports a dind overlay image that disagrees with the inventory', t => {
@@ -111,7 +159,7 @@ test('sync rewrites Dockerfile pins from the inventory', t => {
 test('rendering fails closed when a pinned ARG is missing', t => {
   const root = fixture(t);
   const inventory = JSON.parse(readFileSync(path.join(root, 'tools/inventory.json'), 'utf8'));
-  const current = Object.fromEntries(['Dockerfile', 'Dockerfile.dotnet', 'tools/package.json']
+  const current = Object.fromEntries(['Dockerfile', 'Dockerfile.dotnet', 'tools/package.json', e2ePackage]
     .map(file => [file, readFileSync(path.join(root, file), 'utf8')]));
   current.Dockerfile = current.Dockerfile.replace(/^ARG UV_VERSION=.*\n/m, '');
   assert.throws(() => renderDerivedFiles(inventory, current), /UV_VERSION/);
@@ -153,6 +201,7 @@ function sampleInventory() {
       'typescript-serena': 'npm:typescript@5.9.3',
       yarn: '1.22.22',
     },
+    e2eNpmPackages: { acpx: '0.11.2' },
     systemTools: {
       azureCliDebianPackage: '2.90.0-1~bookworm',
       azureDevOpsCliExtension: '1.0.8',
@@ -184,6 +233,7 @@ function fakeSources() {
     '@playwright/mcp': { latest: '0.0.81', versions: ['0.0.80', '0.0.81'], dependencies: { playwright: '1.64.0-alpha-2026-09-10' } },
     typescript: { latest: '7.0.3', versions: ['5.9.3', '5.9.4', '6.0.1', '7.0.3'] },
     yarn: { latest: '1.22.22', versions: ['1.22.22'] },
+    acpx: { latest: '0.12.0', versions: ['0.11.2', '0.12.0'] },
     skills: { latest: '1.8.0', versions: ['1.7.0', '1.8.0'] },
   };
   return {
@@ -239,6 +289,7 @@ test('resolves the latest versions within the update policy', async () => {
     '@playwright/mcp': '0.0.81',
     playwright: '1.64.0-alpha-2026-09-10',
     'typescript-serena': 'npm:typescript@5.9.4',
+    acpx: '0.12.0',
     azureCliDebianPackage: '2.91.0-1~bookworm',
     azureDevOpsCliExtension: '1.0.9',
     dockerCliDebianPackage: '5:29.9.1-1~debian.12~bookworm',
@@ -264,5 +315,6 @@ test('applies selected changes and keeps followers with their target', async () 
   assert.equal(next.npmPackages.playwright, '1.64.0-alpha-2026-09-10');
   assert.equal(next.npmPackages['@anthropic-ai/claude-code'], '2.1.0');
   assert.equal(inventory.npmPackages['@playwright/mcp'], '0.0.80', 'input inventory is not mutated');
+  assert.deepEqual(changes.find(change => change.name === 'acpx').path, ['e2eNpmPackages', 'acpx']);
   assert.throws(() => selectChanges(changes, ['no-such-tool']), /no-such-tool/);
 });

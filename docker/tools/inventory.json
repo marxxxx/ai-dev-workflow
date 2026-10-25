@@ -4,14 +4,11 @@
     "node": "24.22.1"
   },
   "npmPackages": {
-    "@agentclientprotocol/codex-acp": "1.12.0",
     "@anthropic-ai/claude-code": "2.1.309",
     "@azure-devops/mcp": "2.11.0",
     "@openai/codex": "0.164.0",
     "@playwright/mcp": "0.0.83",
     "@upstash/context7-mcp": "4.4.4",
-    "@zed-industries/claude-code-acp": "0.16.2",
-    "acpx": "0.11.2",
     "ccusage": "20.0.41",
     "jsonc-parser": "3.3.1",
     "opencode-ai": "1.19.4",
@@ -22,6 +19,11 @@
     "typescript-language-server": "6.0.2",
     "typescript-serena": "npm:typescript@5.9.3",
     "yarn": "1.22.22"
+  },
+  "e2eNpmPackages": {
+    "@agentclientprotocol/codex-acp": "1.12.0",
+    "@zed-industries/claude-code-acp": "0.16.2",
+    "acpx": "0.11.2"
   },
   "systemTools": {
     "azureCliDebianPackage": "2.91.0-1~bookworm",
