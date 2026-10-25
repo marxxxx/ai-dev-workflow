@@ -16,9 +16,11 @@ export function layerTag(baseId, dockerfile, lockfile) {
   return `adw-e2e:${hash.slice(0, 12)}`;
 }
 
-export const overrideYaml = (tag) => [
+export const overrideYaml = (tag, services) => [
   '# Written by adw e2e: the agent runs on the e2e layer over the project\'s dev image.',
-  'services:', `  ${SERVICE}:`, `    image: ${tag}`, '    pull_policy: never', '    build: !reset null', '',
+  '# No published ports: a trial\'s agent and judge projects run side by side, and the checks look inside the containers.',
+  'services:', `  ${SERVICE}:`, `    image: ${tag}`, '    pull_policy: never', '    build: !reset null', '    ports: !reset []',
+  ...services.filter((s) => s !== SERVICE).flatMap((s) => [`  ${s}:`, '    ports: !reset []']), '',
 ].join('\n');
 
 // `composeFiles` and `env` are a trial's (compose.ai-dev.yml, the certs overlay when set; composeEnv).
@@ -35,10 +37,13 @@ export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, ima
     return String(r.stdout ?? '');
   };
   const compose = ['compose', ...composeFiles.flatMap((f) => ['-f', f]), '-p', 'adw-e2e-image'];
-  const service = JSON.parse(docker([...compose, 'config', '--format', 'json'], { env })).services?.[SERVICE];
+  const config = JSON.parse(docker([...compose, 'config', '--format', 'json'], { env }));
+  const services = config.services ?? {};
+  const service = services[SERVICE];
   if (!service) throw new Error(`${composeFiles[0]} has no ${SERVICE} service`);
   if (service.build) docker([...compose, 'build', SERVICE], { env, stdio: 'inherit' });
-  const image = docker([...compose, 'config', '--images', SERVICE], { env }).trim().split('\n')[0];
+  // A build: without image: is tagged <project>-<service>. Not `config --images`: it adds the depends_on images in random order.
+  const image = service.image ?? `${config.name}-${SERVICE}`;
   // Config as JSON: an image without USER has no User key, which a {{.Config.User}} template rejects.
   const inspect = () => exec('docker', ['image', 'inspect', '--format', '{{.Id}} {{json .Config}}', image]);
   let found = inspect();
@@ -65,6 +70,6 @@ export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, ima
   }
   mkdirSync(runDir, { recursive: true });
   const overrideFile = path.join(runDir, 'compose.adw-e2e.yml');
-  writeFileSync(overrideFile, overrideYaml(tag));
+  writeFileSync(overrideFile, overrideYaml(tag, Object.keys(services)));
   return { image, imageId, tag, overrideFile };
 }

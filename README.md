@@ -299,7 +299,8 @@ Markdown file whose first line is `# <title>`, followed by the body. `--baseline
 with that run (`.adw/e2e/<ticket>/runs/<ts>/<harness>`) instead of the newest earlier one.
 
 Every run happens in a throwaway clone at `<base-commit>` on the `file` ticketing backend, with its
-remote pointing at a local bare repo, so nothing reaches your tracker or your real remote. The first run asks you the spec questions and
+remote pointing at a local bare repo, so nothing reaches your tracker or your real remote. Its containers publish no host
+ports, so a run does not clash with your own `./ai-dev.sh`. The first run asks you the spec questions and
 confirms drafted acceptance criteria; later runs replay your stored answers.
 
 Prerequisites:

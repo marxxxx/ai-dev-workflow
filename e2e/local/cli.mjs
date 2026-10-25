@@ -126,7 +126,10 @@ export async function runE2e(opts, deps = {}) {
   const store = { list: () => readAnswers(dir), append: (a) => appendAnswer(dir, a) };
   const composeFile = path.join(root, 'compose.ai-dev.yml');
   const certsFile = path.join(root, 'compose.ai-dev.certs.yml');
-  const composeArgs = (env, project) => ['compose', '-f', composeFile, ...(env.AGENT_CA_DIR ? ['-f', certsFile] : []), '-p', project];
+  // The e2e layer's override (ensured below): every compose project of a trial runs on it, without published ports.
+  let overrideFile = null;
+  const composeArgs = (env, project) => ['compose', '-f', composeFile, ...(env.AGENT_CA_DIR ? ['-f', certsFile] : []),
+    ...(overrideFile ? ['-f', overrideFile] : []), '-p', project];
 
   // Compose projects started and not yet torn down: project → { work, agent }.
   const active = new Map();
@@ -147,6 +150,7 @@ export async function runE2e(opts, deps = {}) {
     const rootEnv = composeEnv({ root, work: root, env: d.env, uid: d.uid, gid: d.gid });
     const layer = d.ensureE2eImage({ root, runDir, composeFiles: [composeFile, ...(rootEnv.AGENT_CA_DIR ? [certsFile] : [])],
       env: rootEnv, exec: d.exec, log: d.log });
+    overrideFile = layer.overrideFile;
     for (let i = 1; i <= opts.repetitions; i++) {
       const id = `${harness}-${i}`;
       const trialDir = path.join(runDir, id);
@@ -156,7 +160,7 @@ export async function runE2e(opts, deps = {}) {
       const { work, origin } = d.createSandbox({ root, baseCommit: sha, ticket: opts.ticket, ticketText, trialDir });
       const judgeEnv = composeEnv({ root, work, env: d.env, uid: d.uid, gid: d.gid });
       // Judge-side containers (answerer, drafting, judges, own tests) share one compose project per trial.
-      const buildArgs = (harnesses) => composeRunArgs({ composeFile, certsFile: judgeEnv.AGENT_CA_DIR ? certsFile : null, project: judgeProject,
+      const buildArgs = (harnesses) => composeRunArgs({ composeFile, certsFile: judgeEnv.AGENT_CA_DIR ? certsFile : null, overrideFile, project: judgeProject,
         uid: d.uid, gid: d.gid, envNames: [...config.env, ...creds.envNames],
         authMounts: creds.authFiles.filter((f) => harnesses.includes(f.harness)).map((f) => `${f.from}:${f.to}`) });
       const run = (cmd, args, o = {}) => d.exec(cmd, args, { ...o, env: { ...o.env, ...judgeEnv } });
@@ -171,7 +175,7 @@ export async function runE2e(opts, deps = {}) {
       try {
         let conversation; let appListening = null; let agentSeconds = null; let port = null;
         const session = d.startSession({ root, work, harness, model: config.agent.model, project, creds, envNames: config.env,
-          env: d.env, turnTimeoutSec: config.turnTimeoutSec, overrideFile: layer.overrideFile });
+          env: d.env, turnTimeoutSec: config.turnTimeoutSec, overrideFile });
         try {
           for (const h of new Set(ROLES.map((r) => config[r].harness))) {
             try { cliVersions[h] ??= session.cliVersion(h); } catch { cliVersions[h] ??= 'unknown'; }

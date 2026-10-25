@@ -28,10 +28,8 @@ function setup(t, answers = []) {
 }
 
 const is = (...parts) => (args) => parts.every((p, i) => args[i] === p);
-const has = (part) => (args) => args.includes(part);
 const isConfig = (args) => args.includes('config') && args.includes('json');
-const configJson = (service) => ({ status: 0, stdout: JSON.stringify({ services: { 'ai-dev-workflow': service } }) });
-const images = (ref) => [[has('--images'), { status: 0, stdout: `${ref}\n` }]];
+const configJson = (service) => ({ status: 0, stdout: JSON.stringify({ name: 'adw-e2e-image', services: { 'ai-dev-workflow': service } }) });
 // `docker image inspect` output for an image without USER: Config has no User key at all.
 const baseInspect = (ref) => [(a) => is('image', 'inspect')(a) && a.at(-1) === ref, { status: 0, stdout: `${BASE_ID} {"Env":[]}\n` }];
 const layerMissing = [(a) => is('image', 'inspect')(a) && a.at(-1).startsWith('adw-e2e:'), { status: 1, stdout: '', stderr: 'No such image' }];
@@ -48,7 +46,8 @@ test('builds the layer on the compose image, labels it, prunes older ones and wr
   const ref = 'marxx/ai-dev-workflow:node-latest';
   const tag = layerTag(BASE_ID, 'FROM x\n', '{}\n');
   const { calls, logs, opts } = setup(t, [
-    [isConfig, configJson({ image: ref })], ...images(ref), baseInspect(ref), layerMissing,
+    [isConfig, { status: 0, stdout: JSON.stringify({ name: 'adw-e2e-image', services: { 'ai-dev-workflow': { image: ref }, mail: { image: 'mailpit' } } }) }],
+    baseInspect(ref), layerMissing,
     [is('image', 'ls'), { status: 0, stdout: `${tag}\nadw-e2e:000000000000\n` }],
   ]);
   const out = ensureE2eImage(opts);
@@ -61,13 +60,15 @@ test('builds the layer on the compose image, labels it, prunes older ones and wr
   assert.ok(logs.some((l) => l.includes(`building the e2e layer on ${ref}`)));
   assert.deepEqual(calls.find((c) => is('image', 'ls')(c.args)).args, ['image', 'ls', '--filter', 'label=adw.e2e.root=/proj', '--format', '{{.Repository}}:{{.Tag}}']);
   assert.deepEqual(calls.filter((c) => is('image', 'rm')(c.args)).map((c) => c.args), [['image', 'rm', 'adw-e2e:000000000000']]);
-  assert.equal(readFileSync(out.overrideFile, 'utf8'), overrideYaml(tag));
+  assert.equal(readFileSync(out.overrideFile, 'utf8'), overrideYaml(tag, ['ai-dev-workflow', 'mail']));
   assert.ok(!calls.some((c) => c.args[0] === 'pull'), 'present locally: no pull');
+  // `config --images <service>` adds the depends_on images in random order: never the source of the base.
+  assert.ok(!calls.some((c) => c.args.includes('--images')));
 });
 
 test('skips build and prune when the layer exists', (t) => {
   const ref = 'img:1';
-  const { calls, opts } = setup(t, [[isConfig, configJson({ image: ref })], ...images(ref), baseInspect(ref)]);
+  const { calls, opts } = setup(t, [[isConfig, configJson({ image: ref })], baseInspect(ref)]);
   ensureE2eImage(opts);
   assert.ok(!calls.some((c) => c.args[0] === 'build' || is('image', 'ls')(c.args)));
 });
@@ -75,7 +76,7 @@ test('skips build and prune when the layer exists', (t) => {
 test('a compose build: section is built first and its image is the base', (t) => {
   const ref = 'adw-e2e-image-ai-dev-workflow';
   const { calls, opts } = setup(t, [
-    [isConfig, configJson({ build: { context: '/proj' } })], ...images(ref), baseInspect(ref), layerMissing,
+    [isConfig, configJson({ build: { context: '/proj' } })], baseInspect(ref), layerMissing,
   ]);
   ensureE2eImage(opts);
   const i = calls.findIndex((c) => c.args.includes('build') && c.args.includes('ai-dev-workflow') && c.args[0] === 'compose');
@@ -87,7 +88,7 @@ test('pulls the base image only when it is missing', (t) => {
   const ref = 'img:2';
   let pulled = false;
   const { calls, opts } = setup(t, [
-    [isConfig, configJson({ image: ref })], ...images(ref),
+    [isConfig, configJson({ image: ref })],
     [(a) => is('pull')(a), { status: 0, stdout: '' }],
     [(a) => is('image', 'inspect')(a) && a.at(-1) === ref && !pulled && (pulled = true), { status: 1, stdout: '', stderr: 'No such image' }],
     baseInspect(ref), layerMissing,
@@ -98,7 +99,7 @@ test('pulls the base image only when it is missing', (t) => {
 
 test('every compose call uses the given files, so the certs overlay is honoured', (t) => {
   const ref = 'img:3';
-  const { calls, opts } = setup(t, [[isConfig, configJson({ image: ref })], ...images(ref), baseInspect(ref)]);
+  const { calls, opts } = setup(t, [[isConfig, configJson({ image: ref })], baseInspect(ref)]);
   ensureE2eImage({ ...opts, composeFiles: ['/proj/compose.ai-dev.yml', '/proj/compose.ai-dev.certs.yml'] });
   for (const c of calls.filter((x) => x.args[0] === 'compose')) {
     assert.deepEqual(c.args.slice(0, 5), ['compose', '-f', '/proj/compose.ai-dev.yml', '-f', '/proj/compose.ai-dev.certs.yml']);
@@ -109,23 +110,25 @@ test('every compose call uses the given files, so the certs overlay is honoured'
 test('a failed build throws before any override is written', (t) => {
   const ref = 'img:4';
   const { opts } = setup(t, [
-    [isConfig, configJson({ image: ref })], ...images(ref), baseInspect(ref), layerMissing,
+    [isConfig, configJson({ image: ref })], baseInspect(ref), layerMissing,
     [is('build'), { status: 1, stdout: null, stderr: null }],
   ]);
   assert.throws(() => ensureE2eImage(opts), /docker build failed \(exit 1\)/);
 });
 
-test('overrideYaml replaces the image and drops the build section', () => {
-  assert.equal(overrideYaml('adw-e2e:abc'), [
+test('overrideYaml replaces the image, drops the build section and every service\'s published ports', () => {
+  assert.equal(overrideYaml('adw-e2e:abc', ['ai-dev-workflow', 'mail']), [
     '# Written by adw e2e: the agent runs on the e2e layer over the project\'s dev image.',
-    'services:', '  ai-dev-workflow:', '    image: adw-e2e:abc', '    pull_policy: never', '    build: !reset null', '',
+    '# No published ports: a trial\'s agent and judge projects run side by side, and the checks look inside the containers.',
+    'services:', '  ai-dev-workflow:', '    image: adw-e2e:abc', '    pull_policy: never', '    build: !reset null', '    ports: !reset []',
+    '  mail:', '    ports: !reset []', '',
   ].join('\n'));
 });
 
 test('the layer restores the base image user', (t) => {
   const ref = 'proj/ai-dev:1';
   const { calls, opts } = setup(t, [
-    [isConfig, configJson({ image: ref })], ...images(ref),
+    [isConfig, configJson({ image: ref })],
     [(a) => is('image', 'inspect')(a) && a.at(-1) === ref, { status: 0, stdout: `${BASE_ID} {"Env":[],"User":"dev"}\n` }], layerMissing,
   ]);
   const out = ensureE2eImage(opts);
@@ -135,7 +138,7 @@ test('the layer restores the base image user', (t) => {
 
 test('proxies go to the build by name, company certificates as the certs build context', (t) => {
   const ref = 'img:5';
-  const { calls, opts } = setup(t, [[isConfig, configJson({ image: ref })], ...images(ref), baseInspect(ref), layerMissing]);
+  const { calls, opts } = setup(t, [[isConfig, configJson({ image: ref })], baseInspect(ref), layerMissing]);
   const env = { PROJECT_ROOT: '/proj', HTTPS_PROXY: 'http://user:secret@proxy:3128', no_proxy: 'localhost', AGENT_CA_DIR: '/etc/company-ca' };
   ensureE2eImage({ ...opts, env });
   const build = calls.find((c) => c.args[0] === 'build');

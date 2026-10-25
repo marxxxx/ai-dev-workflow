@@ -172,8 +172,10 @@ export const dockerRunArgs = ({ image, uid, gid, envNames = [], authMounts = [] 
   ['run', '--rm', '-i', ...containerFlags({ uid, gid, envNames, authMounts, name, checkout, readOnly, mounts, env }), image, ...argv];
 
 // `docker compose run` of the project's own dev-container service; -T keeps stdin a pipe for the prompt.
-export const composeRunArgs = ({ composeFile, certsFile = null, project, service = 'ai-dev-workflow', uid, gid, envNames = [], authMounts = [] }) =>
-  ({ name, checkout, readOnly = false, mounts = [], argv, env = {} }) => ['compose', '-f', composeFile, ...(certsFile ? ['-f', certsFile] : []), '-p', project,
+// `overrideFile` (adw e2e's compose.adw-e2e.yml) goes last.
+export const composeRunArgs = ({ composeFile, certsFile = null, overrideFile = null, project, service = 'ai-dev-workflow', uid, gid, envNames = [],
+  authMounts = [] }) => ({ name, checkout, readOnly = false, mounts = [], argv, env = {} }) => ['compose', '-f', composeFile,
+  ...(certsFile ? ['-f', certsFile] : []), ...(overrideFile ? ['-f', overrideFile] : []), '-p', project,
     'run', '--rm', '-T', ...containerFlags({ uid, gid, envNames, authMounts, name, checkout, readOnly, mounts, env }), service, ...argv];
 
 // `run` has spawnSync's signature, `buildArgs` makes the docker argv for the container command. Returns the answer's JSON

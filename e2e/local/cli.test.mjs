@@ -384,3 +384,16 @@ test('run.json records the base image and the e2e layer', async () => {
   await runE2e(opts(root), deps);
   assert.deepEqual(runJson(root).fingerprint.image, { ref: 'img:1', id: 'sha256:1', e2e: 'adw-e2e:abc' });
 });
+
+test('judge-side compose calls (answerer, judges, own tests, teardown) use the e2e override too', async () => {
+  const root = project({ testCommand: 'npm test' });
+  try {
+    const s = stubs(root);
+    await runE2e(opts(root), s.deps);
+    const judge = s.seen.decide.buildArgs({ name: 'n', checkout: '/c', argv: ['x'] });
+    assert.deepEqual(judge.slice(judge.indexOf('-p') - 2, judge.indexOf('-p')), ['-f', '/run/o.yml']);
+    const compose = s.exec.filter((c) => c.argv[1] === 'compose');
+    assert.ok(compose.some((c) => c.argv.includes('bash')) && compose.some((c) => c.argv.includes('down')));
+    for (const c of compose) assert.equal(c.argv[c.argv.indexOf('-p') - 1], '/run/o.yml', c.argv.join(' '));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

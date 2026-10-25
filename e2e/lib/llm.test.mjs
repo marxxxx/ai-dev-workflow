@@ -198,3 +198,9 @@ test('composeRunArgs: the project\'s compose service, last before the argv; env 
   const ro = build({ name: 'n', checkout: '/c', readOnly: true, argv: ARGV });
   assert.equal(ro[ro.indexOf('/c:/workspace:ro') - 1], '-v', 'a read-only checkout');
 });
+
+test('composeRunArgs: an override file comes last among the compose files', () => {
+  const args = composeRunArgs({ composeFile: 'c.yml', certsFile: 'certs.yml', overrideFile: '/run/o.yml', project: 'p', uid: 1, gid: 1 })(
+    { name: 'n', checkout: '/c', argv: ARGV });
+  assert.deepEqual(args.slice(0, 9), ['compose', '-f', 'c.yml', '-f', 'certs.yml', '-f', '/run/o.yml', '-p', 'p']);
+});

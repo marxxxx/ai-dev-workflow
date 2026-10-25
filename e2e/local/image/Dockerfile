@@ -1,5 +1,7 @@
+# check=skip=InvalidDefaultArgInFrom
 # adw e2e: the project's dev image plus the pinned ACP tooling that drives the agent under test.
 # Built by e2e/local/image.mjs; package.json and the lockfile derive from docker/tools/inventory.json.
+# Always passed by image.mjs, hence the check skipped above.
 ARG BASE_IMAGE
 # Empty unless adw e2e passes --build-context certs=$AGENT_CA_DIR (company root certificates).
 FROM scratch AS certs
