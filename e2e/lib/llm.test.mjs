@@ -135,6 +135,12 @@ test('callLlm labels a missing JSON answer with role and harness, and keeps the 
   assert.throws(() => callLlm({ ...base, harness: 'opencode', run: () => ({ status: 0, stdout: 'nothing' }) }), /^Error: verifier \(opencode\): no answer in the opencode output$/);
 });
 
+test('callLlm keeps the end of stderr: a container that never started reports its error after compose\'s progress lines', () => {
+  const stderr = `${' Volume x_agent-home Creating\n'.repeat(50)}Error response from daemon: Bind for 127.0.0.1:8026 failed: port is already allocated\n`;
+  assert.throws(() => callLlm({ ...base, harness: 'claude-code', run: () => ({ status: 1, stdout: '', stderr }) }),
+    (e) => e.message.startsWith('verifier (claude-code): exit 1: ') && e.message.endsWith('port is already allocated'));
+});
+
 test('callLlm labels a non-zero exit with the CLI\'s own error event, and quota stays recognisable', () => {
   assert.throws(() => callLlm({ ...base, role: 'review', harness: 'opencode', run: () => ({ status: 1, stderr: 'warn', stdout: fixture('opencode-quota') }) }),
     (e) => /^review \(opencode\): quota: exit 1: APIError: Rate limit exceeded/.test(e.message) && e.message.endsWith(' | warn') && isQuotaError(e.message));

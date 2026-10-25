@@ -197,8 +197,9 @@ export function callLlm({ role, harness = 'claude-code', model = null, tools, pl
   const head = isCliQuota(harness, error) ? `${label}: quota:` : `${label}:`;
   if (r.status !== 0) {
     const own = harness === 'claude-code' ? cliError(r.stdout) : error ?? String(r.stdout ?? '').trim();
-    const detail = [own, String(r.stderr ?? '').trim()].filter(Boolean).join(' | ');
-    throw new Error(`${head} exit ${r.status}: ${detail.slice(0, 500)}`);
+    // The CLI's own error leads; stderr's end, since docker's error follows compose's progress lines.
+    const detail = [String(own).slice(0, 500), String(r.stderr ?? '').trim().slice(-500)].filter(Boolean).join(' | ');
+    throw new Error(`${head} exit ${r.status}: ${detail}`);
   }
   if (error) throw new Error(`${head} ${error}`);
   if (text === null) throw new Error(`${label}: no answer in the ${harness} output`);
