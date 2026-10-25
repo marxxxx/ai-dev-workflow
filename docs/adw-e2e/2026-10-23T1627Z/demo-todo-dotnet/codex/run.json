@@ -1,0 +1,442 @@
+{
+  "schema": 2,
+  "task": "demo-todo-dotnet",
+  "harness": "codex",
+  "fingerprint": {
+    "adw": {
+      "version": "0.28.0",
+      "sha": "2533ab012012cd0f9ba9abd1fce50382b986cefb",
+      "dirty": true
+    },
+    "skill": {
+      "claude": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "codex": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "opencode": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:9905aed6ff6a01bbb005f626e5bf6af85f9bde49ed2b27cee46a1f2302aecce8"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-dotnet:latest",
+      "id": "sha256:0150386d54bedb60ce043bcddee75b3a451c1eb5dc658af364ccd46ddfeacc16",
+      "inventory": "be1ece0171d7af148100fdcf1ba8aa846a6a088e455ab86b227b30b6a32614ec",
+      "harnessVersion": "0.164.0",
+      "superpowers": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "d0da995efeca9c264b60d5b89daaaf8676038179c9502bfb8a4f804ba286495b",
+      "lib": "4674f72ba86ec174e083cc0a55aa210119fcf023f49cc94ee29ca36d8c1b6ba9"
+    },
+    "config": "1ff0716c9335e44bede9e57b40bcf1538fd283d6c6850d494fb142cff041ebf0",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "openai/gpt-6.1-sol",
+      "subagents": null,
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "02affc8ba4e07c87b38ccd27fe73c2ce3c0081fc46b00875b175a50e6051e960"
+  },
+  "calibration": "2026-10-13T1704Z",
+  "config": {
+    "model": "openai/gpt-6.1-sol",
+    "subagentModel": null,
+    "agentKwargs": {
+      "reasoning_effort": "high"
+    },
+    "repetitions": 3
+  },
+  "trials": [
+    {
+      "id": "codex-1",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 5,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria are covered, including the 30 February case returning 400, and the spec adds sensible edge rules such as today not being overdue and PATCH omission versus null.",
+        "scope": "The change stays on the feature. The only extras are a `.worktrees/` entry in `.gitignore` and the plan and spec docs, which are small and workflow-driven.",
+        "tests": "Store, API and prerender page tests are thorough: UTC midnight, PATCH preservation, invalid dates, filter order and an empty result. The checkbox toggle is never exercised in an automated test, only in the manual Playwright run, and the one existing test that changed only had its expected JSON updated for the new fields.",
+        "conventions": "It follows AGENTS.md: no new packages, a failing test first, `data-testid` on the new elements, and validation errors mapped through the existing 400 handling. The test style matches the existing tests.",
+        "architecture": "Logic stays in the shared `TodoStore`, which is injected with a `TimeProvider`. Status is derived at read time through a single `Snapshot` path, so the API and the page share one rule and the page still calls the store directly.",
+        "codeQuality": "The code is clean and handles the edge cases correctly: one captured `today` per operation, no stored overdue flag, and an omitted `dueDate` kept distinct from null. The `HasDueDate` presence-tracking property on the patch record is slightly intricate."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 1462,
+        "verifier": 12,
+        "total": 1535
+      },
+      "tokens": {
+        "input": 111599,
+        "output": 35627,
+        "cacheRead": 4870400,
+        "cacheWrite": 0,
+        "total": 5017626
+      },
+      "cost": 1.066508,
+      "ccusage": {
+        "ccusageTotal": 5017626,
+        "deviation": 0,
+        "warning": null,
+        "cost": 1.066508,
+        "models": {
+          "gpt-6.1-sol": {
+            "input": 111599,
+            "output": 35627,
+            "cacheRead": 4870400,
+            "cacheWrite": 0,
+            "total": 5017626,
+            "cost": 1.066508
+          }
+        }
+      },
+      "userTokens": {
+        "total": 218175
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 0,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "CommandExecution": 63,
+          "FileChange": 11,
+          "ImageView": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 2,
+            "browser_run_code_unsafe": 6,
+            "browser_console_messages": 1,
+            "browser_close": 2
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "codex-2",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 4,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover AC1–AC7, including the PATCH omitted-versus-null distinction and the 400 cases; the marker text is \"Überfällig\" rather than the AC's lowercase \"überfällig\", a minor deviation.",
+        "scope": "The code changes stay within the ticket. The plan and spec docs are extra but follow the project's workflow.",
+        "tests": "Store and API tests cover date lifecycle, invalid dates, overdue boundaries, the filter and the prerendered markup. The interactive checkbox toggle has no automated test, and the one existing assertion that changed was updated only for the additive fields.",
+        "conventions": "The change uses records, the existing store and middleware, and data-testid attributes, as the code around it does. I did not read AGENTS.md in detail.",
+        "architecture": "Overdue logic lives once in Todo.IsOverdue and the store's List filter, shared by the API and the page, with no new endpoint or HTTP calls from the page.",
+        "codeQuality": "The code is compact and correct. The init-setter presence flag on TodoPatch is a little clever but works, and IsOverdue calls DateTime.UtcNow directly, so it can't be tested with a fixed clock."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 1550,
+        "verifier": 12,
+        "total": 1621
+      },
+      "tokens": {
+        "input": 159404,
+        "output": 34811,
+        "cacheRead": 5078656,
+        "cacheWrite": 0,
+        "total": 5272871
+      },
+      "cost": 1.174784,
+      "ccusage": {
+        "ccusageTotal": 5272871,
+        "deviation": 0,
+        "warning": null,
+        "cost": 1.174784,
+        "models": {
+          "gpt-6.1-sol": {
+            "input": 159404,
+            "output": 34811,
+            "cacheRead": 5078656,
+            "cacheWrite": 0,
+            "total": 5272871,
+            "cost": 1.174783
+          }
+        }
+      },
+      "userTokens": {
+        "total": 265754
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 0,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "CommandExecution": 67,
+          "FileChange": 12,
+          "ImageView": 2
+        },
+        "mcp": {
+          "serena": {
+            "initial_instructions": 1
+          },
+          "playwright": {
+            "browser_navigate": 1,
+            "browser_run_code_unsafe": 3,
+            "browser_console_messages": 3,
+            "browser_close": 1
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "codex-3",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 5,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover all seven acceptance criteria and add explicit decisions on PATCH semantics, the UTC boundary, and the 400 error format.",
+        "scope": "The code changes stay within the ticket; only the spec and plan docs are extra, and the project's workflow plausibly calls for them.",
+        "tests": "Store, API and page tests cover the UTC boundaries, PATCH semantics, invalid dates without mutation, and filter ordering, and no existing tests were weakened. The page tests only inspect prerendered HTML and never toggle the filter. A few date assertions are fragile, such as `2028-02-29` expiring in 2028 and the use of the real clock.",
+        "conventions": "The change keeps the shared singleton store and Blazor's direct store access, adds `data-testid` to the new elements, adds no packages, uses the existing 400 mapping, and follows the existing test style.",
+        "architecture": "Overdue logic and filtering live in one place in the store and are reused by both the API and the page. The `HasDueDate` presence flag on `TodoPatch` is slightly clunky but works with System.Text.Json without a custom converter.",
+        "codeQuality": "The code is concise and correct at the edges: it captures a single `now` per list call, compares UTC dates, and applies PATCH under the lock. The `HasDueDate` flag relies on init-setter side effects, which is subtle."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 15,
+        "agent": 1443,
+        "verifier": 11,
+        "total": 1522
+      },
+      "tokens": {
+        "input": 125636,
+        "output": 32906,
+        "cacheRead": 4763776,
+        "cacheWrite": 0,
+        "total": 4922318
+      },
+      "cost": 1.05671,
+      "ccusage": {
+        "ccusageTotal": 4922318,
+        "deviation": 0,
+        "warning": null,
+        "cost": 1.05671,
+        "models": {
+          "gpt-6.1-sol": {
+            "input": 125636,
+            "output": 32906,
+            "cacheRead": 4763776,
+            "cacheWrite": 0,
+            "total": 4922318,
+            "cost": 1.056709
+          }
+        }
+      },
+      "userTokens": {
+        "total": 205074
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 0,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "CommandExecution": 73,
+          "FileChange": 10,
+          "ImageView": 2
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 2,
+            "browser_run_code_unsafe": 7,
+            "browser_take_screenshot": 5,
+            "browser_console_messages": 2,
+            "browser_close": 1
+          },
+          "context7": {}
+        }
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 1,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 1,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 1,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 1,
+      "ac:AC4": 1,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 1
+    },
+    "median": {
+      "tokens": 5017626,
+      "cost": 1.066508,
+      "agent": 1462
+    },
+    "mcp": {
+      "serena": {
+        "calls": 1,
+        "trials": 1
+      },
+      "playwright": {
+        "calls": 36,
+        "trials": 3
+      },
+      "context7": {
+        "calls": 0,
+        "trials": 0
+      }
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 4,
+      "tests": 4,
+      "conventions": 4,
+      "architecture": 4,
+      "codeQuality": 4
+    },
+    "errorClasses": []
+  }
+}

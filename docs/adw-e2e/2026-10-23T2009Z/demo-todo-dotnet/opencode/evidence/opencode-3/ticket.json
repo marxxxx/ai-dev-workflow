@@ -1,0 +1,24 @@
+{
+  "issue": {
+    "state": "open",
+    "labels": [
+      {
+        "name": "status:review"
+      }
+    ]
+  },
+  "comments": [
+    {
+      "body": "## Approved Spec\n`docs/superpowers/specs/2026-10-23-todo-due-date-design.md`\n\nTodos bekommen ein optionales Fälligkeitsdatum (reines Datum, z. B. `2026-10-25`, `DateOnly`).\n\n- **API:** `POST /todos` und `PATCH /todos/{id}` akzeptieren optionales `dueDate`; Antworten liefern `dueDate` (ISO `yyyy-MM-dd` oder `null`). PATCH mit `dueDate: null` löscht das Datum. `GET /todos?overdue=true` filtert serverseitig auf überfällige Todos (abwärtskompatibel ohne Parameter).\n- **Überfällig:** `!Done && DueDate < heute (UTC)` — „heute\" gilt nach UTC, nicht Server-Lokalzeit.\n- **Validierung:** Ungültige Daten (falsches Format wie `25.10.2026`, unmögliches Datum wie `2026-02-30`) werden mit HTTP 400 `{\"error\": \"...\"}` abgelehnt (strikte `DateOnly`-Deserialisierung, `JsonException` wird auf 400 gemappt).\n- **Liste (`/`):** Datum wird neben dem Titel angezeigt, wenn gesetzt: `Titel (fällig: 25.10.2026)`. Überfällige Todos tragen die sichtbare Klartext-Markierung „überfällig\" (Styling egal). Checkbox „nur überfällige\" (`data-testid=\"overdue-only-filter\"`) zeigt nur überfällige Todos.\n- **Tests (TDD):** Store-Tests (Add/Update mit DueDate, IsOverdue: gestern=überfällig, heute/morgen=nein, erledigt=nie, ListOverdue), API-Tests (dueDate in POST/PATCH/GET, `?overdue=true`, 400 bei ungültigem Datum, Löschen per null), Page-Test (Datum + „überfällig\" im HTML).\n- **End-to-End:** Agent testet mit Playwright (App starten, überfälliges Todo anlegen, API-Filter, Seiten-Filter, Screenshots außerhalb des Repos).\n\nNicht im Scope: Uhrzeiten, wiederkehrende Fälligkeiten, Sortierung nach Datum, Persistenz über Neustart hinaus.",
+      "created_at": "2026-10-23T22:39:33Z"
+    },
+    {
+      "body": "## Implementation Summary\n**Approach** — Todos bekommen ein optionales Fälligkeitsdatum (`DateOnly? DueDate`). Der `TodoStore` wurde um `IsOverdue` (UTC-basiert: `!Done && DueDate < heute UTC`) und `ListOverdue` erweitert. Die JSON-API akzeptiert `dueDate` in POST/PATCH, liefert es in GET-Antworten und filtert mit `GET /todos?overdue=true`. Ein eigener `TodoPatchJsonConverter` unterscheidet „Feld fehlt\" (unverändert) von `\"dueDate\": null` (löschen). Die Liste zeigt das Datum als `(fällig: dd.MM.yyyy)`, markiert überfällige Todos mit dem Klartext „überfällig\" und hat eine Checkbox „nur überfällige\".\n\n**Consequences** — API: neues optionales Feld `dueDate` in allen Todo-JSON-Antworten (`null` wenn nicht gesetzt); `GET /todos?overdue=true` filtert serverseitig; ungültige Daten (falsches Format, unmögliche Daten wie `2026-02-30`) liefern HTTP 400 `{\"error\": \"...\"}`. UI: Datum neben dem Titel, „überfällig\"-Markierung, Filter-Checkbox mit `data-testid=\"overdue-only-filter\"`. „Heute\" gilt nach UTC.\n\n**Possible side effects** — Bestehende API-Clients sehen ein neues Feld `dueDate` in Antworten (abwärtskompatibel, `null` bei unset). PATCH ohne `dueDate` ändert nichts am Datum; PATCH mit `\"dueDate\": null` löscht es.\n\n**Watch when testing** — Todo mit gestrigem UTC-Datum anlegen → „überfällig\" muss erscheinen; mit heutigem Datum → nicht überfällig; erledigt mit gestrigem Datum → nicht überfällig. `GET /todos?overdue=true` liefert nur überfällige. POST mit `\"2026-02-30\"` oder `\"25.10.2026\"` → 400. PATCH `{\"dueDate\": null}` löscht das Datum, PATCH `{\"done\": true}` lässt es unverändert.\n\n**End-to-end status** — Vom Agent getestet (Playwright): App gestartet, 3 Todos angelegt (überfällig/normal/ohne Datum), API-Filter `?overdue=true` verifiziert (liefert nur das überfällige), Seite geprüft: Datum `(fällig: 22.10.2026)` sichtbar, „überfällig\" nur beim ersten Todo, Checkbox „nur überfällige\" filtert auf 1 Todo und zurück auf 3. Screenshots nicht committed (`.playwright-mcp/` entfernt). App heruntergefahren. Alle 22 Unit-/API-/Page-Tests grün.\n\nSpec: `docs/superpowers/specs/2026-10-23-todo-due-date-design.md` · Plan: `docs/superpowers/plans/2026-10-23-todo-due-date.md` · PR: http://gitea:3000/adw/demo-todo/pulls/2",
+      "created_at": "2026-10-23T22:52:19Z"
+    },
+    {
+      "body": "## Cost Summary\nWindow: 2026-10-23T22:37:48Z → 2026-10-23T22:52:28Z · Models: mistral-large-4, claude-sonnet-5-5\n\n| Input | Output | Cache read | Cache write | Total tokens | Est. USD |\n|---|---|---|---|---|---|\n| 114,719 | 55,906 | 6,498,181 | 11,769 | 6,680,575 | 1.35 |\n\nSessions counted: opencode:ses_e95166b03ffeS2p93Wc8I9E0aE, claude:7210ff18-0c34-4187-aa55-73a8ffe8fd5f\n\nUSD is a local ccusage estimate. Every session on this machine active in the window is counted, including unrelated ones.",
+      "created_at": "2026-10-23T22:52:29Z"
+    }
+  ]
+}

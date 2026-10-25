@@ -65,7 +65,22 @@ those certificates (`*.crt`, `*.pem`, `*.cer`, `*.cert`). Keep `localhost,127.0.
 `NO_PROXY`. `.env.ai-dev` also takes `AZURE_TENANT_ID`, `CONTEXT7_API_KEY` and `AGENT_IMAGE`
 (e.g. to pin a dated image tag).
 
-## 5. Customize
+## 5. Docker inside the container (opt-in)
+
+The container has the Docker CLI but no daemon. With `AGENT_DIND=1` in `.env.ai-dev`, the launchers
+add `compose.ai-dev.dind.yml`: a privileged Docker daemon next to the agent, so it can build images
+and run `docker compose` workloads and Testcontainers. Ports published by nested containers answer
+on `localhost`. With `AGENT_CA_DIR` set too, `compose.ai-dev.dind-certs.yml` makes the daemon trust
+those certificates (PEM only) for image pulls.
+
+**This is root-equivalent:** any agent in the container can become root on the host (Linux) or in
+the Docker Desktop VM, which reaches your drives (Windows). Enable it only where that is acceptable.
+
+The daemon keeps running after the agent exits. Stop it, once no agent session is left, with
+`docker compose -p @@SLUG@@-ai down`. Its images and build cache stay in the
+`@@SLUG@@-ai_docker-data` volume; `docker volume rm @@SLUG@@-ai_docker-data` deletes them.
+
+## 6. Customize
 
 `compose.ai-dev.yml` is yours: add a database or other services, publish ports, add
 `node_modules` volumes for nested packages. Keep the `/workspace` bind, the `agent-home` volume,

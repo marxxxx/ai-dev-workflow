@@ -1,0 +1,37 @@
+
+> demo-todo@1.0.0 test
+> node --test
+
+✔ creates and lists todos (43.740581ms)
+✔ rejects an empty title (9.984623ms)
+✔ marks a todo done (9.415697ms)
+✔ serves the list page (5.958015ms)
+✔ persists a due date through creation, reading and listing (9.270226ms)
+✔ updates, preserves and clears a due date (12.309089ms)
+✔ accepts an explicitly absent due date (5.431151ms)
+✔ rejects invalid due date "2026-02-29" without changing stored data (9.001282ms)
+✔ rejects invalid due date "1900-02-29" without changing stored data (8.785346ms)
+✔ rejects invalid due date "2026-04-31" without changing stored data (8.258378ms)
+✔ rejects invalid due date "2026-13-01" without changing stored data (7.817645ms)
+✔ rejects invalid due date "2026-00-01" without changing stored data (7.806748ms)
+✔ rejects invalid due date "2026-01-00" without changing stored data (8.798506ms)
+✔ rejects invalid due date "2026-01-32" without changing stored data (6.493246ms)
+✔ rejects invalid due date "2026-1-02" without changing stored data (6.342085ms)
+✔ rejects invalid due date "2026-01-01T00:00:00Z" without changing stored data (7.050398ms)
+✔ rejects invalid due date "" without changing stored data (7.094338ms)
+✔ rejects invalid due date " 2026-01-01 " without changing stored data (9.288247ms)
+✔ rejects invalid due date 42 without changing stored data (6.093677ms)
+✔ rejects invalid due date true without changing stored data (5.633623ms)
+✔ rejects invalid due date {} without changing stored data (6.577429ms)
+✔ rejects invalid due date [] without changing stored data (5.566108ms)
+✔ invalid done does not partially update a title or due date (7.141762ms)
+✔ overdue filter respects the UTC day boundary and current completion and due date (15.067123ms)
+✔ a due date becomes overdue only when the UTC day rolls over (5.035685ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 371.601365

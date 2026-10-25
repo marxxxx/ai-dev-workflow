@@ -9,7 +9,7 @@ The generator is a zero-dependency Node script, published to npm as
 [`@strobl_dev/adw`](https://www.npmjs.com/package/@strobl_dev/adw). The consuming project does
 **not** need to be a Node project. It works in any repo (C#/.NET, Go, Rust, …) — the only
 requirement is Node on the machine that runs the generator (your dev box and CI). Pin a version
-(e.g. `@0.27.0`) so devs and CI stay in sync.
+(e.g. `@0.29.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -19,6 +19,7 @@ requirement is Node on the machine that runs the generator (your dev box and CI)
 | `AGENTS.md` | **you** — create with your coding agent's native `/init`; `agent-dev` reads it first (add an [End-to-end testing](#end-to-end-testing) section for agent-run e2e checks) | yes |
 | `agent-custom/` | **you** (optional) — per-project tweaks to the skill body (see [Customizing the skill](#customizing-the-skill)) | yes |
 | `docs/superpowers/{specs,plans}/` | written by superpowers when a change needs them; the agreed scope is also posted to the ticket | yes |
+| `.agents/skills/show-me/`, `.claude/skills/show-me`, `skills-lock.json` | third-party [show-me](#reviewing-specs-and-plans-with-show-me) skill, installed by `init`/`upgrade` with `npx skills` at the commit this adw version pins; never rendered or checked | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
 | `.mcp.json` | merged (azure-devops backend only) — the shared `ado` server entry; other servers preserved | yes |
 | `.codex/config.toml` | merged (azure-devops backend only) — the Codex project-local `ado` MCP server entry; other Codex settings preserved | yes |
@@ -32,7 +33,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
-npx @strobl_dev/adw@0.27.0 init
+npx @strobl_dev/adw@0.29.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -42,12 +43,12 @@ npx @strobl_dev/adw@0.27.0 init
 #    with your coding agent's native /init.)
 
 # 3. generate the platform files
-npx @strobl_dev/adw@0.27.0 generate
+npx @strobl_dev/adw@0.29.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the version (`@0.27.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the version (`@0.29.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 Versions up to v0.23.0 were only distributed from Git (`npx github:marxxxx/ai-dev-workflow#v0.23.0`).
 npm 12 refuses git specs by default (`EALLOWGIT`); add `--allow-git=all` if you still need one.
@@ -65,6 +66,7 @@ stale. Follow each project's own docs.
 | [playwright](https://github.com/microsoft/playwright-mcp) | recommended | MCP server: drives a real browser for the optional [end-to-end check](#end-to-end-testing) |
 | [context7](https://github.com/upstash/context7) | recommended | MCP server: up-to-date library and framework documentation |
 | [ccusage](https://ccusage.com) | recommended | CLI behind the [cost summary](#cost-summary); without it the summary names the gap |
+| [show-me](https://github.com/humanlayer/skills) | installed for you | Compact views of a spec or plan for your review — see [below](#reviewing-specs-and-plans-with-show-me) |
 
 For the `azure-devops` backend, `generate` merges the `ado` MCP server (pinned to
 `@azure-devops/mcp@2`, whose tool names the Azure DevOps ticketing include is written against) into
@@ -79,8 +81,8 @@ and logged in — see [Gitea backend setup](docs/gitea-backend-setup.md).
 |---|---|
 | `generate` (default) | Render all platform files to the project root |
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
-| `upgrade` | Delete the files the pre-v0.23 workflow generated and strip obsolete keys from `ai-project.json`, then `generate`. Only deletes files carrying the generator's banner for a removed unit; other skills and subagents are never touched. `--dry-run` lists the changes without writing anything. See [Updating](#updating). |
-| `init` | Interactive onboarding: prompts for project name, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), then writes `ai-project.json` — the only file it creates. It prints the [tooling](#tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
+| `upgrade` | The command for every version bump. Deletes the files the pre-v0.23 workflow generated and strips obsolete keys from `ai-project.json`, then `generate`s, then installs or updates the pinned [show-me](#reviewing-specs-and-plans-with-show-me) skill (unless `"skills": { "show-me": false }`). Only deletes files carrying the generator's banner for a removed unit; other skills and subagents are never touched. A failed skill install is a warning with the manual command, never an error. `--dry-run` lists the changes without writing anything. See [Updating](#updating). |
+| `init` | Interactive onboarding: prompts for project name, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), asks whether to install the [show-me](#reviewing-specs-and-plans-with-show-me) skill (default yes; runs `npx skills add`), then writes `ai-project.json`. It prints the [tooling](#tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
 | `e2e` | `adw e2e <base-commit> <ticket> [harness]`: replay `agent-dev` on one of your tickets in a throwaway clone and score the result. See [E2E on your project](#e2e-on-your-project). |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
@@ -146,6 +148,17 @@ Names derive from the ticket's number and a short version of its title: branch
 Ticket states are just `new → in-progress → review`; acceptance and closing stay with the human.
 Nothing beyond the agreed scope and those two comments is written to the ticket.
 
+### Reviewing specs and plans with show-me
+
+Superpowers' specs and plans are thorough, which makes them long. When one is handed to you for
+review, `agent-dev` leads with a compact view of its design from HumanLayer's
+[show-me](https://github.com/humanlayer/skills) skill — pseudocode, call and file trees, `diff`-shaped
+changes, Mermaid diagrams — so you can judge the approach before reading the file. The file stays
+the record. show-me is user-invoked only (`/show-me` works any time); `agent-dev` reads it at those
+two moments. `init` and `upgrade` install it into the project at the commit the adw version pins;
+`generate` and `check` print a note (exit code unchanged) when it is missing or outdated. Opt out
+with `"skills": { "show-me": false }` in `ai-project.json`.
+
 ### End-to-end testing
 
 Superpowers itself never starts your app: its verification is satisfied by passing tests. So
@@ -193,6 +206,7 @@ Add it as a dev dependency with an exact version, and wire up scripts:
 },
 "scripts": {
   "agents:generate": "adw generate",
+  "agents:upgrade":  "adw upgrade",
   "agents:check":    "adw check"
 }
 ```
@@ -200,13 +214,21 @@ Add it as a dev dependency with an exact version, and wire up scripts:
 ## Updating
 
 ```bash
-npx @strobl_dev/adw@<new-version> generate   # or bump the pinned version, then `generate`
+npx @strobl_dev/adw@<new-version> upgrade --dry-run   # list what would change
+npx @strobl_dev/adw@<new-version> upgrade             # or bump the pinned version, then `upgrade`
 ```
 
-Review the diff in `.claude/`/`.codex/`/etc. and commit. `generate` never touches `ai-project.json`;
-`upgrade` only removes keys that are obsolete. Run
+`upgrade` cleans up what older versions left behind, generates, and brings the pinned third-party
+skills (show-me) to this version's commit. Review the diff in `.claude/`/`.codex/`/`.agents/` and
+commit. `generate` never touches `ai-project.json`; `upgrade` only removes keys that are obsolete
+and records the `skills` opt-in. Run
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
+
+**Upgrading to v0.29.0.** adw now installs the show-me skill. Run `upgrade` instead of
+`generate`: it records `"skills": { "show-me": true }` in `ai-project.json` and installs the skill
+with `npx skills` (needs network access to npm and GitHub). To decline, set `"show-me": false` first. Until it is
+installed, `generate` and `check` print a note, and `agent-dev` mentions it once per review.
 
 **Upgrading to v0.25.0.** New `upgrade` command: it cleans up after the pre-v0.23 workflow (see
 v0.23.0 below). `init` no longer asks for the project slug, Serena project name, description or
@@ -227,8 +249,8 @@ the developer journal/handoff, and the e2e include are gone; ticket states shrin
 longer produces; run `upgrade` instead, which removes them and then generates:
 
 ```bash
-npx @strobl_dev/adw@0.27.0 upgrade --dry-run   # list what would change
-npx @strobl_dev/adw@0.27.0 upgrade
+npx @strobl_dev/adw@0.29.0 upgrade --dry-run   # list what would change
+npx @strobl_dev/adw@0.29.0 upgrade
 ```
 
 It deletes these files, but only where they still carry the generator's `DO NOT EDIT` banner (a
@@ -328,7 +350,9 @@ Superpowers and ccusage.
 Answer **yes** to *Set up the dev container?* during `init`: it writes `compose.ai-dev.yml`
 (preset with the published image for the detected stack: Node, .NET or generic), a
 certificate overlay, the launchers `ai-dev.sh` / `ai-dev.ps1` and `AI-DEV.md` with the logins
-for your coding agents and ticketing backend, then prints the exact next steps. These files are
+for your coding agents and ticketing backend, then prints the exact next steps. It also asks
+whether to enable the Docker overlay (`AGENT_DIND=1`, root-equivalent) and company root
+certificates (`AGENT_CA_DIR`), and writes those to the git-ignored `.env.ai-dev`. These files are
 project-owned. Run the generator on the host; the image does not install or run it.
 
 ```bash

@@ -24,14 +24,35 @@ export const MINIMAL_PROJECT = {
 };
 
 /**
- * Run the generator CLI as a subprocess. Returns { status, stdout, stderr }.
- * stdin is empty (never a TTY), matching how the tool runs in CI.
+ * A stand-in for `npx skills add` (lib/skills.mjs runs ADW_NPX instead of npx): it appends its
+ * argv to $FAKE_NPX_LOG and writes the lock entry the real CLI would, so no test hits the network.
  */
-export function runCli(args, { cwd } = {}) {
+export const FAKE_NPX = (() => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-fake-npx-'));
+  process.on('exit', () => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'npx');
+  fs.writeFileSync(file, `#!${process.execPath}
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+if (process.env.FAKE_NPX_LOG) fs.appendFileSync(process.env.FAKE_NPX_LOG, JSON.stringify(args) + '\\n');
+if (process.env.FAKE_NPX_FAIL) { console.error('fake npx failure'); process.exit(1); }
+const [, ref] = /\\/tree\\/([0-9a-f]+)\\//.exec(args[3]) || [];
+const name = args[3].split('/').pop();
+fs.writeFileSync('skills-lock.json', JSON.stringify({ version: 1, skills: { [name]: { ref } } }));
+`, { mode: 0o755 });
+  return file;
+})();
+
+/**
+ * Run the generator CLI as a subprocess. Returns { status, stdout, stderr }.
+ * stdin is empty (never a TTY), matching how the tool runs in CI. `npx` is FAKE_NPX.
+ */
+export function runCli(args, { cwd, env = {} } = {}) {
   const res = spawnSync(process.execPath, [GENERATE, ...args], {
     cwd: cwd || process.cwd(),
     input: '',
     encoding: 'utf8',
+    env: { ...process.env, ADW_NPX: FAKE_NPX, ...env },
   });
   if (res.error) throw res.error;
   return { status: res.status, stdout: res.stdout || '', stderr: res.stderr || '' };

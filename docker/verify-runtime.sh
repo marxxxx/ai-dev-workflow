@@ -9,6 +9,8 @@ for image in ai-dev-workflow ai-dev-workflow-node ai-dev-workflow-dotnet; do
     --user dev --entrypoint /usr/local/bin/verify-tools.sh "$image"
 done
 bash docker/tests/runtime-smoke.sh
+# Opt-in dind overlay: privileged sidecar, needs network for image pulls.
+node docker/tests/dind-smoke.mjs
 # The .NET image adds a startup hook (dev-certificate trust); run its startup path too.
 AGENT_IMAGE=ai-dev-workflow-dotnet bash docker/tests/runtime-smoke.sh
 # Serena C# through the normal entrypoint: offline, fresh home, pre-provisioned Roslyn.

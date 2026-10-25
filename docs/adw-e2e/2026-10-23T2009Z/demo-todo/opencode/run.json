@@ -1,0 +1,456 @@
+{
+  "schema": 2,
+  "task": "demo-todo",
+  "harness": "opencode",
+  "fingerprint": {
+    "adw": {
+      "version": "0.28.0",
+      "sha": "4c6196612bf8d5cda078fb168d0843e19286a923",
+      "dirty": false
+    },
+    "skill": {
+      "claude": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "codex": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "opencode": "97ab0aaaeab67eedb3f401565ce8904dbd5c729cf72b085b434142fd5d634550",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:9905aed6ff6a01bbb005f626e5bf6af85f9bde49ed2b27cee46a1f2302aecce8"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-node:latest",
+      "id": "sha256:bbaca401df37e55ff018b03b0a9e946eee10fff6a14635991da8951ff590f70a",
+      "inventory": "be1ece0171d7af148100fdcf1ba8aa846a6a088e455ab86b227b30b6a32614ec",
+      "harnessVersion": "1.19.4",
+      "superpowers": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "d0da995efeca9c264b60d5b89daaaf8676038179c9502bfb8a4f804ba286495b",
+      "lib": "4674f72ba86ec174e083cc0a55aa210119fcf023f49cc94ee29ca36d8c1b6ba9"
+    },
+    "config": "1ff0716c9335e44bede9e57b40bcf1538fd283d6c6850d494fb142cff041ebf0",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "mistral/mistral-large-4",
+      "subagents": null,
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "697d1a3a2075179ae8908caee40fdf29606b4060ce9633702017fc2c40339bba"
+  },
+  "calibration": "2026-10-12T1659Z",
+  "config": {
+    "model": "mistral/mistral-large-4",
+    "subagentModel": null,
+    "agentKwargs": {},
+    "repetitions": 3
+  },
+  "trials": [
+    {
+      "id": "opencode-1",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 5,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria are covered by the spec and the diff, including null-clearing, impossible dates, the UTC overdue rule and the 'überfällig' and 'nur überfällige' labels.",
+        "scope": "The code changes are tightly scoped; the only extras are the plan and spec markdown files added to the repo.",
+        "tests": "API tests cover valid, invalid, set, clear and overdue-filter cases, and the one changed existing assertion only adds dueDate: null. The new UI (marker, toggle, date format) has no automated test, only a manual Playwright run.",
+        "conventions": "It uses ValidationError for 400s, Node builtins only, the existing test helpers, and data-testid on every new UI element, as AGENTS.md requires.",
+        "architecture": "Validation and filtering live in the store and the route only passes the query flag through. The overdue rule is duplicated in the UI, but the spec explicitly allows client-side filtering.",
+        "codeQuality": "The code is clear and handles the edge cases (impossible dates, non-string values, null clearing). Minor nits: the NaN check is redundant, the date is parsed twice, and the UI hides items with inline styles."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 570,
+        "verifier": 1,
+        "total": 628
+      },
+      "tokens": {
+        "input": 161878,
+        "output": 25715,
+        "cacheRead": 5195372,
+        "cacheWrite": 0,
+        "total": 5382965
+      },
+      "cost": 1.054995,
+      "ccusage": {
+        "ccusageTotal": 5382965,
+        "deviation": 0,
+        "warning": null,
+        "cost": 1.054995,
+        "models": {
+          "mistral-large-4": {
+            "input": 161878,
+            "output": 25715,
+            "cacheRead": 5195372,
+            "cacheWrite": 0,
+            "total": 5382965,
+            "cost": 1.054995
+          }
+        }
+      },
+      "userTokens": {
+        "total": 131112
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 3,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 7,
+          "bash": 64,
+          "read": 17,
+          "glob": 3,
+          "todowrite": 4,
+          "write": 3,
+          "edit": 15,
+          "task": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 1,
+            "browser_snapshot": 3,
+            "browser_console_messages": 1,
+            "browser_take_screenshot": 3,
+            "browser_click": 3
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "opencode-2",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 2,
+        "tests": 3,
+        "conventions": 3,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and the diff cover all seven acceptance criteria, including the UTC rule, the null/clear case, the 400 on invalid input, the 'überfällig' marker and the 'nur überfällige' button.",
+        "scope": "The .gitignore change removes the existing `node_modules/` entry, which is unrelated and risky. The added plan and spec docs are also extra files.",
+        "tests": "API and validation tests are good, including the today/done/no-date boundaries. The UI rendering, marker and toggle are only checked by a static HTML string match plus manual E2E, and the one existing assertion was updated only for the new field.",
+        "conventions": "The change uses ValidationError, data-testid attributes and TDD, but it drops `node_modules/` from .gitignore. The summary also says screenshots were saved in `.playwright-mcp/` inside the repo, while AGENTS.md says to save them outside it.",
+        "architecture": "Validation sits in the store and the filter in app.mjs, and `store.list()` is untouched, as the spec says. The overdue predicate is inlined in app.mjs and duplicated in the HTML, but that duplication is hard to avoid with zero dependencies.",
+        "codeQuality": "The code is concise and correct at the edges: it checks the date round-trip, handles null and a non-string type, and compares UTC dates as strings. The small blemish is the repeated validation block in `add` and `update`."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 9,
+        "agent": 1801,
+        "verifier": 1,
+        "total": 1857
+      },
+      "tokens": {
+        "input": 84963,
+        "output": 19441,
+        "cacheRead": 3630116,
+        "cacheWrite": 0,
+        "total": 3734520
+      },
+      "cost": 0.705029,
+      "ccusage": {
+        "ccusageTotal": 3734520,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.705029,
+        "models": {
+          "mistral-large-4": {
+            "input": 84963,
+            "output": 19441,
+            "cacheRead": 3630116,
+            "cacheWrite": 0,
+            "total": 3734520,
+            "cost": 0.705029
+          }
+        }
+      },
+      "userTokens": {
+        "total": 213932
+      },
+      "errors": {
+        "harbor": "AgentTimeoutError",
+        "bridge": null,
+        "tool": 5,
+        "timeout": true,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 6,
+          "bash": 46,
+          "read": 11,
+          "todowrite": 5,
+          "write": 2,
+          "edit": 12,
+          "task": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 1,
+            "browser_console_messages": 1,
+            "browser_snapshot": 3,
+            "browser_take_screenshot": 4,
+            "browser_click": 3
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "opencode-3",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover AC1–AC7: optional date on POST, set and clear on PATCH, 400 on invalid dates, the overdue filter, date display, the \"überfällig\" marker and the \"nur überfällige\" button.",
+        "scope": "The change stays on the feature; the only extras are the `.gitignore` entry for `.playwright-mcp/` and committed spec and plan docs, which are minor.",
+        "tests": "New tests cover POST and PATCH validation, setting and clearing the date, and an overdue filter with yesterday, today, tomorrow, no-date and done cases, and the existing deepEqual test was extended rather than weakened; the UI has no automated test beyond a manual E2E run.",
+        "conventions": "The code uses `ValidationError` for HTTP 400, adds no dependencies, gives new UI elements a `data-testid`, and follows TDD; the E2E screenshots were saved in the repo's `.playwright-mcp/` directory instead of outside the repository as AGENTS.md requires.",
+        "architecture": "Validation and filtering live in the store and `app.mjs` only passes the query parameter through; the UI repeats the overdue rule on the client, which the spec chose deliberately.",
+        "codeQuality": "The code is clean and handles edge cases such as date round-tripping and null; `parseDueDate` throws the same error in two places, and the page computes `today` once at load so it goes stale in a long-open tab."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 13,
+        "agent": 537,
+        "verifier": 1,
+        "total": 599
+      },
+      "tokens": {
+        "input": 97115,
+        "output": 19361,
+        "cacheRead": 3304172,
+        "cacheWrite": 0,
+        "total": 3420648
+      },
+      "cost": 0.675589,
+      "ccusage": {
+        "ccusageTotal": 3420648,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.675589,
+        "models": {
+          "mistral-large-4": {
+            "input": 97115,
+            "output": 19361,
+            "cacheRead": 3304172,
+            "cacheWrite": 0,
+            "total": 3420648,
+            "cost": 0.675589
+          }
+        }
+      },
+      "userTokens": {
+        "total": 165312
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 4,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 5,
+          "bash": 40,
+          "read": 8,
+          "todowrite": 9,
+          "write": 2,
+          "edit": 6
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 1,
+            "browser_console_messages": 1,
+            "browser_snapshot": 3,
+            "browser_take_screenshot": 5,
+            "browser_click": 4,
+            "browser_find": 1
+          },
+          "context7": {}
+        }
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 1,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 1,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 1,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 1,
+      "ac:AC4": 1,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 1
+    },
+    "median": {
+      "tokens": 3734520,
+      "cost": 0.705029,
+      "agent": 570
+    },
+    "mcp": {
+      "serena": {
+        "calls": 0,
+        "trials": 0
+      },
+      "playwright": {
+        "calls": 38,
+        "trials": 3
+      },
+      "context7": {
+        "calls": 0,
+        "trials": 0
+      }
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 4,
+      "tests": 4,
+      "conventions": 4,
+      "architecture": 4,
+      "codeQuality": 4
+    },
+    "errorClasses": [
+      "harbor",
+      "timeout"
+    ]
+  }
+}

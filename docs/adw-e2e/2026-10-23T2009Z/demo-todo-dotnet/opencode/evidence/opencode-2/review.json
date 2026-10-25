@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 2,
+    "scope": 4,
+    "tests": 3,
+    "conventions": 3,
+    "architecture": 2,
+    "codeQuality": 2
+  },
+  "reasons": {
+    "requirements": "The spec explicitly excluded filtering, so AC4 (API overdue-only) and AC7 (the \"nur überfällige\" control) are missing from both the spec and the diff, and the UTC definition of today was not captured.",
+    "scope": "Nothing unrequested was added beyond the plan and spec docs, but the PATCH handler was fully rewritten with manual JSON parsing.",
+    "tests": "The new tests cover set, clear, POST-invalid and the overdue/done/today boundaries, but there is no test for an invalid date in PATCH or for an impossible date such as 30 February, and the overdue assertions use local DateTime.Today.",
+    "conventions": "The change follows TDD, uses data-testid attributes and keeps the record style, but it bypasses the ValidationException-to-400 pattern and uses fully qualified System.Text.Json names inline.",
+    "architecture": "The PATCH handler now hand-parses JSON in Program.cs and drops model binding. The overdue logic sits inline in Home.razor, so the API and UI cannot share it, and the DueDateSet flag leaks into the store-level record.",
+    "codeQuality": "PATCH calls DateOnly.Parse, which throws FormatException (likely a 500) on an invalid date. It also tolerates an empty or malformed body only by throwing, silently ignores wrongly typed fields, and uses local DateTime.Today instead of UTC."
+  },
+  "error": null
+}

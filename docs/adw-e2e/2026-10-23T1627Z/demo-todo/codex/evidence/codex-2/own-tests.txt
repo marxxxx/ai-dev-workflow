@@ -1,0 +1,59 @@
+
+> demo-todo@1.0.0 test
+> node --test
+
+✔ creates and lists todos (35.458513ms)
+✔ rejects an empty title (10.347145ms)
+✔ marks a todo done (13.666813ms)
+✔ serves the list page (6.15218ms)
+✔ date contract is consistent across create, get, list and patch (30.83485ms)
+✔ overdue query selects only open past-due todos and preserves order (13.026549ms)
+✔ overdue filter rejects values other than exact true or false (6.820969ms)
+✔ invalid date requests return 400 without creating or partially updating todos (16.315112ms)
+✔ due-date changes preserve missing-id and deletion behavior (5.306061ms)
+✔ undated todos have explicit null dates and are never overdue (2.621683ms)
+✔ overdue means strictly before today UTC and not done (0.509663ms)
+✔ overdue is recalculated across UTC midnight without updating todos (0.311259ms)
+✔ one list uses one UTC date even when the clock crosses midnight (0.32154ms)
+✔ patch can set, change, preserve and remove the date (0.276824ms)
+✔ only overdue todos are filtered, in existing insertion order (0.29691ms)
+✔ accepts real dates including Gregorian leap years and early years (0.281679ms)
+✔ rejects invalid date "" on add and update (0.538628ms)
+✔ rejects invalid date " " on add and update (0.326223ms)
+✔ rejects invalid date "2026-2-03" on add and update (0.33535ms)
+✔ rejects invalid date "26-02-03" on add and update (0.191185ms)
+✔ rejects invalid date "2026-02-03 " on add and update (0.177036ms)
+✔ rejects invalid date "2026-02-03\n" on add and update (1.176656ms)
+✔ rejects invalid date "2026-02-03T00:00:00Z" on add and update (0.140032ms)
+✔ rejects invalid date "2026-02-30" on add and update (0.172018ms)
+✔ rejects invalid date "2026-04-31" on add and update (0.138636ms)
+✔ rejects invalid date "1900-02-29" on add and update (0.124102ms)
+✔ rejects invalid date "2026-00-10" on add and update (0.129801ms)
+✔ rejects invalid date "2026-13-01" on add and update (0.100592ms)
+✔ rejects invalid date "2026-01-00" on add and update (0.095696ms)
+✔ rejects invalid date "2026-01-32" on add and update (0.09378ms)
+✔ rejects invalid date 0 on add and update (0.094112ms)
+✔ rejects invalid date true on add and update (0.093407ms)
+✔ rejects invalid date [] on add and update (0.119515ms)
+✔ rejects invalid date {} on add and update (0.093207ms)
+✔ failed multi-field updates preserve all stored fields (0.216776ms)
+✔ client overdue values and response mutations cannot change stored data (0.166143ms)
+✔ list renders safe titles, dates and overdue indicators from API fields (5.174969ms)
+✔ toggling fetches the API filter and replaces rather than duplicates list items (1.761942ms)
+✔ empty filtered results clear the previously displayed list (1.507045ms)
+✔ a stale filter response cannot overwrite the latest checkbox selection (1.686836ms)
+✔ filter checkbox has the agreed visible label (0.384341ms)
+✔ network failure clears misleading filter results, shows an error and allows recovery (2.868882ms)
+✔ HTTP failure clears misleading filter results, shows an error and allows recovery (4.23948ms)
+✔ invalid JSON clears misleading filter results, shows an error and allows recovery (1.181436ms)
+✔ initial load failure shows an error instead of an unhandled rejection (1.239838ms)
+✔ latest request failure cannot be overwritten by an older successful result (1.58539ms)
+✔ older failed request cannot clear the latest successful results (1.096783ms)
+ℹ tests 47
+ℹ suites 0
+ℹ pass 47
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 233.108015

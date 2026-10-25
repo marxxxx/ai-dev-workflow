@@ -14,6 +14,11 @@ export function versionOf(spec) {
   return spec.slice(spec.lastIndexOf('@') + 1);
 }
 
+// "5:29.9.1-1~debian.12~bookworm" -> "29.9.1": drops the epoch and the Debian revision.
+export function debianUpstreamVersion(version) {
+  return version.replace(/^\d+:/, '').split('-')[0];
+}
+
 export function outputHasVersion(output, version) {
   // tea prints its version in bold even without a terminal.
   output = output.replace(/\x1b\[[0-9;]*m/g, '');
@@ -31,10 +36,19 @@ export function versionChecks(inventory, variant) {
     { label: 'opencode', expected: npm('opencode-ai'), command: [`${BIN}/opencode`, '--version'] },
     { label: 'uv', expected: inventory.systemTools.uv, command: ['uv', '--version'] },
     { label: 'tea', expected: inventory.systemTools.tea, command: ['tea', '--version'] },
-    { label: 'az', expected: inventory.systemTools.azureCliDebianPackage.split('-')[0], command: ['az', 'version', '--output', 'json'] },
+    { label: 'az', expected: debianUpstreamVersion(inventory.systemTools.azureCliDebianPackage), command: ['az', 'version', '--output', 'json'] },
     {
       label: 'az extension azure-devops', expected: inventory.systemTools.azureDevOpsCliExtension,
       command: ['az', 'extension', 'show', '--name', 'azure-devops', '--query', 'version', '--output', 'tsv'],
+    },
+    { label: 'docker', expected: debianUpstreamVersion(inventory.systemTools.dockerCliDebianPackage), command: ['docker', '--version'] },
+    {
+      label: 'docker buildx', expected: debianUpstreamVersion(inventory.systemTools.dockerBuildxDebianPackage),
+      command: ['docker', 'buildx', 'version'],
+    },
+    {
+      label: 'docker compose', expected: debianUpstreamVersion(inventory.systemTools.dockerComposeDebianPackage),
+      command: ['docker', 'compose', 'version'],
     },
     { label: 'serena', expected: `rev=${inventory.sourceRevisions.serena}`, file: SERENA_RECEIPT },
     ...Object.keys(inventory.npmPackages).map(name => ({

@@ -1,0 +1,21 @@
+{
+  "criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "fail",
+    "AC5": "pass",
+    "AC6": "pass",
+    "AC7": "fail"
+  },
+  "evidence": {
+    "AC1": "POST /todos with {\"title\":\"a\",\"dueDate\":\"2026-10-01\"} returned 201 with dueDate \"2026-10-01\", a date without a time. POST without dueDate returned 201 with dueDate null.",
+    "AC2": "PATCH /todos/2 with {\"dueDate\":\"2026-10-02\"} returned 200 and the date was set. PATCH with {\"dueDate\":null} returned 200 and dueDate was null again. PATCH /todos/4 changed the date from 2026-12-01 to 2026-10-20.",
+    "AC3": "POST with dueDate \"2026-02-30\" returned 400. POST with dueDate \"10/01/2026\" returned 400. PATCH with dueDate \"2026-02-30\" returned 400.",
+    "AC4": "The API has no way to return only overdue todos. GET /todos?overdue=true, ?overdue=1 and ?filter=overdue each returned the full list, including non-overdue todos. GET /todos/overdue returned 404. The isOverdue field itself was right: done todos and todos without a date were false, and past-dated open todos were true. But the filtering the criterion asks for does not exist.",
+    "AC5": "I loaded the list page HTML from the running app. Todos with dates showed <time data-testid=\"todo-due-date\">2026-10-01</time> and 2026-10-20. The todo without a date showed none. I checked the page with curl, not the Playwright browser.",
+    "AC6": "In the list page HTML, the open todos dated 2026-10-01 and 2026-10-20 had a badge reading \"Überfällig\" (capital Ü). The done todo with a past date and the todo without a date had no badge. The criterion says lowercase \"überfällig\"; the badge has a capital initial, which is normal for a label. I did not check this in the browser.",
+    "AC7": "The list page HTML contains no control labelled \"nur überfällige\"; grep for it returned 0 matches. The diff of Home.razor adds no filter control."
+  },
+  "error": null
+}

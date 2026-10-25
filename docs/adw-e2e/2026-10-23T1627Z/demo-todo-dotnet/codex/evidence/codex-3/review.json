@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria and add explicit decisions on PATCH semantics, the UTC boundary, and the 400 error format.",
+    "scope": "The code changes stay within the ticket; only the spec and plan docs are extra, and the project's workflow plausibly calls for them.",
+    "tests": "Store, API and page tests cover the UTC boundaries, PATCH semantics, invalid dates without mutation, and filter ordering, and no existing tests were weakened. The page tests only inspect prerendered HTML and never toggle the filter. A few date assertions are fragile, such as `2028-02-29` expiring in 2028 and the use of the real clock.",
+    "conventions": "The change keeps the shared singleton store and Blazor's direct store access, adds `data-testid` to the new elements, adds no packages, uses the existing 400 mapping, and follows the existing test style.",
+    "architecture": "Overdue logic and filtering live in one place in the store and are reused by both the API and the page. The `HasDueDate` presence flag on `TodoPatch` is slightly clunky but works with System.Text.Json without a custom converter.",
+    "codeQuality": "The code is concise and correct at the edges: it captures a single `now` per list call, compares UTC dates, and applies PATCH under the lock. The `HasDueDate` flag relies on init-setter side effects, which is subtle."
+  },
+  "error": null
+}

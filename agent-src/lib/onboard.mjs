@@ -7,7 +7,8 @@ import readline from 'node:readline';
 import { SRC_DIR, argValue } from './constants.mjs';
 import { detectRepoSlug } from './identity.mjs';
 import { readJson, buildProjectConfig } from './config.mjs';
-import { STACKS, detectStack, writeContainerFiles, nextSteps } from './container.mjs';
+import { STACKS, DIND_WARNING, detectStack, writeContainerFiles, nextSteps } from './container.mjs';
+import { loadSkillPins, installSkills, reportSkills } from './skills.mjs';
 
 /**
  * The next-step guidance printed after onboarding: create AGENTS.md with the coding agent's native
@@ -41,7 +42,11 @@ const DEPENDENCIES =
   '               https://github.com/upstash/context7\n' +
   '\n' +
   '  ccusage      CLI: token/cost reporting used for agent-dev\'s cost summary\n' +
-  '               https://ccusage.com';
+  '               https://ccusage.com\n' +
+  '\n' +
+  '  show-me      Skill: compact views of a spec or plan for agent-dev\'s reviews; `init` and\n' +
+  '               `upgrade` install it into the project unless you opt out\n' +
+  '               https://github.com/humanlayer/skills';
 
 /** Template-copy scaffold — the non-interactive fallback. Never overwrites. */
 export function cmdScaffold(projectRoot) {
@@ -158,10 +163,37 @@ export async function runInterview(prompter, { detectRepoSlug, projectRoot }) {
  */
 export async function askContainer(prompter, projectRoot) {
   const enabled = await prompter.ask('Set up the dev container? (Y/n)', 'container.enabled', prompter.scripted ? 'n' : 'y');
-  if (!/^(y|yes|true)$/i.test(enabled)) return { enabled: false };
+  if (!yes(enabled)) return { enabled: false };
   const stack = await prompter.askChoice('Container stack', 'container.stack', STACKS, detectStack(projectRoot));
-  return { enabled: true, stack };
+
+  // Settings for the git-ignored .env.ai-dev; both opt-ins default to no.
+  const env = {};
+  const dind = await prompter.ask('Give the agent a Docker daemon (Docker overlay)? (y/N)', 'container.dind', 'n');
+  if (yes(dind)) {
+    console.log(DIND_WARNING);
+    env.AGENT_DIND = '1';
+  }
+  const certs = await prompter.ask('Trust company root certificates (TLS-inspecting proxy)? (y/N)', 'container.certs', 'n');
+  if (yes(certs)) {
+    env.AGENT_CA_DIR = await prompter.ask('Absolute directory holding the certificates (blank: set it later)', 'container.caDir', '');
+  }
+  return { enabled: true, stack, env };
 }
+
+/**
+ * One question per pinned third-party skill (config/skills.json). Interactive runs default to
+ * yes; an answers file without `skills.<name>` means no.
+ */
+export async function askSkills(prompter, pins = loadSkillPins()) {
+  const choices = {};
+  for (const [name, { purpose, repository }] of Object.entries(pins.skills)) {
+    const answer = await prompter.ask(`Install the ${name} skill (${purpose}, from ${repository})? (Y/n)`, `skills.${name}`, prompter.scripted ? 'n' : 'y');
+    choices[name] = yes(answer);
+  }
+  return choices;
+}
+
+const yes = (answer) => /^(y|yes|true)$/i.test(answer);
 
 /** The ai-dev-workflow version, for the `npx @strobl_dev/adw@<version>` line of the next steps. */
 function packageVersion() {
@@ -169,16 +201,27 @@ function packageVersion() {
 }
 
 /** Write the container files for `config` and print what happened plus the next steps. */
-function setUpContainer(projectRoot, stack, config) {
+function setUpContainer(projectRoot, { stack, env }, config) {
   const backend = config.ticketing?.backend || 'file';
-  const { written, skipped } = writeContainerFiles(projectRoot, {
+  const { written, skipped, kept } = writeContainerFiles(projectRoot, {
     name: config.project?.name || path.basename(projectRoot),
     stack,
     backend,
     giteaLogin: config.ticketing?.gitea?.login || '',
+    env,
   });
   for (const f of written) console.log(`Wrote ${f}`);
   for (const f of skipped) console.log(`${f} exists — left untouched.`);
+  for (const k of kept) console.log(`${k} is already set in .env.ai-dev — left untouched.`);
+  if (env.AGENT_CA_DIR === '' && !kept.includes('AGENT_CA_DIR')) {
+    console.log(
+      '\nAGENT_CA_DIR is empty in .env.ai-dev, so the certificates overlay stays off. To enable it,\n' +
+      'set it to the absolute directory holding the company root certificates (*.crt, *.pem, *.cer,\n' +
+      '*.cert), e.g. AGENT_CA_DIR=/etc/company-certs. See AI-DEV.md, section 4.');
+  } else if (env.AGENT_CA_DIR && !kept.includes('AGENT_CA_DIR') &&
+             !(path.isAbsolute(env.AGENT_CA_DIR) && fs.statSync(env.AGENT_CA_DIR, { throwIfNoEntry: false })?.isDirectory())) {
+    console.log(`\nWarning: AGENT_CA_DIR=${env.AGENT_CA_DIR} is not an existing absolute directory; the container will not start until it is. Fix it in .env.ai-dev.`);
+  }
   console.log(`\n${nextSteps({ backend, version: packageVersion() })}`);
 }
 
@@ -191,7 +234,7 @@ function setUpContainer(projectRoot, stack, config) {
  * The `--answers` path is a scripted prompter, so interactive and non-interactive init share
  * exactly one interview code path.
  */
-export async function cmdInit(projectRoot, { prompter } = {}) {
+export async function cmdInit(projectRoot, { prompter, runSkill } = {}) {
   const dest = path.join(projectRoot, 'ai-project.json');
   let active = prompter;
   if (!active) {
@@ -212,19 +255,21 @@ export async function cmdInit(projectRoot, { prompter } = {}) {
       if (!/^y(es)?$/i.test(ow)) {
         console.log('ai-project.json left untouched.');
         const container = await askContainer(active, projectRoot);
-        if (container.enabled) setUpContainer(projectRoot, container.stack, readExistingConfig(dest));
+        if (container.enabled) setUpContainer(projectRoot, container, readExistingConfig(dest));
         return 0;
       }
     }
 
     const answers = await runInterview(active, { detectRepoSlug, projectRoot });
-    const config = buildProjectConfig(answers);
+    const config = { ...buildProjectConfig(answers), skills: await askSkills(active) };
     const container = await askContainer(active, projectRoot);
     fs.writeFileSync(dest, JSON.stringify(config, null, 2) + '\n');
 
     console.log(`\nCreated ${dest}`);
+    const wanted = Object.keys(config.skills).filter((name) => config.skills[name]);
+    reportSkills(installSkills(projectRoot, wanted, runSkill ? { run: runSkill } : {}));
     if (container.enabled) {
-      setUpContainer(projectRoot, container.stack, config);
+      setUpContainer(projectRoot, container, config);
       return 0;
     }
 

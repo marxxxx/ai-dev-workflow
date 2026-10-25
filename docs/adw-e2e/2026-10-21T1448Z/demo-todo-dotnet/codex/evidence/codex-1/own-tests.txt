@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  Restored /tmp/pr-fXTYbW/src/DemoTodo/DemoTodo.csproj (in 2 sec).
+  Restored /tmp/pr-fXTYbW/tests/DemoTodo.Tests/DemoTodo.Tests.csproj (in 2.34 sec).
+  DemoTodo -> /tmp/pr-fXTYbW/src/DemoTodo/bin/Debug/net10.0/DemoTodo.dll
+  DemoTodo.Tests -> /tmp/pr-fXTYbW/tests/DemoTodo.Tests/bin/Debug/net10.0/DemoTodo.Tests.dll
+Test run for /tmp/pr-fXTYbW/tests/DemoTodo.Tests/bin/Debug/net10.0/DemoTodo.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    49, Skipped:     0, Total:    49, Duration: 3 s - DemoTodo.Tests.dll (net10.0)

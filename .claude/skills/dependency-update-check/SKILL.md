@@ -1,6 +1,6 @@
 ---
 name: dependency-update-check
-description: Use when checking, updating, or bumping the docker/tools/inventory.json pinned dependency set (base image, npm packages, system tools, serena/superpowers revisions) for ai-dev-workflow — classifies each available update as non-breaking, adjustable, or needs-a-decision and routes it to the correct PR or issue.
+description: Use when checking, updating, or bumping the docker/tools/inventory.json pinned dependency set (base image, npm packages, system tools, serena/superpowers revisions, the agent skills adw installs) for ai-dev-workflow — classifies each available update as non-breaking, adjustable, or needs-a-decision and routes it to the correct PR or issue.
 ---
 
 # Dependency Update Check
@@ -8,14 +8,17 @@ description: Use when checking, updating, or bumping the docker/tools/inventory.
 ## Overview
 
 Maintain the `docker/tools/inventory.json` pinned dependency set (base image, npm packages,
-system tools, and the serena / superpowers source revisions). Check every pin against its
+system tools, the serena / superpowers source revisions, and `agentSkills`: the `skills` CLI and
+the commit of each third-party skill such as `show-me` that `adw init`/`upgrade` install into
+consuming projects). Check every pin against its
 upstream source, classify the available updates, and take the correct action for each class in a
 **single pass** — but split the result into **at most three PRs/issues**: one non-breaking PR,
 one adjustable-breaking PR, one (or a few) needs-a-decision issue(s). **Never mix unrelated change
 classes into one PR.**
 
 **The iron rule:** never hand-edit derived files (`docker/tools/package.json`,
-`package-lock.json`, `Dockerfile*` `ARG`/`FROM` lines). Always go through `inventory.json` +
+`package-lock.json`, `Dockerfile*` `ARG`/`FROM` lines, the `image:` line of
+`agent-src/container/compose.ai-dev.dind.yml`, `agent-src/config/skills.json`). Always go through `inventory.json` +
 `node docker/tools/inventory.mjs sync` (or `update`), per `docker/README.md` and `AGENTS.md`.
 
 ## Workflow
@@ -30,13 +33,18 @@ node docker/tools/inventory.mjs outdated
 
 This resolves the latest upstream version for every npm package, the `node:24-bookworm-slim` base
 image, the Azure CLI Debian package + azure-devops extension, `uv`, `tea`, the .NET SDK channel, and the
-serena / superpowers HEAD revisions — honoring `updatePolicy` in `inventory.json` (major-version
+serena / superpowers / `agentSkills` HEAD revisions and the `skills` CLI — honoring `updatePolicy` in `inventory.json` (major-version
 holds, `npmFollowDependency` coupling such as `playwright` following `@playwright/mcp`). Treat its
 output as the authoritative "current pin → latest available" diff for this pass.
 
 For each changed dependency, fetch its changelog / release notes from upstream (npm `CHANGELOG.md`
 or GitHub releases; Azure CLI / azure-devops extension release notes; .NET SDK release notes; the
-serena / superpowers commit range between the pinned revision and new HEAD) to classify the change.
+serena / superpowers commit range between the pinned revision and new HEAD; for an `agentSkills`
+entry only the commits under its `path`, e.g. `git log <old>..<new> -- plugins/show-me/`) to classify
+the change. An `agentSkills` update ships with the npm package, not the image: it reaches projects
+through `adw upgrade`, so it needs no image build. Judge it by what changes in the skill text:
+a renamed skill, a moved `SKILL.md`, or a dropped `disable-model-invocation` breaks or changes
+`agent-dev`'s show-me hook, so it is adjustable or needs a decision, never non-breaking.
 
 ### 2. Classify each update
 
@@ -85,8 +93,8 @@ serena / superpowers commit range between the pinned revision and new HEAD) to c
 
 ## Constraints
 
-- **Never hand-edit** `docker/tools/package.json`, `package-lock.json`, or `Dockerfile*`
-  `ARG`/`FROM` lines — always route through `inventory.json` + `inventory.mjs sync`/`update`.
+- **Never hand-edit** `docker/tools/package.json`, `package-lock.json`, `Dockerfile*`
+  `ARG`/`FROM` lines, the dind overlay's `image:` line or `agent-src/config/skills.json` — always route through `inventory.json` + `inventory.mjs sync`/`update`.
 - Keep the three outcome classes in **separate** PRs/issues; never combine a non-breaking bump and
   a breaking adjustment in one PR.
 - If `inventory.mjs check` reports drift you did not intend, **stop and fix it** before opening any

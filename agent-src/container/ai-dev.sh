@@ -26,6 +26,13 @@ export HOST_UID="${HOST_UID:-$(id -u)}"
 export HOST_GID="${HOST_GID:-$(id -g)}"
 
 set -- run --rm ai-dev-workflow "$@"
+# Opt-in Docker daemon (AGENT_DIND=1): root-equivalent on the host, see AI-DEV.md.
+if [ "${AGENT_DIND:-}" = 1 ]; then
+  if [ -n "${AGENT_CA_DIR:-}" ]; then
+    set -- -f "$root/compose.ai-dev.dind-certs.yml" "$@"
+  fi
+  set -- -f "$root/compose.ai-dev.dind.yml" "$@"
+fi
 if [ -n "${AGENT_CA_DIR:-}" ]; then
   set -- -f "$root/compose.ai-dev.certs.yml" "$@"
 fi

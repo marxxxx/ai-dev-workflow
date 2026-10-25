@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  Restored /tmp/pr-JDHbsO/src/DemoTodo/DemoTodo.csproj (in 612 ms).
+  Restored /tmp/pr-JDHbsO/tests/DemoTodo.Tests/DemoTodo.Tests.csproj (in 644 ms).
+  DemoTodo -> /tmp/pr-JDHbsO/src/DemoTodo/bin/Debug/net10.0/DemoTodo.dll
+  DemoTodo.Tests -> /tmp/pr-JDHbsO/tests/DemoTodo.Tests/bin/Debug/net10.0/DemoTodo.Tests.dll
+Test run for /tmp/pr-JDHbsO/tests/DemoTodo.Tests/bin/Debug/net10.0/DemoTodo.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    22, Skipped:     0, Total:    22, Duration: 2 s - DemoTodo.Tests.dll (net10.0)

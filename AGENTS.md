@@ -24,7 +24,7 @@ node --test --test-name-pattern "azure" agent-src/lib/*.test.mjs          # sing
 node agent-src/generate.mjs init     --root <project>  # interactive; --answers <file.json> for non-interactive
 node agent-src/generate.mjs generate --root <project>  # render all platform files into the project
 node agent-src/generate.mjs check    --root <project>  # render in memory, diff against disk, exit 1 on drift
-node agent-src/generate.mjs upgrade  --root <project>  # delete pre-0.23 generated files + obsolete ai-project.json keys, then generate (--dry-run)
+node agent-src/generate.mjs upgrade  --root <project>  # delete pre-0.23 generated files + obsolete ai-project.json keys, generate, install/update pinned skills (--dry-run)
 ```
 
 ## Rule 1: never hand-edit generated files
@@ -66,9 +66,15 @@ pipeline: **config → tokens → units → renderers → outputs**.
 - **`upgrade.mjs`** — the `upgrade` command's explicit list of generated files and `ai-project.json`
   keys that earlier versions wrote and the current one no longer does. It deletes a file only if the
   file carries the banner of that exact unit. When you remove or rename a unit, include, or project
-  key, add the old one there.
+  key, add the old one there. `upgrade` is the documented command for every version bump.
+- **`skills.mjs`** — third-party skills (today `show-me`) that `init` and `upgrade` install into the
+  project with `npx skills add`, pinned by `config/skills.json` (CLI version + commit; derived from
+  `docker/tools/inventory.json`). `ai-project.json` `skills.<name>` records the opt-in (missing =
+  yes, `false` = opt-out); `skills-lock.json` tells which commit is installed. The installed files
+  are project-owned: never rendered, checked or deleted. `generate`/`check` only warn. A failed
+  install is a warning, never an error. Tests run `npx` as `ADW_NPX` (a fake in `test-helpers.mjs`).
 - **`container.mjs`** + `container/` — the dev-container files `init` offers to write
-  (`compose.ai-dev.yml`, certs overlay, `ai-dev.sh`/`.ps1`, `AI-DEV.md`) from `@@KEY@@` templates.
+  (`compose.ai-dev.yml`, certs and opt-in dind overlays, `ai-dev.sh`/`.ps1`, `AI-DEV.md`) from `@@KEY@@` templates.
   Written once when missing, then **project-owned**: never rendered, checked or upgraded by the pipeline.
 - **`e2e/local/`** — the `adw e2e` command (`cli.mjs`, dispatched from `generate.mjs`): replays
   `agent-dev` on a consumer project's real ticket in a throwaway clone on the `file` backend, driven
@@ -76,14 +82,16 @@ pipeline: **config → tokens → units → renderers → outputs**.
   in the package together with the `e2e/lib` modules it imports, each listed in `files`
   (`e2e/local/package.test.mjs` fails if the import closure of `cli.mjs` is not).
 - **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` (and, on request, the container files); recommended tooling is
-  *printed*, never installed or documented with install steps.
+  *printed*, never installed or documented with install steps — except the pinned skills of
+  `skills.mjs`, which it offers to install.
 
 Units: one skill, `agent-dev`. It adds only the ticket edges around the unmodified superpowers chain:
 `in-progress` at the start, the approved spec as a comment, and the implementation summary, cost
 summary and `review` at the end.
 It names only entry skills — `superpowers:brainstorming`, plus `superpowers:writing-plans` when
-resuming an in-progress ticket whose spec is already approved — and hooks in at events (spec approved,
-branch created, integration offered), never at superpowers' internal skill order — that is theirs to
+resuming an in-progress ticket whose spec is already approved — and hooks in at events (spec or plan
+handed over for review → a `show-me` view, spec approved, branch created, integration offered), never
+at superpowers' internal skill order — that is theirs to
 change. **Keep it lean**: every rendered byte is read on every run, so do not restate superpowers
 skills or invent process of their own — the spec/plan files superpowers writes are the working artifacts.
 See `agent-src/README.md` for the output map and manifest schema.
@@ -101,7 +109,8 @@ publishes to npm via trusted publishing (it skips versions already on npm).
 ## Container images (`docker/`)
 
 Hand-maintained, not generated. `docker/tools/inventory.json` is the single source for tool pins;
-`docker/tools/package.json`, its lockfile and Dockerfile `FROM`/`ARG` pins are derived — never
+`docker/tools/package.json`, its lockfile, Dockerfile `FROM`/`ARG` pins, the `image:` line of
+`agent-src/container/compose.ai-dev.dind.yml` and `agent-src/config/skills.json` (`agentSkills`) are derived — never
 hand-edit them (`node docker/tools/inventory.mjs update | sync | check`). See `docker/README.md`.
 
 ## E2E self-test (`e2e/`)
@@ -119,6 +128,13 @@ only `agent-dev`'s own contract and observable outcomes — never superpowers in
 allowed only in `e2e/agents/` (Harbor custom agents). See `docs/adw-e2e/README.md`.
 
 ## Conventions
+
+- **Every new feature needs an upgrade path and E2E coverage.** Before calling a change done, answer
+  two questions in its spec and plan. How does an existing project get it with one
+  `npx @strobl_dev/adw@<new> upgrade`, without reading release notes? Extend `upgrade.mjs` /
+  `skills.mjs` and the README "Updating" notes. And how does `e2e/` show that it works? Add or
+  adjust a contract check in `e2e/lib/trial.mjs` / `e2e/tasks/_shared/` and run it with the
+  `e2e-run` skill. If a feature needs neither, say why.
 
 - **Zero runtime dependencies** — don't add packages.
 - **LF line endings** everywhere.

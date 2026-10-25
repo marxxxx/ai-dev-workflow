@@ -5,7 +5,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { STACKS, detectStack, composeSlug, renderContainerFiles, ensureLine, writeContainerFiles, nextSteps } from './container.mjs';
+import { spawnSync } from 'node:child_process';
+import { STACKS, detectStack, composeSlug, renderContainerFiles, ensureLine, setEnvVar, writeContainerFiles, nextSteps } from './container.mjs';
 import { makeTmpRoot } from '../test-helpers.mjs';
 
 const IMAGES = {
@@ -67,12 +68,13 @@ for (const backend of ['file', 'github', 'gitea', 'azure-devops']) {
   });
 }
 
-test('renderContainerFiles returns the five files in order, no placeholder left, ai-dev.sh executable', () => {
+test('renderContainerFiles returns the seven files in order, no placeholder left, ai-dev.sh executable', () => {
   for (const stack of STACKS) {
     for (const backend of ['file', 'github', 'gitea', 'azure-devops']) {
       const files = renderContainerFiles({ name: 'Demo', stack, backend, giteaLogin: 'x' });
       assert.deepEqual(files.map((f) => f.path),
-        ['compose.ai-dev.yml', 'compose.ai-dev.certs.yml', 'ai-dev.sh', 'ai-dev.ps1', 'AI-DEV.md']);
+        ['compose.ai-dev.yml', 'compose.ai-dev.certs.yml', 'compose.ai-dev.dind.yml', 'compose.ai-dev.dind-certs.yml',
+          'ai-dev.sh', 'ai-dev.ps1', 'AI-DEV.md']);
       for (const f of files) assert.doesNotMatch(f.content, /@@[A-Z_]+@@/, `${stack}/${backend}: ${f.path}`);
       assert.equal(fileOf(files, 'ai-dev.sh').mode, 0o755);
       assert.equal(fileOf(files, 'ai-dev.ps1').mode, undefined);
@@ -86,8 +88,8 @@ test('writeContainerFiles writes all files into an empty root', () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     const { written, skipped } = writeContainerFiles(root, OPTS);
-    assert.deepEqual(written, ['compose.ai-dev.yml', 'compose.ai-dev.certs.yml', 'ai-dev.sh', 'ai-dev.ps1',
-      'AI-DEV.md', '.gitignore', '.gitattributes']);
+    assert.deepEqual(written, ['compose.ai-dev.yml', 'compose.ai-dev.certs.yml', 'compose.ai-dev.dind.yml',
+      'compose.ai-dev.dind-certs.yml', 'ai-dev.sh', 'ai-dev.ps1', 'AI-DEV.md', '.gitignore', '.gitattributes']);
     assert.deepEqual(skipped, []);
     assert.equal(fs.readFileSync(path.join(root, '.gitignore'), 'utf8'), '.env.ai-dev\n');
     assert.equal(fs.readFileSync(path.join(root, '.gitattributes'), 'utf8'), 'ai-dev.sh text eol=lf\n');
@@ -130,6 +132,49 @@ test('ensureLine appends once, on its own line, and creates missing files', () =
     const fresh = path.join(root, 'new-file');
     assert.equal(ensureLine(fresh, 'x'), true);
     assert.equal(fs.readFileSync(fresh, 'utf8'), 'x\n');
+  } finally {
+    cleanup();
+  }
+});
+
+test('setEnvVar adds KEY=value once and never overrides an existing assignment', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const file = path.join(root, '.env.ai-dev');
+    assert.equal(setEnvVar(file, 'AGENT_DIND', '1'), true);
+    assert.equal(setEnvVar(file, 'AGENT_CA_DIR', ''), true);
+    assert.equal(fs.readFileSync(file, 'utf8'), 'AGENT_DIND=1\nAGENT_CA_DIR=\n');
+    assert.equal(setEnvVar(file, 'AGENT_CA_DIR', '/certs'), false);
+    assert.equal(fs.readFileSync(file, 'utf8'), 'AGENT_DIND=1\nAGENT_CA_DIR=\n');
+
+    fs.writeFileSync(file, '# AGENT_DIND=1\r\nexport AGENT_CA_DIR=/x');
+    assert.equal(setEnvVar(file, 'AGENT_CA_DIR', '/y'), false, 'an export-prefixed assignment counts');
+    assert.equal(setEnvVar(file, 'AGENT_DIND', '1'), true, 'a commented-out assignment does not count');
+    assert.equal(fs.readFileSync(file, 'utf8'), '# AGENT_DIND=1\r\nexport AGENT_CA_DIR=/x\nAGENT_DIND=1\n');
+  } finally {
+    cleanup();
+  }
+});
+
+test('writeContainerFiles writes the requested settings into .env.ai-dev and reports kept ones', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, '.env.ai-dev'), 'AGENT_CA_DIR=/mine\n');
+    const { written, kept } = writeContainerFiles(root, { ...OPTS, env: { AGENT_DIND: '1', AGENT_CA_DIR: '' } });
+    assert.equal(fs.readFileSync(path.join(root, '.env.ai-dev'), 'utf8'), 'AGENT_CA_DIR=/mine\nAGENT_DIND=1\n');
+    assert.ok(written.includes('.env.ai-dev'));
+    assert.deepEqual(kept, ['AGENT_CA_DIR']);
+  } finally {
+    cleanup();
+  }
+});
+
+test('writeContainerFiles without settings creates no .env.ai-dev', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const { kept } = writeContainerFiles(root, OPTS);
+    assert.ok(!fs.existsSync(path.join(root, '.env.ai-dev')));
+    assert.deepEqual(kept, []);
   } finally {
     cleanup();
   }
@@ -179,4 +224,40 @@ test('nextSteps prefixes every container command with the launcher', () => {
   const text = nextSteps({ backend: 'file', version: '1' });
   assert.ok(text.includes('./ai-dev.sh codex login --device-auth'));
   assert.ok(text.includes('./ai-dev.sh opencode auth login'));
+});
+
+// The launcher's compose files, as passed to a fake `docker` on PATH.
+function launcherFiles(env, dotenv) {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeContainerFiles(root, OPTS);
+    if (dotenv) fs.writeFileSync(path.join(root, '.env.ai-dev'), dotenv);
+    const bin = path.join(root, 'bin');
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, 'docker'), '#!/bin/sh\nprintf "%s\\n" "$@"\n', { mode: 0o755 });
+    const clean = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^AGENT_(DIND|CA_DIR)$/.test(k)));
+    const result = spawnSync('sh', [path.join(root, 'ai-dev.sh'), 'true'],
+      { env: { ...clean, ...env, PATH: `${bin}:${process.env.PATH}` }, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const args = result.stdout.trim().split('\n');
+    assert.deepEqual(args.slice(-4), ['run', '--rm', 'ai-dev-workflow', 'true']);
+    return args.flatMap((a, i) => (args[i - 1] === '-f' ? [path.relative(root, a)] : []));
+  } finally {
+    cleanup();
+  }
+}
+
+test('ai-dev.sh adds the dind overlay only for AGENT_DIND=1, and its certs companion with AGENT_CA_DIR', { skip: process.platform === 'win32' }, () => {
+  assert.deepEqual(launcherFiles({}), ['compose.ai-dev.yml']);
+  assert.deepEqual(launcherFiles({ AGENT_DIND: '0' }), ['compose.ai-dev.yml']);
+  assert.deepEqual(launcherFiles({ AGENT_CA_DIR: '/certs' }), ['compose.ai-dev.yml', 'compose.ai-dev.certs.yml']);
+  assert.deepEqual(launcherFiles({ AGENT_DIND: '1' }), ['compose.ai-dev.yml', 'compose.ai-dev.dind.yml']);
+  assert.deepEqual(launcherFiles({}, 'AGENT_DIND=1\nAGENT_CA_DIR=/certs\n'),
+    ['compose.ai-dev.yml', 'compose.ai-dev.certs.yml', 'compose.ai-dev.dind.yml', 'compose.ai-dev.dind-certs.yml']);
+});
+
+test('AI-DEV.md explains the opt-in daemon and how to stop it for this project', () => {
+  const doc = fileOf(renderContainerFiles({ name: 'Demo', stack: 'generic', backend: 'file' }), 'AI-DEV.md').content;
+  assert.ok(doc.includes('AGENT_DIND=1'));
+  assert.ok(doc.includes('docker compose -p demo-ai down'));
 });

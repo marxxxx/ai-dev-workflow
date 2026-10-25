@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 5,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and the diff cover all seven acceptance criteria, including the UTC boundary, clearing a date with null, 400 on invalid dates, and the exact UI copy and test ids.",
+    "scope": "The diff adds only the due-date field, the overdue filter and the UI changes, plus the spec and plan documents; there is no styling or extra filter value.",
+    "tests": "The new tests cover validation, the leap day, patching and clearing, id non-consumption and the overdue boundary with an injected clock, but the page test only greps for static HTML and no test covers the due-date and overdue rendering in the browser.",
+    "conventions": "The change uses ValidationError, adds data-testid attributes, uses no dependencies, follows TDD, and matches the existing style.",
+    "architecture": "The overdue rule lives only in the store with an injectable clock, the app only maps the query parameter, and the page asks the server instead of duplicating the rule.",
+    "codeQuality": "The code is clean and correct, and update validates every field before mutating, but checkDueDate builds a Date from a non-string value before the type check and the page makes two requests per render."
+  },
+  "error": null
+}

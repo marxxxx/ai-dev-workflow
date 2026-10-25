@@ -1,0 +1,21 @@
+
+> demo-todo@1.0.0 test
+> node --test
+
+✔ creates and lists todos (29.146097ms)
+✔ stores a due date (7.863866ms)
+✔ rejects invalid due dates (19.443365ms)
+✔ accepts a leap day (3.777713ms)
+✔ patches and clears a due date (7.553366ms)
+✔ filters overdue todos (14.422215ms)
+✔ rejects an empty title (3.110804ms)
+✔ marks a todo done (3.702939ms)
+✔ serves the list page (4.08639ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 186.963978

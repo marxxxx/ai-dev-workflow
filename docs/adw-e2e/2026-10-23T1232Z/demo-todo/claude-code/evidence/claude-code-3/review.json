@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff: create, change and remove the date, 400 on invalid dates, the overdue filter, date display, the 'überfällig' marker and the 'nur überfällige' control.",
+    "scope": "Extras are small and tied to the feature: a read-only `overdue` check, strict `?overdue=` values, and atomic PATCH validation. The atomic PATCH change touches existing behaviour but is disclosed in the summary.",
+    "tests": "Store and API tests cover the boundaries (today vs. yesterday, done, a moving clock, impossible dates, a failed PATCH changing nothing) and the filter. The page behaviour is only checked by string matches on the HTML and by a manual e2e run. The existing test was extended rather than weakened.",
+    "conventions": "Follows the project rules: zero dependencies, `ValidationError` mapped to 400, tests written first, new elements carry `data-testid`, and the existing test style is reused.",
+    "architecture": "The rule, validation and filter live in the store, `app.mjs` only parses the query parameter, and the page uses the API filter. This matches the approach the user chose.",
+    "codeQuality": "The code is clear and handles edge cases such as impossible dates, copies on return and `done` toggling. `parseDueDate` is slightly redundant, because the `Date.parse` NaN check is covered by the round-trip comparison, and `rejectOverdue` runs after the other validation in `update`."
+  },
+  "error": null
+}

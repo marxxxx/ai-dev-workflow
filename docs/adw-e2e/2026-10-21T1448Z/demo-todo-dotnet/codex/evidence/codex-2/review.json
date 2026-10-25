@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 2,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff leave out AC4's API filter for overdue todos and AC7's \"nur überfällige\" control, so two of the seven acceptance criteria are missing. AC1–AC3, AC5 and AC6 are covered.",
+    "scope": "The code changes stay on due dates and overdue state. The only extra is a plan document with verification notes committed under docs/.",
+    "tests": "Store, API and page tests thoroughly cover dates, overdue edge cases, PATCH omit versus null, and invalid inputs. The exact-JSON assertion was loosened to property checks, which is justified by the new fields. Nothing tests the missing filter.",
+    "conventions": "The change follows AGENTS.md: the store throws ValidationException, new elements get data-testid, no new packages, and tests were written first. The badge text \"Überfällig\" is capitalized.",
+    "architecture": "Logic stays in the shared TodoStore records and Home.razor reads from the store directly. The omitted-versus-null PATCH handling uses a slightly clever init-setter presence flag.",
+    "codeQuality": "The code is compact and readable, handles edge cases such as UTC, today, and leap days, and is covered by invalid-date tests. The mutable-looking patch record with a private init flag is a bit subtle."
+  },
+  "error": null
+}

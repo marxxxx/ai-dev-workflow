@@ -8,7 +8,7 @@ import { isQuota } from './claude.mjs';
 
 export const CONTRACT_CHECKS = ['ticket_open', 'ticket_review', 'spec_comment', 'spec_comment_complete',
   'summary_comment', 'cost_comment', 'only_allowed_comments', 'pr_draft', 'branch_naming', 'pr_title_naming',
-  'e2e_performed', 'app_stopped', 'no_screenshots_in_repo'];
+  'e2e_performed', 'show_me_read', 'app_stopped', 'no_screenshots_in_repo'];
 
 const DEFAULT_DEPS = { ...metrics, ccusageUsage };
 const readJson = (f) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null);
@@ -37,6 +37,7 @@ export function buildTrialRecord({ id, harness, trialDir, config, criteria, deps
   const reward = readJson(path.join(trialDir, 'verifier/reward.json'));
   const checks = Object.fromEntries(CONTRACT_CHECKS.map((c) => [c, reward?.[c] === 1 ? 1 : 0]));
   checks.e2e_performed = deps.e2ePerformed(harness, trialDir, config.app.port);
+  checks.show_me_read = deps.showMeRead(harness, trialDir);
   const contract = Number((Object.values(checks).reduce((a, b) => a + b, 0) / CONTRACT_CHECKS.length).toFixed(4));
   const tokens = deps.targetTokens(harness, trialDir);
   const ccusage = deps.ccusageUsage(harness, trialDir, tokens, { version: config.ccusage?.version });
