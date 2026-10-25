@@ -305,7 +305,8 @@ confirms drafted acceptance criteria; later runs replay your stored answers.
 Prerequisites:
 
 - the container files from `init` (`compose.ai-dev.yml`). The first run builds a thin layer with `acpx` and the ACP
-  adapters on your dev image (about 480 MB, cached until the image or the pins change; older layers are removed);
+  adapters on your dev image (about 480 MB, cached until the image or the pins change; older layers are removed;
+  the build uses your proxy variables and `AGENT_CA_DIR`);
 - a login on the host for each harness any role uses; the containers get it from there, never from the
   project's agent-home volume:
   - Claude Code: run `claude setup-token` and export `CLAUDE_CODE_OAUTH_TOKEN` (or set

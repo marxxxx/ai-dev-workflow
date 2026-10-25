@@ -32,7 +32,8 @@ const has = (part) => (args) => args.includes(part);
 const isConfig = (args) => args.includes('config') && args.includes('json');
 const configJson = (service) => ({ status: 0, stdout: JSON.stringify({ services: { 'ai-dev-workflow': service } }) });
 const images = (ref) => [[has('--images'), { status: 0, stdout: `${ref}\n` }]];
-const baseInspect = (ref) => [(a) => is('image', 'inspect')(a) && a.at(-1) === ref, { status: 0, stdout: `${BASE_ID}\n` }];
+// `docker image inspect` output for an image without USER: Config has no User key at all.
+const baseInspect = (ref) => [(a) => is('image', 'inspect')(a) && a.at(-1) === ref, { status: 0, stdout: `${BASE_ID} {"Env":[]}\n` }];
 const layerMissing = [(a) => is('image', 'inspect')(a) && a.at(-1).startsWith('adw-e2e:'), { status: 1, stdout: '', stderr: 'No such image' }];
 
 test('layerTag is stable and changes with the base image or the lockfile', () => {
@@ -53,7 +54,9 @@ test('builds the layer on the compose image, labels it, prunes older ones and wr
   const out = ensureE2eImage(opts);
   assert.deepEqual(out, { image: ref, imageId: BASE_ID, tag, overrideFile: path.join(opts.runDir, 'compose.adw-e2e.yml') });
   const build = calls.find((c) => c.args[0] === 'build');
-  assert.deepEqual(build.args, ['build', '--build-arg', `BASE_IMAGE=${BASE_ID}`, '--label', 'adw.e2e.root=/proj', '-t', tag, opts.imageDir]);
+  // BuildKit reads `FROM sha256:…` as a Docker Hub repository: the base goes in by name, its ID only into the tag.
+  assert.deepEqual(build.args, ['build', '--build-arg', `BASE_IMAGE=${ref}`, '--build-arg', 'BASE_USER=root',
+    '--label', 'adw.e2e.root=/proj', '-t', tag, opts.imageDir]);
   assert.equal(build.opts.stdio, 'inherit');
   assert.ok(logs.some((l) => l.includes(`building the e2e layer on ${ref}`)));
   assert.deepEqual(calls.find((c) => is('image', 'ls')(c.args)).args, ['image', 'ls', '--filter', 'label=adw.e2e.root=/proj', '--format', '{{.Repository}}:{{.Tag}}']);
@@ -117,4 +120,27 @@ test('overrideYaml replaces the image and drops the build section', () => {
     '# Written by adw e2e: the agent runs on the e2e layer over the project\'s dev image.',
     'services:', '  ai-dev-workflow:', '    image: adw-e2e:abc', '    pull_policy: never', '    build: !reset null', '',
   ].join('\n'));
+});
+
+test('the layer restores the base image user', (t) => {
+  const ref = 'proj/ai-dev:1';
+  const { calls, opts } = setup(t, [
+    [isConfig, configJson({ image: ref })], ...images(ref),
+    [(a) => is('image', 'inspect')(a) && a.at(-1) === ref, { status: 0, stdout: `${BASE_ID} {"Env":[],"User":"dev"}\n` }], layerMissing,
+  ]);
+  const out = ensureE2eImage(opts);
+  assert.equal(out.imageId, BASE_ID);
+  assert.ok(calls.find((c) => c.args[0] === 'build').args.includes('BASE_USER=dev'));
+});
+
+test('proxies go to the build by name, company certificates as the certs build context', (t) => {
+  const ref = 'img:5';
+  const { calls, opts } = setup(t, [[isConfig, configJson({ image: ref })], ...images(ref), baseInspect(ref), layerMissing]);
+  const env = { PROJECT_ROOT: '/proj', HTTPS_PROXY: 'http://user:secret@proxy:3128', no_proxy: 'localhost', AGENT_CA_DIR: '/etc/company-ca' };
+  ensureE2eImage({ ...opts, env });
+  const build = calls.find((c) => c.args[0] === 'build');
+  const pairs = build.args.flatMap((a, i) => (a === '--build-arg' || a === '--build-context' ? [`${a} ${build.args[i + 1]}`] : []));
+  assert.deepEqual(pairs.filter((p) => !p.includes('BASE_')), ['--build-arg HTTPS_PROXY', '--build-arg no_proxy', '--build-context certs=/etc/company-ca']);
+  assert.ok(!build.args.some((a) => a.includes('secret')), 'proxy values never reach argv');
+  assert.equal(build.opts.env, env);
 });

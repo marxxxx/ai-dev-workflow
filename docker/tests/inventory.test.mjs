@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  applyChanges, findDrift, latestDebianVersion, latestVersion, lockfileCommand, muslWithoutLibc, renderDerivedFiles,
+  applyChanges, findDrift, latestDebianVersion, latestVersion, lockfileCommand, lockfileStale, muslWithoutLibc, renderDerivedFiles,
   resolveUpdates, selectChanges, syncDerivedFiles,
 } from '../tools/inventory.mjs';
 
@@ -81,13 +81,26 @@ test('a -musl lockfile entry without libc is drift', t => {
     'node_modules/x-linux-x64-musl': { version: '1.0.0', libc: ['musl'] },
     'node_modules/y-linux-x64-musl': { version: '1.0.0' },
     'node_modules/@s/z-linux-x64-musl': { version: '1.0.0' },
+    'node_modules/@img/sharp-linuxmusl-x64': { version: '1.0.0' },
+    'node_modules/@img/sharp-linux-x64': { version: '1.0.0' },
   } };
-  assert.deepEqual(muslWithoutLibc(lock), ['node_modules/y-linux-x64-musl', 'node_modules/@s/z-linux-x64-musl']);
+  assert.deepEqual(muslWithoutLibc(lock),
+    ['node_modules/y-linux-x64-musl', 'node_modules/@s/z-linux-x64-musl', 'node_modules/@img/sharp-linuxmusl-x64']);
   const root = fixture(t);
   editJson(path.join(root, e2eLockfile), l => {
     l.packages['node_modules/fake-linux-x64-musl'] = { version: '1.0.0', os: ['linux'] };
   });
   assert.match(findDrift(root).join('\n'), /e2e\/local\/image\/package-lock\.json: node_modules\/fake-linux-x64-musl has no libc/);
+});
+
+test('a lockfile is stale when its root dependencies differ or it lost libc', () => {
+  const root = { packages: { '': { dependencies: { acpx: '1.0.0' } }, 'node_modules/acpx': { version: '1.0.0' } } };
+  assert.equal(lockfileStale({ acpx: '1.0.0' }, root), false);
+  assert.equal(lockfileStale({ acpx: '2.0.0' }, root), true);
+  assert.equal(lockfileStale({ acpx: '1.0.0' }, {}), true, 'missing lockfile');
+  const lostLibc = structuredClone(root);
+  lostLibc.packages['node_modules/@img/sharp-linuxmusl-x64'] = { version: '1.0.0' };
+  assert.equal(lockfileStale({ acpx: '1.0.0' }, lostLibc), true);
 });
 
 test('lockfiles are generated with the base image npm, as the host user', () => {

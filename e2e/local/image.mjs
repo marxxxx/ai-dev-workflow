@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 export const IMAGE_DIR = fileURLToPath(new URL('./image', import.meta.url));
 const SERVICE = 'ai-dev-workflow';
 const LABEL = 'adw.e2e.root';
+// Passed to the build by name, so their values (which may hold credentials) never reach argv.
+const PROXY_ENV = ['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy'];
 
 export function layerTag(baseId, dockerfile, lockfile) {
   const hash = createHash('sha256').update(`${baseId}\n${dockerfile}\n${lockfile}`).digest('hex');
@@ -37,19 +39,26 @@ export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, ima
   if (!service) throw new Error(`${composeFiles[0]} has no ${SERVICE} service`);
   if (service.build) docker([...compose, 'build', SERVICE], { env, stdio: 'inherit' });
   const image = docker([...compose, 'config', '--images', SERVICE], { env }).trim().split('\n')[0];
-  const inspect = () => exec('docker', ['image', 'inspect', '--format', '{{.Id}}', image]);
+  // Config as JSON: an image without USER has no User key, which a {{.Config.User}} template rejects.
+  const inspect = () => exec('docker', ['image', 'inspect', '--format', '{{.Id}} {{json .Config}}', image]);
   let found = inspect();
   if (found.status !== 0) {
     docker(['pull', image], { stdio: 'inherit' });
     found = inspect();
     if (found.status !== 0) throw new Error(`${image}: not found after pull`);
   }
-  const imageId = String(found.stdout ?? '').trim();
+  const out = String(found.stdout ?? '').trim();
+  const imageId = out.split(' ')[0];
+  const user = JSON.parse(out.slice(imageId.length).trim() || '{}').User;
   const tag = layerTag(imageId, readFileSync(path.join(imageDir, 'Dockerfile'), 'utf8'),
     readFileSync(path.join(imageDir, 'package-lock.json'), 'utf8'));
   if (exec('docker', ['image', 'inspect', '--format', '{{.Id}}', tag]).status !== 0) {
     log(`building the e2e layer on ${image}`);
-    docker(['build', '--build-arg', `BASE_IMAGE=${imageId}`, '--label', `${LABEL}=${root}`, '-t', tag, imageDir], { stdio: 'inherit' });
+    // BuildKit reads `FROM sha256:…` as a Docker Hub repository: the base goes in by its local name, its ID only into the tag.
+    docker(['build', '--build-arg', `BASE_IMAGE=${image}`, '--build-arg', `BASE_USER=${user || 'root'}`,
+      ...PROXY_ENV.filter((n) => env[n]).flatMap((n) => ['--build-arg', n]),
+      ...(env.AGENT_CA_DIR ? ['--build-context', `certs=${env.AGENT_CA_DIR}`] : []),
+      '--label', `${LABEL}=${root}`, '-t', tag, imageDir], { env, stdio: 'inherit' });
     const old = docker(['image', 'ls', '--filter', `label=${LABEL}=${root}`, '--format', '{{.Repository}}:{{.Tag}}']);
     // An image still in use stays; the next build tries again.
     for (const ref of old.split('\n').map((s) => s.trim()).filter((s) => s && s !== tag)) exec('docker', ['image', 'rm', ref]);

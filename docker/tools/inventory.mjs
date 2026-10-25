@@ -110,11 +110,17 @@ function firstDifference(actual, expected) {
   return `expected "${expectedLines[index]?.trim()}", found "${actualLines[index]?.trim()}"`;
 }
 
-// npm before 11.7 drops `libc` from the lockfile, so `npm ci` also installs the musl binaries.
+// npm before 11.7 drops `libc` from the lockfile, so `npm ci` also installs the musl binaries
+// (`…-linux-x64-musl`, sharp's `@img/sharp-linuxmusl-x64`).
 export function muslWithoutLibc(lock) {
   return Object.entries(lock.packages ?? {})
-    .filter(([key, entry]) => /-musl$/.test(key) && !entry.libc)
+    .filter(([key, entry]) => /musl/.test(key.slice(key.lastIndexOf('node_modules/') + 13)) && !entry.libc)
     .map(([key]) => key);
+}
+
+// `sync` regenerates a lockfile whose root dependencies differ from the inventory or that lost libc.
+export function lockfileStale(packages, lock) {
+  return !isDeepStrictEqual(sorted(lock.packages?.['']?.dependencies ?? {}), sorted(packages)) || muslWithoutLibc(lock).length > 0;
 }
 
 function lockfileDrift(packages, lock, lockfile) {
@@ -180,9 +186,10 @@ export function syncDerivedFiles(dir = DOCKER_DIR, { regenerateLockfile = true, 
   for (const { key, lockfile } of NPM_GROUPS) {
     const file = path.join(dir, lockfile);
     const lock = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
-    const stale = !isDeepStrictEqual(sorted(lock.packages?.['']?.dependencies ?? {}), sorted(inventory[key]));
+    const stale = lockfileStale(inventory[key], lock);
     if (!freshLockfile && !stale) continue;
-    if (freshLockfile) rmSync(file, { force: true });
+    // A lockfile that lost libc is regenerated from scratch: npm keeps entries it already resolved.
+    if (freshLockfile || muslWithoutLibc(lock).length) rmSync(file, { force: true });
     generateLockfile(inventory, path.dirname(file));
     changed.push(lockfile);
   }
