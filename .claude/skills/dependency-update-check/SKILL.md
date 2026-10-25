@@ -1,6 +1,6 @@
 ---
 name: dependency-update-check
-description: Use when checking, updating, or bumping the docker/tools/inventory.json pinned dependency set (base image, npm packages, system tools, serena/superpowers revisions, the agent skills adw installs) for ai-dev-workflow — classifies each available update as non-breaking, adjustable, or needs-a-decision and routes it to the correct PR or issue.
+description: Use when checking, updating, or bumping the docker/tools/inventory.json pinned dependency set (base image, npm packages, the ACP tooling adw e2e layers on a project image (e2eNpmPackages), system tools, serena/superpowers revisions, the agent skills adw installs) for ai-dev-workflow — classifies each available update as non-breaking, adjustable, or needs-a-decision and routes it to the correct PR or issue.
 ---
 
 # Dependency Update Check
@@ -8,7 +8,8 @@ description: Use when checking, updating, or bumping the docker/tools/inventory.
 ## Overview
 
 Maintain the `docker/tools/inventory.json` pinned dependency set (base image, npm packages,
-system tools, the serena / superpowers source revisions, and `agentSkills`: the `skills` CLI and
+the ACP tooling in `e2eNpmPackages` that `adw e2e` layers on a project's dev image — an update there needs
+only `sync` and `npm test`, no dev image rebuild — system tools, the serena / superpowers source revisions, and `agentSkills`: the `skills` CLI and
 the commit of each third-party skill such as `show-me` that `adw init`/`upgrade` install into
 consuming projects). Check every pin against its
 upstream source, classify the available updates, and take the correct action for each class in a
@@ -17,9 +18,9 @@ one adjustable-breaking PR, one (or a few) needs-a-decision issue(s). **Never mi
 classes into one PR.**
 
 **The iron rule:** never hand-edit derived files (`docker/tools/package.json`,
-`package-lock.json`, `Dockerfile*` `ARG`/`FROM` lines, the `image:` line of
+`package-lock.json`, `e2e/local/image/package.json` and its lockfile, `Dockerfile*` `ARG`/`FROM` lines, the `image:` line of
 `agent-src/container/compose.ai-dev.dind.yml`, `agent-src/config/skills.json`). Always go through `inventory.json` +
-`node docker/tools/inventory.mjs sync` (or `update`), per `docker/README.md` and `AGENTS.md`.
+`node docker/tools/inventory.mjs sync` (or `update`; both generate lockfiles with the base image's npm, so they need Docker), per `docker/README.md` and `AGENTS.md`.
 
 ## Workflow
 

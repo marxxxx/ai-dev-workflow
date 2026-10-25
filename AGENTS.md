@@ -78,7 +78,8 @@ pipeline: **config → tokens → units → renderers → outputs**.
   Written once when missing, then **project-owned**: never rendered, checked or upgraded by the pipeline.
 - **`e2e/local/`** — the `adw e2e` command (`cli.mjs`, dispatched from `generate.mjs`): replays
   `agent-dev` on a consumer project's real ticket in a throwaway clone on the `file` backend, driven
-  through the project's ai-dev container (`acpx`). The ticket is read once, never written. It ships
+  through the project's ai-dev container plus a locally built layer with `acpx` (`image.mjs`,
+  `e2e/local/image/`; its pins derive from `inventory.json` `e2eNpmPackages`). The ticket is read once, never written. It ships
   in the package together with the `e2e/lib` modules it imports, each listed in `files`
   (`e2e/local/package.test.mjs` fails if the import closure of `cli.mjs` is not).
 - **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` (and, on request, the container files); recommended tooling is
@@ -109,7 +110,7 @@ publishes to npm via trusted publishing (it skips versions already on npm).
 ## Container images (`docker/`)
 
 Hand-maintained, not generated. `docker/tools/inventory.json` is the single source for tool pins;
-`docker/tools/package.json`, its lockfile, Dockerfile `FROM`/`ARG` pins, the `image:` line of
+`docker/tools/package.json`, its lockfile, `e2e/local/image/package.json` and its lockfile, Dockerfile `FROM`/`ARG` pins, the `image:` line of
 `agent-src/container/compose.ai-dev.dind.yml` and `agent-src/config/skills.json` (`agentSkills`) are derived — never
 hand-edit them (`node docker/tools/inventory.mjs update | sync | check`). See `docker/README.md`.
 
