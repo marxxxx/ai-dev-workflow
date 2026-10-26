@@ -6,11 +6,13 @@ FROM ${BASE_IMAGE}
 ENV DEBIAN_FRONTEND=noninteractive \
     IMAGE_VARIANT=node
 
+# The headless JRE runs Java-based Node tooling such as @openapitools/openapi-generator-cli.
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends build-essential g++ make python3; \
+    apt-get install -y --no-install-recommends build-essential default-jre-headless g++ make python3; \
     rm -rf /var/lib/apt/lists/*; \
     gcc --version; \
+    java -version; \
     node /usr/local/lib/agent-runtime/verify-versions.mjs node
 
 WORKDIR /workspace
