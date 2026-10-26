@@ -24,8 +24,8 @@ produces `latest` only.
 The build context is the standalone `docker/` directory. The base includes all
 three agents, local Serena, Playwright MCP and its matching Chromium, Context7,
 Azure DevOps MCP v2, Azure CLI with its `azure-devops` extension, the Gitea CLI
-`tea`, the Docker CLI with `buildx` and `compose` (no daemon), Superpowers and ccusage. The Node variant adds native compilation tools, package managers and
-TypeScript semantic tooling; the .NET variant adds an exact SDK version, the matching `dotnet-ef` tool, Serena's C#
+`tea`, the Docker CLI with `buildx` and `compose` (no daemon), Superpowers and ccusage. The Node variant adds native compilation tools, a headless Java runtime (for
+Java-based tooling such as `openapi-generator-cli`), package managers and TypeScript semantic tooling; the .NET variant adds an exact SDK version, the matching `dotnet-ef` tool, Serena's C#
 language server, and trusts the ASP.NET Core HTTPS development certificate for `localhost`. Project dependency
 installation remains the consuming project's responsibility.
 
