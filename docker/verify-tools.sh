@@ -44,9 +44,10 @@ case "$variant" in
   base)
     ;;
   node)
-    for command in gcc g++ make pnpm yarn tsc typescript-language-server; do
+    for command in gcc g++ make java pnpm yarn tsc typescript-language-server; do
       command -v "$command" >/dev/null || fail "$command is not on PATH in the Node image"
     done
+    java -version
     pnpm --version
     yarn --version
     tsc --version
