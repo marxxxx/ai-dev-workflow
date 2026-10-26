@@ -15,13 +15,14 @@ function setup(t, answers = []) {
   mkdirSync(imageDir);
   writeFileSync(path.join(imageDir, 'Dockerfile'), 'FROM x\n');
   writeFileSync(path.join(imageDir, 'package-lock.json'), '{}\n');
+  writeFileSync(path.join(imageDir, 'pr-cli.mjs'), 'FAKE\n');
   const calls = []; const logs = [];
   const exec = (cmd, args, opts = {}) => {
     calls.push({ cmd, args, opts });
     const hit = answers.find(([match]) => match(args));
     return hit ? hit[1] : { status: 0, stdout: '', stderr: '' };
   };
-  const tag = layerTag(BASE_ID, 'FROM x\n', '{}\n');
+  const tag = layerTag(BASE_ID, 'FROM x\n', '{}\n', 'FAKE\n');
   const opts = { root: '/proj', runDir: path.join(dir, 'run'), composeFiles: ['/proj/compose.ai-dev.yml'], env: { PROJECT_ROOT: '/proj' },
     exec, log: (s) => logs.push(s), imageDir };
   return { calls, logs, opts, tag };
@@ -34,17 +35,19 @@ const configJson = (service) => ({ status: 0, stdout: JSON.stringify({ name: 'ad
 const baseInspect = (ref) => [(a) => is('image', 'inspect')(a) && a.at(-1) === ref, { status: 0, stdout: `${BASE_ID} {"Env":[]}\n` }];
 const layerMissing = [(a) => is('image', 'inspect')(a) && a.at(-1).startsWith('adw-e2e:'), { status: 1, stdout: '', stderr: 'No such image' }];
 
-test('layerTag is stable and changes with the base image or the lockfile', () => {
+test('layerTag is stable and changes with the base image or any layer file', () => {
   const tag = layerTag('sha256:a', 'D', 'L');
   assert.match(tag, /^adw-e2e:[0-9a-f]{12}$/);
   assert.equal(layerTag('sha256:a', 'D', 'L'), tag);
   assert.notEqual(layerTag('sha256:b', 'D', 'L'), tag);
   assert.notEqual(layerTag('sha256:a', 'D', 'L2'), tag);
+  // The fake gh/tea/az is part of the layer: a change to it must rebuild.
+  assert.notEqual(layerTag('sha256:a', 'D', 'L', 'F'), layerTag('sha256:a', 'D', 'L', 'F2'));
 });
 
 test('builds the layer on the compose image, labels it, prunes older ones and writes the override', (t) => {
   const ref = 'marxx/ai-dev-workflow:node-latest';
-  const tag = layerTag(BASE_ID, 'FROM x\n', '{}\n');
+  const tag = layerTag(BASE_ID, 'FROM x\n', '{}\n', 'FAKE\n');
   const { calls, logs, opts } = setup(t, [
     [isConfig, { status: 0, stdout: JSON.stringify({ name: 'adw-e2e-image', services: { 'ai-dev-workflow': { image: ref }, mail: { image: 'mailpit' } } }) }],
     baseInspect(ref), layerMissing,

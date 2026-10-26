@@ -135,7 +135,8 @@ export function listening(procNetTcp, port) {
 }
 
 // `exec` has spawnSync's signature. Starts the container, stages the agent's auth and opens the acpx session.
-export function startSession({ root, work, harness, model, project, creds, envNames = [], exec = defaultExec, env = process.env,
+// `origin` (the sandbox's bare remote) is mounted at its host path: the clone's remote URL then works in the container too.
+export function startSession({ root, work, origin = null, harness, model, project, creds, envNames = [], exec = defaultExec, env = process.env,
   turnTimeoutSec = 1800, readyTimeoutSec = 300, overrideFile = null }) {
   const name = `${project}-agent`;
   const cenv = composeEnv({ root, work, env });
@@ -161,7 +162,7 @@ export function startSession({ root, work, harness, model, project, creds, envNa
   const names = [...creds.envNames.filter((n) => AUTH_ENV[harness].includes(n)), ...envNames];
   try {
     run([...compose, 'run', '-d', '--name', name, ...[...names, ...(cenv.AGENT_CA_DIR ? CA_ENV : [])].flatMap((n) => ['-e', n]),
-      SERVICE, 'sleep', 'infinity'], { env: cenv });
+      ...(origin ? ['-v', `${origin}:${origin}`] : []), SERVICE, 'sleep', 'infinity'], { env: cenv });
     for (let t = 0; ; t++) {
       const r = exec('docker', ['exec', '-u', 'dev', name, 'sh', '-c', READY]);
       if (r.status === 0) break;

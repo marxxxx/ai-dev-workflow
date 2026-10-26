@@ -74,9 +74,12 @@ export function collectSandbox({ work, origin, ticket, git = defaultGit }) {
   const name = existsSync(issues) ? readdirSync(issues).find((f) => f.startsWith(`${ticket}_`)) : undefined;
   const ticketFile = name ? readFileSync(path.join(issues, name), 'utf8') : '';
   const branches = git(['-C', origin, 'for-each-ref', '--format=%(refname:short)', 'refs/heads/']).split('\n').filter((b) => b && b !== 'main');
-  if (branches.length !== 1) return { ticketFile, branches, bundle: null, diff: '' };
+  // The pull requests the e2e layer's fake gh/tea/az recorded (image/pr-cli.mjs).
+  const prLog = path.join(work, '.git', 'adw-e2e', 'pr.jsonl');
+  const prs = existsSync(prLog) ? readFileSync(prLog, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+  if (branches.length !== 1) return { ticketFile, branches, prs, bundle: null, diff: '' };
   const bundle = path.join(path.dirname(origin), 'pr-head.bundle');
   git(['-C', origin, 'bundle', 'create', bundle, 'main', branches[0]]);
   const diff = git(['-C', origin, 'diff', '--no-ext-diff', '--no-textconv', '--no-color', '--src-prefix=a/', '--dst-prefix=b/', `main...${branches[0]}`]);
-  return { ticketFile, branches, bundle, diff };
+  return { ticketFile, branches, prs, bundle, diff };
 }

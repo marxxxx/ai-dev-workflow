@@ -8,7 +8,8 @@ const TICKET = [
   '', '---', '## Implementation Summary', 'End-to-end check passed.',
   '', '---', '## Cost Summary', '12k tokens', '',
 ].join('\n');
-const base = () => ({ ticket: 3, ticketFile: TICKET, branches: ['3_add_due_dates'], diff: 'diff --git a/src/a.js b/src/a.js\n', appListening: false });
+const PR = { tool: 'gh', branch: '3_add_due_dates', draft: true, title: '3: Add due dates', base: 'main', head: null };
+const base = () => ({ ticket: 3, ticketFile: TICKET, branches: ['3_add_due_dates'], prs: [PR], diff: 'diff --git a/src/a.js b/src/a.js\n', appListening: false });
 
 test('a complete ticket file passes every check', () => {
   const r = evaluateLocalContract(base());
@@ -36,6 +37,20 @@ test('branches: exactly one, named <n>_slug', () => {
   assert.equal(evaluateLocalContract({ ...base(), branches: [] }).branch_pushed, 0);
   assert.equal(evaluateLocalContract({ ...base(), branches: ['feature-x'] }).branch_naming, 0);
   assert.equal(evaluateLocalContract({ ...base(), branches: ['4_x'] }).branch_naming, 0);
+});
+
+test('the PR: a draft of the pushed branch, titled <n>: <title>, from any faked CLI', () => {
+  const pr = (over) => evaluateLocalContract({ ...base(), prs: [{ ...PR, ...over }] });
+  assert.deepEqual([pr({ tool: 'az' }).pr_draft, pr({ tool: 'tea' }).pr_title_naming], [1, 1]);
+  assert.equal(evaluateLocalContract({ ...base(), prs: [] }).pr_draft, 0);
+  assert.equal(pr({ draft: false }).pr_draft, 0);
+  assert.equal(pr({ branch: 'other' }).pr_draft, 0, 'a PR for another branch');
+  assert.equal(evaluateLocalContract({ ...base(), branches: [] }).pr_draft, 0, 'nothing pushed');
+  assert.equal(pr({ title: 'Add due dates' }).pr_title_naming, 0);
+  assert.equal(pr({ title: '4: Add due dates' }).pr_title_naming, 0);
+  assert.equal(evaluateLocalContract({ ...base(), prs: [] }).pr_title_naming, 0);
+  // The last PR of the pushed branch counts: a retry after a rejected create.
+  assert.equal(evaluateLocalContract({ ...base(), prs: [{ ...PR, draft: false, title: 'x' }, PR] }).pr_title_naming, 1);
 });
 
 test('app_stopped is null when unknown; screenshots in the diff fail', () => {

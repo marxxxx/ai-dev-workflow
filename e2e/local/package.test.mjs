@@ -33,5 +33,7 @@ test('package.json files ships the runtime data e2e/local reads', () => {
   const { files } = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.ok(files.includes('e2e/local/defaults.json'));
   assert.ok(files.includes('agent-src/config/ai-project.template.json'));
-  for (const f of ['e2e/local/image/Dockerfile', 'e2e/local/image/package.json', 'e2e/local/image/package-lock.json']) assert.ok(files.includes(f), f);
+  for (const f of ['e2e/local/image/Dockerfile', 'e2e/local/image/package.json', 'e2e/local/image/package-lock.json', 'e2e/local/image/pr-cli.mjs']) {
+    assert.ok(files.includes(f), f);
+  }
 });

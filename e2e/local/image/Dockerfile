@@ -19,4 +19,10 @@ RUN --mount=type=bind,from=certs,target=/tmp/adw-certs \
     && rm -f /tmp/adw-ca.pem \
     && ln -sf /opt/adw-e2e/node_modules/.bin/acpx /opt/adw-e2e/node_modules/.bin/claude-code-acp \
        /opt/adw-e2e/node_modules/.bin/codex-acp /usr/local/bin/
+# The fake gh, tea and az (pr-cli.mjs): opening a pull request is recorded, never sent to the real host; ahead of any
+# real one on PATH (/usr/local/bin before /usr/bin).
+COPY pr-cli.mjs /opt/adw-e2e/
+RUN for t in gh tea az; do \
+      printf '#!/bin/sh\nexec node /opt/adw-e2e/pr-cli.mjs %s "$@"\n' "$t" > "/usr/local/bin/$t" && chmod 755 "/usr/local/bin/$t"; \
+    done
 USER ${BASE_USER}

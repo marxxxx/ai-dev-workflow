@@ -89,7 +89,7 @@ test('collectSandbox: no branch gives no bundle, one branch gives a bundleBranch
   try {
     const sb = createSandbox({ root, baseCommit: base, ticket: 7, ticketText: TICKET, trialDir: path.join(dir, 'trial') });
     const none = collectSandbox({ ...sb, ticket: 7 });
-    assert.deepEqual([none.branches, none.bundle, none.diff], [[], null, '']);
+    assert.deepEqual([none.branches, none.bundle, none.diff, none.prs], [[], null, '', []]);
     assert.match(none.ticketFile, /status: new/);
 
     g(['checkout', '-qb', 'feat/7'], sb.work);
@@ -101,5 +101,9 @@ test('collectSandbox: no branch gives no bundle, one branch gives a bundleBranch
     assert.deepEqual(one.branches, ['feat/7']);
     assert.equal(bundleBranch(one.bundle), 'feat/7');
     assert.match(one.diff, /\+x/);
+    // What the e2e layer's fake gh/tea/az recorded in the clone's git dir.
+    mkdirSync(path.join(sb.work, '.git', 'adw-e2e'));
+    writeFileSync(path.join(sb.work, '.git', 'adw-e2e', 'pr.jsonl'), `${JSON.stringify({ tool: 'gh', branch: 'feat/7', draft: true, title: '7: F' })}\n`);
+    assert.deepEqual(collectSandbox({ ...sb, ticket: 7 }).prs, [{ tool: 'gh', branch: 'feat/7', draft: true, title: '7: F' }]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

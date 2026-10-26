@@ -174,7 +174,7 @@ export async function runE2e(opts, deps = {}) {
       active.set(judgeProject, { work, agent: false });
       try {
         let conversation; let appListening = null; let agentSeconds = null; let port = null;
-        const session = d.startSession({ root, work, harness, model: config.agent.model, project, creds, envNames: config.env,
+        const session = d.startSession({ root, work, origin, harness, model: config.agent.model, project, creds, envNames: config.env,
           env: d.env, turnTimeoutSec: config.turnTimeoutSec, overrideFile });
         try {
           for (const h of new Set(ROLES.map((r) => config[r].harness))) {
@@ -197,7 +197,7 @@ export async function runE2e(opts, deps = {}) {
         }
 
         const collected = d.collectSandbox({ work, origin, ticket: opts.ticket });
-        const checks = evaluateLocalContract({ ticket: opts.ticket, ticketFile: collected.ticketFile, branches: collected.branches,
+        const checks = evaluateLocalContract({ ticket: opts.ticket, ticketFile: collected.ticketFile, branches: collected.branches, prs: collected.prs,
           diff: collected.diff, appListening });
         let ownTests = null;
         if (config.testCommand) {

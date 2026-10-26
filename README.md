@@ -299,7 +299,8 @@ Markdown file whose first line is `# <title>`, followed by the body. `--baseline
 with that run (`.adw/e2e/<ticket>/runs/<ts>/<harness>`) instead of the newest earlier one.
 
 Every run happens in a throwaway clone at `<base-commit>` on the `file` ticketing backend, with its
-remote pointing at a local bare repo, so nothing reaches your tracker or your real remote. Its containers publish no host
+remote pointing at a local bare repo, so nothing reaches your tracker or your real remote. Opening the draft PR
+(`gh`, `tea` or `az`) is recorded and answered with a placeholder link, never sent to your git host. Its containers publish no host
 ports, so a run does not clash with your own `./ai-dev.sh`. The first run asks you the spec questions and
 confirms drafted acceptance criteria; later runs replay your stored answers. When the agent only reports progress
 and asks nothing, the run tells it to carry on (counted as `nudged`) instead of asking you.

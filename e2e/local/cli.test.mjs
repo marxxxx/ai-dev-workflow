@@ -52,7 +52,8 @@ function stubs(root, over = {}) {
     makeDecide: rec('makeDecide', (a) => { seen.decide = a; return () => ({ action: 'done', stuck: false }); }),
     runConversation: rec('conversation', async (a) => { seen.conversation = a; return { turns: 2, humanAsked: 0, done: true, stuck: false, error: null }; }),
     askHuman: () => 'x',
-    collectSandbox: rec('collect', () => ({ ticketFile: TICKET_FILE, branches: ['7_due'], bundle: '/b.bundle', diff: '' })),
+    collectSandbox: rec('collect', () => ({ ticketFile: TICKET_FILE, branches: ['7_due'], bundle: '/b.bundle', diff: '',
+      prs: [{ tool: 'gh', branch: '7_due', draft: true, title: '7: Due dates' }] })),
     draftAcceptance: rec('draft', (a) => { seen.draft = a; return [{ id: 'AC1', text: 'a date shows' }]; }),
     confirmAcceptance: rec('confirm', async ({ draft, file }) => { writeFileSync(file, draft); return parseCriteria(draft); }),
     prompt: async () => 'a',
@@ -366,6 +367,7 @@ test('the e2e layer is ensured once, before the first sandbox, and the session g
   assert.equal(calls.filter((c) => c === 'image').length, 1);
   assert.ok(calls.indexOf('image') < calls.indexOf('sandbox'));
   assert.equal(seen.session.overrideFile, '/run/o.yml');
+  assert.match(seen.session.origin, /origin\.git$/);
   assert.deepEqual(seen.image.composeFiles, [path.join(root, 'compose.ai-dev.yml')]);
   assert.equal(seen.image.root, root);
 });

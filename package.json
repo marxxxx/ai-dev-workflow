@@ -46,6 +46,7 @@
     "e2e/local/image/Dockerfile",
     "e2e/local/image/package.json",
     "e2e/local/image/package-lock.json",
+    "e2e/local/image/pr-cli.mjs",
     "e2e/lib/llm.mjs",
     "e2e/lib/claude.mjs",
     "e2e/lib/verifier.mjs",

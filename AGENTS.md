@@ -79,7 +79,10 @@ pipeline: **config → tokens → units → renderers → outputs**.
 - **`e2e/local/`** — the `adw e2e` command (`cli.mjs`, dispatched from `generate.mjs`): replays
   `agent-dev` on a consumer project's real ticket in a throwaway clone on the `file` backend, driven
   through the project's ai-dev container plus a locally built layer with `acpx` (`image.mjs`,
-  `e2e/local/image/`; its pins derive from `inventory.json` `e2eNpmPackages`). The ticket is read once, never written. It ships
+  `e2e/local/image/`; its pins derive from `inventory.json` `e2eNpmPackages`). The ticket is read once, never written.
+  The layer fakes the PR CLIs (`gh`, `tea`, `az` in `e2e/local/image/pr-cli.mjs`): opening a draft PR is recorded for the
+  `pr_draft`/`pr_title_naming` checks, never sent. **A new ticketing backend whose PR command uses another CLI needs a
+  fake there too**; `e2e/local/pr-fake.test.mjs` fails for any PR command an `includes/ticketing-*.md` documents unfaked. It ships
   in the package together with the `e2e/lib` modules it imports, each listed in `files`
   (`e2e/local/package.test.mjs` fails if the import closure of `cli.mjs` is not).
 - **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` (and, on request, the container files); recommended tooling is

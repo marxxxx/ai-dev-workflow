@@ -11,8 +11,11 @@ const LABEL = 'adw.e2e.root';
 // Passed to the build by name, so their values (which may hold credentials) never reach argv.
 const PROXY_ENV = ['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy'];
 
-export function layerTag(baseId, dockerfile, lockfile) {
-  const hash = createHash('sha256').update(`${baseId}\n${dockerfile}\n${lockfile}`).digest('hex');
+// Every file the layer is built from (LAYER_FILES) goes into the tag, so a change to any of them rebuilds.
+const LAYER_FILES = ['Dockerfile', 'package-lock.json', 'pr-cli.mjs'];
+
+export function layerTag(baseId, ...files) {
+  const hash = createHash('sha256').update([baseId, ...files].join('\n')).digest('hex');
   return `adw-e2e:${hash.slice(0, 12)}`;
 }
 
@@ -55,8 +58,7 @@ export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, ima
   const out = String(found.stdout ?? '').trim();
   const imageId = out.split(' ')[0];
   const user = JSON.parse(out.slice(imageId.length).trim() || '{}').User;
-  const tag = layerTag(imageId, readFileSync(path.join(imageDir, 'Dockerfile'), 'utf8'),
-    readFileSync(path.join(imageDir, 'package-lock.json'), 'utf8'));
+  const tag = layerTag(imageId, ...LAYER_FILES.map((f) => readFileSync(path.join(imageDir, f), 'utf8')));
   if (exec('docker', ['image', 'inspect', '--format', '{{.Id}}', tag]).status !== 0) {
     log(`building the e2e layer on ${image}`);
     // BuildKit reads `FROM sha256:…` as a Docker Hub repository: the base goes in by its local name, its ID only into the tag.

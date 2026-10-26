@@ -176,6 +176,17 @@ test('startSession adds the e2e override as the last compose file', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('startSession mounts the sandbox origin at its host path, so the clone\'s remote URL works in the container', () => {
+  const { dir, root, work, creds } = fixture();
+  try {
+    const { calls, exec } = recorder();
+    startSession({ root, work, origin: '/trial/origin.git', harness: 'opencode', model: null, project: 'p1', creds, exec, env: {} });
+    const args = calls[0].args;
+    assert.equal(args[args.indexOf('/trial/origin.git:/trial/origin.git') - 1], '-v');
+    assert.ok(args.indexOf('-v') < args.indexOf('ai-dev-workflow'), 'a run option, before the service');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('startSession forwards the claude token by name and tears down when ensure fails', () => {
   const { dir, root, work, creds } = fixture();
   try {
