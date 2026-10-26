@@ -43,7 +43,7 @@ export function buildLocalTrialRecord({ id, harness, trialDir, config, criteria,
     errors: { ...deps.errors(harness, trialDir, {}), harbor: null, bridge: conversation.error,
       timeout: conversation.error === 'agent-timeout', quota: conversation.error === 'quota' },
     soft: deps.softSignals(harness, trialDir), tools: deps.toolUsage(harness, trialDir, config.mcpServers ?? []),
-    humanAsked: conversation.humanAsked,
+    humanAsked: conversation.humanAsked, nudged: conversation.nudged ?? 0,
   };
   return { ...record, reward: localReward(record) };
 }
@@ -68,7 +68,7 @@ export function writeRun({ runDir, ticket, fingerprint, trials, aborted, error =
   const run = {
     schema: 2, local: true, task: `#${ticket}`, harness: fingerprint.roles.agent.harness,
     ...(aborted ? { aborted } : {}), ...(error ? { error } : {}), comparable: !aborted && trials.every((t) => t.humanAsked === 0),
-    humanAsked: trials.reduce((a, t) => a + (t.humanAsked ?? 0), 0), selfJudged: selfJudged(fingerprint.roles),
+    humanAsked: trials.reduce((a, t) => a + (t.humanAsked ?? 0), 0), nudged: trials.reduce((a, t) => a + (t.nudged ?? 0), 0), selfJudged: selfJudged(fingerprint.roles),
     fingerprint, calibration: null, config: { model: fingerprint.roles.agent.model ?? 'default' },
     trials, summary: summarizeTrials(trials),
   };

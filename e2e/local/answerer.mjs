@@ -1,9 +1,13 @@
-// The simulated user of `adw e2e`: after each agent turn, replay a stored answer, ask the real human, or stop.
+// The simulated user of `adw e2e`: after each agent turn, replay a stored answer, nudge, ask the real human, or stop.
 // The answerer is a one-shot LLM call with no tools; the loop itself is harness-neutral.
 import { createInterface } from 'node:readline';
 import { callLlm, isInterrupt, isQuotaError } from '../lib/llm.mjs';
 
-const ACTIONS = ['reply', 'askHuman', 'done'];
+const ACTIONS = ['reply', 'continue', 'askHuman', 'done'];
+// Sent on `continue`: the agent ended its turn asking nothing (e.g. waiting for its own background work), and only a
+// next prompt lets it go on. After MAX_NUDGES in a row the human decides, so a looping agent does not burn the turns.
+export const CONTINUE_TEXT = 'Mach weiter und melde dich, wenn du Ergebnisse hast oder eine Entscheidung von mir brauchst.';
+const MAX_NUDGES = 3;
 const SPEC_APPROVAL = 'Spec approval';
 // Only a negated "kenne … Skill" counts: "Ich kenne den agent-dev Skill" is the agent starting.
 const UNKNOWN_SKILL = /unknown skill|no skill named|\bkenne\b.{0,30}\b(keinen|keine|nicht)\b.{0,30}skill|\bkenne den .{0,40}skill nicht/i;
@@ -27,6 +31,7 @@ Rules:
 - Reply only from the stored answers, in the user's voice: short, German, one or two sentences. List the ids you used in usedIds.
 - Never invent requirements. Anything the stored answers do not cover gives askHuman.
 - Every spec or design approval request gives askHuman with "specApproval":true when no stored answer's question starts with "${SPEC_APPROVAL}". With such a stored answer, reply: approve if the spec covers the stored answers (including corrections stated in stored spec answers), otherwise name the deviation.
+- A message that asks nothing and needs no decision (a progress report, waiting for its own background work) gives continue.
 - The final report of a pushed branch with the ticket in review, or the agent clearly stuck, gives done ("stuck":true when stuck).
 
 ${data('ticket', `# ${ticket.title}\n\n${ticket.body}`)}
@@ -37,6 +42,7 @@ ${data('agent_message', message)}
 
 Output JSON only, exactly one of:
 {"action":"reply","text":"…","usedIds":["A2"]}
+{"action":"continue"}
 {"action":"askHuman","question":"<agent's question, condensed>","specApproval":false}
 {"action":"done","stuck":false}
 `;
@@ -46,6 +52,7 @@ Output JSON only, exactly one of:
 export function validateAnswererAnswer(a, ids) {
   if (!ACTIONS.includes(a?.action)) throw new Error(`unknown action: ${JSON.stringify(a?.action)}`);
   if (a.action === 'done') return { action: 'done', stuck: a.stuck === true };
+  if (a.action === 'continue') return { action: 'continue' };
   if (a.action === 'askHuman') {
     if (typeof a.question !== 'string' || !a.question.trim()) throw new Error('askHuman with an empty question');
     return { action: 'askHuman', question: a.question.trim(), specApproval: a.specApproval === true };
@@ -88,7 +95,8 @@ const tail = (text) => { const t = String(text).replace(/\s+/g, ' ').trim(); ret
 // Turns count the prompts sent to the agent. `ticket` is the ticket number; `store` is { list(), append({question, answer}) }.
 // Errors become a result: agent-timeout, quota, `agent: …` or `answerer: …`; an interrupt aborts the run.
 export async function runConversation({ ticket, harness, opening, session, decide, askHuman, store, maxTurns = 60 }) {
-  const result = { turns: 0, humanAsked: 0, done: false, stuck: false, error: null };
+  const result = { turns: 0, humanAsked: 0, nudged: 0, done: false, stuck: false, error: null };
+  let nudgesInARow = 0;
   const classify = (err, who) => {
     if (isInterrupt(err)) throw err;
     if (isQuotaError(err.message)) return 'quota';
@@ -110,8 +118,11 @@ export async function runConversation({ ticket, harness, opening, session, decid
     if (result.turns >= maxTurns) { result.error = 'max-turns'; break; }
     // A reply citing no stored answer is invented: the human answers instead, so the run stays honest about replay.
     if (answer.action === 'reply' && !answer.usedIds.length) answer = { action: 'askHuman', question: tail(message), specApproval: false };
+    if (answer.action === 'continue' && nudgesInARow >= MAX_NUDGES) answer = { action: 'askHuman', question: tail(message), specApproval: false };
+    nudgesInARow = answer.action === 'continue' ? nudgesInARow + 1 : 0;
     let text;
-    if (answer.action === 'reply') text = answer.text;
+    if (answer.action === 'continue') { text = CONTINUE_TEXT; result.nudged += 1; }
+    else if (answer.action === 'reply') text = answer.text;
     else {
       text = await askHuman(message, answer.question);
       result.humanAsked += 1;

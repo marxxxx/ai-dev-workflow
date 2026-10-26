@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { InterruptError } from '../lib/llm.mjs';
 import { DEFAULT_ANSWERS } from './store.mjs';
-import { askHumanTty, buildAnswererPrompt, fallbackCommand, makeDecide, runConversation, validateAnswererAnswer } from './answerer.mjs';
+import { CONTINUE_TEXT, askHumanTty, buildAnswererPrompt, fallbackCommand, makeDecide, runConversation, validateAnswererAnswer } from './answerer.mjs';
 
 const OPENING = 'Nutze den agent-dev Skill für Ticket 7.';
 
@@ -45,7 +45,7 @@ test('a full replay asks no human and ends done', async () => {
   ]);
   const store = memStore();
   const r = await runConversation({ ticket: 7, harness: 'codex', opening: OPENING, session, decide, askHuman: noHuman, store, maxTurns: 10 });
-  assert.deepEqual(r, { turns: 3, humanAsked: 0, done: true, stuck: false, error: null });
+  assert.deepEqual(r, { turns: 3, humanAsked: 0, nudged: 0, done: true, stuck: false, error: null });
   assert.deepEqual(session.sent, [OPENING, 'Bitte stell deine Fragen.', 'Teste selbst.']);
   assert.equal(store.answers.length, DEFAULT_ANSWERS.length);
 });
@@ -95,7 +95,7 @@ test('an endless agent stops at maxTurns', async () => {
   const session = stubSession(['Noch eine Frage?']);
   const decide = () => ({ action: 'reply', text: 'Ja.', usedIds: ['A4'] });
   const r = await runConversation({ ticket: 7, harness: 'codex', opening: OPENING, session, decide, askHuman: noHuman, store: memStore(), maxTurns: 3 });
-  assert.deepEqual(r, { turns: 3, humanAsked: 0, done: false, stuck: false, error: 'max-turns' });
+  assert.deepEqual(r, { turns: 3, humanAsked: 0, nudged: 0, done: false, stuck: false, error: 'max-turns' });
   assert.equal(session.sent.length, 3);
   const asking = await runConversation({ ticket: 7, harness: 'codex', opening: OPENING, session: stubSession(['?']),
     decide: () => ({ action: 'askHuman', question: 'q' }), askHuman: noHuman, store: memStore(), maxTurns: 1 });
@@ -119,16 +119,41 @@ test('a reply citing no stored answer goes to the human instead, so an invented 
   assert.deepEqual(store.answers.at(-1), { id: 'A6', question: asked[0].question, answer: 'Rot.', source: 'human' });
 });
 
+test('a continue sends the fixed nudge: no human asked, nothing stored, counted as nudged', async () => {
+  const session = stubSession(['Die Suche läuft noch, ich melde mich mit den Ergebnissen.', 'fertig']);
+  const decide = stubDecide([{ action: 'continue' }, { action: 'done', stuck: false }]);
+  const store = memStore();
+  const r = await runConversation({ ticket: 7, harness: 'claude-code', opening: OPENING, session, decide, askHuman: noHuman, store, maxTurns: 10 });
+  assert.deepEqual(r, { turns: 2, humanAsked: 0, nudged: 1, done: true, stuck: false, error: null });
+  assert.deepEqual(session.sent, [OPENING, CONTINUE_TEXT]);
+  assert.equal(store.answers.length, DEFAULT_ANSWERS.length);
+});
+
+test('the fourth continue in a row goes to the human; a reply in between resets the count', async () => {
+  const session = stubSession(['läuft']);
+  const C = { action: 'continue' };
+  const decide = stubDecide([C, C, { action: 'reply', text: 'Ja.', usedIds: ['A2'] }, C, C, C, C, { action: 'done', stuck: false }]);
+  const store = memStore();
+  const asked = [];
+  const askHuman = async (message, question) => { asked.push(question); return 'Warte bitte auf die Suche.'; };
+  const r = await runConversation({ ticket: 7, harness: 'claude-code', opening: OPENING, session, decide, askHuman, store, maxTurns: 20 });
+  assert.equal(r.nudged, 5);
+  assert.equal(r.humanAsked, 1);
+  assert.deepEqual(session.sent, [OPENING, CONTINUE_TEXT, CONTINUE_TEXT, 'Ja.', CONTINUE_TEXT, CONTINUE_TEXT, CONTINUE_TEXT, 'Warte bitte auf die Suche.']);
+  assert.deepEqual(store.answers.at(-1), { id: 'A6', question: asked[0], answer: 'Warte bitte auf die Suche.', source: 'human' });
+  assert.equal(asked[0], 'läuft');
+});
+
 test('a stuck agent ends done with stuck', async () => {
   const r = await runConversation({ ticket: 7, harness: 'codex', opening: OPENING, session: stubSession(['Ich komme nicht weiter.']),
     decide: () => ({ action: 'done', stuck: true }), askHuman: noHuman, store: memStore(), maxTurns: 5 });
-  assert.deepEqual(r, { turns: 1, humanAsked: 0, done: true, stuck: true, error: null });
+  assert.deepEqual(r, { turns: 1, humanAsked: 0, nudged: 0, done: true, stuck: true, error: null });
 });
 
 test('a prompt timing out gives agent-timeout; a quota rejection gives quota', async () => {
   const timeout = { prompt: () => Promise.reject(new Error('agent (codex): timed out after 1800 s')) };
   let r = await runConversation({ ticket: 7, harness: 'codex', opening: OPENING, session: timeout, decide: noHuman, askHuman: noHuman, store: memStore(), maxTurns: 5 });
-  assert.deepEqual(r, { turns: 1, humanAsked: 0, done: false, stuck: false, error: 'agent-timeout' });
+  assert.deepEqual(r, { turns: 1, humanAsked: 0, nudged: 0, done: false, stuck: false, error: 'agent-timeout' });
   const quota = { prompt: () => Promise.reject(new Error('agent (codex): quota: exit 1: usage limit')) };
   r = await runConversation({ ticket: 7, harness: 'codex', opening: OPENING, session: quota, decide: noHuman, askHuman: noHuman, store: memStore(), maxTurns: 5 });
   assert.equal(r.error, 'quota');
@@ -140,7 +165,7 @@ test('other prompt and decide errors stop the loop with a labelled error; interr
   assert.equal(r.error, 'agent: agent (codex): exit 2: boom');
   const failing = () => { throw new Error('answerer (opencode): no answer in the opencode output'); };
   r = await runConversation({ ticket: 7, harness: 'codex', opening: OPENING, session: stubSession(['?']), decide: failing, askHuman: noHuman, store: memStore(), maxTurns: 5 });
-  assert.deepEqual(r, { turns: 1, humanAsked: 0, done: false, stuck: false, error: 'answerer: answerer (opencode): no answer in the opencode output' });
+  assert.deepEqual(r, { turns: 1, humanAsked: 0, nudged: 0, done: false, stuck: false, error: 'answerer: answerer (opencode): no answer in the opencode output' });
   const quota = () => { throw new Error('answerer (opencode): quota: 429'); };
   r = await runConversation({ ticket: 7, harness: 'codex', opening: OPENING, session: stubSession(['?']), decide: quota, askHuman: noHuman, store: memStore(), maxTurns: 5 });
   assert.equal(r.error, 'quota');
@@ -181,6 +206,7 @@ test('validateAnswererAnswer accepts the three actions and rejects bad answers',
   assert.deepEqual(validateAnswererAnswer({ action: 'askHuman', question: 'Spec', specApproval: true }, ids), { action: 'askHuman', question: 'Spec', specApproval: true });
   assert.deepEqual(validateAnswererAnswer({ action: 'done' }, ids), { action: 'done', stuck: false });
   assert.deepEqual(validateAnswererAnswer({ action: 'done', stuck: true }, ids), { action: 'done', stuck: true });
+  assert.deepEqual(validateAnswererAnswer({ action: 'continue', text: 'ignored' }, ids), { action: 'continue' });
   assert.throws(() => validateAnswererAnswer({ action: 'shrug' }, ids), /unknown action/);
   assert.throws(() => validateAnswererAnswer(null, ids), /unknown action/);
   assert.throws(() => validateAnswererAnswer({ action: 'reply', text: '  ', usedIds: [] }, ids), /empty text/);
@@ -198,6 +224,9 @@ test('the prompt holds the ticket, the agent message, every stored answer id and
   // With no stored spec answer, a spec approval goes to the human; the prompt never claims the spec is approved.
   assert.match(p, /spec or design approval request gives askHuman with "specApproval":true when no stored answer's question starts with "Spec approval"/);
   assert.doesNotMatch(p, /already approved/);
+  // A message asking nothing (progress, waiting for its own background work) is nudged, never sent to the human.
+  assert.match(p, /A message that asks nothing and needs no decision \(a progress report, waiting for its own background work\) gives continue/);
+  assert.ok(p.includes('{"action":"continue"}'));
 });
 
 test('the prompt delimits untrusted text as data, defuses embedded tags and ends with the output format', () => {

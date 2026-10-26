@@ -301,7 +301,8 @@ with that run (`.adw/e2e/<ticket>/runs/<ts>/<harness>`) instead of the newest ea
 Every run happens in a throwaway clone at `<base-commit>` on the `file` ticketing backend, with its
 remote pointing at a local bare repo, so nothing reaches your tracker or your real remote. Its containers publish no host
 ports, so a run does not clash with your own `./ai-dev.sh`. The first run asks you the spec questions and
-confirms drafted acceptance criteria; later runs replay your stored answers.
+confirms drafted acceptance criteria; later runs replay your stored answers. When the agent only reports progress
+and asks nothing, the run tells it to carry on (counted as `nudged`) instead of asking you.
 
 Prerequisites:
 

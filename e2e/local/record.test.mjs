@@ -31,10 +31,11 @@ function trialIn(dir, over = {}) {
 test('a local trial record carries session tokens, the e2e check, human questions and the conversation error', () => {
   const dir = tmp();
   try {
-    const t = trialIn(dir, { conversation: { ...conversation, humanAsked: 2, error: 'agent-timeout' } });
+    const t = trialIn(dir, { conversation: { ...conversation, humanAsked: 2, nudged: 3, error: 'agent-timeout' } });
     assert.equal(typeof t.tokens.total, 'number');
     assert.equal(t.checks.e2e_performed, 1);
     assert.equal(t.humanAsked, 2);
+    assert.equal(t.nudged, 3);
     assert.deepEqual(t.durations, { agent: 120 });
     assert.equal(t.cost, 0.5);
     assert.deepEqual({ harbor: t.errors.harbor, bridge: t.errors.bridge, timeout: t.errors.timeout, quota: t.errors.quota },
@@ -114,13 +115,24 @@ test('writeRun writes run.json and report.md; a human answer makes the run not c
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('nudges are counted per run and shown, and never make a run incomparable', () => {
+  const dir = tmp();
+  try {
+    const t = trialIn(path.join(dir, 'trial'), { conversation: { ...conversation, nudged: 2 } });
+    const { run } = runIn(dir, '2026-10-19T1000Z', t);
+    assert.equal(run.nudged, 2);
+    assert.equal(run.comparable, true);
+    assert.match(renderRunReport(run), /Human asked: 0 · nudged: 2 · comparable: yes/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('renderRunReport renders a local run: human questions, comparability, no calibration lookup', () => {
   const dir = tmp();
   try {
     const t = trialIn(path.join(dir, 'trial'), { ownTests: null, checks: { ...allPass, app_stopped: null } });
     const { run } = runIn(dir, '2026-10-19T1000Z', { ...t, humanAsked: 2 });
     const md = renderRunReport(run);
-    assert.match(md, /Human asked: 2 · comparable: no/);
+    assert.match(md, /Human asked: 2 · nudged: 0 · comparable: no/);
     assert.match(md, /adw \d+\.\d+\.\d+ · trials: 1/);
     assert.match(md, /own tests — /);
     assert.match(md, /Failed checks: none/, 'an unchecked check is no failure');
