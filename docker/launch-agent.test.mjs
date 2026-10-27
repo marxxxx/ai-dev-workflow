@@ -88,7 +88,7 @@ test('Codex receives installed MCP overrides before the forwarded argument vecto
   assert.deepEqual(plan.args.slice(-2), ['--yolo', 'keep spaces']);
   assert.ok(plan.args.includes('mcp_servers.ado.command="mcp-server-azuredevops"'));
   assert.ok(plan.args.includes('mcp_servers.ado.args=["fixture-org","-d","core","work","work-items","--authentication","azcli"]'));
-  assert.ok(plan.args.includes('mcp_servers.playwright.args=["--headless","--browser","chromium","--isolated"]'));
+  assert.ok(plan.args.includes('mcp_servers.playwright.args=["--headless","--browser","chromium","--isolated","--output-dir","/tmp"]'));
   assert.ok(plan.args.includes('mcp_servers.playwright.env.PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"'));
   assert.ok(plan.args.includes(`mcp_servers.serena.env.SERENA_HOME=${JSON.stringify(path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena'))}`));
   assert.ok(!plan.args.join(' ').includes('@azure-devops/mcp@2'));
@@ -103,7 +103,7 @@ test('Claude gets one effective strict config with custom and managed servers', 
   const effective = JSON.parse(readFileSync(configPath, 'utf8'));
   assert.equal(effective.mcpServers.dxdocs.url, 'https://docs.example/mcp');
   assert.equal(effective.mcpServers.ado.command, 'mcp-server-azuredevops');
-  assert.deepEqual(effective.mcpServers.playwright.args, ['--headless', '--browser', 'chromium', '--isolated']);
+  assert.deepEqual(effective.mcpServers.playwright.args, ['--headless', '--browser', 'chromium', '--isolated', '--output-dir', '/tmp']);
   assert.equal(effective.mcpServers.serena.env.SERENA_HOME, path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena'));
   assert.ok(plan.args.includes('--strict-mcp-config'));
   assert.deepEqual(plan.args.slice(-2), ['--dangerously-skip-permissions', 'read only']);
