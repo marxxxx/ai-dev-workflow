@@ -75,7 +75,8 @@ pipeline: **config → tokens → units → renderers → outputs**.
   install is a warning, never an error. Tests run `npx` as `ADW_NPX` (a fake in `test-helpers.mjs`).
 - **`container.mjs`** + `container/` — the dev-container files `init` offers to write
   (`compose.ai-dev.yml`, certs and opt-in dind overlays, `ai-dev.sh`/`.ps1`, `AI-DEV.md`) from `@@KEY@@` templates.
-  Written once when missing, then **project-owned**: never rendered, checked or upgraded by the pipeline.
+  Written once when missing, then **project-owned**: never rendered, checked or upgraded by the pipeline;
+  `upgrade`/`generate`/`check` only print the known fixes an older template needs (`containerWarnings`).
 - **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` (and, on request, the container files); recommended tooling is
   *printed*, never installed or documented with install steps — except the pinned skills of
   `skills.mjs`, which it offers to install.

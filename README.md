@@ -224,6 +224,13 @@ and records the `skills` opt-in. Run
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
 
+**Upgrading to v0.29.1.** The `compose.ai-dev.yml` that `init` wrote lacked the `KILL` capability,
+so the container's init process (tini) could not forward signals to the agent and stopped the
+container with `Unexpected error when forwarding signal: 'Operation not permitted'` (for example
+on a terminal resize). The file is project-owned and `upgrade` does not change it; `upgrade`,
+`generate` and `check` print a note until you add `- KILL` under `cap_add` of the `ai-dev-workflow`
+service.
+
 **Upgrading to v0.29.0.** adw now installs the show-me skill. Run `upgrade` instead of
 `generate`: it records `"skills": { "show-me": true }` in `ai-project.json` and installs the skill
 with `npx skills` (needs network access to npm and GitHub). To decline, set `"show-me": false` first. Until it is

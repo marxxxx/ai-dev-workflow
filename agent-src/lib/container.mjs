@@ -155,6 +155,21 @@ export function writeContainerFiles(projectRoot, { env = {}, ...opts }) {
   return { written, skipped, kept };
 }
 
+/**
+ * Fixes the project-owned compose.ai-dev.yml needs and `upgrade` cannot apply. v0.29.0 and
+ * earlier dropped all capabilities without keeping KILL, so the root init (tini) cannot forward
+ * signals to the dev user's processes and stops the container on the first one (a resize).
+ */
+export function containerWarnings(projectRoot) {
+  const file = path.join(projectRoot, 'compose.ai-dev.yml');
+  if (!fs.existsSync(file)) return [];
+  const yaml = fs.readFileSync(file, 'utf8').split(/\r?\n/).map((l) => l.replace(/(^|\s)#.*$/, '')).join('\n');
+  const dropsAll = /cap_drop:\s*(?:\[[^\]]*|(?:\s*-\s*\S+)*\s*-\s*)["']?ALL\b/.test(yaml);
+  if (!dropsAll || /\b(?:CAP_)?KILL\b/.test(yaml)) return [];
+  return ['Note: compose.ai-dev.yml lacks the KILL capability, so the container stops when tini cannot '
+    + 'forward a signal ("Operation not permitted"). Add `- KILL` under cap_add of the ai-dev-workflow service.'];
+}
+
 // One-line ticketing login per backend for the next-steps printout; `file` has none.
 const TICKETING_LOGIN = {
   github: './ai-dev.sh gh auth login && ./ai-dev.sh gh auth setup-git',
