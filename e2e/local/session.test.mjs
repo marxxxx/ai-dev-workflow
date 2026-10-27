@@ -9,9 +9,9 @@ import { acpCommand, acpxConfig, composeEnv, composeProject, listening, parseEnv
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'adw-session-'));
 
 test('acpCommand per harness, with and without a model or the image CLI', () => {
-  assert.deepEqual(acpCommand('claude-code', null), ['env', '-u', 'CLAUDECODE', 'claude-code-acp']);
+  assert.deepEqual(acpCommand('claude-code', null), ['env', '-u', 'CLAUDECODE', 'claude-agent-acp']);
   assert.deepEqual(acpCommand('claude-code', 'opus', { cli: '/usr/local/bin/claude' }),
-    ['env', '-u', 'CLAUDECODE', 'ANTHROPIC_MODEL=opus', 'CLAUDE_CODE_EXECUTABLE=/usr/local/bin/claude', 'claude-code-acp']);
+    ['env', '-u', 'CLAUDECODE', 'ANTHROPIC_MODEL=opus', 'CLAUDE_CODE_EXECUTABLE=/usr/local/bin/claude', 'claude-agent-acp']);
   assert.deepEqual(acpCommand('codex', null), ['env', 'NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', 'codex-acp']);
   assert.deepEqual(acpCommand('codex', 'openai/gpt-5', { cli: '/usr/local/bin/codex' }),
     ['env', 'NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', 'CODEX_CONFIG={"model":"gpt-5"}', 'CODEX_PATH=/usr/local/bin/codex', 'codex-acp']);
@@ -146,7 +146,7 @@ test('claude-code: the model is merged into settings.json, the image claude is t
     const write = calls.find((c) => c.opts.input !== undefined && c.args.at(-1) === '/home/dev/.claude/settings.json');
     assert.deepEqual(JSON.parse(write.opts.input), { theme: 'dark', model: 'opus' });
     const rc = JSON.parse(readFileSync(path.join(work, '.acpxrc.json'), 'utf8'));
-    assert.deepEqual(rc.agents.target.args, ['-u', 'CLAUDECODE', 'ANTHROPIC_MODEL=opus', 'CLAUDE_CODE_EXECUTABLE=/usr/local/bin/claude', 'claude-code-acp']);
+    assert.deepEqual(rc.agents.target.args, ['-u', 'CLAUDECODE', 'ANTHROPIC_MODEL=opus', 'CLAUDE_CODE_EXECUTABLE=/usr/local/bin/claude', 'claude-agent-acp']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

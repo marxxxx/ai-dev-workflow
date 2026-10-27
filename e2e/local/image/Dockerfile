@@ -17,7 +17,7 @@ RUN --mount=type=bind,from=certs,target=/tmp/adw-certs \
     && if [ -s /tmp/adw-ca.pem ]; then export NODE_EXTRA_CA_CERTS=/tmp/adw-ca.pem; fi \
     && npm ci --prefix /opt/adw-e2e --omit=dev --no-audit --no-fund \
     && rm -f /tmp/adw-ca.pem \
-    && ln -sf /opt/adw-e2e/node_modules/.bin/acpx /opt/adw-e2e/node_modules/.bin/claude-code-acp \
+    && ln -sf /opt/adw-e2e/node_modules/.bin/acpx /opt/adw-e2e/node_modules/.bin/claude-agent-acp \
        /opt/adw-e2e/node_modules/.bin/codex-acp /usr/local/bin/
 # The fake gh, tea and az (pr-cli.mjs): opening a pull request is recorded, never sent to the real host; ahead of any
 # real one on PATH (/usr/local/bin before /usr/bin).

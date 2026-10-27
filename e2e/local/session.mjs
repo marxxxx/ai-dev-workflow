@@ -37,12 +37,12 @@ const CA_ENV = ['NODE_EXTRA_CA_CERTS=/etc/ssl/agent-extra-ca.pem', 'SSL_CERT_FIL
 
 // No config/data dir overrides: the image's entrypoint configures MCP and tools in the default homes.
 // `cli` is the image's own claude/codex (resolved in the container), which the adapters run instead of their bundled ones.
-// The model: claude-code-acp takes it from settings.json (writeModelConfig; ANTHROPIC_MODEL as Harbor also sets it),
+// The model: claude-agent-acp takes it from ANTHROPIC_MODEL (as Harbor also sets it), else settings.json (writeModelConfig),
 // codex-acp only from CODEX_CONFIG (it ignores argv), opencode from an OPENCODE_CONFIG file, since the image's
 // wrapper overwrites OPENCODE_CONFIG_CONTENT.
 export function acpCommand(harness, model, { cli = null } = {}) {
   if (harness === 'claude-code') {
-    return ['env', '-u', 'CLAUDECODE', ...(model ? [`ANTHROPIC_MODEL=${model}`] : []), ...(cli ? [`CLAUDE_CODE_EXECUTABLE=${cli}`] : []), 'claude-code-acp'];
+    return ['env', '-u', 'CLAUDECODE', ...(model ? [`ANTHROPIC_MODEL=${model}`] : []), ...(cli ? [`CLAUDE_CODE_EXECUTABLE=${cli}`] : []), 'claude-agent-acp'];
   }
   if (harness === 'codex') {
     return ['env', 'NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', ...(model ? [`CODEX_CONFIG=${JSON.stringify({ model: model.split('/').at(-1) })}`] : []),

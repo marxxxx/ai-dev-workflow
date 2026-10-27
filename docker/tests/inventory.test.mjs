@@ -56,16 +56,17 @@ test('reports each derived file that disagrees with the inventory', t => {
 test('the ACP packages are e2e-only pins', () => {
   const inventory = JSON.parse(readFileSync(path.join(dockerDir, 'tools/inventory.json'), 'utf8'));
   assert.deepEqual(Object.keys(inventory.e2eNpmPackages).sort(),
-    ['@agentclientprotocol/codex-acp', '@zed-industries/claude-code-acp', 'acpx']);
+    ['@agentclientprotocol/claude-agent-acp', '@agentclientprotocol/codex-acp', 'acpx']);
   for (const name of Object.keys(inventory.e2eNpmPackages)) assert.ok(!(name in inventory.npmPackages), name);
 });
 
 test('reports an e2e package.json and lockfile that disagree with the inventory', t => {
   const root = fixture(t);
-  editJson(path.join(root, 'tools/inventory.json'), inventory => { inventory.e2eNpmPackages.acpx = '9.9.9'; });
+  let pinned;
+  editJson(path.join(root, 'tools/inventory.json'), inventory => { pinned = inventory.e2eNpmPackages.acpx; inventory.e2eNpmPackages.acpx = '9.9.9'; });
   const drift = findDrift(root).join('\n');
   assert.match(drift, /e2e\/local\/image\/package\.json/);
-  assert.match(drift, /e2e\/local\/image\/package-lock\.json: acpx resolves to 0\.11\.2, inventory pins 9\.9\.9/);
+  assert.ok(drift.includes(`e2e/local/image/package-lock.json: acpx resolves to ${pinned}, inventory pins 9.9.9`), drift);
 });
 
 test('sync rewrites the e2e package.json from the inventory', t => {
