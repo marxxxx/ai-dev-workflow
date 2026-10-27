@@ -224,6 +224,9 @@ test('prompt returns stdout and rejects on timeout or failure, quota labelled', 
     await assert.rejects(s.prompt('x'), /timed out/);
     next = { status: 1, stdout: '', stderr: 'You hit your usage limit' };
     await assert.rejects(s.prompt('x'), /^Error: agent \(codex\): quota: /);
+    const claude = startSession({ root, work, harness: 'claude-code', model: null, project: 'p1', creds, exec, env: {}, turnTimeoutSec: 60 });
+    next = { status: 1, stdout: '', stderr: 'Internal error: You\'ve hit your session limit · resets 7:30pm (UTC)' };
+    await assert.rejects(claude.prompt('x'), /^Error: agent \(claude-code\): quota: /);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

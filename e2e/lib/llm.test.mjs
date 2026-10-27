@@ -88,10 +88,14 @@ test('parseOneShot: codex takes the last agent message and a failed turn; openco
   for (const h of HARNESSES) assert.deepEqual(parseOneShot(h, 'not json\n'), { text: null, error: null }, h);
 });
 
-test('isCliQuota knows each CLI\'s limit wording; claude-code keeps only usage_limit_reached', () => {
+test('isCliQuota knows each CLI\'s limit wording; claude-code keeps usage_limit_reached and its "hit your … limit" text', () => {
   for (const e of ['usageLimitExceeded', 'usage_limit', 'You\'ve hit your usage limit.', 'HTTP 429', 'rate limit', 'Rate-limit hit', 'insufficient_quota']) assert.ok(isCliQuota('codex', e), e);
   for (const e of ['APIError: x (HTTP 429)', 'Rate limit exceeded', 'insufficient_quota']) assert.ok(isCliQuota('opencode', e), e);
   assert.ok(isCliQuota('claude-code', 'usage_limit_reached: x'));
+  // Through ACP only the message arrives, without the usage_limit_reached code.
+  for (const e of ['Internal error: You\'ve hit your session limit · resets 7:30pm (UTC)', 'You\'ve hit your weekly limit', 'You\'ve hit your usage limit']) {
+    assert.ok(isCliQuota('claude-code', e), e);
+  }
   for (const e of ['rate limit', 'HTTP 429', 'quota']) assert.equal(isCliQuota('claude-code', e), false, e);
   for (const h of HARNESSES) assert.equal(isCliQuota(h, null), false, h);
 });

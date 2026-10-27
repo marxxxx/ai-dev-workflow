@@ -132,10 +132,11 @@ export function answerJson(text) {
 }
 
 // How each CLI words a usage limit in its own error (parseOneShot's `error`), never in answer text or the raw stream:
-// claude's stream carries a rate_limit_event in every normal run. claude: usage_limit_reached; codex: usageLimitExceeded /
-// "You've hit your usage limit"; opencode and plain HTTP: 429, rate limit, quota.
+// claude's stream carries a rate_limit_event in every normal run. claude: usage_limit_reached, or through ACP only
+// "You've hit your session/weekly/usage limit"; codex: usageLimitExceeded / "You've hit your usage limit"; opencode and
+// plain HTTP: 429, rate limit, quota.
 const CLI_QUOTA = {
-  'claude-code': /usage_limit_reached/,
+  'claude-code': /usage_limit_reached|hit your (?:\w+ )?limit/i,
   codex: /usage_limit|usageLimitExceeded|hit your usage limit|\b429\b|rate.?limit|quota/i,
   opencode: /usage_limit|\b429\b|rate.?limit|quota/i,
 };
