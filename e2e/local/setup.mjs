@@ -1,12 +1,16 @@
 // The setup phase of `adw e2e`: everything a first run is missing, offered before the run starts. Each step is
 // `async ({ root, opts, d, prompter, state })`; `state` is a plain object the steps share. With `prompter === null`
 // (CI, pipe, --no-input) only the non-interactive parts run, and preflight stays fatal for what is still missing.
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { askContainer, createReadlinePrompter, createScriptedPrompter, setUpContainer } from '../../agent-src/lib/onboard.mjs';
 import { spawnEditor } from './acceptance.mjs';
-import { composeEnv } from './session.mjs';
+import { HARNESSES } from '../lib/llm.mjs';
+import { LANGUAGES, detectLanguage } from './language.mjs';
+import { composeEnv, stageCredentials } from './session.mjs';
 import { readTicket, ticketDir, writeTicket } from './store.mjs';
+
+const DEFAULTS = JSON.parse(readFileSync(new URL('./defaults.json', import.meta.url), 'utf8'));
 
 const yes = (answer) => /^(y|yes|true)$/i.test(answer);
 
@@ -85,7 +89,79 @@ export async function stepTicket({ root, opts, d, prompter, state }) {
   state.ticketText = readTicket(dir);
 }
 
-const STEPS = [stepProjectConfig, stepContainerFiles, stepTicket];
+export function detectTestCommand(root) {
+  const pkg = path.join(root, 'package.json');
+  if (existsSync(pkg) && readJson(pkg).scripts?.test) return 'npm test';
+  if (readdirSync(root).some((f) => /\.(sln|csproj)$/.test(f))) return 'dotnet test';
+  const makefile = path.join(root, 'Makefile');
+  if (existsSync(makefile) && /^test:/m.test(readFileSync(makefile, 'utf8'))) return 'make test';
+  return null;
+}
+
+const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+// The e2e block to write: `current` plus every answered key (nested like the block itself); an answer equal to its
+// defaults.json value (blank included) is dropped, so only deviations are stored.
+export function e2eChanges(current, answers) {
+  const walk = (cur, ans, def) => {
+    const out = { ...cur };
+    for (const [key, value] of Object.entries(ans)) {
+      if (isObject(value)) {
+        const inner = walk(isObject(cur[key]) ? cur[key] : {}, value, isObject(def?.[key]) ? def[key] : {});
+        if (Object.keys(inner).length) out[key] = inner; else delete out[key];
+      } else if (value === '' || value == null || JSON.stringify(value) === JSON.stringify(def?.[key] ?? null)) delete out[key];
+      else out[key] = value;
+    }
+    return out;
+  };
+  return walk(current, answers, DEFAULTS);
+}
+
+export function writeProjectE2e(root, e2e) {
+  const file = path.join(root, 'ai-project.json');
+  writeFileSync(file, `${JSON.stringify({ ...readJson(file), e2e }, null, 2)}\n`);
+}
+
+const names = (text) => String(text).split(',').map((n) => n.trim()).filter(Boolean);
+
+// The first-run interview: asks for the e2e settings, shows the block, writes it to ai-project.json on confirmation.
+export async function stepInterview({ root, opts, d, prompter, state }) {
+  const file = path.join(root, 'ai-project.json');
+  if (!prompter || !existsSync(file)) return;
+  const project = readJson(file);
+  if ('e2e' in project && !opts.reconfigure) return;
+  const current = isObject(project.e2e) ? project.e2e : {};
+  const ticket = state.ticketText ?? readTicket(ticketDir(root, opts.ticket));
+  const env = composeEnv({ root, work: root, env: { ...d.env, ...state.envAdditions } });
+  const loggedIn = ['claude-code', 'codex'].filter((h) => !stageCredentials({ harnesses: [h], env, home: d.home }).missing.length);
+
+  const harness = await prompter.askChoice('Harness for the agent under test', 'e2e.agent.harness', HARNESSES,
+    opts.harness ?? current.agent?.harness ?? (loggedIn.length === 1 ? loggedIn[0] : ''));
+  const model = await prompter.ask("Model for the agent (blank: the CLI's default)", 'e2e.agent.model', opts.model ?? current.agent?.model ?? '');
+  const judgeModel = await prompter.ask("Model for the verifier and the review judge (blank: the agent's; the report will warn about self-judging)",
+    'e2e.judgeModel', current.verifier?.model ?? current.review?.model ?? '');
+  const testCommand = await prompter.ask('Command that runs your tests in the dev container (blank: none)', 'e2e.testCommand',
+    current.testCommand ?? detectTestCommand(root) ?? '');
+  const roles = [harness, ...['answerer', 'verifier', 'review'].map((r) => current[r]?.harness ?? harness)];
+  let envNames = current.env ?? [];
+  let secretEnv = current.secretEnv ?? [];
+  if (roles.includes('opencode') || env.CLAUDE_CODE_USE_BEDROCK || env.CLAUDE_CODE_USE_VERTEX) {
+    envNames = names(await prompter.ask('Provider variables to pass into the containers (names, comma-separated)', 'e2e.env', envNames.join(',')));
+    if (envNames.length) {
+      secretEnv = names(await prompter.ask('Which of them are secrets (names, comma-separated)', 'e2e.secretEnv', (current.secretEnv ?? envNames).join(',')));
+    } else secretEnv = [];
+  }
+  const language = await prompter.askChoice('Language of the ticket and your answers', 'e2e.language', LANGUAGES,
+    current.language ?? detectLanguage(ticket ? `${ticket.title}\n${ticket.body}` : ''));
+
+  const e2e = e2eChanges(current, { agent: { harness, model }, verifier: { model: judgeModel }, review: { model: judgeModel },
+    testCommand, env: envNames, secretEnv, language });
+  d.log(`e2e in ai-project.json, now:\n${JSON.stringify(project.e2e ?? null, null, 2)}\nnew:\n${JSON.stringify(e2e, null, 2)}`);
+  const answer = await prompter.ask('Write this to ai-project.json? (Y/n)', 'setup.writeE2e', prompter.scripted ? 'n' : 'y');
+  if (yes(answer)) writeProjectE2e(root, e2e);
+}
+
+const STEPS = [stepProjectConfig, stepContainerFiles, stepTicket, stepInterview];
 
 export async function runSetup({ root, opts, d, prompter }) {
   const state = { envAdditions: {}, ticketText: null };
