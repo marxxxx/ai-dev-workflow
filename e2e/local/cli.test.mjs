@@ -139,7 +139,7 @@ test('preflight: a judge harness without login fails before any compose call, na
     assert.ok(s.out.some((l) => l.includes('review uses codex: ~/.codex/auth.json or OPENAI_API_KEY not found')), s.out.join('\n'));
     assert.deepEqual(s.calls, []);
     assert.equal(s.exec.some((c) => c.argv.includes('compose')), false);
-    assert.equal(existsSync(path.join(root, '.adw')), false);
+    assert.equal(existsSync(path.join(root, '.adw', 'e2e', '7', 'runs')), false); // the ticket is imported in setup, before preflight
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

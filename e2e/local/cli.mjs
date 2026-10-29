@@ -17,14 +17,14 @@ import { cmdInit } from '../../agent-src/lib/onboard.mjs';
 import { makePrompter, runSetup } from './setup.mjs';
 import { detectLanguage, textsFor } from './language.mjs';
 import { loadLocalConfig, selfJudged } from './config.mjs';
-import { appendAnswer, ensureGitignore, newRunDir, readAnswers, readTicket, ticketDir, writeTicket } from './store.mjs';
+import { appendAnswer, ensureGitignore, newRunDir, readAnswers, readTicket, ticketDir } from './store.mjs';
 import { importTicket } from './ticket-import.mjs';
 import { ensureE2eImage } from './image.mjs';
 import { collectSandbox, createSandbox } from './sandbox.mjs';
 import { appPortFromAgentsMd, evaluateLocalContract, hasE2eSection } from './contract.mjs';
 import { composeEnv, composeProject, stageCredentials, startSession } from './session.mjs';
 import { askHumanTty, makeDecide, runConversation } from './answerer.mjs';
-import { confirmAcceptance, draftAcceptance, renderAcceptance } from './acceptance.mjs';
+import { confirmAcceptance, draftAcceptance, renderAcceptance, spawnEditor } from './acceptance.mjs';
 import { buildLocalTrialRecord, compareWithBaseline, localFingerprint, localReward, writeRun } from './record.mjs';
 
 export const USAGE = 'usage: adw e2e <base-commit> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m] [--ticket-file f] [--baseline runDir] [--root dir] [--no-input] [--answers file] [--reconfigure]';
@@ -73,7 +73,7 @@ const DEFAULT_DEPS = {
   env: process.env, cwd: process.cwd(), home: homedir(), uid: process.getuid?.() ?? 1000, gid: process.getgid?.() ?? 1000,
   exec: (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts }),
   runSetup, cmdInit, isTTY: { stdin: process.stdin.isTTY, stdout: process.stdout.isTTY },
-  importTicket, ensureE2eImage, createSandbox, collectSandbox, startSession, makeDecide, runConversation, askHuman: askHumanTty(),
+  importTicket, editor: spawnEditor, ensureE2eImage, createSandbox, collectSandbox, startSession, makeDecide, runConversation, askHuman: askHumanTty(),
   draftAcceptance, confirmAcceptance, prompt: promptLine, postVerify, buildLocalTrialRecord,
   now: timestamp, clock: () => Date.now(), log: (s) => console.log(s), error: (s) => console.error(s), onSignal, exit: (code) => process.exit(code),
 };
@@ -123,13 +123,7 @@ export async function runE2e(opts, deps = {}) {
 
   ensureGitignore(root);
   const dir = ticketDir(root, opts.ticket);
-  if (!readTicket(dir)) {
-    const file = path.join(root, 'ai-project.json');
-    const project = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
-    const ticketFile = opts.ticketFile ? readFileSync(path.resolve(opts.ticketFile), 'utf8') : undefined;
-    writeTicket(dir, d.importTicket({ root, ticket: opts.ticket, project, ticketFile }));
-  }
-  const ticketText = readTicket(dir);
+  const ticketText = setup.ticketText ?? readTicket(dir);
   // The simulated user speaks the language of the ticket unless e2e.language says otherwise.
   const lang = config.language ?? detectLanguage(`${ticketText.title}\n${ticketText.body}`);
   const texts = textsFor(lang);

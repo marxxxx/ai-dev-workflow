@@ -4,7 +4,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createScriptedPrompter } from '../../agent-src/lib/onboard.mjs';
-import { makePrompter, runSetup, stepContainerFiles, stepProjectConfig } from './setup.mjs';
+import { makePrompter, ownComposeRun, runSetup, stepContainerFiles, stepProjectConfig, stepTicket } from './setup.mjs';
+import { readTicket, ticketDir, writeTicket } from './store.mjs';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'adw-setup-'));
 const noop = { log() {}, error() {} };
@@ -72,10 +73,81 @@ test('makePrompter: null without interactivity, scripted for --answers, close is
 
 test('runSetup: without a prompter returns the empty state; closes a real prompter', async () => {
   const root = tmp();
-  assert.deepEqual(await runSetup({ root, opts: {}, d: noop, prompter: null }), { envAdditions: {}, ticketText: null });
+  writeTicket(ticketDir(root, 7), { title: 'X', body: 'Y' });
+  assert.deepEqual(await runSetup({ root, opts: { ticket: 7 }, d: noop, prompter: null }), { envAdditions: {}, ticketText: null });
   let closed = 0;
   const prompter = { ...createScriptedPrompter({}), close: () => {}, closeReal: () => { closed++; } };
-  await runSetup({ root, opts: {}, d: noop, prompter });
+  await runSetup({ root, opts: { ticket: 7 }, d: noop, prompter });
   assert.equal(closed, 1);
+  rmSync(root, { recursive: true });
+});
+
+const ghProject = (root, backend = 'github') => writeFileSync(path.join(root, 'ai-project.json'),
+  JSON.stringify({ ticketing: { backend }, repository: { slug: 'o/r' } }));
+const hostFails = ({ exec }) => { if (!exec) throw new Error('ticket import (github) failed: gh issue view'); return JSON.parse(exec('gh', ['issue', 'view', '7'])); };
+const ticketOpts = { ticket: 7, ticketFile: null };
+
+test('ownComposeRun: own compose project argv, certs overlay and entrypoint', () => {
+  const root = tmp();
+  const calls = [];
+  const exec = (cmd, args, o) => { calls.push([cmd, args, o]); return { status: 0, stdout: 'x' }; };
+  ownComposeRun({ root, env: {}, exec, argv: ['gh', 'a'] });
+  assert.deepEqual(calls[0][1], ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), 'run', '--rm', '--no-deps', '-T', 'ai-dev-workflow', 'gh', 'a']);
+  ownComposeRun({ root, env: { AGENT_CA_DIR: '/c' }, exec, argv: ['sh'], entrypoint: 'sh' });
+  assert.deepEqual(calls[1][1].slice(0, 6), ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), '-f', path.join(root, 'compose.ai-dev.certs.yml'), 'run']);
+  assert.ok(calls[1][1].join(' ').includes('--entrypoint sh ai-dev-workflow sh'));
+  rmSync(root, { recursive: true });
+});
+
+test('stepTicket: host import fails, the dev container import succeeds', async () => {
+  const root = tmp();
+  ghProject(root);
+  const calls = [];
+  const d = { ...noop, importTicket: hostFails, env: {}, uid: 1, gid: 1,
+    exec: (cmd, args) => { calls.push([cmd, args]); return { status: 0, stdout: '{"title":"T","body":"B"}' }; } };
+  const state = { envAdditions: {}, ticketText: null };
+  await stepTicket({ root, opts: ticketOpts, d, prompter: null, state });
+  assert.equal(readFileSync(path.join(ticketDir(root, 7), 'ticket.md'), 'utf8'), '# T\n\nB\n');
+  assert.deepEqual(state.ticketText, { title: 'T', body: 'B' });
+  assert.deepEqual(calls[0][1].slice(0, 9), ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), 'run', '--rm', '--no-deps', '-T', 'ai-dev-workflow', 'gh']);
+  assert.equal(calls[0][1].includes('-p'), false);
+  rmSync(root, { recursive: true });
+});
+
+test('stepTicket: both imports fail, the editor fallback writes the ticket', async () => {
+  const root = tmp();
+  ghProject(root);
+  const d = { ...noop, importTicket: hostFails, env: {}, uid: 1, gid: 1, exec: () => ({ status: 1, stdout: '', stderr: 'no' }),
+    editor: (file) => writeFileSync(file, '# Real\n\nbody') };
+  const state = { envAdditions: {}, ticketText: null };
+  await stepTicket({ root, opts: ticketOpts, d, prompter: createScriptedPrompter({ setup: { ticketEditor: 'y' } }), state });
+  assert.deepEqual(state.ticketText, { title: 'Real', body: 'body' });
+  rmSync(root, { recursive: true });
+});
+
+test('stepTicket: both fail without a prompter or on decline, ticket.md is removed and the host error thrown', async () => {
+  const root = tmp();
+  ghProject(root);
+  const d = { ...noop, importTicket: hostFails, env: {}, uid: 1, gid: 1, exec: () => ({ status: 1, stdout: '', stderr: 'no' }), editor: () => {} };
+  const state = { envAdditions: {}, ticketText: null };
+  await assert.rejects(stepTicket({ root, opts: ticketOpts, d, prompter: null, state }), /ticket import \(github\) failed/);
+  assert.equal(existsSync(path.join(ticketDir(root, 7), 'ticket.md')), false);
+  await assert.rejects(stepTicket({ root, opts: ticketOpts, d, prompter: createScriptedPrompter({}), state }), /ticket import \(github\) failed/);
+  assert.equal(existsSync(path.join(ticketDir(root, 7), 'ticket.md')), false);
+  rmSync(root, { recursive: true });
+});
+
+test('stepTicket: the file backend never tries the container; an existing ticket is left alone', async () => {
+  const root = tmp();
+  ghProject(root, 'file');
+  const d = { ...noop, importTicket: () => { throw new Error('ticket import (file) failed: none'); }, env: {}, uid: 1, gid: 1,
+    exec: () => { throw new Error('container tried'); } };
+  await assert.rejects(stepTicket({ root, opts: ticketOpts, d, prompter: null, state: {} }), /ticket import \(file\) failed/);
+  const dir = ticketDir(root, 7);
+  writeTicket(dir, { title: 'X', body: 'Y' });
+  const state = { ticketText: null };
+  await stepTicket({ root, opts: ticketOpts, d, prompter: null, state });
+  assert.equal(state.ticketText, null);
+  assert.equal(readTicket(dir).title, 'X');
   rmSync(root, { recursive: true });
 });
