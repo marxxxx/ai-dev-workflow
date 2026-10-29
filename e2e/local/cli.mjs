@@ -14,7 +14,7 @@ import { redactSecrets } from '../lib/secrets.mjs';
 import { applyPostVerification, emptyOutcome } from '../lib/trial.mjs';
 import { postVerify, verifierHash } from '../lib/postverify.mjs';
 import { cmdInit } from '../../agent-src/lib/onboard.mjs';
-import { makePrompter, runSetup } from './setup.mjs';
+import { cleanupSetup, makePrompter, newSetupState, runSetup } from './setup.mjs';
 import { detectLanguage, textsFor } from './language.mjs';
 import { loadLocalConfig, selfJudged } from './config.mjs';
 import { appendAnswer, ensureGitignore, newRunDir, readAnswers, readTicket, ticketDir } from './store.mjs';
@@ -72,7 +72,7 @@ function onSignal(handler) {
 const DEFAULT_DEPS = {
   env: process.env, cwd: process.cwd(), home: homedir(), uid: process.getuid?.() ?? 1000, gid: process.getgid?.() ?? 1000,
   exec: (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts }),
-  runSetup, cmdInit, isTTY: { stdin: process.stdin.isTTY, stdout: process.stdout.isTTY },
+  runSetup, makePrompter, cmdInit, isTTY: { stdin: process.stdin.isTTY, stdout: process.stdout.isTTY },
   importTicket, editor: spawnEditor, ensureE2eImage, createSandbox, collectSandbox, startSession, makeDecide, runConversation, askHuman: askHumanTty(),
   draftAcceptance, confirmAcceptance, prompt: promptLine, postVerify, buildLocalTrialRecord,
   now: timestamp, clock: () => Date.now(), log: (s) => console.log(s), error: (s) => console.error(s), onSignal, exit: (code) => process.exit(code),
@@ -105,7 +105,16 @@ export async function runE2e(opts, deps = {}) {
   const top = opts.root ? null : d.exec('git', ['-C', d.cwd, 'rev-parse', '--show-toplevel']);
   const root = path.resolve(opts.root ?? (top.status === 0 ? String(top.stdout).trim() : d.cwd));
   // First-run setup (init interview, container files, …) before the config is read; its env values join the run's env.
-  const setup = await d.runSetup({ root, opts, d, prompter: makePrompter(opts, d) });
+  // Ctrl-C at a question (an interrupted rejection) or a signal during a docker call leaves nothing behind: exit 130.
+  const state = newSetupState();
+  const offSetup = d.onSignal(() => { cleanupSetup({ root, d, state }); d.exit(130); });
+  let setup;
+  try { setup = await d.runSetup({ root, opts, d, prompter: d.makePrompter(opts, d), state }); } catch (err) {
+    if (!isInterrupt(err)) throw err;
+    cleanupSetup({ root, d, state });
+    d.error(`✗ ${err.message}: setup stopped`);
+    return 130;
+  } finally { offSetup(); }
   d = { ...d, env: { ...d.env, ...setup.envAdditions } };
   // The login copies taken from the agent-home volume live only for this run, also on every early return.
   try { return await runPrepared({ opts, d, root, setup }); } finally {

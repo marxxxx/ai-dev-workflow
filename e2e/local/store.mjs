@@ -1,6 +1,7 @@
 // The per-ticket store under <root>/.adw/e2e/<ticket>/: ticket, answers, runs.
 import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { ensureLine } from '../../agent-src/lib/container.mjs';
 import { textsFor } from './language.mjs';
 
 // The process answers every run starts with (German here; cli.mjs picks the language); spec approval is deliberately absent (it must reach the human).
@@ -40,12 +41,32 @@ export function appendAnswer(dir, { question, answer }, defaults = DEFAULT_ANSWE
 
 export const newRunDir = (dir, harness, ts) => join(dir, 'runs', ts, harness);
 
-// Run output stays out of git; the ticket, answers and acceptance criteria are committed.
+// Run output and this machine's choices (local.json) stay out of git; the ticket, answers and acceptance criteria are committed.
 export function ensureGitignore(root) {
   const file = join(resolve(root), '.adw', 'e2e', '.gitignore');
-  if (existsSync(file)) return;
   mkdirSync(join(file, '..'), { recursive: true });
-  writeFileSync(file, '*/runs/\n');
+  ensureLine(file, '*/runs/');
+  ensureLine(file, 'local.json');
+}
+
+const localFile = (root) => join(resolve(root), '.adw', 'e2e', 'local.json');
+
+// Machine-local setup decisions (`loginFromVolume.<harness>`, `e2eSectionDeclined`); {} when missing or unreadable.
+export function readLocalState(root) {
+  try {
+    const state = JSON.parse(readFileSync(localFile(root), 'utf8'));
+    return state && typeof state === 'object' && !Array.isArray(state) ? state : {};
+  } catch { return {}; }
+}
+
+// Merges `patch` into local.json (one level deep for object values), git-ignored before the first write.
+export function writeLocalState(root, patch) {
+  ensureGitignore(root);
+  const state = readLocalState(root);
+  for (const [key, value] of Object.entries(patch)) {
+    state[key] = value && typeof value === 'object' && !Array.isArray(value) ? { ...state[key], ...value } : value;
+  }
+  writeFileSync(localFile(root), `${JSON.stringify(state, null, 2)}\n`);
 }
 
 // Newest earlier run of this harness on the same base commit that finished and is comparable.

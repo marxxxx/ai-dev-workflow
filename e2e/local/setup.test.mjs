@@ -6,7 +6,8 @@ import path from 'node:path';
 import { createScriptedPrompter } from '../../agent-src/lib/onboard.mjs';
 import { detectTestCommand, e2eChanges, makePrompter, ownComposeRun, projectVolume, runSetup, renderE2eSection, stepContainerFiles, stepE2eSection, stepEnvValues, stepInterview, stepLogins, stepProjectConfig, stepTicket } from './setup.mjs';
 import { composeProject } from './session.mjs';
-import { readTicket, ticketDir, writeTicket } from './store.mjs';
+import { readLocalState, readTicket, ticketDir, writeLocalState, writeTicket } from './store.mjs';
+import { spawnSync } from 'node:child_process';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'adw-setup-'));
 const noop = { log() {}, error() {} };
@@ -108,7 +109,10 @@ test('stepTicket: host import fails, the dev container import succeeds', async (
   const d = { ...noop, importTicket: hostFails, env: {}, uid: 1, gid: 1,
     exec: (cmd, args) => { calls.push([cmd, args]); return { status: 0, stdout: '{"title":"T","body":"B"}' }; } };
   const state = { envAdditions: {}, ticketText: null };
-  await stepTicket({ root, opts: ticketOpts, d, prompter: null, state });
+  const events = [];
+  const prompter = { ...createScriptedPrompter({}), suspend: () => events.push('suspend'), resume: () => events.push('resume') };
+  await stepTicket({ root, opts: ticketOpts, d, prompter, state });
+  assert.deepEqual(events, ['suspend', 'resume']);
   assert.equal(readFileSync(path.join(ticketDir(root, 7), 'ticket.md'), 'utf8'), '# T\n\nB\n');
   assert.deepEqual(state.ticketText, { title: 'T', body: 'B' });
   assert.deepEqual(calls[0][1].slice(0, 9), ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), 'run', '--rm', '--no-deps', '-T', 'ai-dev-workflow', 'gh']);
@@ -137,6 +141,51 @@ test('stepTicket: both fail without a prompter or on decline, ticket.md is remov
   await assert.rejects(stepTicket({ root, opts: ticketOpts, d, prompter: createScriptedPrompter({}), state }), /ticket import \(github\) failed/);
   assert.equal(existsSync(path.join(ticketDir(root, 7), 'ticket.md')), false);
   rmSync(root, { recursive: true });
+});
+
+test('stepTicket: without a prompter the dev container is not tried', async () => {
+  const root = tmp();
+  ghProject(root);
+  const d = { ...noop, importTicket: hostFails, env: {}, exec: () => { throw new Error('container tried'); } };
+  await assert.rejects(stepTicket({ root, opts: ticketOpts, d, prompter: null, state: {} }), /ticket import \(github\) failed/);
+  rmSync(root, { recursive: true });
+});
+
+test('stepTicket: Ctrl-C in the dev container import is an interrupt', async () => {
+  const root = tmp();
+  ghProject(root);
+  const d = { ...noop, importTicket: hostFails, env: {}, exec: () => ({ status: 130, stdout: '', stderr: '' }) };
+  await assert.rejects(stepTicket({ root, opts: ticketOpts, d, prompter: createScriptedPrompter({}), state: {} }), (e) => e.interrupted === true);
+  rmSync(root, { recursive: true });
+});
+
+// Both imports fail; `editor` stands in for $EDITOR on ticket.md.
+const editorRun = (root, editor) => {
+  ghProject(root);
+  const d = { ...noop, importTicket: hostFails, env: {}, exec: () => ({ status: 1, stdout: '', stderr: 'no' }), editor };
+  const state = { envAdditions: {}, ticketText: null };
+  return { state, run: () => stepTicket({ root, opts: ticketOpts, d, prompter: createScriptedPrompter({ setup: { ticketEditor: 'y' } }), state }) };
+};
+
+test('stepTicket: the editor text is read leniently and rewritten as a ticket', async () => {
+  const root = tmp();
+  const { state, run } = editorRun(root, (file) => writeFileSync(file, 'note\n# Title  \nbody line\n\n'));
+  await run();
+  assert.deepEqual(state.ticketText, { title: 'Title', body: 'body line' });
+  assert.equal(readFileSync(path.join(ticketDir(root, 7), 'ticket.md'), 'utf8'), '# Title\n\nbody line\n');
+  rmSync(root, { recursive: true });
+});
+
+test('stepTicket: a kept placeholder, an empty title or a failing editor abort once with the host error', async () => {
+  for (const editor of [() => {}, (file) => writeFileSync(file, '# \nbody'), () => { throw new Error('editor exited with 1'); }]) {
+    const root = tmp();
+    let calls = 0;
+    const { run } = editorRun(root, (file) => { calls++; return editor(file); });
+    await assert.rejects(run(), /ticket import \(github\) failed/);
+    assert.equal(calls, 1);
+    assert.equal(existsSync(path.join(ticketDir(root, 7), 'ticket.md')), false);
+    rmSync(root, { recursive: true });
+  }
 });
 
 test('stepTicket: the file backend never tries the container; an existing ticket is left alone', async () => {
@@ -294,6 +343,17 @@ test('projectVolume: the compose project name plus _agent-home when the volume e
   f.clean(); g.clean();
 });
 
+test('projectVolume: the agent-home volume name from the compose config wins', () => {
+  const calls = [];
+  const exec = (cmd, args) => {
+    calls.push(args);
+    if (args.includes('config')) return { status: 0, stdout: '{"name":"proj","volumes":{"agent-home":{"name":"custom_home"}}}' };
+    return { status: 0, stdout: '' };
+  };
+  assert.equal(projectVolume(tmp(), {}, exec), 'custom_home');
+  assert.deepEqual(calls[1], ['volume', 'inspect', 'custom_home']);
+});
+
 test('stepLogins: no volume means no compose run and no question', async () => {
   const f = loginsFixture('codex', { volume: false });
   const asked = [];
@@ -329,6 +389,69 @@ test('stepLogins: a declined volume login (or none scripted) reads nothing', asy
   f.clean();
 });
 
+// An interactive (not scripted) prompter answering every question with `answer`; `asked` lists the keys.
+const ttyPrompter = (answer, asked = []) => ({ ...createScriptedPrompter({}), scripted: false,
+  ask: async (_q, key) => { asked.push(key); return answer; } });
+
+test('stepLogins: an interactive answer to the volume question is stored in local.json', async () => {
+  for (const [answer, stored] of [['y', true], ['n', false]]) {
+    const f = loginsFixture('codex');
+    const state = await runLogins(f, {}, ttyPrompter(answer));
+    assert.deepEqual(readLocalState(f.root), { loginFromVolume: { codex: stored } });
+    assert.match(readFileSync(path.join(f.root, '.adw/e2e/.gitignore'), 'utf8'), /^local\.json$/m);
+    if (state.fallbackHome) rmSync(state.fallbackHome, { recursive: true, force: true });
+    f.clean();
+  }
+});
+
+test('stepLogins: a stored yes reads the volume without a question, also without a prompter', async () => {
+  for (const prompter of [null, ttyPrompter('n')]) {
+    const f = loginsFixture('codex');
+    writeLocalState(f.root, { loginFromVolume: { codex: true } });
+    const asked = [];
+    if (prompter) prompter.ask = async (_q, key) => { asked.push(key); return 'n'; };
+    const state = await runLogins(f, {}, prompter);
+    assert.deepEqual(asked, []);
+    assert.deepEqual(state.creds.missing, []);
+    assert.ok(state.fallbackHome);
+    rmSync(state.fallbackHome, { recursive: true, force: true });
+    f.clean();
+  }
+});
+
+test('stepLogins: a stored no never asks and reads nothing', async () => {
+  const f = loginsFixture('opencode');
+  writeLocalState(f.root, { loginFromVolume: { opencode: false } });
+  const asked = [];
+  const state = await runLogins(f, {}, ttyPrompter('y', asked));
+  assert.deepEqual(asked, []);
+  assert.deepEqual(f.calls, []);
+  assert.equal(state.fallbackHome, null);
+  f.clean();
+});
+
+test('stepLogins: a scripted answer is not stored', async () => {
+  const f = loginsFixture('codex');
+  await runLogins(f, {});
+  assert.deepEqual(readLocalState(f.root), {});
+  f.clean();
+});
+
+test('stepLogins: the terminal is handed over around the docker calls of the volume lookup', async () => {
+  const f = loginsFixture('codex', { volume: false });
+  const events = [];
+  const prompter = { ...createScriptedPrompter({}), suspend: () => events.push('suspend'), resume: () => events.push('resume') };
+  await runLogins(f, {}, prompter);
+  assert.deepEqual(events, ['suspend', 'resume']);
+  f.clean();
+});
+
+test('stepLogins: Ctrl-C in claude setup-token (exit 130) is an interrupt', async () => {
+  const f = loginsFixture('claude-code', { setupExit: 130 });
+  await assert.rejects(runLogins(f, { setup: { claudeToken: 'y' } }), (e) => e.interrupted === true && e.signal === 'SIGINT');
+  f.clean();
+});
+
 test('stepLogins: a pasted Claude token is saved, trimmed, and never reaches argv or the log', async () => {
   const f = loginsFixture('claude-code');
   const state = await runLogins(f, { setup: { claudeToken: 'y', claudeTokenValue: '  tok-123 \n', saveClaudeToken: 'y' } });
@@ -354,7 +477,8 @@ test('stepLogins: the terminal is handed over around setup-token; a failing run 
   const errors = [];
   f.d.error = (s) => errors.push(s);
   const state = await runLogins(f, {}, prompter);
-  assert.deepEqual(events, ['suspend', 'resume']);
+  // Once for `docker compose config`, once for setup-token.
+  assert.deepEqual(events, ['suspend', 'resume', 'suspend', 'resume']);
   assert.deepEqual(errors, ['claude setup-token failed (exit 1)']);
   assert.deepEqual(state.envAdditions, {});
   f.clean();
@@ -530,19 +654,45 @@ test('stepE2eSection: scripted default, a missing confirm, a present section, no
   rmSync(f.root, { recursive: true });
 });
 
-test('stepE2eSection: [d]raft calls the LLM read-only in the setup compose project and appends its section', async () => {
+// A git repo with AGENTS.md committed and a git-ignored .env.ai-dev beside it; git runs for real, docker is recorded.
+const gitE2eFixture = () => {
   const f = e2eFixture();
-  let seen;
+  const git = (...a) => spawnSync('git', ['-C', f.root, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { encoding: 'utf8' });
+  writeFileSync(path.join(f.root, '.gitignore'), '.env.ai-dev\n');
+  writeFileSync(path.join(f.root, '.env.ai-dev'), 'SECRET=s\n');
+  git('init', '-q'); git('add', '.'); git('commit', '-qm', 'init');
+  f.d.exec = (c, a, o) => { f.execs.push(a); return c === 'git' ? spawnSync(c, a, { encoding: 'utf8', ...o }) : { status: 0 }; };
+  return f;
+};
+
+test('stepE2eSection: [d]raft calls the LLM read-only in the setup compose project and appends its section', async () => {
+  const f = gitE2eFixture();
+  let seen; let clone;
+  const events = [];
   const section = renderE2eSection({ start: 'make run', ready: 'ok', url: 'http://localhost:1', stop: 'make stop' });
-  await f.run({ setup: { e2eSection: 'd', e2eSectionConfirm: 'a' } }, { d: { callLlm: (a) => { seen = a; return { section }; } } });
+  const prompter = { ...createScriptedPrompter({ setup: { e2eSection: 'd', e2eSectionConfirm: 'a' } }),
+    suspend: () => events.push('suspend'), resume: () => events.push('resume') };
+  await f.run({}, { prompter, d: { callLlm: (a) => {
+    seen = a;
+    events.push('llm');
+    clone = { agents: existsSync(path.join(a.checkout, 'AGENTS.md')), env: existsSync(path.join(a.checkout, '.env.ai-dev')) };
+    return { section };
+  } } });
+  assert.deepEqual(events, ['suspend', 'llm', 'resume']);
   assert.equal(seen.role, 'agents-e2e');
   assert.equal(seen.harness, 'claude-code');
   assert.equal(seen.tools, 'read');
   assert.equal(seen.readOnly, true);
-  assert.equal(seen.checkout, f.root);
+  // The model sees a clone of the committed HEAD only: never the live root with its git-ignored secrets.
+  assert.notEqual(seen.checkout, f.root);
+  assert.deepEqual(clone, { agents: true, env: false });
+  assert.equal(existsSync(seen.checkout), false);
+  const cloneCall = f.execs.find((a) => a.includes('clone'));
+  assert.deepEqual(cloneCall.slice(-6), ['clone', '-q', '--no-hardlinks', '--template=', f.root, seen.checkout]);
+  assert.ok(cloneCall.includes('core.hooksPath=/dev/null'));
   assert.match(seen.input, /Four parts, in English:/);
   assert.match(seen.input, /\{"section":/);
-  const argv = seen.buildArgs({ name: 'n', checkout: f.root, readOnly: true, argv: ['x'] });
+  const argv = seen.buildArgs({ name: 'n', checkout: seen.checkout, readOnly: true, argv: ['x'] });
   assert.ok(argv.includes('-p'));
   assert.ok(argv.includes(composeProject(f.root, 'setup')));
   assert.match(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), /- Start: make run/);
@@ -563,6 +713,26 @@ test('stepE2eSection: a scripted confirm answer other than a, e or s skips inste
   const f = e2eFixture();
   await f.run({ setup: { e2eSection: 'a', e2eSectionConfirm: 'y', e2e: { start: 's', ready: 'r', url: 'u', stop: 'x' } } });
   assert.equal(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), '# P\n');
+  assert.equal(existsSync(f.draft), false);
+  rmSync(f.root, { recursive: true });
+});
+
+test('stepE2eSection: an interactive [s]kip is stored and the section is not offered again', async () => {
+  const f = e2eFixture();
+  const asked = [];
+  await f.run({}, { prompter: ttyPrompter('s', asked) });
+  assert.deepEqual(readLocalState(f.root), { e2eSectionDeclined: true });
+  await f.run({}, { prompter: ttyPrompter('a', asked) });
+  assert.deepEqual(asked, ['setup.e2eSection']);
+  assert.equal(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), '# P\n');
+  rmSync(f.root, { recursive: true });
+});
+
+test('stepE2eSection: a failing editor at the confirmation is reported, not fatal', async () => {
+  const f = e2eFixture();
+  await f.run({ setup: { e2eSection: 'a', e2eSectionConfirm: 'e', e2e: { start: 's', ready: 'r', url: 'u', stop: 'x' } } },
+    { d: { editor: () => { throw new Error('editor exited with 1'); } } });
+  assert.match(f.errors.join('\n'), /editor exited with 1/);
   assert.equal(existsSync(f.draft), false);
   rmSync(f.root, { recursive: true });
 });

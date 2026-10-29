@@ -7,17 +7,28 @@ import path from 'node:path';
 import { setEnvVar } from '../../agent-src/lib/container.mjs';
 import { askContainer, createReadlinePrompter, createScriptedPrompter, setUpContainer } from '../../agent-src/lib/onboard.mjs';
 import { confirmDraft, spawnEditor } from './acceptance.mjs';
-import { HARNESSES, callLlm, composeRunArgs, isInterrupt } from '../lib/llm.mjs';
+import { HARNESSES, InterruptError, callLlm, composeRunArgs, isInterrupt } from '../lib/llm.mjs';
+import { ISOLATE } from '../lib/bundle.mjs';
 import { e2eSectionOf } from './contract.mjs';
 import { LANGUAGES, detectLanguage, textsFor } from './language.mjs';
 import { loadLocalConfig } from './config.mjs';
 import { devImage } from './image.mjs';
 import { composeEnv, composeProject, stageCredentials } from './session.mjs';
-import { readTicket, ticketDir, writeTicket } from './store.mjs';
+import { readLocalState, readTicket, ticketDir, writeLocalState, writeTicket } from './store.mjs';
 
 const DEFAULTS = JSON.parse(readFileSync(new URL('./defaults.json', import.meta.url), 'utf8'));
 
 const yes = (answer) => /^(y|yes|true)$/i.test(answer);
+
+// A docker client proxies Ctrl-C (or SIGTERM) to its container and exits with 128+n: that is an interrupt, not a failure.
+const INTERRUPT_STATUS = { 130: 'SIGINT', 143: 'SIGTERM' };
+const throwIfInterrupted = (r) => { if (INTERRUPT_STATUS[r?.status]) throw new InterruptError(INTERRUPT_STATUS[r.status]); };
+
+// A long spawnSync with the terminal handed back (raw mode off), so Ctrl-C reaches it and runE2e's handler as SIGINT.
+function freed(prompter, fn) {
+  prompter?.suspend();
+  try { return fn(); } finally { prompter?.resume(); }
+}
 
 // Questions only when asked for: an answers file, or a terminal on both ends. Otherwise null.
 export function makePrompter(opts, d) {
@@ -73,27 +84,49 @@ export async function stepTicket({ root, opts, d, prompter, state }) {
   let hostError;
   try { return done(d.importTicket({ root, ticket: opts.ticket, project, ticketFile })); } catch (e) { hostError = e; }
   let last = hostError;
-  if (ticketFile === undefined && project.ticketing?.backend !== 'file') {
+  // Only interactive: a CI run fails on the host error as before, without starting the dev container.
+  if (prompter && ticketFile === undefined && project.ticketing?.backend !== 'file') {
     const exec = (cmd, args) => {
-      const r = ownComposeRun({ root, env: d.env, exec: d.exec, argv: [cmd, ...args] });
+      const r = freed(prompter, () => ownComposeRun({ root, env: d.env, exec: d.exec, argv: [cmd, ...args] }));
+      throwIfInterrupted(r);
       if (r.error) throw r.error;
       if (r.status !== 0) throw new Error(`exit ${r.status}: ${String(r.stderr ?? '').trim().slice(-300)}`);
       return String(r.stdout ?? '');
     };
-    try { return done(d.importTicket({ root, ticket: opts.ticket, project, exec })); } catch (e) { last = e; }
+    try { return done(d.importTicket({ root, ticket: opts.ticket, project, exec })); } catch (e) {
+      if (isInterrupt(e)) throw e;
+      last = e;
+    }
   }
   const answer = prompter && await prompter.ask(`Ticket import failed (${last.message}). Write the ticket in your editor? (Y/n)`, 'setup.ticketEditor', prompter.scripted ? 'n' : 'y');
   if (!yes(answer)) throw hostError;
   const target = path.join(dir, 'ticket.md');
   mkdirSync(dir, { recursive: true });
   writeFileSync(target, PLACEHOLDER);
+  d.log(`Write the ticket in ${target}: "# <title>" on the first line, then the body. An unchanged title aborts.`);
+  // One editor session, read leniently; a failing editor or no real title aborts instead of reopening the editor.
+  let ticket = null;
   try {
-    do (d.editor ?? spawnEditor)(target); while (!(readTicket(dir)?.title.trim() && readTicket(dir).title !== '<title>'));
-  } catch {
+    (d.editor ?? spawnEditor)(target);
+    ticket = parseEditedTicket(readFileSync(target, 'utf8'));
+  } catch (err) {
+    if (isInterrupt(err)) { rmSync(target, { force: true }); throw err; }
+  }
+  if (!ticket) {
     rmSync(target, { force: true });
     throw hostError;
   }
-  state.ticketText = readTicket(dir);
+  done(ticket);
+}
+
+// The first `# ` line is the title, the rest (trimmed) the body; null without a real title (blank or the placeholder).
+export function parseEditedTicket(text) {
+  const lines = text.split('\n');
+  const at = lines.findIndex((l) => l.startsWith('# '));
+  if (at < 0) return null;
+  const title = lines[at].slice(2).trim();
+  if (!title || title === '<title>') return null;
+  return { title, body: lines.slice(at + 1).join('\n').trim() };
 }
 
 export function detectTestCommand(root) {
@@ -179,8 +212,9 @@ function projectComposeConfig(root, env, exec) {
 // The project's agent-home volume (what ./ai-dev.sh logs into), or null when it does not exist: a `compose run` would create it.
 export function projectVolume(root, env, exec) {
   const config = projectComposeConfig(root, env, exec);
-  if (!config?.name) return null;
-  const volume = `${config.name}_agent-home`;
+  // An explicit `name:` of the volume wins over compose's <project>_<volume>.
+  const volume = config?.volumes?.['agent-home']?.name ?? (config?.name ? `${config.name}_agent-home` : null);
+  if (!volume) return null;
   const inspect = exec('docker', ['volume', 'inspect', volume], { env: composeEnv({ root, work: root, env }), encoding: 'utf8' });
   return !inspect.error && inspect.status === 0 ? volume : null;
 }
@@ -200,7 +234,8 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
     fallbackHome: state.fallbackHome ?? null });
   state.fallbackHome ??= null;
   state.creds = stage();
-  if (!prompter) return;
+  // The volume answer is this machine's (local.json): a stored yes is used without a prompter too, a stored no never asked again.
+  const fromVolume = readLocalState(root).loginFromVolume ?? {};
   const ask = (label, key) => prompter.ask(label, key, prompter.scripted ? 'n' : 'y');
   const env = () => ({ ...d.env, ...state.envAdditions });
   let volume;
@@ -209,17 +244,19 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
     ...(harnesses.includes('opencode') && !state.creds.authFiles.some((f) => f.harness === 'opencode') ? ['opencode'] : [])];
   for (const harness of wanted) {
     if (harness === 'claude-code') {
+      if (!prompter) continue;
       const provider = d.env.CLAUDE_CODE_USE_BEDROCK || d.env.CLAUDE_CODE_USE_VERTEX;
       if (!yes(await ask("Claude Code needs a long-lived token. Run 'claude setup-token' in the dev container now? (Y/n)", 'setup.claudeToken'))) {
         if (!provider) d.log("For Bedrock or Vertex, set CLAUDE_CODE_USE_BEDROCK or CLAUDE_CODE_USE_VERTEX and list that provider's variables in e2e.env.");
         continue;
       }
       // A plain `docker run` of the dev image: no compose project, so the agent-home volume is neither mounted nor created.
-      const config = projectComposeConfig(root, env(), d.exec);
+      const config = freed(prompter, () => projectComposeConfig(root, env(), d.exec));
       if (!config) { d.error('claude setup-token failed: the compose config of the dev container cannot be read'); continue; }
       prompter.suspend();
       let run;
       try { run = d.exec('docker', ['run', '--rm', '-it', '--entrypoint', 'claude', devImage(config), 'setup-token'], { stdio: 'inherit' }); } finally { prompter.resume(); }
+      throwIfInterrupted(run);
       if (run.error || run.status !== 0) { d.error(`claude setup-token failed (exit ${run.status ?? run.error?.message})`); continue; }
       const token = (await prompter.askSecret('Paste the token', 'setup.claudeTokenValue')).trim();
       if (!token) continue;
@@ -228,13 +265,20 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
       }
       state.envAdditions.CLAUDE_CODE_OAUTH_TOKEN = token;
     } else if (VOLUME_LOGIN[harness]) {
-      volume ??= projectVolume(root, env(), d.exec) ?? false;
+      const stored = fromVolume[harness];
+      if (stored === false || (stored !== true && !prompter)) continue;
+      volume ??= freed(prompter, () => projectVolume(root, env(), d.exec)) ?? false;
       if (!volume) continue;
       const rel = VOLUME_LOGIN[harness];
-      const answer = await ask(`Use the ${harness} login of this project's dev container (agent-home volume)? A trial may refresh it; then log in again with ./ai-dev.sh. (Y/n)`,
-        `setup.volumeLogin.${harness}`);
-      if (!yes(answer)) continue;
-      const r = ownComposeRun({ root, env: env(), exec: d.exec, entrypoint: 'cat', argv: [`/home/dev/${rel}`] });
+      if (stored !== true) {
+        const answer = yes(await ask(`Use the ${harness} login of this project's dev container (agent-home volume)? A trial may refresh it; then log in again with ./ai-dev.sh. (Y/n)`,
+          `setup.volumeLogin.${harness}`));
+        // Only a typed answer is remembered: a scripted run's default "no" must not stick on this machine.
+        if (!prompter.scripted) writeLocalState(root, { loginFromVolume: { [harness]: answer } });
+        if (!answer) continue;
+      }
+      const r = freed(prompter, () => ownComposeRun({ root, env: env(), exec: d.exec, entrypoint: 'cat', argv: [`/home/dev/${rel}`] }));
+      throwIfInterrupted(r);
       if (r.error || r.status !== 0) { d.log(`! reading ${rel} from the agent-home volume failed`); continue; }
       const text = String(r.stdout ?? '');
       try { JSON.parse(text); } catch { d.log(`! no usable ${rel} in the agent-home volume`); continue; }
@@ -271,8 +315,28 @@ export async function stepEnvValues({ root, d, prompter, state }) {
 export const renderE2eSection = ({ start, ready, url, stop }) =>
   `## End-to-end testing\n\n- Start: ${start}\n- Ready when: ${ready}\n- Base URL: ${url}\n- Stop: ${stop}`;
 
+// Tears down the setup compose project the AGENTS.md draft started (network, agent-home volume).
+function downSetupProject({ root, d, env, project }) {
+  const certsFile = path.join(root, 'compose.ai-dev.certs.yml');
+  d.exec('docker', ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), ...(env.AGENT_CA_DIR ? ['-f', certsFile] : []), '-p', project, 'down', '-v'], { env, encoding: 'utf8' });
+}
+
+export const DRAFT_SECTION_FILE = (root) => path.join(root, '.adw', 'e2e', 'agents-e2e-section.md');
+
+// What an interrupted setup leaves behind: the login copies, an unconfirmed AGENTS.md draft, the draft's compose project.
+export function cleanupSetup({ root, d, state }) {
+  if (state.fallbackHome) rmSync(state.fallbackHome, { recursive: true, force: true });
+  rmSync(DRAFT_SECTION_FILE(root), { force: true });
+  if (state.setupProject) {
+    const { project, env } = state.setupProject;
+    state.setupProject = null;
+    downSetupProject({ root, d, env, project });
+  }
+}
+
 // What `agent-dev`'s verifier needs from AGENTS.md: a model drafts the four parts from the repo, never trusting its files.
-function draftE2eSection({ root, state, d, language }) {
+// It reads a clone of the committed HEAD, so git-ignored files of the live root (.env.ai-dev) never reach it.
+function draftE2eSection({ root, state, d, language, prompter }) {
   const { answerer } = state.config;
   const creds = state.creds;
   const env = composeEnv({ root, work: root, env: { ...d.env, ...state.envAdditions } });
@@ -290,14 +354,19 @@ Rules:
 Output JSON only: {"section":"## End-to-end testing\\n\\n- Start: …\\n- Ready when: …\\n- Base URL: …\\n- Stop: …"}
 `;
   const project = composeProject(root, 'setup');
+  const checkout = mkdtempSync(path.join(os.tmpdir(), 'adw-e2e-draft-'));
   let out;
   try {
-    out = (d.callLlm ?? callLlm)({ role: 'agents-e2e', harness: answerer.harness, model: answerer.model, tools: 'read', readOnly: true, checkout: root,
-      input, buildArgs, name: `${project}-agents-e2e`, timeoutMs: answerer.timeoutSec * 1000,
-      run: (cmd, args, o = {}) => d.exec(cmd, args, { ...o, env: { ...o.env, ...env } }) });
+    const clone = d.exec('git', [...ISOLATE, 'clone', '-q', '--no-hardlinks', '--template=', root, checkout], { encoding: 'utf8' });
+    if (clone.error || clone.status !== 0) throw new Error(`git clone of the project failed: ${String(clone.stderr ?? clone.error?.message ?? '').trim()}`);
+    state.setupProject = { project, env };
+    out = freed(prompter, () => (d.callLlm ?? callLlm)({ role: 'agents-e2e', harness: answerer.harness, model: answerer.model, tools: 'read', readOnly: true,
+      checkout, input, buildArgs, name: `${project}-agents-e2e`, timeoutMs: answerer.timeoutSec * 1000,
+      run: (cmd, args, o = {}) => d.exec(cmd, args, { ...o, env: { ...o.env, ...env } }) }));
   } finally {
     // The run created the setup project's network and agent-home volume.
-    d.exec('docker', ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), ...(env.AGENT_CA_DIR ? ['-f', certsFile] : []), '-p', project, 'down', '-v'], { env, encoding: 'utf8' });
+    if (state.setupProject) { state.setupProject = null; downSetupProject({ root, d, env, project }); }
+    rmSync(checkout, { recursive: true, force: true });
   }
   if (typeof out?.section !== 'string' || e2eSectionOf(out.section) === null) throw new Error('the draft has no "## End-to-end testing" section');
   return e2eSectionOf(out.section);
@@ -315,7 +384,7 @@ export async function stepE2eSection({ root, opts, d, prompter, state }) {
   if (!prompter || !state.config) return;
   const agentsFile = path.join(root, 'AGENTS.md');
   const current = existsSync(agentsFile) ? readFileSync(agentsFile, 'utf8') : '';
-  if (e2eSectionOf(current) !== null) return;
+  if (e2eSectionOf(current) !== null || readLocalState(root).e2eSectionDeclined === true) return;
   const choice = String(await prompter.ask('AGENTS.md has no "End-to-end testing" section, so the verifier cannot run your app. [d]raft it from the repo, [a]sk me, or [s]kip?',
     'setup.e2eSection', 's')).trim().toLowerCase();
   let draft;
@@ -328,12 +397,16 @@ export async function stepE2eSection({ root, opts, d, prompter, state }) {
   } else if (choice === 'd' || choice === 'draft') {
     const ticket = state.ticketText ?? readTicket(ticketDir(root, opts.ticket));
     const language = textsFor(state.config.language ?? detectLanguage(ticket ? `${ticket.title}\n${ticket.body}` : '')).replyLanguage;
-    try { draft = draftE2eSection({ root, state, d, language }); } catch (err) {
+    try { draft = draftE2eSection({ root, state, d, language, prompter }); } catch (err) {
       if (isInterrupt(err)) throw err;
       d.error(`! AGENTS.md draft failed: ${err.message}`);
       return;
     }
-  } else return;
+  } else {
+    // A typed skip is remembered on this machine (local.json), so the next run does not offer the section again.
+    if (!prompter.scripted && (choice === 's' || choice === 'skip')) writeLocalState(root, { e2eSectionDeclined: true });
+    return;
+  }
   // A scripted prompter repeats one answer: the second invalid one in a row skips instead of looping.
   let invalid = 0;
   const confirm = async (q) => {
@@ -341,18 +414,29 @@ export async function stepE2eSection({ root, opts, d, prompter, state }) {
     if (!prompter.scripted || /^(a|accept|e|edit|s|skip)$/i.test(String(answer).trim())) return answer;
     return ++invalid >= 2 ? 's' : answer;
   };
-  const section = await confirmDraft({ draft: `${draft}\n`, file: path.join(root, '.adw', 'e2e', 'agents-e2e-section.md'), parse: requireSection,
-    label: 'E2E section', editor: d.editor ?? spawnEditor, prompt: confirm });
+  let section;
+  try {
+    section = await confirmDraft({ draft: `${draft}\n`, file: DRAFT_SECTION_FILE(root), parse: requireSection,
+      label: 'E2E section', editor: d.editor ?? spawnEditor, prompt: confirm });
+  } catch (err) {
+    // A failing editor costs the section, not the run.
+    if (isInterrupt(err)) throw err;
+    rmSync(DRAFT_SECTION_FILE(root), { force: true });
+    d.error(`! AGENTS.md section not written: ${err.message}`);
+    return;
+  }
   if (section === null) return;
   writeFileSync(agentsFile, `${current}${current === '' || current.endsWith('\n\n') ? '' : current.endsWith('\n') ? '\n' : '\n\n'}${section}\n`);
-  rmSync(path.join(root, '.adw', 'e2e', 'agents-e2e-section.md'), { force: true });
+  rmSync(DRAFT_SECTION_FILE(root), { force: true });
   d.log('Commit AGENTS.md so later base commits include it; /init in your coding agent writes the rest of the file.');
 }
 
 const STEPS = [stepProjectConfig, stepContainerFiles, stepTicket, stepInterview, stepLogins, stepEnvValues, stepE2eSection];
 
-export async function runSetup({ root, opts, d, prompter }) {
-  const state = { envAdditions: {}, ticketText: null, config: null, creds: null, fallbackHome: null };
+export const newSetupState = () => ({ envAdditions: {}, ticketText: null, config: null, creds: null, fallbackHome: null, setupProject: null });
+
+// `state` comes from runE2e, so its signal handler can clean up what an interrupted setup left (cleanupSetup).
+export async function runSetup({ root, opts, d, prompter, state = newSetupState() }) {
   try {
     for (const step of STEPS) await step({ root, opts, d, prompter, state });
   } catch (err) {

@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseCriteria } from '../lib/criteria.mjs';
-import { buildDraftPrompt, confirmAcceptance, confirmDraft, draftAcceptance, renderAcceptance } from './acceptance.mjs';
+import { buildDraftPrompt, confirmAcceptance, confirmDraft, draftAcceptance, renderAcceptance, spawnEditor } from './acceptance.mjs';
 
 const CRITERIA = [{ id: 'AC1', text: 'A todo can get a due date.' }, { id: 'AC2', text: 'Filter "a | b" works.' }];
 const tmpFile = () => join(mkdtempSync(join(tmpdir(), 'acc-')), 'acceptance.md');
@@ -79,4 +79,17 @@ test('confirmDraft: a parse that throws re-asks with the error as the note; labe
   const out = await confirmDraft({ draft: 'bad', file, prompt: p.fn, editor: (f) => writeFileSync(f, 'good'), parse, label: 'Thing' });
   assert.equal(out, 'good');
   assert.match(p.asked[0], /Thing in /);
+});
+
+test('spawnEditor: a non-zero editor exit throws', () => {
+  const file = join(mkdtempSync(join(tmpdir(), 'adw-editor-')), 'f.md');
+  const saved = process.env.EDITOR;
+  try {
+    process.env.EDITOR = 'false';
+    assert.throws(() => spawnEditor(file), /editor exited with 1/);
+    process.env.EDITOR = 'true';
+    spawnEditor(file);
+  } finally {
+    if (saved === undefined) delete process.env.EDITOR; else process.env.EDITOR = saved;
+  }
 });

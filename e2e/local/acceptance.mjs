@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { parseCriteria } from '../lib/criteria.mjs';
-import { callLlm } from '../lib/llm.mjs';
+import { InterruptError, callLlm } from '../lib/llm.mjs';
 import { data } from './answerer.mjs';
 
 // The rules of e2e/tasks/_shared/acceptance-criteria.md, inlined (never read from there at runtime).
@@ -62,6 +62,9 @@ export function spawnEditor(file) {
   // $EDITOR may carry arguments, so a shell word-splits it; the file is a positional parameter.
   const r = spawnSync('sh', ['-c', '${EDITOR:-vi} "$1"', 'sh', file], { stdio: 'inherit' });
   if (r.error) throw r.error;
+  // A failed or killed editor is reported, never read as a finished edit.
+  if (r.signal === 'SIGINT' || r.signal === 'SIGTERM') throw new InterruptError(r.signal);
+  if (r.status !== 0) throw new Error(`editor exited with ${r.status ?? r.signal}`);
 }
 
 // `draft` is the rendered markdown, `prompt` is (question) => Promise<string>, `parse` turns the file's text into the

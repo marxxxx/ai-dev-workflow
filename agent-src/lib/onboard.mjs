@@ -75,12 +75,22 @@ export function cmdScaffold(projectRoot) {
  *   scripted                     → true for the --answers prompter (absent answers mean "no" to opt-ins)
  * `key` is a stable identifier per question (readline ignores it; scripted looks answers up by it).
  */
-export function createReadlinePrompter() {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const ask = (q, _key, def) => new Promise((res) => {
-    const hint = def ? ` [${def}]` : '';
-    rl.question(`${q}${hint}: `, (a) => res(a.trim() || def || ''));
+export function createReadlinePrompter({ input = process.stdin, output = process.stdout, terminal } = {}) {
+  const rl = readline.createInterface({ input, output, ...(terminal === undefined ? {} : { terminal }) });
+  // Ctrl-C at a question rejects it (`interrupted`, like e2e's InterruptError) instead of closing rl and leaving the
+  // question pending forever; a Ctrl-C between questions rejects the next one.
+  const interrupt = () => Object.assign(new Error('interrupted (SIGINT)'), { interrupted: true, signal: 'SIGINT' });
+  let pending = null;
+  let interrupted = false;
+  rl.on('SIGINT', () => { if (pending) pending(interrupt()); else interrupted = true; });
+  const question = (text, onAnswer, onSettle = () => {}) => new Promise((res, rej) => {
+    if (interrupted) { interrupted = false; onSettle(); rej(interrupt()); return; }
+    // The abort drops rl's question callback, so a later question is not answered into this one.
+    const ac = new AbortController();
+    pending = (err) => { pending = null; ac.abort(); onSettle(); rej(err); };
+    rl.question(text, { signal: ac.signal }, (a) => { pending = null; onSettle(); res(onAnswer(a)); });
   });
+  const ask = (q, _key, def) => question(`${q}${def ? ` [${def}]` : ''}: `, (a) => a.trim() || def || '');
   const askRequired = async (q, key, def) => {
     for (;;) { const v = await ask(q, key, def); if (v) return v; console.log('  (required)'); }
   };
@@ -92,15 +102,15 @@ export function createReadlinePrompter() {
     }
   };
   // The prompt is printed, then rl's echo is switched off until the line is read.
-  const askSecret = (q) => new Promise((res) => {
-    process.stdout.write(`${q}: `);
+  const askSecret = (q) => {
+    output.write(`${q}: `);
     const write = rl._writeToOutput;
     rl._writeToOutput = () => {};
-    rl.question('', (a) => { rl._writeToOutput = write; process.stdout.write('\n'); res(a.trim()); });
-  });
-  // Hands the terminal to a child process (raw mode off, readline paused) and takes it back.
-  const suspend = () => { rl.pause(); process.stdin.setRawMode?.(false); };
-  const resume = () => { process.stdin.setRawMode?.(true); rl.resume(); };
+    return question('', (a) => a.trim(), () => { rl._writeToOutput = write; output.write('\n'); });
+  };
+  // Hands the terminal to a child process (raw mode off, so Ctrl-C is a real SIGINT; readline paused) and takes it back.
+  const suspend = () => { rl.pause(); input.setRawMode?.(false); };
+  const resume = () => { input.setRawMode?.(true); rl.resume(); };
   return { ask, askRequired, askChoice, askSecret, suspend, resume, close: () => rl.close(), scripted: false };
 }
 

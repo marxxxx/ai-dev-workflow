@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DEFAULT_ANSWERS, ticketDir, readTicket, writeTicket, readAnswers, appendAnswer, newRunDir, ensureGitignore, findLocalBaseline } from './store.mjs';
+import { DEFAULT_ANSWERS, ticketDir, readTicket, writeTicket, readAnswers, appendAnswer, newRunDir, ensureGitignore, findLocalBaseline, readLocalState, writeLocalState } from './store.mjs';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'adw-store-'));
 
@@ -46,7 +46,27 @@ test('ensureGitignore is idempotent', () => {
   const root = tmp();
   ensureGitignore(root);
   ensureGitignore(root);
-  assert.equal(readFileSync(join(root, '.adw/e2e/.gitignore'), 'utf8'), '*/runs/\n');
+  assert.equal(readFileSync(join(root, '.adw/e2e/.gitignore'), 'utf8'), '*/runs/\nlocal.json\n');
+});
+
+test('ensureGitignore adds local.json to an existing .gitignore and keeps its lines', () => {
+  const root = tmp();
+  mkdirSync(join(root, '.adw/e2e'), { recursive: true });
+  writeFileSync(join(root, '.adw/e2e/.gitignore'), '*/runs/\nown');
+  ensureGitignore(root);
+  assert.equal(readFileSync(join(root, '.adw/e2e/.gitignore'), 'utf8'), '*/runs/\nown\nlocal.json\n');
+});
+
+test('local state: empty when missing or unreadable; writes merge and git-ignore local.json', () => {
+  const root = tmp();
+  assert.deepEqual(readLocalState(root), {});
+  writeLocalState(root, { loginFromVolume: { codex: true } });
+  writeLocalState(root, { e2eSectionDeclined: true });
+  writeLocalState(root, { loginFromVolume: { opencode: false } });
+  assert.deepEqual(readLocalState(root), { loginFromVolume: { codex: true, opencode: false }, e2eSectionDeclined: true });
+  assert.match(readFileSync(join(root, '.adw/e2e/.gitignore'), 'utf8'), /^local\.json$/m);
+  writeFileSync(join(root, '.adw/e2e/local.json'), '{ nope');
+  assert.deepEqual(readLocalState(root), {});
 });
 
 test('findLocalBaseline picks the newest eligible earlier run', () => {

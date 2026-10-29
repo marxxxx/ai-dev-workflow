@@ -12,6 +12,9 @@ import { InterruptError } from '../lib/llm.mjs';
 import { buildLocalTrialRecord } from './record.mjs';
 import { confirmAcceptance } from './acceptance.mjs';
 import { USAGE, main, parseE2eArgs, runE2e, timestamp } from './cli.mjs';
+import { runSetup } from './setup.mjs';
+import { composeProject } from './session.mjs';
+import { createScriptedPrompter } from '../../agent-src/lib/onboard.mjs';
 
 const GENERATE = fileURLToPath(new URL('../../agent-src/generate.mjs', import.meta.url));
 const E2E_SECTION = '# Agents\n\n## End-to-end testing\n\nStart with `npm start`, open http://localhost:3000/.\n';
@@ -152,6 +155,77 @@ test('runE2e: the signal handler removes the fallbackHome before exiting', async
   rmSync(root, { recursive: true });
 });
 
+// A scripted prompter that rejects like Ctrl-C at the question `key`; closeReal as makePrompter gives it.
+const interruptingPrompter = (answers, key) => {
+  const inner = createScriptedPrompter(answers);
+  const interrupted = () => Object.assign(new Error('interrupted (SIGINT)'), { interrupted: true, signal: 'SIGINT' });
+  return { ...inner, closeReal() {}, ask: async (q, k, def) => { if (k === key) throw interrupted(); return inner.ask(q, k, def); } };
+};
+
+test('runE2e: Ctrl-C at a setup question after the logins returns 130 and leaves no login copy or draft', async () => {
+  const root = project({ agent: { harness: 'codex' } });
+  try {
+    let state;
+    const prompter = interruptingPrompter({ setup: { volumeLogin: { codex: 'y' }, e2eSection: 'a', e2e: { start: 's', ready: 'r', url: 'u', stop: 'x' } } },
+      'setup.e2eSectionConfirm');
+    const s = stubs(root, {
+      makePrompter: () => prompter,
+      runSetup: (a) => { state = a.state; return runSetup(a); },
+      exec: (cmd, args) => {
+        if (args.includes('config')) return { status: 0, stdout: '{"name":"proj"}' };
+        if (args.includes('cat')) return { status: 0, stdout: '{"tokens":{"refresh_token":"r"}}' };
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    });
+    assert.equal(await runE2e(opts(root, { harness: null }), s.deps), 130);
+    assert.ok(state.fallbackHome, 'the volume login was copied before the interrupt');
+    assert.equal(existsSync(state.fallbackHome), false);
+    assert.equal(existsSync(path.join(root, '.adw/e2e/agents-e2e-section.md')), false);
+    assert.equal(s.calls.includes('image'), false);
+    assert.equal(s.seen.signalOff, true);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('runE2e: a signal during the setup cleans up (login copy, draft, setup compose project) and exits 130', async () => {
+  const root = project();
+  try {
+    const fb = mkdtempSync(path.join(tmpdir(), 'adw-fb-'));
+    const draft = path.join(root, '.adw/e2e/agents-e2e-section.md');
+    let seenAtExit = null;
+    const s = stubs(root, {
+      runSetup: async ({ state }) => {
+        state.fallbackHome = fb;
+        mkdirSync(path.dirname(draft), { recursive: true });
+        writeFileSync(draft, 'x');
+        state.setupProject = { project: composeProject(root, 'setup'), env: {} };
+        s.seen.signal();
+        throw new InterruptError('SIGTERM');
+      },
+    });
+    s.deps.exit = (code) => { s.seen.exit = code; seenAtExit = { fb: existsSync(fb), draft: existsSync(draft), downs: downs(s.exec) }; };
+    assert.equal(await runE2e(opts(root), s.deps), 130);
+    assert.equal(s.seen.exit, 130);
+    assert.deepEqual(seenAtExit, { fb: false, draft: false, downs: [composeProject(root, 'setup')] });
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('runE2e: Ctrl-C in claude setup-token (exit 130) stops the setup with 130', async () => {
+  const root = project();
+  try {
+    const s = stubs(root, {
+      env: { PATH: process.env.PATH },
+      makePrompter: () => ({ ...createScriptedPrompter({ setup: { claudeToken: 'y' } }), closeReal() {} }),
+      exec: (cmd, args) => {
+        if (args.includes('setup-token')) return { status: 130 };
+        if (args.includes('config')) return { status: 0, stdout: '{"name":"proj","services":{"ai-dev-workflow":{"image":"dev:1"}}}' };
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    });
+    assert.equal(await runE2e(opts(root), s.deps), 130);
+    assert.equal(s.calls.includes('image'), false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('node agent-src/generate.mjs e2e without args exits 2 with the usage line', () => {
   const r = spawnSync(process.execPath, [GENERATE, 'e2e'], { encoding: 'utf8' });
   assert.equal(r.status, 2);
@@ -194,7 +268,7 @@ test('runE2e: the order of a first run; the ticket is imported, acceptance draft
     assert.deepEqual(s.calls, ['image', 'sandbox', 'session', 'makeDecide', 'conversation', 'appListening', 'close', 'collect', 'draft', 'confirm', 'record', 'postVerify']);
     const dir = path.join(root, '.adw/e2e/7');
     assert.equal(readFileSync(path.join(dir, 'ticket.md'), 'utf8'), '# Fälligkeitsdatum\n\nTodos bekommen ein Datum, das nicht leer ist und mit der Liste erscheint.\n');
-    assert.equal(readFileSync(path.join(root, '.adw/e2e/.gitignore'), 'utf8'), '*/runs/\n');
+    assert.equal(readFileSync(path.join(root, '.adw/e2e/.gitignore'), 'utf8'), '*/runs/\nlocal.json\n');
     assert.ok(existsSync(path.join(dir, 'acceptance.md')));
     assert.equal(s.seen.conversation.opening, 'Nutze den agent-dev Skill für Ticket 7.');
     assert.equal(s.seen.conversation.ticket, 7);
