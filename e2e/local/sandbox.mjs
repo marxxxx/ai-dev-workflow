@@ -1,7 +1,8 @@
 // The throwaway clone an e2e trial runs in: the consumer project at a base commit, on the `file`
 // ticketing backend, regenerated with this package's generator, with a local bare repo as origin.
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ISOLATE, COMMIT } from '../lib/bundle.mjs';
@@ -10,7 +11,8 @@ import { removeObsoleteOutputs } from '../../agent-src/lib/upgrade.mjs';
 import { e2eSectionOf } from './contract.mjs';
 
 const TEMPLATE = path.join(fileURLToPath(new URL('../../agent-src/config/', import.meta.url)), 'ai-project.template.json');
-const defaultGit = (args) => execFileSync('git', [...ISOLATE, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 256 * 1024 * 1024 });
+const defaultGit = (args, env = {}) => execFileSync('git', [...ISOLATE, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+  maxBuffer: 256 * 1024 * 1024, env: { ...process.env, ...env } });
 
 const slugify = (title) => title.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40).replace(/_+$/, '') || 'ticket';
 
@@ -26,6 +28,24 @@ function sandboxConfig(work, root) {
     git: { ...(base.git ?? template.git), prTarget: 'main' },
     ticketing: { backend: 'file', file: { dir: '.tickets/issues', metadataFile: '.tickets/metadata.json' } },
   };
+}
+
+// `adw e2e .`: the working tree as an unreferenced commit on top of HEAD, built in a throwaway index, so HEAD, branch,
+// index and stash stay as they are. Untracked files count, git-ignored ones (.env.ai-dev) never; .adw/e2e stays at
+// HEAD's state, so a ticket's acceptance criteria cannot reach the agent. A clean tree is HEAD itself (worktree null);
+// otherwise `worktree` is the snapshot's tree hash, the same for the same local state.
+export function snapshotWorkingTree(root, git = defaultGit) {
+  const head = git(['-C', root, 'rev-parse', '--verify', 'HEAD^{commit}']).trim();
+  const tmp = mkdtempSync(path.join(tmpdir(), 'adw-snapshot-'));
+  try {
+    const env = { GIT_INDEX_FILE: path.join(tmp, 'index') };
+    git(['-C', root, 'read-tree', head], env);
+    git(['-C', root, 'add', '-A', '--', ':/', ':(top,exclude).adw/e2e'], env);
+    const tree = git(['-C', root, 'write-tree'], env).trim();
+    if (tree === git(['-C', root, 'rev-parse', `${head}^{tree}`]).trim()) return { head, commit: head, worktree: null };
+    const commit = git([...COMMIT, '-C', root, 'commit-tree', tree, '-p', head, '-m', 'adw e2e: working tree']).trim();
+    return { head, commit, worktree: tree };
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 
 export function createSandbox({ root, baseCommit, ticket, ticketText, trialDir, e2eSection = null, git = defaultGit }) {

@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { ISOLATE, COMMIT, bundleBranch } from '../lib/bundle.mjs';
-import { createSandbox, collectSandbox } from './sandbox.mjs';
+import { createSandbox, collectSandbox, snapshotWorkingTree } from './sandbox.mjs';
 
 const g = (args, cwd) => execFileSync('git', [...ISOLATE, ...args], { cwd, encoding: 'utf8' }).trim();
 const TICKET = { title: 'Add Due Dates!', body: 'Todos get a due date.' };
@@ -126,4 +126,37 @@ test('e2eSection: overlaid and committed when the base commit has none, untouche
     const r3 = createSandbox({ root: a.root, baseCommit: a.base, ticket: 7, ticketText: TICKET, trialDir: path.join(a.dir, 'trial3') });
     assert.equal(r3.e2eOverlay, false);
   } finally { rmSync(a.dir, { recursive: true, force: true }); rmSync(b.dir, { recursive: true, force: true }); }
+});
+
+test('snapshotWorkingTree: uncommitted and untracked files, never ignored ones or .adw/e2e, refs untouched', () => {
+  const { dir, root } = makeRepo();
+  try {
+    writeFileSync(path.join(root, '.gitignore'), '.env.ai-dev\n');
+    g(['add', '-A'], root);
+    g([...COMMIT, 'commit', '-qm', 'ignore'], root);
+    const head = g(['rev-parse', 'HEAD'], root);
+    assert.deepEqual(snapshotWorkingTree(root), { head, commit: head, worktree: null });
+
+    writeFileSync(path.join(root, 'README.md'), 'changed\n');
+    writeFileSync(path.join(root, 'AGENTS.md'), '# new\n');
+    writeFileSync(path.join(root, '.env.ai-dev'), 'SECRET=1\n');
+    mkdirSync(path.join(root, '.adw/e2e/7'), { recursive: true });
+    writeFileSync(path.join(root, '.adw/e2e/7/acceptance.md'), 'AC1\n');
+    const status = g(['status', '--porcelain'], root);
+    const snap = snapshotWorkingTree(root);
+    assert.equal(snap.head, head);
+    assert.notEqual(snap.commit, head);
+    assert.equal(g(['rev-parse', `${snap.commit}^`], root), head);
+    assert.equal(snap.worktree, g(['rev-parse', `${snap.commit}^{tree}`], root));
+    assert.deepEqual(g(['ls-tree', '-r', '--name-only', snap.commit], root).split('\n').sort(), ['.gitignore', 'AGENTS.md', 'README.md']);
+    assert.equal(g(['show', `${snap.commit}:README.md`], root), 'changed');
+    // The same state gives the same tree; HEAD, branch and index stay as they were.
+    assert.equal(snapshotWorkingTree(root).worktree, snap.worktree);
+    assert.equal(g(['rev-parse', 'HEAD'], root), head);
+    assert.equal(g(['status', '--porcelain'], root), status);
+
+    const { work } = createSandbox({ root, baseCommit: snap.commit, ticket: 7, ticketText: TICKET, trialDir: path.join(dir, 'trial') });
+    assert.equal(readFileSync(path.join(work, 'README.md'), 'utf8'), 'changed\n');
+    assert.equal(readFileSync(path.join(work, 'AGENTS.md'), 'utf8'), '# new\n');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

@@ -20,7 +20,7 @@ function mcpSection(run) {
 function localLines(run) {
   return [`> **Verifier not calibrated (local run)** — treat acceptance and review verdicts with care.`,
     ...(run.selfJudged?.length ? [`> **Self-judged:** ${run.selfJudged.join(', ')} run on the agent's own harness and model.`] : []), '',
-    `Answerer \`${run.fingerprint.models?.answerer}\` · base commit \`${String(run.fingerprint.baseCommit).slice(0, 7)}\` · Human asked: ${run.humanAsked} · nudged: ${run.nudged ?? 0} · comparable: ${run.comparable ? 'yes' : 'no'}`];
+    `Answerer \`${run.fingerprint.models?.answerer}\` · base commit \`${String(run.fingerprint.baseCommit).slice(0, 7)}\`${run.fingerprint.worktree ? ' + working tree' : ''} · Human asked: ${run.humanAsked} · nudged: ${run.nudged ?? 0} · comparable: ${run.comparable ? 'yes' : 'no'}`];
 }
 
 function calibrationLine(run) {

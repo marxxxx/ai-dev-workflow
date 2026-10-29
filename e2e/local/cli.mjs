@@ -20,14 +20,14 @@ import { loadLocalConfig, selfJudged } from './config.mjs';
 import { appendAnswer, ensureGitignore, newRunDir, readAnswers, readTicket, ticketDir } from './store.mjs';
 import { importTicket } from './ticket-import.mjs';
 import { ensureE2eImage } from './image.mjs';
-import { collectSandbox, createSandbox } from './sandbox.mjs';
+import { collectSandbox, createSandbox, snapshotWorkingTree } from './sandbox.mjs';
 import { appPortFromAgentsMd, e2eSectionOf, evaluateLocalContract, hasE2eSection } from './contract.mjs';
 import { composeEnv, composeProject, stageCredentials, startSession } from './session.mjs';
 import { askHumanTty, makeDecide, runConversation } from './answerer.mjs';
 import { confirmAcceptance, draftAcceptance, renderAcceptance, spawnEditor } from './acceptance.mjs';
 import { buildLocalTrialRecord, compareWithBaseline, localFingerprint, localReward, writeRun } from './record.mjs';
 
-export const USAGE = 'usage: adw e2e <base-commit> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m] [--ticket-file f] [--baseline runDir] [--root dir] [--no-input] [--answers file] [--reconfigure]';
+export const USAGE = 'usage: adw e2e <base-commit|.> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m] [--ticket-file f] [--baseline runDir] [--root dir] [--no-input] [--answers file] [--reconfigure]';
 const SERVICE = 'ai-dev-workflow';
 const ROLES = ['agent', 'answerer', 'verifier', 'review'];
 // YYYY-MM-DDTHHMMSSZ: a quick re-run gets its own run dir and compose names; sorts by time.
@@ -73,7 +73,7 @@ const DEFAULT_DEPS = {
   env: process.env, cwd: process.cwd(), home: homedir(), uid: process.getuid?.() ?? 1000, gid: process.getgid?.() ?? 1000,
   exec: (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts }),
   runSetup, makePrompter, cmdInit, isTTY: { stdin: process.stdin.isTTY, stdout: process.stdout.isTTY },
-  importTicket, editor: spawnEditor, ensureE2eImage, createSandbox, collectSandbox, startSession, makeDecide, runConversation, askHuman: askHumanTty(),
+  importTicket, editor: spawnEditor, ensureE2eImage, snapshotWorkingTree, createSandbox, collectSandbox, startSession, makeDecide, runConversation, askHuman: askHumanTty(),
   draftAcceptance, confirmAcceptance, prompt: promptLine, postVerify, buildLocalTrialRecord,
   now: timestamp, clock: () => Date.now(), log: (s) => console.log(s), error: (s) => console.error(s), onSignal, exit: (code) => process.exit(code),
 };
@@ -89,10 +89,20 @@ function preflight({ root, config, baseCommit, d, env, fallbackHome = null }) {
     for (const m of creds.missing.filter((x) => x.harness === config[role].harness)) problems.push(`${role} uses ${m.harness}: ${m.what} not found`);
   }
   for (const name of config.env) if (!env[name]) problems.push(`e2e.env: ${name} is not set`);
+  // `.` is the working tree: a snapshot commit on top of HEAD; `head` is what the run records as its base commit.
+  if (baseCommit === '.') {
+    try {
+      const snap = d.snapshotWorkingTree(root);
+      return { problems, creds, sha: snap.commit, head: snap.head, worktree: snap.worktree };
+    } catch (err) {
+      problems.push(`cannot snapshot the working tree: ${String(err.stderr || err.message).trim()}`);
+      return { problems, creds, sha: null, head: null, worktree: null };
+    }
+  }
   const git = d.exec('git', ['-C', root, 'rev-parse', '--verify', `${baseCommit}^{commit}`]);
   const sha = git.status === 0 ? String(git.stdout).trim() : null;
   if (!sha) problems.push(`base commit ${baseCommit} does not resolve`);
-  return { problems, creds, sha };
+  return { problems, creds, sha, head: sha, worktree: null };
 }
 
 // The text of the `## <title>` section agent-dev appended to the ticket file.
@@ -126,7 +136,7 @@ async function runPrepared({ opts, d, root, setup }) {
   const config = loadLocalConfig(root, { harness: opts.harness ?? undefined, model: opts.model ?? undefined });
   // Same sources as the containers: `.env.ai-dev` under the process env.
   const env = composeEnv({ root, work: root, env: d.env, uid: d.uid, gid: d.gid });
-  const { problems, creds, sha } = preflight({ root, config, baseCommit: opts.baseCommit, d, env, fallbackHome: setup.fallbackHome ?? null });
+  const { problems, creds, sha, head, worktree } = preflight({ root, config, baseCommit: opts.baseCommit, d, env, fallbackHome: setup.fallbackHome ?? null });
   if (problems.length) {
     for (const p of problems) d.error(`✗ preflight: ${p}`);
     return 1;
@@ -134,6 +144,7 @@ async function runPrepared({ opts, d, root, setup }) {
   // Only the values of e2e.secretEnv names are scrubbed and redacted like logins; other e2e.env values stay readable.
   creds.secrets.push(...config.secretEnv.map((n) => env[n]).filter(Boolean));
   for (const r of ROLES) d.log(`${r.padEnd(9)} ${config[r].harness}/${config[r].model ?? 'default'}`);
+  if (opts.baseCommit === '.') d.log(worktree ? `working tree: uncommitted changes on top of ${head}` : `working tree: clean, same as ${head}`);
   const self = selfJudged(config);
   if (self.length) d.log(`! ${self.join(', ')} judge with the agent's own harness and model: self-judging`);
 
@@ -300,7 +311,7 @@ async function runPrepared({ opts, d, root, setup }) {
       if (trial.errors?.quota) { aborted = 'quota'; d.error(`✗ usage limit reached in ${id}: run aborted, not a valid baseline`); break; }
     }
 
-    const fingerprint = localFingerprint({ image: layer.image, imageId: layer.imageId, e2eImage: layer.tag, cliVersions, baseCommit: sha, dir, config,
+    const fingerprint = localFingerprint({ image: layer.image, imageId: layer.imageId, e2eImage: layer.tag, cliVersions, baseCommit: head, worktree, dir, config,
       verifierHash: criteria ? verifierHash({ config, criteria }) : null, language: lang, e2eSection: e2eSectionUsed });
     const run = writeRun({ runDir, ticket: opts.ticket, fingerprint, trials, aborted, error });
     let cmp = null;

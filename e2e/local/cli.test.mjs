@@ -516,6 +516,38 @@ test('run.json records the base image and the e2e layer', async () => {
   assert.deepEqual(runJson(root).fingerprint.image, { ref: 'img:1', id: 'sha256:1', e2e: 'adw-e2e:abc' });
 });
 
+test('base "." runs on a snapshot of the working tree: HEAD is the base commit, the tree is in the fingerprint', async () => {
+  const root = project();
+  try {
+    const s = stubs(root, {
+      snapshotWorkingTree: (r) => { s.seen.snapshot = r; return { head: 'head1', commit: 'snap1', worktree: 'tree1' }; },
+      createSandbox: (a) => { s.seen.sandbox = a; return stubs(root).deps.createSandbox(a); },
+    });
+    assert.equal(await runE2e(opts(root, { baseCommit: '.' }), s.deps), 0);
+    assert.equal(s.seen.snapshot, root);
+    assert.equal(s.seen.sandbox.baseCommit, 'snap1');
+    assert.equal(s.exec.some((c) => c.argv.includes('rev-parse') && c.argv.some((a) => a.endsWith('^{commit}'))), false);
+    assert.equal(runJson(root).fingerprint.baseCommit, 'head1');
+    assert.equal(runJson(root).fingerprint.worktree, 'tree1');
+    assert.match(s.out.join('\n'), /working tree: uncommitted changes on top of head1/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('base ".": a clean working tree is HEAD, without a worktree key; a failed snapshot is a preflight problem', async () => {
+  const root = project();
+  try {
+    const s = stubs(root, { snapshotWorkingTree: () => ({ head: 'head1', commit: 'head1', worktree: null }) });
+    assert.equal(await runE2e(opts(root, { baseCommit: '.' }), s.deps), 0);
+    assert.equal(runJson(root).fingerprint.baseCommit, 'head1');
+    assert.equal('worktree' in runJson(root).fingerprint, false);
+
+    const f = stubs(root, { snapshotWorkingTree: () => { throw new Error('no HEAD'); } });
+    assert.equal(await runE2e(opts(root, { baseCommit: '.' }), f.deps), 1);
+    assert.match(f.out.join('\n'), /preflight: cannot snapshot the working tree: no HEAD/);
+    assert.deepEqual(f.calls, []);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('judge-side compose calls (answerer, judges, own tests, teardown) use the e2e override too', async () => {
   const root = project({ testCommand: 'npm test' });
   try {

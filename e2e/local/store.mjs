@@ -80,7 +80,8 @@ export function findLocalBaseline({ dir, harness, before, baseCommit }) {
     if (!existsSync(file)) continue;
     let run;
     try { run = JSON.parse(readFileSync(file, 'utf8')); } catch { continue; }
-    if (run.fingerprint?.baseCommit === baseCommit && !run.aborted && run.comparable === true) return runDir;
+    // A run on uncommitted changes (adw e2e .) is never picked: the committed state is the baseline.
+    if (run.fingerprint?.baseCommit === baseCommit && !run.fingerprint.worktree && !run.aborted && run.comparable === true) return runDir;
   }
   return null;
 }

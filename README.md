@@ -83,7 +83,7 @@ and logged in — see [Gitea backend setup](docs/gitea-backend-setup.md).
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
 | `upgrade` | The command for every version bump. Deletes the files the pre-v0.23 workflow generated and strips obsolete keys from `ai-project.json`, then `generate`s, then installs or updates the pinned [show-me](#reviewing-specs-and-plans-with-show-me) skill (unless `"skills": { "show-me": false }`). Only deletes files carrying the generator's banner for a removed unit; other skills and subagents are never touched. A failed skill install is a warning with the manual command, never an error. `--dry-run` lists the changes without writing anything. See [Updating](#updating). |
 | `init` | Interactive onboarding: prompts for project name, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), asks whether to install the [show-me](#reviewing-specs-and-plans-with-show-me) skill (default yes; runs `npx skills add`), then writes `ai-project.json`. It prints the [tooling](#tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
-| `e2e` | `adw e2e <base-commit> <ticket> [harness]`: replay `agent-dev` on one of your tickets in a throwaway clone and score the result. See [E2E on your project](#e2e-on-your-project). |
+| `e2e` | `adw e2e <base-commit\|.> <ticket> [harness]`: replay `agent-dev` on one of your tickets in a throwaway clone and score the result. See [E2E on your project](#e2e-on-your-project). |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
 
@@ -292,7 +292,7 @@ an engine warning, not a clear error.
 the outcome. Compare runs after you change `agent-custom/`, `AGENTS.md`, the model or the adw version.
 
 ```bash
-npx @strobl_dev/adw e2e <base-commit> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m] \
+npx @strobl_dev/adw e2e <base-commit|.> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m] \
   [--ticket-file <file>] [--baseline <runDir>] [--no-input] [--answers <file>] [--reconfigure]
 ```
 
@@ -334,6 +334,11 @@ either. `--answers <file>` answers the questions from a JSON file nested by the 
 stored values as defaults. `.adw/e2e/local.json` (git-ignored) keeps this machine's choices: the volume logins and
 a skipped `AGENTS.md` section are not asked again; delete it to be asked again.
 When the base commit predates the `AGENTS.md` section, the run overlays the current one onto the clone.
+
+`.` as the base commit runs on your working tree: uncommitted changes and untracked files on top of `HEAD`, without
+committing anything (git-ignored files such as `.env.ai-dev` stay out; `.adw/e2e/` stays as committed). Use it to try a
+change, e.g. to `AGENTS.md`, before you commit it: `adw e2e . 1 codex`. The run is compared with the newest run on
+the committed `HEAD`, and is itself never picked as a baseline; its report says `+ working tree`.
 
 Logins: the containers never share the project's agent-home volume, they get a login staged from the host.
 - Codex: `~/.codex/auth.json` on the host, or `OPENAI_API_KEY`. If you only logged in through `./ai-dev.sh`, the

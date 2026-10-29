@@ -136,6 +136,8 @@ test('renderRunReport renders a local run: human questions, comparability, no ca
     assert.match(md, /adw \d+\.\d+\.\d+ · trials: 1/);
     assert.match(md, /own tests — /);
     assert.match(md, /Failed checks: none/, 'an unchecked check is no failure');
+    assert.doesNotMatch(md, /working tree/);
+    assert.match(renderRunReport({ ...run, fingerprint: { ...run.fingerprint, worktree: 'tree1' } }), /base commit `[0-9a-f]{7}` \+ working tree/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

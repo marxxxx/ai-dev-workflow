@@ -83,6 +83,7 @@ test('findLocalBaseline picks the newest eligible earlier run', () => {
   put('2026-01-03', ok({ comparable: false }));
   put('2026-01-04', { fingerprint: { baseCommit: 'other' }, comparable: true });
   put('2026-01-05', ok(), 'opencode');
+  put('2026-01-06', { fingerprint: { baseCommit: 'abc', worktree: 'tree1' }, comparable: true });
   put('2026-01-09', ok());
   assert.equal(findLocalBaseline({ dir, harness: 'codex', before: '2026-01-08', baseCommit: 'abc' }), good);
   assert.equal(findLocalBaseline({ dir, harness: 'codex', before: '2026-01-01', baseCommit: 'abc' }), null);
