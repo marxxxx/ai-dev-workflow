@@ -62,7 +62,7 @@ test('a checkout whose .claude is a symlink loses the link, never the file it po
   try {
     const { seen, deps } = fakes({ checkoutBundle: (bundle, dir) => {
       mkdirSync(dir, { recursive: true });
-      symlinkSync(target, path.join(dir, '.claude'));
+      symlinkSync(target, path.join(dir, '.claude'), 'junction');
       seen.checkouts.push(dir);
       return { branch: '1_x', diff: 'DIFF' };
     } });

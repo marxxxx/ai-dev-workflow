@@ -24,6 +24,9 @@ function fixture() {
   return { root, seed, patch };
 }
 
+// Git config values and hook scripts treat backslashes as escapes; Windows paths need forward slashes there.
+const slash = (p) => p.replaceAll(path.sep, '/');
+
 // Runs fn with the host's global git config replaced by `file` (the module must not depend on it).
 function withGlobalConfig(file, fn) {
   const prev = process.env.GIT_CONFIG_GLOBAL;
@@ -149,7 +152,7 @@ test('the calibration bundle keeps a tracked seed file that a host global exclud
     const ignore = path.join(root, 'ignore');
     writeFileSync(ignore, '*.txt\n');
     const globalCfg = path.join(root, 'global.gitconfig');
-    writeFileSync(globalCfg, `[core]\n\texcludesFile = ${ignore}\n`);
+    writeFileSync(globalCfg, `[core]\n\texcludesFile = ${slash(ignore)}\n`);
     const out = path.join(root, 'v.bundle');
     withGlobalConfig(globalCfg, () => createCalibrationBundle({ root, seedRepo: seed, patch, out, name: 'demo-todo' }));
     const co = path.join(root, 'co');
@@ -166,9 +169,9 @@ test('checkoutBundle runs no host template hooks and ignores host diff prefix se
     const tpl = path.join(root, 'tpl');
     mkdirSync(path.join(tpl, 'hooks'), { recursive: true });
     const marker = path.join(root, 'hook-ran');
-    writeFileSync(path.join(tpl, 'hooks/post-checkout'), `#!/bin/sh\ntouch ${marker}\n`, { mode: 0o755 });
+    writeFileSync(path.join(tpl, 'hooks/post-checkout'), `#!/bin/sh\ntouch ${slash(marker)}\n`, { mode: 0o755 });
     const hostCfg = path.join(root, 'host.gitconfig');
-    writeFileSync(hostCfg, `[init]\n\ttemplateDir = ${tpl}\n[diff]\n\tnoprefix = true\n`);
+    writeFileSync(hostCfg, `[init]\n\ttemplateDir = ${slash(tpl)}\n[diff]\n\tnoprefix = true\n`);
     const { diff } = withGlobalConfig(hostCfg, () => checkoutBundle(out, path.join(root, 'co')));
     assert.equal(existsSync(marker), false, 'host post-checkout hook must not run');
     assert.match(diff, /^\+\+\+ b\/src\/app\.mjs$/m);

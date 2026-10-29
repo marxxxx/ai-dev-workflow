@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { buildHarborArgs, cleanupCompose, runHarbor } from './harbor.mjs';
 import { loadConfig } from './config.mjs';
 
@@ -19,8 +20,8 @@ test('harbor args pin agent, model, version and the constrained simulated user',
   assert.equal(pair('--bridge'), 'acp');
   assert.equal(pair('--job-name'), 'codex-1');
   assert.equal(pair('-o'), '/j');
-  assert.match(pair('-p'), /e2e\/tasks\/demo-todo$/);
-  assert.match(pair('--user-persona-path'), /e2e\/tasks\/demo-todo\/persona\.md$/);
+  assert.match(pair('-p').replaceAll(path.sep, '/'), /e2e\/tasks\/demo-todo$/);
+  assert.match(pair('--user-persona-path').replaceAll(path.sep, '/'), /e2e\/tasks\/demo-todo\/persona\.md$/);
 });
 
 test('runHarbor resolves 1 when the child emits error (e.g. harbor not installed)', async () => {
