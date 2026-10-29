@@ -10,6 +10,7 @@ import { spawnEditor } from './acceptance.mjs';
 import { HARNESSES } from '../lib/llm.mjs';
 import { LANGUAGES, detectLanguage } from './language.mjs';
 import { loadLocalConfig } from './config.mjs';
+import { devImage } from './image.mjs';
 import { composeEnv, stageCredentials } from './session.mjs';
 import { readTicket, ticketDir, writeTicket } from './store.mjs';
 
@@ -166,17 +167,20 @@ export async function stepInterview({ root, opts, d, prompter, state }) {
   if (yes(answer)) writeProjectE2e(root, e2e);
 }
 
+// The project's own compose config as JSON, or null when docker cannot render it.
+function projectComposeConfig(root, env, exec) {
+  const cenv = composeEnv({ root, work: root, env });
+  const r = exec('docker', [...ownComposeFiles(root, cenv), 'config', '--format', 'json'], { env: cenv, encoding: 'utf8' });
+  if (r.error || r.status !== 0) return null;
+  try { return JSON.parse(r.stdout); } catch { return null; }
+}
+
 // The project's agent-home volume (what ./ai-dev.sh logs into), or null when it does not exist: a `compose run` would create it.
 export function projectVolume(root, env, exec) {
-  const cenv = composeEnv({ root, work: root, env });
-  const opts = { env: cenv, encoding: 'utf8' };
-  const config = exec('docker', [...ownComposeFiles(root, cenv), 'config', '--format', 'json'], opts);
-  if (config.error || config.status !== 0) return null;
-  let name;
-  try { name = JSON.parse(config.stdout).name; } catch { return null; }
-  if (!name) return null;
-  const volume = `${name}_agent-home`;
-  const inspect = exec('docker', ['volume', 'inspect', volume], opts);
+  const config = projectComposeConfig(root, env, exec);
+  if (!config?.name) return null;
+  const volume = `${config.name}_agent-home`;
+  const inspect = exec('docker', ['volume', 'inspect', volume], { env: composeEnv({ root, work: root, env }), encoding: 'utf8' });
   return !inspect.error && inspect.status === 0 ? volume : null;
 }
 
@@ -199,14 +203,23 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
   const ask = (label, key) => prompter.ask(label, key, prompter.scripted ? 'n' : 'y');
   const env = () => ({ ...d.env, ...state.envAdditions });
   let volume;
-  for (const { harness } of state.creds.missing) {
+  // opencode's login is optional, so it is never "missing": offered when it is used, no login file exists and the volume may have one.
+  const wanted = [...state.creds.missing.map((m) => m.harness),
+    ...(harnesses.includes('opencode') && !state.creds.authFiles.some((f) => f.harness === 'opencode') ? ['opencode'] : [])];
+  for (const harness of wanted) {
     if (harness === 'claude-code') {
       const provider = d.env.CLAUDE_CODE_USE_BEDROCK || d.env.CLAUDE_CODE_USE_VERTEX;
       if (!yes(await ask("Claude Code needs a long-lived token. Run 'claude setup-token' in the dev container now? (Y/n)", 'setup.claudeToken'))) {
         if (!provider) d.log("For Bedrock or Vertex, set CLAUDE_CODE_USE_BEDROCK or CLAUDE_CODE_USE_VERTEX and list that provider's variables in e2e.env.");
         continue;
       }
-      ownComposeRun({ root, env: env(), exec: d.exec, argv: ['claude', 'setup-token'], stdio: 'inherit' });
+      // A plain `docker run` of the dev image: no compose project, so the agent-home volume is neither mounted nor created.
+      const config = projectComposeConfig(root, env(), d.exec);
+      if (!config) { d.error('claude setup-token failed: the compose config of the dev container cannot be read'); continue; }
+      prompter.suspend();
+      let run;
+      try { run = d.exec('docker', ['run', '--rm', '-it', '--entrypoint', 'claude', devImage(config), 'setup-token'], { stdio: 'inherit' }); } finally { prompter.resume(); }
+      if (run.error || run.status !== 0) { d.error(`claude setup-token failed (exit ${run.status ?? run.error?.message})`); continue; }
       const token = (await prompter.askSecret('Paste the token', 'setup.claudeTokenValue')).trim();
       if (!token) continue;
       if (yes(await ask('Save it to .env.ai-dev? (Y/n)', 'setup.saveClaudeToken'))) {
@@ -221,9 +234,9 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
         `setup.volumeLogin.${harness}`);
       if (!yes(answer)) continue;
       const r = ownComposeRun({ root, env: env(), exec: d.exec, entrypoint: 'cat', argv: [`/home/dev/${rel}`] });
+      if (r.error || r.status !== 0) { d.log(`! reading ${rel} from the agent-home volume failed`); continue; }
       const text = String(r.stdout ?? '');
       try { JSON.parse(text); } catch { d.log(`! no usable ${rel} in the agent-home volume`); continue; }
-      if (r.error || r.status !== 0) { d.log(`! reading ${rel} from the agent-home volume failed`); continue; }
       state.fallbackHome ??= mkdtempSync(path.join(os.tmpdir(), 'adw-e2e-auth-'));
       const target = path.join(state.fallbackHome, rel);
       mkdirSync(path.dirname(target), { recursive: true });

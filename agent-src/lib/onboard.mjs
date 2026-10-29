@@ -70,6 +70,7 @@ export function cmdScaffold(projectRoot) {
  *   askRequired(label, key, def) → like ask but never returns empty
  *   askChoice(label, key, opts, def) → constrained to `opts`
  *   askSecret(label, key)        → an answer read without echo, trimmed ('' when absent)
+ *   suspend() / resume()         → free the terminal for a child process and take it back
  *   close()                      → release any resources
  *   scripted                     → true for the --answers prompter (absent answers mean "no" to opt-ins)
  * `key` is a stable identifier per question (readline ignores it; scripted looks answers up by it).
@@ -97,7 +98,10 @@ export function createReadlinePrompter() {
     rl._writeToOutput = () => {};
     rl.question('', (a) => { rl._writeToOutput = write; process.stdout.write('\n'); res(a.trim()); });
   });
-  return { ask, askRequired, askChoice, askSecret, close: () => rl.close(), scripted: false };
+  // Hands the terminal to a child process (raw mode off, readline paused) and takes it back.
+  const suspend = () => { rl.pause(); process.stdin.setRawMode?.(false); };
+  const resume = () => { process.stdin.setRawMode?.(true); rl.resume(); };
+  return { ask, askRequired, askChoice, askSecret, suspend, resume, close: () => rl.close(), scripted: false };
 }
 
 /**
@@ -133,7 +137,7 @@ export function createScriptedPrompter(values) {
     return v;
   };
   const askSecret = async (_q, key) => resolve(key, '');
-  return { ask, askRequired, askChoice, askSecret, close: () => {}, scripted: true };
+  return { ask, askRequired, askChoice, askSecret, suspend() {}, resume() {}, close: () => {}, scripted: true };
 }
 
 /**

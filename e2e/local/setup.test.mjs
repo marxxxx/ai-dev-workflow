@@ -258,7 +258,7 @@ test('stepInterview: without a prompter nothing happens', async () => {
 });
 
 // stepLogins: a project whose only harness is `harness`; `exec` records every docker call.
-function loginsFixture(harness, { volume = true, cat = '{"tokens":{"refresh_token":"r"}}', envFile = null } = {}) {
+function loginsFixture(harness, { setupExit = 0, catStatus = 0, volume = true, cat = '{"tokens":{"refresh_token":"r"}}', envFile = null } = {}) {
   const root = tmp();
   const home = tmp();
   writeFileSync(path.join(root, 'compose.ai-dev.yml'), 'services: {}\n');
@@ -268,9 +268,10 @@ function loginsFixture(harness, { volume = true, cat = '{"tokens":{"refresh_toke
   const out = [];
   const exec = (cmd, args, o = {}) => {
     calls.push([cmd, args, o]);
-    if (args.includes('config')) return { status: 0, stdout: '{"name":"proj"}' };
+    if (args.includes('setup-token')) return { status: setupExit };
+    if (args.includes('config')) return { status: 0, stdout: '{"name":"proj","services":{"ai-dev-workflow":{"image":"dev:1"}}}' };
     if (args[0] === 'volume') return { status: volume ? 0 : 1, stdout: '' };
-    if (args.includes('cat')) return { status: 0, stdout: cat };
+    if (args.includes('cat')) return { status: catStatus, stdout: cat };
     return { status: 0, stdout: '' };
   };
   const d = { log: (s) => out.push(String(s)), error() {}, env: {}, home, exec };
@@ -335,9 +336,53 @@ test('stepLogins: a pasted Claude token is saved, trimmed, and never reaches arg
   assert.deepEqual(state.creds.missing, []);
   assert.deepEqual(state.creds.secrets, ['tok-123']);
   const setup = f.calls.find(([, a]) => a.includes('setup-token'));
+  assert.deepEqual(setup[1], ['run', '--rm', '-it', '--entrypoint', 'claude', 'dev:1', 'setup-token']);
   assert.equal(setup[2].stdio, 'inherit');
+  assert.equal(f.calls.some(([, a]) => a.includes('compose') && a.includes('run')), false);
   assert.equal(JSON.stringify(f.calls.map(([, a]) => a)).includes('tok-123'), false);
   assert.equal(f.out.join('\n').includes('tok-123'), false);
+  f.clean();
+});
+
+test('stepLogins: the terminal is handed over around setup-token; a failing run is declined without a paste question', async () => {
+  const f = loginsFixture('claude-code', { setupExit: 1 });
+  const events = [];
+  const inner = createScriptedPrompter({ setup: { claudeToken: 'y', claudeTokenValue: 'tok-x', saveClaudeToken: 'y' } });
+  const prompter = { ...inner, suspend: () => events.push('suspend'), resume: () => events.push('resume'),
+    askSecret: async (...a) => { events.push('paste'); return inner.askSecret(...a); } };
+  const errors = [];
+  f.d.error = (s) => errors.push(s);
+  const state = await runLogins(f, {}, prompter);
+  assert.deepEqual(events, ['suspend', 'resume']);
+  assert.deepEqual(errors, ['claude setup-token failed (exit 1)']);
+  assert.deepEqual(state.envAdditions, {});
+  f.clean();
+});
+
+test('stepLogins: opencode without a login file is offered the volume login', async () => {
+  const f = loginsFixture('opencode', { cat: '{"anthropic":{"refresh":"r"}}' });
+  const state = await runLogins(f, { setup: { volumeLogin: { opencode: 'y' } } });
+  const file = path.join(state.fallbackHome, '.local/share/opencode/auth.json');
+  assert.equal(statSync(file).mode & 0o777, 0o600);
+  assert.equal(state.creds.authFiles[0].from, file);
+  rmSync(state.fallbackHome, { recursive: true, force: true });
+  f.clean();
+});
+
+test('stepLogins: opencode with a host login file asks nothing', async () => {
+  const f = loginsFixture('opencode');
+  mkdirSync(path.join(f.home, '.local/share/opencode'), { recursive: true });
+  writeFileSync(path.join(f.home, '.local/share/opencode/auth.json'), '{"a":{"refresh":"h"}}');
+  await runLogins(f, { setup: { volumeLogin: { opencode: 'y' } } });
+  assert.deepEqual(f.calls, []);
+  f.clean();
+});
+
+test('stepLogins: a failed volume read reports it and copies nothing', async () => {
+  const f = loginsFixture('codex', { catStatus: 1 });
+  const state = await runLogins(f, { setup: { volumeLogin: { codex: 'y' } } });
+  assert.ok(f.out.some((l) => /reading \.codex\/auth\.json from the agent-home volume failed/.test(l)));
+  assert.equal(state.fallbackHome, null);
   f.clean();
 });
 

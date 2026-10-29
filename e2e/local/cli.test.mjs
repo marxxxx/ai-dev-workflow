@@ -138,6 +138,20 @@ test('runE2e: the fallbackHome of the setup is removed afterwards, also on a pre
   rmSync(root, { recursive: true });
 });
 
+test('runE2e: the signal handler removes the fallbackHome before exiting', async () => {
+  const root = project();
+  const fb = mkdtempSync(path.join(tmpdir(), 'adw-fb-'));
+  const s = stubs(root, { runSetup: async () => ({ envAdditions: {}, ticketText: { title: 'T', body: 'b' }, fallbackHome: fb }) });
+  let gone = null;
+  s.deps.exit = (code) => { s.seen.exit = code; gone = !existsSync(fb); };
+  // Ctrl-C in the middle of a trial: process.exit would skip the outer finally.
+  s.deps.runConversation = async () => { s.seen.signal(); return { turns: 1, humanAsked: 0, done: true, stuck: false, error: null }; };
+  await runE2e(opts(root), s.deps);
+  assert.equal(s.seen.exit, 130);
+  assert.equal(gone, true);
+  rmSync(root, { recursive: true });
+});
+
 test('node agent-src/generate.mjs e2e without args exits 2 with the usage line', () => {
   const r = spawnSync(process.execPath, [GENERATE, 'e2e'], { encoding: 'utf8' });
   assert.equal(r.status, 2);

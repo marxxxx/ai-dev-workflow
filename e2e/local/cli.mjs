@@ -157,7 +157,12 @@ async function runPrepared({ opts, d, root, setup }) {
     d.exec('docker', [...composeArgs(env, project), 'down', '-v'], { env });
   };
   const teardownAll = () => { for (const project of [...active.keys()]) down(project); };
-  const off = d.onSignal(() => { teardownAll(); d.exit(130); });
+  const off = d.onSignal(() => {
+    teardownAll();
+    // process.exit skips the outer finally: the login copies must go here.
+    if (setup.fallbackHome) rmSync(setup.fallbackHome, { recursive: true, force: true });
+    d.exit(130);
+  });
 
   const cliVersions = {};
   const trials = [];

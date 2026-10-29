@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 export const IMAGE_DIR = fileURLToPath(new URL('./image', import.meta.url));
 const SERVICE = 'ai-dev-workflow';
+// A build: without image: is tagged <project>-<service>. Not `config --images`: it adds the depends_on images in random order.
+export const devImage = (config) => config.services?.[SERVICE]?.image ?? `${config.name}-${SERVICE}`;
 const LABEL = 'adw.e2e.root';
 // Passed to the build by name, so their values (which may hold credentials) never reach argv.
 const PROXY_ENV = ['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy'];
@@ -57,8 +59,7 @@ export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, ima
   const service = services[SERVICE];
   if (!service) throw new Error(`${composeFiles[0]} has no ${SERVICE} service`);
   if (service.build) docker([...compose, 'build', SERVICE], { env, stdio: 'inherit' });
-  // A build: without image: is tagged <project>-<service>. Not `config --images`: it adds the depends_on images in random order.
-  const image = service.image ?? `${config.name}-${SERVICE}`;
+  const image = devImage(config);
   // Config as JSON: an image without USER has no User key, which a {{.Config.User}} template rejects.
   const inspect = () => exec('docker', ['image', 'inspect', '--format', '{{.Id}} {{json .Config}}', image]);
   let found = inspect();
