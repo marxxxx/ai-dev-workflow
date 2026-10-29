@@ -269,7 +269,8 @@ hand-written file with the same name is kept and reported), plus the unit direct
 It also removes the keys nothing reads anymore from `ai-project.json`: `git.branchPattern` (branch
 and PR names now derive from the ticket), `ticketing.azureDevOps.stateMapping.{test,failed,acceptance-test}`,
 `project.{slug,serenaProject,description}`, `repository.defaultBranch`, and the older `ticketing.itemNoun`,
-`e2e`, `app` and `handoff` blocks. If a project's `tokens` or `agent-custom/` files used
+`e2e.{up,down,readinessTimeout,logsDir}`, `app` and `handoff` blocks (the rest of `e2e` is
+[`adw e2e`](#e2e-on-your-project)'s settings and stays). If a project's `tokens` or `agent-custom/` files used
 `{{project.slug}}`, `{{project.serena}}`, `{{project.description}}` or `{{repo.defaultBranch}}`,
 generation now fails on that token; replace it, or define it under `tokens` in `ai-project.json`.
 
