@@ -311,6 +311,7 @@ and asks nothing, the run tells it to carry on (counted as `nudged`) instead of 
 
 Prerequisites: Docker and a git repo. On the first run `adw e2e` asks for the rest and writes it:
 
+- `ai-project.json`, if there is none: it offers the `init` interview first;
 - the container files (`compose.ai-dev.yml`), if `init` did not write them. The run builds a thin layer with
   `acpx` and the ACP adapters on your dev image (about 480 MB, cached until the image or the pins change; older
   layers are removed; the build uses your proxy variables and `AGENT_CA_DIR`);
@@ -319,14 +320,19 @@ Prerequisites: Docker and a git repo. On the first run `adw e2e` asks for the re
 - values that `e2e.env` names but nothing sets (secrets are read without echo). They can be saved to `.env.ai-dev`
   next to the project, which the containers read;
 - the ticket, when your backend cannot be read from the host: it is fetched in your dev container, then by opening
-  `$EDITOR` (interactive only). `--ticket-file` skips this;
+  `$EDITOR` (both interactive only). `--ticket-file` skips this;
 - the logins, see below;
 - an `AGENTS.md` section "End-to-end testing" saying how to start and exercise the app, for the app-level check.
-  If it is missing you can have the answerer role's harness and model draft it from the repo ([d]raft) or answer four
-  questions ([a]sk); it is appended only after you confirm. `e2e.testCommand` optionally runs your own tests too.
+  If it is missing you can have the answerer role's harness and model draft it from your committed files ([d]raft),
+  answer four questions ([a]sk) or [s]kip it; it is appended only after you confirm. `e2e.testCommand` optionally
+  runs your own tests too.
 
-Without a terminal nothing is asked: `--no-input` fails on what is missing, and `--answers <file>` answers the
-questions from a JSON file. `--reconfigure` asks the `e2e` questions again, with the stored values as defaults.
+`--no-input` asks nothing, on a terminal too, and fails on what is missing; without a terminal nothing is asked
+either. `--answers <file>` answers the questions from a JSON file nested by the dotted question keys, e.g.
+`{"setup":{"writeE2e":"y"},"e2e":{"agent":{"harness":"codex"}}}`; every yes/no question it leaves out counts as
+"no", so nothing is written without an explicit answer. `--reconfigure` asks the `e2e` questions again, with the
+stored values as defaults. `.adw/e2e/local.json` (git-ignored) keeps this machine's choices: the volume logins and
+a skipped `AGENTS.md` section are not asked again; delete it to be asked again.
 When the base commit predates the `AGENTS.md` section, the run overlays the current one onto the clone.
 
 Logins: the containers never share the project's agent-home volume, they get a login staged from the host.
