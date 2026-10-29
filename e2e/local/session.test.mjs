@@ -82,6 +82,22 @@ test('stageCredentials is a pure lookup per harness', () => {
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
 
+test('stageCredentials: a login under fallbackHome counts; the host file wins', () => {
+  const home = tmp(); const fb = tmp();
+  try {
+    mkdirSync(path.join(fb, '.codex'));
+    writeFileSync(path.join(fb, '.codex/auth.json'), JSON.stringify({ tokens: { refresh_token: 'FB' } }));
+    let c = stageCredentials({ harnesses: ['codex'], env: {}, home, fallbackHome: fb });
+    assert.deepEqual(c.missing, []);
+    assert.deepEqual(c.authFiles, [{ harness: 'codex', from: path.join(fb, '.codex/auth.json'), to: '/home/dev/.codex/auth.json' }]);
+    mkdirSync(path.join(home, '.codex'));
+    writeFileSync(path.join(home, '.codex/auth.json'), JSON.stringify({ tokens: { refresh_token: 'HOST' } }));
+    c = stageCredentials({ harnesses: ['codex'], env: {}, home, fallbackHome: fb });
+    assert.equal(c.authFiles[0].from, path.join(home, '.codex/auth.json'));
+    assert.deepEqual(c.secrets, ['HOST']);
+  } finally { rmSync(home, { recursive: true, force: true }); rmSync(fb, { recursive: true, force: true }); }
+});
+
 // Records every call; `fail` maps a predicate over the argv to a thrown error or a failing result.
 function recorder({ throwOn, results = () => null } = {}) {
   const calls = [];

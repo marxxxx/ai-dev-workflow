@@ -1,12 +1,15 @@
 // The setup phase of `adw e2e`: everything a first run is missing, offered before the run starts. Each step is
 // `async ({ root, opts, d, prompter, state })`; `state` is a plain object the steps share. With `prompter === null`
 // (CI, pipe, --no-input) only the non-interactive parts run, and preflight stays fatal for what is still missing.
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { setEnvVar } from '../../agent-src/lib/container.mjs';
 import { askContainer, createReadlinePrompter, createScriptedPrompter, setUpContainer } from '../../agent-src/lib/onboard.mjs';
 import { spawnEditor } from './acceptance.mjs';
 import { HARNESSES } from '../lib/llm.mjs';
 import { LANGUAGES, detectLanguage } from './language.mjs';
+import { loadLocalConfig } from './config.mjs';
 import { composeEnv, stageCredentials } from './session.mjs';
 import { readTicket, ticketDir, writeTicket } from './store.mjs';
 
@@ -44,10 +47,12 @@ export async function stepContainerFiles({ root, prompter }) {
 }
 
 // A one-off in the project's own compose project (no -p), with the env the containers get; the caller reads the result.
+const ownComposeFiles = (root, cenv) => ['compose', '-f', path.join(root, 'compose.ai-dev.yml'),
+  ...(cenv.AGENT_CA_DIR ? ['-f', path.join(root, 'compose.ai-dev.certs.yml')] : [])];
+
 export function ownComposeRun({ root, env, exec, argv, entrypoint = null, stdio = 'pipe' }) {
   const cenv = composeEnv({ root, work: root, env });
-  const args = ['compose', '-f', path.join(root, 'compose.ai-dev.yml'),
-    ...(cenv.AGENT_CA_DIR ? ['-f', path.join(root, 'compose.ai-dev.certs.yml')] : []),
+  const args = [...ownComposeFiles(root, cenv),
     'run', '--rm', '--no-deps', '-T', ...(entrypoint ? ['--entrypoint', entrypoint] : []), 'ai-dev-workflow', ...argv];
   return exec('docker', args, { env: cenv, encoding: 'utf8', stdio });
 }
@@ -161,15 +166,85 @@ export async function stepInterview({ root, opts, d, prompter, state }) {
   if (yes(answer)) writeProjectE2e(root, e2e);
 }
 
-const STEPS = [stepProjectConfig, stepContainerFiles, stepTicket, stepInterview];
+// The project's agent-home volume (what ./ai-dev.sh logs into), or null when it does not exist: a `compose run` would create it.
+export function projectVolume(root, env, exec) {
+  const cenv = composeEnv({ root, work: root, env });
+  const opts = { env: cenv, encoding: 'utf8' };
+  const config = exec('docker', [...ownComposeFiles(root, cenv), 'config', '--format', 'json'], opts);
+  if (config.error || config.status !== 0) return null;
+  let name;
+  try { name = JSON.parse(config.stdout).name; } catch { return null; }
+  if (!name) return null;
+  const volume = `${name}_agent-home`;
+  const inspect = exec('docker', ['volume', 'inspect', volume], opts);
+  return !inspect.error && inspect.status === 0 ? volume : null;
+}
+
+const LOGIN_ROLES = ['agent', 'answerer', 'verifier', 'review'];
+const VOLUME_LOGIN = { codex: '.codex/auth.json', opencode: '.local/share/opencode/auth.json' };
+
+// Missing logins, offered in priority order after env and host files: the project's agent-home volume (codex, opencode),
+// a guided `claude setup-token` (claude-code). Leaves `state.config`, `state.creds` and `state.fallbackHome` for the later steps.
+// Secrets read here go to files (mode 600) and `.env.ai-dev`, never into argv or the log.
+export async function stepLogins({ root, opts, d, prompter, state }) {
+  try {
+    state.config = loadLocalConfig(root, { harness: opts.harness ?? undefined, model: opts.model ?? undefined });
+  } catch { return; } // the real preflight reports it
+  const harnesses = LOGIN_ROLES.map((r) => state.config[r].harness);
+  const stage = () => stageCredentials({ harnesses, env: composeEnv({ root, work: root, env: { ...d.env, ...state.envAdditions } }), home: d.home,
+    fallbackHome: state.fallbackHome ?? null });
+  state.fallbackHome ??= null;
+  state.creds = stage();
+  if (!prompter) return;
+  const ask = (label, key) => prompter.ask(label, key, prompter.scripted ? 'n' : 'y');
+  const env = () => ({ ...d.env, ...state.envAdditions });
+  let volume;
+  for (const { harness } of state.creds.missing) {
+    if (harness === 'claude-code') {
+      const provider = d.env.CLAUDE_CODE_USE_BEDROCK || d.env.CLAUDE_CODE_USE_VERTEX;
+      if (!yes(await ask("Claude Code needs a long-lived token. Run 'claude setup-token' in the dev container now? (Y/n)", 'setup.claudeToken'))) {
+        if (!provider) d.log("For Bedrock or Vertex, set CLAUDE_CODE_USE_BEDROCK or CLAUDE_CODE_USE_VERTEX and list that provider's variables in e2e.env.");
+        continue;
+      }
+      ownComposeRun({ root, env: env(), exec: d.exec, argv: ['claude', 'setup-token'], stdio: 'inherit' });
+      const token = (await prompter.askSecret('Paste the token', 'setup.claudeTokenValue')).trim();
+      if (!token) continue;
+      if (yes(await ask('Save it to .env.ai-dev? (Y/n)', 'setup.saveClaudeToken'))) {
+        if (!setEnvVar(path.join(root, '.env.ai-dev'), 'CLAUDE_CODE_OAUTH_TOKEN', token)) d.log('.env.ai-dev already sets CLAUDE_CODE_OAUTH_TOKEN: left as is');
+      }
+      state.envAdditions.CLAUDE_CODE_OAUTH_TOKEN = token;
+    } else if (VOLUME_LOGIN[harness]) {
+      volume ??= projectVolume(root, env(), d.exec) ?? false;
+      if (!volume) continue;
+      const rel = VOLUME_LOGIN[harness];
+      const answer = await ask(`Use the ${harness} login of this project's dev container (agent-home volume)? A trial may refresh it; then log in again with ./ai-dev.sh. (Y/n)`,
+        `setup.volumeLogin.${harness}`);
+      if (!yes(answer)) continue;
+      const r = ownComposeRun({ root, env: env(), exec: d.exec, entrypoint: 'cat', argv: [`/home/dev/${rel}`] });
+      const text = String(r.stdout ?? '');
+      try { JSON.parse(text); } catch { d.log(`! no usable ${rel} in the agent-home volume`); continue; }
+      if (r.error || r.status !== 0) { d.log(`! reading ${rel} from the agent-home volume failed`); continue; }
+      state.fallbackHome ??= mkdtempSync(path.join(os.tmpdir(), 'adw-e2e-auth-'));
+      const target = path.join(state.fallbackHome, rel);
+      mkdirSync(path.dirname(target), { recursive: true });
+      writeFileSync(target, text, { mode: 0o600 });
+    }
+  }
+  state.creds = stage();
+}
+
+const STEPS = [stepProjectConfig, stepContainerFiles, stepTicket, stepInterview, stepLogins];
 
 export async function runSetup({ root, opts, d, prompter }) {
-  const state = { envAdditions: {}, ticketText: null };
+  const state = { envAdditions: {}, ticketText: null, config: null, creds: null, fallbackHome: null };
   try {
     for (const step of STEPS) await step({ root, opts, d, prompter, state });
+  } catch (err) {
+    if (state.fallbackHome) rmSync(state.fallbackHome, { recursive: true, force: true });
+    throw err;
   } finally {
     // The stdin readline must be free before the first agent turn (askHumanTty).
     prompter?.closeReal();
   }
-  return { envAdditions: state.envAdditions, ticketText: state.ticketText };
+  return { envAdditions: state.envAdditions, ticketText: state.ticketText, config: state.config, creds: state.creds, fallbackHome: state.fallbackHome };
 }

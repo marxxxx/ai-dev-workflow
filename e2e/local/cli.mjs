@@ -2,7 +2,7 @@
 // Per trial: sandbox → agent session → answer loop → collect → contract + own tests → close; then acceptance (first
 // time), judges, run.json, compare. Every compose project it starts is torn down, on Ctrl-C too.
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -79,12 +79,12 @@ const DEFAULT_DEPS = {
 };
 
 // Every problem that would stop the run later, found before any container starts.
-function preflight({ root, config, baseCommit, d, env }) {
+function preflight({ root, config, baseCommit, d, env, fallbackHome = null }) {
   const problems = [];
   const docker = d.exec('docker', ['version', '--format', '{{.Server.Version}}']);
   if (docker.error || docker.status !== 0) problems.push('docker not found or not running');
   if (!existsSync(path.join(root, 'compose.ai-dev.yml'))) problems.push(`${path.join(root, 'compose.ai-dev.yml')} not found: run adw init and write the container files`);
-  const creds = stageCredentials({ harnesses: ROLES.map((r) => config[r].harness), env, home: d.home });
+  const creds = stageCredentials({ harnesses: ROLES.map((r) => config[r].harness), env, home: d.home, fallbackHome });
   for (const role of ROLES) {
     for (const m of creds.missing.filter((x) => x.harness === config[role].harness)) problems.push(`${role} uses ${m.harness}: ${m.what} not found`);
   }
@@ -107,10 +107,17 @@ export async function runE2e(opts, deps = {}) {
   // First-run setup (init interview, container files, …) before the config is read; its env values join the run's env.
   const setup = await d.runSetup({ root, opts, d, prompter: makePrompter(opts, d) });
   d = { ...d, env: { ...d.env, ...setup.envAdditions } };
+  // The login copies taken from the agent-home volume live only for this run, also on every early return.
+  try { return await runPrepared({ opts, d, root, setup }); } finally {
+    if (setup.fallbackHome) rmSync(setup.fallbackHome, { recursive: true, force: true });
+  }
+}
+
+async function runPrepared({ opts, d, root, setup }) {
   const config = loadLocalConfig(root, { harness: opts.harness ?? undefined, model: opts.model ?? undefined });
   // Same sources as the containers: `.env.ai-dev` under the process env.
   const env = composeEnv({ root, work: root, env: d.env, uid: d.uid, gid: d.gid });
-  const { problems, creds, sha } = preflight({ root, config, baseCommit: opts.baseCommit, d, env });
+  const { problems, creds, sha } = preflight({ root, config, baseCommit: opts.baseCommit, d, env, fallbackHome: setup.fallbackHome ?? null });
   if (problems.length) {
     for (const p of problems) d.error(`✗ preflight: ${p}`);
     return 1;

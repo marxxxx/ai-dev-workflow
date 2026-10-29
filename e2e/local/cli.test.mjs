@@ -125,6 +125,19 @@ test('non-TTY run without compose file asks nothing and fails as today', async (
   rmSync(root, { recursive: true });
 });
 
+test('runE2e: the fallbackHome of the setup is removed afterwards, also on a preflight failure', async () => {
+  const root = project();
+  const fb = mkdtempSync(path.join(tmpdir(), 'adw-fb-'));
+  const s = stubs(root, { runSetup: async () => ({ envAdditions: {}, ticketText: { title: 'T', body: 'b' }, fallbackHome: fb }) });
+  assert.equal(await runE2e(opts(root, { baseCommit: 'x' }), { ...s.deps, exec: () => ({ status: 1, stdout: '', stderr: '' }) }), 1);
+  assert.equal(existsSync(fb), false);
+  const fb2 = mkdtempSync(path.join(tmpdir(), 'adw-fb-'));
+  const t = stubs(root, { runSetup: async () => ({ envAdditions: {}, ticketText: { title: 'T', body: 'b' }, fallbackHome: fb2 }) });
+  assert.equal(await runE2e(opts(root), t.deps), 0);
+  assert.equal(existsSync(fb2), false);
+  rmSync(root, { recursive: true });
+});
+
 test('node agent-src/generate.mjs e2e without args exits 2 with the usage line', () => {
   const r = spawnSync(process.execPath, [GENERATE, 'e2e'], { encoding: 'utf8' });
   assert.equal(r.status, 2);

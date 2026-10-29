@@ -92,11 +92,12 @@ export function composeEnv({ root, work, env = process.env, uid = process.getuid
 }
 
 // Which logins exist for each harness; copies nothing. `secrets` are the values to scrub from collected logs.
-export function stageCredentials({ harnesses, env = process.env, home = homedir() }) {
+// A login missing under `home` is looked up under `fallbackHome` (a copy taken from the project's agent-home volume).
+export function stageCredentials({ harnesses, env = process.env, home = homedir(), fallbackHome = null }) {
   const out = { envNames: [], authFiles: [], secrets: [], missing: [] };
   const authFile = (harness, rel) => {
-    const from = path.join(home, rel);
-    if (!existsSync(from)) return false;
+    const from = [home, fallbackHome].filter(Boolean).map((h) => path.join(h, rel)).find((f) => existsSync(f));
+    if (!from) return false;
     out.authFiles.push({ harness, from, to: path.posix.join(HOME, rel) });
     out.secrets.push(...secretLeaves(JSON.parse(readFileSync(from, 'utf8'))));
     return true;
