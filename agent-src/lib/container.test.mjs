@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { STACKS, detectStack, composeSlug, renderContainerFiles, ensureLine, setEnvVar, writeContainerFiles, nextSteps } from './container.mjs';
+import { STACKS, detectStack, composeSlug, renderContainerFiles, ensureLine, setEnvVar, writeContainerFiles, nextSteps, containerWarnings } from './container.mjs';
 import { makeTmpRoot } from '../test-helpers.mjs';
 
 const IMAGES = {
@@ -260,4 +260,58 @@ test('AI-DEV.md explains the opt-in daemon and how to stop it for this project',
   const doc = fileOf(renderContainerFiles({ name: 'Demo', stack: 'generic', backend: 'file' }), 'AI-DEV.md').content;
   assert.ok(doc.includes('AGENT_DIND=1'));
   assert.ok(doc.includes('docker compose -p demo-ai down'));
+});
+
+// v0.29.0 and earlier wrote compose.ai-dev.yml without KILL: the root init (tini) cannot signal
+// the dev user's processes and stops the container on the first forwarded signal.
+const LEGACY_CAPS = `    cap_drop:
+      - ALL
+    # Root setup remaps dev and owns its home, then drops privileges.
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+`;
+
+test('containerWarnings flags a compose.ai-dev.yml that drops all capabilities without KILL', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'compose.ai-dev.yml'), `services:\n  ai-dev-workflow:\n    init: true\n${LEGACY_CAPS}`);
+    const [warning, ...rest] = containerWarnings(root);
+    assert.deepEqual(rest, []);
+    assert.match(warning, /compose\.ai-dev\.yml/);
+    assert.match(warning, /- KILL/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('containerWarnings is silent for the current template, without the file, and when caps are not dropped', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    assert.deepEqual(containerWarnings(root), [], 'no compose.ai-dev.yml');
+    writeContainerFiles(root, OPTS);
+    assert.deepEqual(containerWarnings(root), [], 'freshly written template');
+    const file = path.join(root, 'compose.ai-dev.yml');
+    fs.writeFileSync(file, LEGACY_CAPS.replace('      - FOWNER\n', '      - FOWNER\n      - CAP_KILL\n'));
+    assert.deepEqual(containerWarnings(root), [], 'CAP_KILL spelling');
+    fs.writeFileSync(file, '    cap_drop: [ALL]\n    cap_add: [CHOWN, "KILL", SETUID]\n');
+    assert.deepEqual(containerWarnings(root), [], 'flow-style list');
+    fs.writeFileSync(file, 'services:\n  ai-dev-workflow:\n    init: true\n');
+    assert.deepEqual(containerWarnings(root), [], 'no cap_drop: nothing to restore');
+  } finally {
+    cleanup();
+  }
+});
+
+test('containerWarnings ignores KILL that only appears in a comment', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'compose.ai-dev.yml'), `    # KILL lets tini forward signals\n${LEGACY_CAPS}`);
+    assert.equal(containerWarnings(root).length, 1);
+  } finally {
+    cleanup();
+  }
 });

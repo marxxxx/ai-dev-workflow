@@ -242,7 +242,8 @@ Startup briefly runs as root to map nonzero numeric `HOST_UID`/`HOST_GID` and in
 the home volume, then executes configuration and the chosen command as `dev`.
 Reusing a home with different IDs repairs its ownership. It does not recursively
 chown the project. Capability reductions retain only the setup capabilities needed
-for remapping and privilege drop; commands run non-root. Exit codes and signals
+for remapping and privilege drop, plus `KILL` so the root init process can forward signals to
+`dev`'s processes; commands run non-root. Exit codes and signals
 propagate through the entrypoint and Compose init process.
 
 ## Corporate TLS inspection
