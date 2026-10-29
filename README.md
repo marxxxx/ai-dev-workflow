@@ -225,6 +225,9 @@ and records the `skills` opt-in. Run
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
 
+**`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
+changes the config hash); no `upgrade` step is needed.
+
 **Upgrading to v0.29.0.** adw now installs the show-me skill. Run `upgrade` instead of
 `generate`: it records `"skills": { "show-me": true }` in `ai-project.json` and installs the skill
 with `npx skills` (needs network access to npm and GitHub). To decline, set `"show-me": false` first. Until it is
@@ -290,7 +293,7 @@ the outcome. Compare runs after you change `agent-custom/`, `AGENTS.md`, the mod
 
 ```bash
 npx @strobl_dev/adw e2e <base-commit> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m] \
-  [--ticket-file <file>] [--baseline <runDir>]
+  [--ticket-file <file>] [--baseline <runDir>] [--no-input] [--answers <file>] [--reconfigure]
 ```
 
 The ticket is read once from your real backend and never written: `gh issue view`, `tea api`,
@@ -306,20 +309,35 @@ ports, so a run does not clash with your own `./ai-dev.sh`. The first run asks y
 confirms drafted acceptance criteria; later runs replay your stored answers. When the agent only reports progress
 and asks nothing, the run tells it to carry on (counted as `nudged`) instead of asking you.
 
-Prerequisites:
+Prerequisites: Docker and a git repo. On the first run `adw e2e` asks for the rest and writes it:
 
-- the container files from `init` (`compose.ai-dev.yml`). The first run builds a thin layer with `acpx` and the ACP
-  adapters on your dev image (about 480 MB, cached until the image or the pins change; older layers are removed;
-  the build uses your proxy variables and `AGENT_CA_DIR`);
-- a login on the host for each harness any role uses; the containers get it from there, never from the
-  project's agent-home volume:
-  - Claude Code: run `claude setup-token` and export `CLAUDE_CODE_OAUTH_TOKEN` (or set
-    `CLAUDE_CODE_USE_BEDROCK` / `CLAUDE_CODE_USE_VERTEX` with that provider's variables in `e2e.env`);
-  - Codex: `codex login` on the host (`~/.codex/auth.json`) or `OPENAI_API_KEY`;
-  - OpenCode: `opencode auth login` on the host (`~/.local/share/opencode/auth.json`) or provider
-    variables listed in `e2e.env`;
-- an `AGENTS.md` section "End-to-end testing" saying how to start and exercise the app, if you want the
-  app-level check (`e2e.testCommand` optionally runs your own tests too).
+- the container files (`compose.ai-dev.yml`), if `init` did not write them. The run builds a thin layer with
+  `acpx` and the ACP adapters on your dev image (about 480 MB, cached until the image or the pins change; older
+  layers are removed; the build uses your proxy variables and `AGENT_CA_DIR`);
+- the `e2e` block of `ai-project.json`: the agent's harness and model, the judge model, `testCommand`, provider
+  variables and the language, shown before it is written;
+- values that `e2e.env` names but nothing sets (secrets are read without echo). They can be saved to `.env.ai-dev`
+  next to the project, which the containers read;
+- the ticket, when your backend cannot be read from the host: it is fetched in your dev container, then by opening
+  `$EDITOR` (interactive only). `--ticket-file` skips this;
+- the logins, see below;
+- an `AGENTS.md` section "End-to-end testing" saying how to start and exercise the app, for the app-level check.
+  If it is missing you can have the answerer role's harness and model draft it from the repo ([d]raft) or answer four
+  questions ([a]sk); it is appended only after you confirm. `e2e.testCommand` optionally runs your own tests too.
+
+Without a terminal nothing is asked: `--no-input` fails on what is missing, and `--answers <file>` answers the
+questions from a JSON file. `--reconfigure` asks the `e2e` questions again, with the stored values as defaults.
+When the base commit predates the `AGENTS.md` section, the run overlays the current one onto the clone.
+
+Logins: the containers never share the project's agent-home volume, they get a login staged from the host.
+- Codex: `~/.codex/auth.json` on the host, or `OPENAI_API_KEY`. If you only logged in through `./ai-dev.sh`, the
+  setup offers to copy the login from the project's volume.
+- OpenCode: `~/.local/share/opencode/auth.json`, or provider variables in `e2e.env`. Same volume offer, whenever a
+  role uses OpenCode and the host has no `auth.json`.
+- Claude Code: a long-lived token, never taken from the volume. Run `claude setup-token` on the host and export
+  `CLAUDE_CODE_OAUTH_TOKEN`, or let the setup run it (`docker run --rm -it --entrypoint claude <dev image>
+  setup-token`; it asks you to paste the token without echo and offers to save it to `.env.ai-dev`). For
+  Bedrock or Vertex set `CLAUDE_CODE_USE_BEDROCK` / `CLAUDE_CODE_USE_VERTEX` and that provider's variables in `e2e.env`.
 
 Each of the four LLM roles (agent, answerer, verifier, review) has its own harness and model, so a
 project can stay inside the providers it may use. In `ai-project.json`:
@@ -331,12 +349,14 @@ project can stay inside the providers it may use. In `ai-project.json`:
   "verifier": { "harness": "opencode",    "model": "azure/gpt-6.1", "timeoutSec": 900 },
   "review":   { "harness": "opencode",    "model": "azure/gpt-6.1" },
   "env": ["AZURE_API_KEY", "AZURE_RESOURCE_NAME"],
-  "secretEnv": ["AZURE_API_KEY"]
+  "secretEnv": ["AZURE_API_KEY"],
+  "language": "en"
 }
 ```
 
 A role without its own harness uses the agent's; a role without its own model uses that CLI's default
-model. So one login is enough.
+model. So one login is enough. `language` (`en` or `de`) is the language of the simulated user's answers; the
+setup detects it from the ticket.
 `env` lists variable names passed into the containers by name. Values of names in `e2e.secretEnv` are removed from transcripts and logs; other `e2e.env` values are kept as they are, so list every key or token there.
 
 Under `.adw/e2e/<ticket>/`, commit `ticket.md`, `answers.json` and `acceptance.md`; `runs/` holds the
