@@ -34,6 +34,7 @@ function stubs(root, over = {}) {
   const rec = (name, fn) => (...a) => { calls.push(name); return fn(...a); };
   const session = { prompt: async () => 'ok', close: rec('close', () => null), appListening: rec('appListening', () => 0), cliVersion: (h) => `${h} 1.0` };
   const deps = {
+    isTTY: { stdin: false, stdout: false },
     env: { CLAUDE_CODE_OAUTH_TOKEN: 'tok-secret', PATH: process.env.PATH }, home: path.join(root, 'home'), uid: 1000, gid: 1000,
     exec: (cmd, args, opts = {}) => {
       exec.push({ argv: [cmd, ...args], env: opts.env });
@@ -80,9 +81,17 @@ const runJson = (root) => JSON.parse(readFileSync(path.join(root, '.adw/e2e/7/ru
 
 test('parseE2eArgs: positionals and flags; the harness is optional', () => {
   assert.deepEqual(parseE2eArgs(['abc', '7', 'codex', '--repetitions', '2', '--model', 'm', '--ticket-file', 'i.md', '--baseline', 'b', '--root', '/p']),
-    { baseCommit: 'abc', ticket: 7, harness: 'codex', repetitions: 2, model: 'm', ticketFile: 'i.md', baseline: 'b', root: '/p' });
+    { baseCommit: 'abc', ticket: 7, harness: 'codex', repetitions: 2, model: 'm', ticketFile: 'i.md', baseline: 'b', root: '/p',
+      noInput: false, answers: null, reconfigure: false });
   assert.deepEqual(parseE2eArgs(['HEAD', '12']),
-    { baseCommit: 'HEAD', ticket: 12, harness: null, repetitions: 1, model: null, ticketFile: null, baseline: null, root: null });
+    { baseCommit: 'HEAD', ticket: 12, harness: null, repetitions: 1, model: null, ticketFile: null, baseline: null, root: null,
+      noInput: false, answers: null, reconfigure: false });
+});
+
+test('parseE2eArgs: --no-input, --answers and --reconfigure', () => {
+  assert.deepEqual(
+    (({ noInput, answers, reconfigure }) => ({ noInput, answers, reconfigure }))(parseE2eArgs(['HEAD', '7', '--no-input', '--answers', 'a.json', '--reconfigure'])),
+    { noInput: true, answers: 'a.json', reconfigure: true });
 });
 
 test('parseE2eArgs: root is null without --root', () => {
@@ -101,6 +110,19 @@ test('main: a usage error exits 2 with the usage line first; --help exits 0', as
   assert.equal(await main([], { error: (s) => out.push(s), log: (s) => out.push(s) }), 2);
   assert.equal(out[0], USAGE);
   assert.equal(await main(['--help'], { log: (s) => out.push(s) }), 0);
+});
+
+test('non-TTY run without compose file asks nothing and fails as today', async () => {
+  const root = project();
+  rmSync(path.join(root, 'compose.ai-dev.yml'));
+  const s = stubs(root);
+  let asked = 0;
+  s.deps.cmdInit = async () => { asked++; return 0; };
+  const code = await runE2e(opts(root), s.deps);
+  assert.equal(code, 1);
+  assert.ok(s.out.some((l) => /^✗ preflight: .*compose\.ai-dev\.yml not found/.test(l)), s.out.join('\n'));
+  assert.equal(asked, 0);
+  rmSync(root, { recursive: true });
 });
 
 test('node agent-src/generate.mjs e2e without args exits 2 with the usage line', () => {

@@ -297,3 +297,9 @@ test('cmdInit still succeeds when the show-me install fails, and prints the manu
     cleanup();
   }
 });
+
+test('scripted askSecret: trimmed value, empty when absent', async () => {
+  const p = createScriptedPrompter({ a: { b: ' t ' } });
+  assert.equal(await p.askSecret('x', 'a.b'), 't');
+  assert.equal(await p.askSecret('x', 'a.c'), '');
+});

@@ -69,6 +69,7 @@ export function cmdScaffold(projectRoot) {
  *   ask(label, key, def)         → resolved answer (def when blank)
  *   askRequired(label, key, def) → like ask but never returns empty
  *   askChoice(label, key, opts, def) → constrained to `opts`
+ *   askSecret(label, key)        → an answer read without echo, trimmed ('' when absent)
  *   close()                      → release any resources
  *   scripted                     → true for the --answers prompter (absent answers mean "no" to opt-ins)
  * `key` is a stable identifier per question (readline ignores it; scripted looks answers up by it).
@@ -89,7 +90,14 @@ export function createReadlinePrompter() {
       console.log(`  (choose one of: ${choices.join(', ')})`);
     }
   };
-  return { ask, askRequired, askChoice, close: () => rl.close(), scripted: false };
+  // The prompt is printed, then rl's echo is switched off until the line is read.
+  const askSecret = (q) => new Promise((res) => {
+    process.stdout.write(`${q}: `);
+    const write = rl._writeToOutput;
+    rl._writeToOutput = () => {};
+    rl.question('', (a) => { rl._writeToOutput = write; process.stdout.write('\n'); res(a.trim()); });
+  });
+  return { ask, askRequired, askChoice, askSecret, close: () => rl.close(), scripted: false };
 }
 
 /**
@@ -124,7 +132,8 @@ export function createScriptedPrompter(values) {
     }
     return v;
   };
-  return { ask, askRequired, askChoice, close: () => {}, scripted: true };
+  const askSecret = async (_q, key) => resolve(key, '');
+  return { ask, askRequired, askChoice, askSecret, close: () => {}, scripted: true };
 }
 
 /**
@@ -201,7 +210,7 @@ function packageVersion() {
 }
 
 /** Write the container files for `config` and print what happened plus the next steps. */
-function setUpContainer(projectRoot, { stack, env }, config) {
+export function setUpContainer(projectRoot, { stack, env }, config) {
   const backend = config.ticketing?.backend || 'file';
   const { written, skipped, kept } = writeContainerFiles(projectRoot, {
     name: config.project?.name || path.basename(projectRoot),

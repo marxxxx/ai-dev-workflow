@@ -13,6 +13,8 @@ import { median } from '../lib/summary.mjs';
 import { redactSecrets } from '../lib/secrets.mjs';
 import { applyPostVerification, emptyOutcome } from '../lib/trial.mjs';
 import { postVerify, verifierHash } from '../lib/postverify.mjs';
+import { cmdInit } from '../../agent-src/lib/onboard.mjs';
+import { makePrompter, runSetup } from './setup.mjs';
 import { detectLanguage, textsFor } from './language.mjs';
 import { loadLocalConfig, selfJudged } from './config.mjs';
 import { appendAnswer, ensureGitignore, newRunDir, readAnswers, readTicket, ticketDir, writeTicket } from './store.mjs';
@@ -25,7 +27,7 @@ import { askHumanTty, makeDecide, runConversation } from './answerer.mjs';
 import { confirmAcceptance, draftAcceptance, renderAcceptance } from './acceptance.mjs';
 import { buildLocalTrialRecord, compareWithBaseline, localFingerprint, localReward, writeRun } from './record.mjs';
 
-export const USAGE = 'usage: adw e2e <base-commit> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m] [--ticket-file f] [--baseline runDir] [--root dir]';
+export const USAGE = 'usage: adw e2e <base-commit> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m] [--ticket-file f] [--baseline runDir] [--root dir] [--no-input] [--answers file] [--reconfigure]';
 const SERVICE = 'ai-dev-workflow';
 const ROLES = ['agent', 'answerer', 'verifier', 'review'];
 // YYYY-MM-DDTHHMMSSZ: a quick re-run gets its own run dir and compose names; sorts by time.
@@ -39,7 +41,8 @@ export function parseE2eArgs(argv) {
   let parsed;
   try {
     parsed = parseArgs({ args: argv, allowPositionals: true, options: { repetitions: { type: 'string' }, model: { type: 'string' },
-      'ticket-file': { type: 'string' }, baseline: { type: 'string' }, root: { type: 'string' } } });
+      'ticket-file': { type: 'string' }, baseline: { type: 'string' }, root: { type: 'string' },
+      'no-input': { type: 'boolean' }, answers: { type: 'string' }, reconfigure: { type: 'boolean' } } });
   } catch (err) { throw usageError(err.message); }
   const { positionals: [baseCommit, ticket, harness = null, ...extra], values: v } = parsed;
   if (!baseCommit || !ticket) throw usageError('base commit and ticket are required');
@@ -48,7 +51,8 @@ export function parseE2eArgs(argv) {
   if (harness !== null && !HARNESSES.includes(harness)) throw usageError(`unknown harness "${harness}" (${HARNESSES.join(', ')})`);
   if (v.repetitions !== undefined && !/^[1-9]\d*$/.test(v.repetitions)) throw usageError(`--repetitions must be a positive integer, got "${v.repetitions}"`);
   return { baseCommit, ticket: Number(ticket), harness, repetitions: Number(v.repetitions ?? 1), model: v.model ?? null,
-    ticketFile: v['ticket-file'] ?? null, baseline: v.baseline ?? null, root: v.root ?? null };
+    ticketFile: v['ticket-file'] ?? null, baseline: v.baseline ?? null, root: v.root ?? null,
+    noInput: v['no-input'] ?? false, answers: v.answers ?? null, reconfigure: v.reconfigure ?? false };
 }
 
 // One line typed on the terminal (the acceptance confirmation). Not a TTY readline, so Ctrl-C stays a SIGINT.
@@ -68,6 +72,7 @@ function onSignal(handler) {
 const DEFAULT_DEPS = {
   env: process.env, cwd: process.cwd(), home: homedir(), uid: process.getuid?.() ?? 1000, gid: process.getgid?.() ?? 1000,
   exec: (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts }),
+  runSetup, cmdInit, isTTY: { stdin: process.stdin.isTTY, stdout: process.stdout.isTTY },
   importTicket, ensureE2eImage, createSandbox, collectSandbox, startSession, makeDecide, runConversation, askHuman: askHumanTty(),
   draftAcceptance, confirmAcceptance, prompt: promptLine, postVerify, buildLocalTrialRecord,
   now: timestamp, clock: () => Date.now(), log: (s) => console.log(s), error: (s) => console.error(s), onSignal, exit: (code) => process.exit(code),
@@ -95,10 +100,13 @@ const sectionOf = (ticketFile, title) => ticketFile.split('\n---\n## ').slice(1)
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 
 export async function runE2e(opts, deps = {}) {
-  const d = { ...DEFAULT_DEPS, ...deps };
+  let d = { ...DEFAULT_DEPS, ...deps };
   // Without --root the project is the git toplevel of the working directory, so adw e2e works from any subdirectory.
   const top = opts.root ? null : d.exec('git', ['-C', d.cwd, 'rev-parse', '--show-toplevel']);
   const root = path.resolve(opts.root ?? (top.status === 0 ? String(top.stdout).trim() : d.cwd));
+  // First-run setup (init interview, container files, …) before the config is read; its env values join the run's env.
+  const setup = await d.runSetup({ root, opts, d, prompter: makePrompter(opts, d) });
+  d = { ...d, env: { ...d.env, ...setup.envAdditions } };
   const config = loadLocalConfig(root, { harness: opts.harness ?? undefined, model: opts.model ?? undefined });
   // Same sources as the containers: `.env.ai-dev` under the process env.
   const env = composeEnv({ root, work: root, env: d.env, uid: d.uid, gid: d.gid });
