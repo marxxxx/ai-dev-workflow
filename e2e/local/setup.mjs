@@ -246,7 +246,28 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
   state.creds = stage();
 }
 
-const STEPS = [stepProjectConfig, stepContainerFiles, stepTicket, stepInterview, stepLogins];
+// Names in e2e.env that nothing sets: asked for (secretEnv names without echo), then optionally saved to `.env.ai-dev`.
+// The values are scrubbed by runE2e, which reads secretEnv from the env merged with envAdditions; never logged here.
+export async function stepEnvValues({ root, d, prompter, state }) {
+  if (!prompter || !state.config) return;
+  const env = composeEnv({ root, work: root, env: { ...d.env, ...state.envAdditions } });
+  const given = {};
+  for (const name of state.config.env.filter((n) => !env[n])) {
+    const key = `setup.env.${name}`;
+    const label = `Value for ${name}`;
+    const value = (state.config.secretEnv.includes(name) ? await prompter.askSecret(label, key) : await prompter.ask(label, key, '')).trim();
+    if (value) given[name] = value;
+  }
+  if (!Object.keys(given).length) return;
+  if (yes(await prompter.ask('Save these values to .env.ai-dev? (Y/n)', 'setup.saveEnv', prompter.scripted ? 'n' : 'y'))) {
+    for (const [name, value] of Object.entries(given)) {
+      if (!setEnvVar(path.join(root, '.env.ai-dev'), name, value)) d.log(`.env.ai-dev already sets ${name}: left as is`);
+    }
+  }
+  Object.assign(state.envAdditions, given);
+}
+
+const STEPS = [stepProjectConfig, stepContainerFiles, stepTicket, stepInterview, stepLogins, stepEnvValues];
 
 export async function runSetup({ root, opts, d, prompter }) {
   const state = { envAdditions: {}, ticketText: null, config: null, creds: null, fallbackHome: null };

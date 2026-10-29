@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, wri
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createScriptedPrompter } from '../../agent-src/lib/onboard.mjs';
-import { detectTestCommand, e2eChanges, makePrompter, ownComposeRun, projectVolume, runSetup, stepContainerFiles, stepInterview, stepLogins, stepProjectConfig, stepTicket } from './setup.mjs';
+import { detectTestCommand, e2eChanges, makePrompter, ownComposeRun, projectVolume, runSetup, stepContainerFiles, stepEnvValues, stepInterview, stepLogins, stepProjectConfig, stepTicket } from './setup.mjs';
 import { readTicket, ticketDir, writeTicket } from './store.mjs';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'adw-setup-'));
@@ -436,4 +436,47 @@ test('runSetup: returns fallbackHome, config and creds', async () => {
   const r = await runSetup({ root: f.root, opts: { ticket: 1 }, d: { ...f.d, cmdInit: async () => 0, importTicket: () => ({ title: 't', body: 'b' }) }, prompter: null });
   assert.ok('fallbackHome' in r && r.config && r.creds);
   f.clean();
+});
+
+// stepEnvValues: a project with e2e.env AZ_KEY (secret) and AZ_NAME.
+function envFixture(envFile = null) {
+  const root = tmp();
+  writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' } }));
+  if (envFile !== null) writeFileSync(path.join(root, '.env.ai-dev'), envFile);
+  const config = { env: ['AZ_KEY', 'AZ_NAME'], secretEnv: ['AZ_KEY'] };
+  const spy = [];
+  const inner = createScriptedPrompter({ setup: { env: { AZ_KEY: 'k1', AZ_NAME: 'n1' }, saveEnv: 'y' } });
+  const prompter = { ...inner, ask: async (q, k, ...r) => { spy.push(['ask', k]); return inner.ask(q, k, ...r); },
+    askSecret: async (q, k) => { spy.push(['askSecret', k]); return inner.askSecret(q, k); } };
+  return { root, spy, prompter, state: { envAdditions: {}, config }, d: { env: {}, log() {} } };
+}
+const envFile = (root) => (existsSync(path.join(root, '.env.ai-dev')) ? readFileSync(path.join(root, '.env.ai-dev'), 'utf8') : null);
+
+test('stepEnvValues: secrets via askSecret, others via ask, saved to .env.ai-dev on yes', async () => {
+  const f = envFixture();
+  await stepEnvValues({ root: f.root, opts: {}, d: f.d, prompter: f.prompter, state: f.state });
+  assert.deepEqual(f.spy.filter(([, k]) => k.startsWith('setup.env.')), [['askSecret', 'setup.env.AZ_KEY'], ['ask', 'setup.env.AZ_NAME']]);
+  assert.match(envFile(f.root), /AZ_KEY=k1/);
+  assert.match(envFile(f.root), /AZ_NAME=n1/);
+  assert.deepEqual(f.state.envAdditions, { AZ_KEY: 'k1', AZ_NAME: 'n1' });
+});
+
+test('stepEnvValues: without the save answer .env.ai-dev is unchanged but envAdditions holds the values', async () => {
+  const f = envFixture('OTHER=1\n');
+  const inner = createScriptedPrompter({ setup: { env: { AZ_KEY: 'k1', AZ_NAME: 'n1' } } });
+  await stepEnvValues({ root: f.root, opts: {}, d: f.d, prompter: inner, state: f.state });
+  assert.equal(envFile(f.root), 'OTHER=1\n');
+  assert.deepEqual(f.state.envAdditions, { AZ_KEY: 'k1', AZ_NAME: 'n1' });
+});
+
+test('stepEnvValues: names already set (env file, process env) are not asked; no config or prompter is a no-op', async () => {
+  const f = envFixture('AZ_KEY=x\n');
+  f.d.env = { AZ_NAME: 'y' };
+  await stepEnvValues({ root: f.root, opts: {}, d: f.d, prompter: f.prompter, state: f.state });
+  assert.deepEqual(f.spy, []);
+  const g = envFixture();
+  await stepEnvValues({ root: g.root, opts: {}, d: g.d, prompter: null, state: g.state });
+  await stepEnvValues({ root: g.root, opts: {}, d: g.d, prompter: g.prompter, state: { envAdditions: {} } });
+  assert.deepEqual(g.spy, []);
+  assert.equal(envFile(g.root), null);
 });
