@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { stageSecrets, scanForSecrets, redactSecrets, scrubSecretsInTree, removeOpenCodeAuthCopies } from './secrets.mjs';
 
-test('stageSecrets copies auth files 0600, exposes env and cleans up', () => {
+// Windows has no POSIX file modes, so the 0600 check cannot hold there.
+test('stageSecrets copies auth files 0600, exposes env and cleans up', { skip: process.platform === 'win32' && 'no POSIX file modes on Windows' }, () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'adw-e2e-'));
   try {
     writeFileSync(path.join(dir, '.env'), 'CLAUDE_CODE_OAUTH_TOKEN=tok-123\n');
