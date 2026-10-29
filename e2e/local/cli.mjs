@@ -7,7 +7,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
-import { HARNESSES, composeRunArgs, isInterrupt, InterruptError } from '../lib/llm.mjs';
+import { HARNESSES, callLlm, composeRunArgs, isInterrupt, InterruptError } from '../lib/llm.mjs';
 import { parseCriteria } from '../lib/criteria.mjs';
 import { median } from '../lib/summary.mjs';
 import { redactSecrets } from '../lib/secrets.mjs';
@@ -34,6 +34,10 @@ const ROLES = ['agent', 'answerer', 'verifier', 'review'];
 export const timestamp = (date = new Date()) => date.toISOString().replace(/\.\d+Z$/, 'Z').replace(/:/g, '');
 // spawnSync blocks the event loop: yielding once lets a pending Ctrl-C handler run before the next step.
 const tick = () => new Promise((resolve) => setImmediate(resolve));
+// One short call per answerer/judge harness and model: an unknown model or a dead login fails before the trial is spent.
+const PROBE = 'Reply with exactly this JSON object and nothing else: {"ok": true}';
+const probeModel = ({ harness, model, buildArgs, name, checkout, run }) => callLlm({ role: 'probe', harness, model, tools: 'none', input: PROBE,
+  buildArgs, name, checkout, readOnly: true, timeoutMs: 120_000, run });
 
 const usageError = (message) => Object.assign(new Error(message), { usage: true });
 
@@ -74,7 +78,7 @@ const DEFAULT_DEPS = {
   exec: (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts }),
   runSetup, makePrompter, cmdInit, isTTY: { stdin: process.stdin.isTTY, stdout: process.stdout.isTTY },
   importTicket, editor: spawnEditor, ensureE2eImage, snapshotWorkingTree, createSandbox, collectSandbox, startSession, makeDecide, runConversation, askHuman: askHumanTty(),
-  draftAcceptance, confirmAcceptance, prompt: promptLine, postVerify, buildLocalTrialRecord,
+  draftAcceptance, confirmAcceptance, prompt: promptLine, postVerify, buildLocalTrialRecord, probeModel,
   now: timestamp, clock: () => Date.now(), log: (s) => console.log(s), error: (s) => console.error(s), onSignal, exit: (code) => process.exit(code),
 };
 
@@ -177,6 +181,39 @@ async function runPrepared({ opts, d, root, setup }) {
     d.exec('docker', [...composeArgs(env, project), 'down', '-v'], { env });
   };
   const teardownAll = () => { for (const project of [...active.keys()]) down(project); };
+  // The argv builder of a judge-side container in compose project `project`, with the logins `harnesses` need.
+  const judgeArgs = (project, env) => (harnesses) => composeRunArgs({ composeFile, certsFile: env.AGENT_CA_DIR ? certsFile : null, overrideFile, project,
+    uid: d.uid, gid: d.gid, envNames: [...config.env, ...creds.envNames],
+    authMounts: creds.authFiles.filter((f) => harnesses.includes(f.harness)).map((f) => `${f.from}:${f.to}`) });
+  // Probes every distinct answerer/judge harness and model in its own compose project; returns the first failure, or null.
+  const probeModels = () => {
+    const pairs = new Map();
+    for (const r of ['answerer', 'verifier', 'review']) {
+      const key = `${config[r].harness}/${config[r].model ?? 'default'}`;
+      pairs.set(key, { harness: config[r].harness, model: config[r].model ?? null, roles: [...(pairs.get(key)?.roles ?? []), r] });
+    }
+    const project = composeProject(root, `${opts.ticket}-${ts}-probe`);
+    const checkout = path.join(runDir, 'probe');
+    mkdirSync(checkout, { recursive: true });
+    const env = composeEnv({ root, work: checkout, env: d.env, uid: d.uid, gid: d.gid });
+    active.set(project, { work: checkout, agent: false });
+    d.log(`checking models: ${[...pairs.keys()].join(', ')}`);
+    try {
+      for (const [key, { harness, model, roles }] of pairs) {
+        try {
+          d.probeModel({ harness, model, buildArgs: judgeArgs(project, env)([harness]), name: `${project}-${harness}`, checkout,
+            run: (cmd, args, o = {}) => d.exec(cmd, args, { ...o, env: { ...o.env, ...env } }) });
+        } catch (err) {
+          if (isInterrupt(err)) throw err;
+          return `${roles.join(', ')} use ${key}: ${redactSecrets(err.message, creds.secrets)}`;
+        }
+      }
+      return null;
+    } finally {
+      if (active.has(project)) down(project);
+      rmSync(checkout, { recursive: true, force: true });
+    }
+  };
   const off = d.onSignal(() => {
     teardownAll();
     // process.exit skips the outer finally: the login copies must go here.
@@ -192,6 +229,8 @@ async function runPrepared({ opts, d, root, setup }) {
     const layer = d.ensureE2eImage({ root, runDir, composeFiles: [composeFile, ...(rootEnv.AGENT_CA_DIR ? [certsFile] : [])],
       env: rootEnv, exec: d.exec, log: d.log });
     overrideFile = layer.overrideFile;
+    const probeFailed = probeModels();
+    if (probeFailed) { d.error(`✗ preflight: ${probeFailed}`); return 1; }
     for (let i = 1; i <= opts.repetitions; i++) {
       const id = `${harness}-${i}`;
       const trialDir = path.join(runDir, id);
@@ -204,16 +243,14 @@ async function runPrepared({ opts, d, root, setup }) {
       e2eSectionUsed = e2eSectionOf(readIf(path.join(work, 'AGENTS.md')));
       const judgeEnv = composeEnv({ root, work, env: d.env, uid: d.uid, gid: d.gid });
       // Judge-side containers (answerer, drafting, judges, own tests) share one compose project per trial.
-      const buildArgs = (harnesses) => composeRunArgs({ composeFile, certsFile: judgeEnv.AGENT_CA_DIR ? certsFile : null, overrideFile, project: judgeProject,
-        uid: d.uid, gid: d.gid, envNames: [...config.env, ...creds.envNames],
-        authMounts: creds.authFiles.filter((f) => harnesses.includes(f.harness)).map((f) => `${f.from}:${f.to}`) });
+      const buildArgs = judgeArgs(judgeProject, judgeEnv);
       const run = (cmd, args, o = {}) => d.exec(cmd, args, { ...o, env: { ...o.env, ...judgeEnv } });
       const transcript = (kind) => (text) => {
         mkdirSync(trialDir, { recursive: true });
         appendFileSync(path.join(trialDir, `${kind}.jsonl`), redactSecrets(text, creds.secrets));
       };
 
-      let trial;
+      let trial; let judgeError = null;
       active.set(project, { work, agent: true });
       active.set(judgeProject, { work, agent: false });
       try {
@@ -294,6 +331,7 @@ async function runPrepared({ opts, d, root, setup }) {
         // The local reward rules (null checks, no test command) win over the Harbor ones.
         const merged = applyPostVerification(trial, outcome);
         trial = { ...merged, reward: localReward(merged) };
+        judgeError = [outcome.verifierError === skipVerifier ? null : outcome.verifierError, outcome.reviewError].find(Boolean) ?? null;
       } catch (err) {
         // Finished trials survive a failing one; the run is recorded as aborted, so it is never a baseline.
         if (isInterrupt(err)) throw err;
@@ -309,13 +347,23 @@ async function runPrepared({ opts, d, root, setup }) {
       d.log(`  reward ${trial.reward} · contract ${trial.contract} · acceptance ${trial.acceptance ?? '—'}`);
       // Every later trial would hit the same limit and poison the comparison.
       if (trial.errors?.quota) { aborted = 'quota'; d.error(`✗ usage limit reached in ${id}: run aborted, not a valid baseline`); break; }
+      // A judge that failed (unlike a skipped verifier) left the trial unscored: no verdict to compare, never a baseline.
+      if (judgeError) {
+        aborted = 'judge';
+        error = redactSecrets(`${id}: ${judgeError}`, creds.secrets);
+        d.error(`✗ judge failed in ${error}: run aborted, not a valid baseline`);
+        break;
+      }
     }
 
     const fingerprint = localFingerprint({ image: layer.image, imageId: layer.imageId, e2eImage: layer.tag, cliVersions, baseCommit: head, worktree, dir, config,
       verifierHash: criteria ? verifierHash({ config, criteria }) : null, language: lang, e2eSection: e2eSectionUsed });
     const run = writeRun({ runDir, ticket: opts.ticket, fingerprint, trials, aborted, error });
     let cmp = null;
-    try { cmp = compareWithBaseline({ dir, runDir, run, config, baseline: opts.baseline }); } catch (err) { d.error(`! baseline compare failed: ${err.message}`); }
+    // An aborted run has no complete verdict to compare.
+    if (!aborted) {
+      try { cmp = compareWithBaseline({ dir, runDir, run, config, baseline: opts.baseline }); } catch (err) { d.error(`! baseline compare failed: ${err.message}`); }
+    }
     printSummary(d, run, cmp, runDir);
     return aborted ? 1 : 0;
   } catch (err) {

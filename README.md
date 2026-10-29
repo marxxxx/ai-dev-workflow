@@ -373,6 +373,9 @@ setup detects it from the ticket.
 Under `.adw/e2e/<ticket>/`, commit `ticket.md`, `answers.json` and `acceptance.md`; `runs/` holds the
 per-run records and reports and is git-ignored (the command writes `.adw/e2e/.gitignore`). A run is
 compared with the newest earlier fully replayed run with the same base commit, ticket and harness.
+Before the first trial, one short call per answerer and judge harness and model checks that the model exists and the
+login works, so a misspelled model fails in seconds, not after the agent's trial. A run whose verifier or review fails
+(other than the verifier being skipped) is aborted: it gets no compare verdict and is never a baseline.
 
 Trade-offs: no calibration, one repetition by default, and your first-time answers shape the result, so
 scores are less precise than the Harbor self-test. Variance between identical runs is large: compare

@@ -68,6 +68,7 @@ function stubs(root, over = {}) {
         acceptance: skip ? null : 1, verifierError: skip ?? null, review: { scope: 5 }, reviewReasons: { scope: 'ok' }, reviewError: null };
     }),
     buildLocalTrialRecord: rec('record', (a) => { seen.record = a; return buildLocalTrialRecord({ ...a, deps: DEPS }); }),
+    probeModel: rec('probe', (a) => { (seen.probes ??= []).push(a); }),
     now: () => '2026-10-19T1000Z', clock: () => 0,
     log: (s) => out.push(String(s)), error: (s) => out.push(String(s)),
     onSignal: (h) => { seen.signal = h; return () => { seen.signalOff = true; }; },
@@ -265,7 +266,7 @@ test('runE2e: the order of a first run; the ticket is imported, acceptance draft
   try {
     const s = stubs(root);
     assert.equal(await runE2e(opts(root), s.deps), 0);
-    assert.deepEqual(s.calls, ['image', 'sandbox', 'session', 'makeDecide', 'conversation', 'appListening', 'close', 'collect', 'draft', 'confirm', 'record', 'postVerify']);
+    assert.deepEqual(s.calls, ['image', 'probe', 'sandbox', 'session', 'makeDecide', 'conversation', 'appListening', 'close', 'collect', 'draft', 'confirm', 'record', 'postVerify']);
     const dir = path.join(root, '.adw/e2e/7');
     assert.equal(readFileSync(path.join(dir, 'ticket.md'), 'utf8'), '# Fälligkeitsdatum\n\nTodos bekommen ein Datum, das nicht leer ist und mit der Liste erscheint.\n');
     assert.equal(readFileSync(path.join(root, '.adw/e2e/.gitignore'), 'utf8'), '*/runs/\nlocal.json\n');
@@ -446,6 +447,68 @@ test('runE2e: an error in a later repetition keeps the finished trials in an abo
     assert.ok(downs(s.exec).filter((p) => p.endsWith('-judge')).length >= 2);
     assert.match(s.out.join('\n'), /claude-code-2: docker exploded/);
     assert.match(s.out.join('\n'), /not comparable: aborted \(error\)/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('runE2e: a failing judge aborts the run: not comparable, no baseline compare, no further repetitions', async () => {
+  const root = project();
+  try {
+    const s = stubs(root, { postVerify: (a) => ({ acceptanceCriteria: Object.fromEntries(a.criteria.map((c) => [c.id, null])), acceptanceEvidence: null,
+      acceptance: null, verifierError: 'verifier (claude-code): exit 1: There is an issue with the selected model (opus-5-5)', review: { scope: null },
+      reviewReasons: {}, reviewError: null }) });
+    assert.equal(await runE2e(opts(root, { repetitions: 2 }), s.deps), 1);
+    const run = runJson(root);
+    assert.equal(run.trials.length, 1);
+    assert.equal(run.aborted, 'judge');
+    assert.equal(run.comparable, false);
+    assert.match(run.error, /claude-code-1: verifier \(claude-code\): exit 1: .*opus-5-5/);
+    assert.equal(existsSync(path.join(root, '.adw/e2e/7/runs/2026-10-19T1000Z/claude-code/compare.md')), false);
+    const text = s.out.join('\n');
+    assert.match(text, /✗ judge failed in claude-code-1: verifier \(claude-code\): exit 1/);
+    assert.match(text, /not comparable: aborted \(judge\)/);
+    assert.doesNotMatch(text, /worse|same|better/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('runE2e: a skipped verifier is no judge failure', async () => {
+  const root = project();
+  try {
+    const s = stubs(root, { createSandbox: (a) => {
+      const r = stubs(root).deps.createSandbox(a);
+      writeFileSync(path.join(r.work, 'AGENTS.md'), '# Agents\n');
+      return r;
+    } });
+    assert.equal(await runE2e(opts(root), s.deps), 0);
+    assert.equal(runJson(root).aborted, undefined);
+    assert.match(s.seen.postVerify.skipVerifier, /verifier skipped/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('runE2e: every distinct answerer/judge harness and model is probed once, before the first sandbox', async () => {
+  const root = project({ verifier: { model: 'opus-x' }, review: { model: 'opus-x' } });
+  try {
+    const s = stubs(root);
+    assert.equal(await runE2e(opts(root), s.deps), 0);
+    assert.deepEqual(s.seen.probes.map((p) => [p.harness, p.model]), [['claude-code', null], ['claude-code', 'opus-x']]);
+    assert.ok(s.calls.lastIndexOf('probe') < s.calls.indexOf('sandbox'));
+    assert.ok(s.calls.indexOf('image') < s.calls.indexOf('probe'));
+    const judge = s.seen.probes[1].buildArgs({ name: 'n', checkout: '/c', argv: ['x'] });
+    assert.equal(judge[judge.indexOf('-p') + 1], composeProject(root, '7-2026-10-19T1000Z-probe'));
+    assert.ok(downs(s.exec).includes(composeProject(root, '7-2026-10-19T1000Z-probe')));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('runE2e: a failing probe stops before any trial and names the roles', async () => {
+  const root = project({ verifier: { model: 'opus-5-5' }, review: { model: 'opus-5-5' } });
+  try {
+    const s = stubs(root, { probeModel: ({ model }) => {
+      if (model === 'opus-5-5') throw new Error('probe (claude-code): exit 1: There is an issue with the selected model (opus-5-5)');
+    } });
+    assert.equal(await runE2e(opts(root), s.deps), 1);
+    assert.match(s.out.join('\n'), /✗ preflight: verifier, review use claude-code\/opus-5-5: probe \(claude-code\): exit 1: .*opus-5-5/);
+    assert.equal(s.calls.includes('sandbox'), false);
+    assert.ok(downs(s.exec).includes(composeProject(root, '7-2026-10-19T1000Z-probe')));
+    assert.equal(existsSync(path.join(root, '.adw/e2e/7/runs/2026-10-19T1000Z/claude-code/run.json')), false);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
