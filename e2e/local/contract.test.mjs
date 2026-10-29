@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LOCAL_CONTRACT_CHECKS, evaluateLocalContract, appPortFromAgentsMd, hasE2eSection } from './contract.mjs';
+import { LOCAL_CONTRACT_CHECKS, evaluateLocalContract, appPortFromAgentsMd, e2eSectionOf, hasE2eSection } from './contract.mjs';
 
 const TICKET = [
   '---', 'title: "Add due dates"', 'status: review', '---', '', 'Scope.',
@@ -71,4 +71,10 @@ test('appPortFromAgentsMd reads the port inside the section only', () => {
 test('hasE2eSection', () => {
   assert.equal(hasE2eSection(MD), true);
   assert.equal(hasE2eSection('# P\n## Other\n'), false);
+});
+
+test('e2eSectionOf: the heading through the line before the next ## , trimmed; null without one', () => {
+  assert.equal(e2eSectionOf('# A\n\n## End-to-end testing\n\nx\n\n## Other\n'), '## End-to-end testing\n\nx');
+  assert.equal(e2eSectionOf('## End-to-end testing\n- a\n'), '## End-to-end testing\n- a');
+  assert.equal(e2eSectionOf('# A\n## Other\n'), null);
 });

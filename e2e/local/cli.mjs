@@ -21,7 +21,7 @@ import { appendAnswer, ensureGitignore, newRunDir, readAnswers, readTicket, tick
 import { importTicket } from './ticket-import.mjs';
 import { ensureE2eImage } from './image.mjs';
 import { collectSandbox, createSandbox } from './sandbox.mjs';
-import { appPortFromAgentsMd, evaluateLocalContract, hasE2eSection } from './contract.mjs';
+import { appPortFromAgentsMd, e2eSectionOf, evaluateLocalContract, hasE2eSection } from './contract.mjs';
 import { composeEnv, composeProject, stageCredentials, startSession } from './session.mjs';
 import { askHumanTty, makeDecide, runConversation } from './answerer.mjs';
 import { confirmAcceptance, draftAcceptance, renderAcceptance, spawnEditor } from './acceptance.mjs';
@@ -166,7 +166,7 @@ async function runPrepared({ opts, d, root, setup }) {
 
   const cliVersions = {};
   const trials = [];
-  let aborted = null; let error = null;
+  let aborted = null; let error = null; let e2eSectionUsed = null;
   try {
     const rootEnv = composeEnv({ root, work: root, env: d.env, uid: d.uid, gid: d.gid });
     const layer = d.ensureE2eImage({ root, runDir, composeFiles: [composeFile, ...(rootEnv.AGENT_CA_DIR ? [certsFile] : [])],
@@ -178,7 +178,10 @@ async function runPrepared({ opts, d, root, setup }) {
       const project = composeProject(root, `${opts.ticket}-${ts}-${i}`);
       const judgeProject = composeProject(root, `${opts.ticket}-${ts}-${i}-judge`);
       d.log(`trial ${id}`);
-      const { work, origin } = d.createSandbox({ root, baseCommit: sha, ticket: opts.ticket, ticketText, trialDir });
+      const { work, origin, e2eOverlay } = d.createSandbox({ root, baseCommit: sha, ticket: opts.ticket, ticketText, trialDir,
+        e2eSection: e2eSectionOf(readIf(path.join(root, 'AGENTS.md'))) });
+      if (e2eOverlay) d.log(`  AGENTS.md at ${sha} has no E2E section: using the working tree's`);
+      e2eSectionUsed = e2eSectionOf(readIf(path.join(work, 'AGENTS.md')));
       const judgeEnv = composeEnv({ root, work, env: d.env, uid: d.uid, gid: d.gid });
       // Judge-side containers (answerer, drafting, judges, own tests) share one compose project per trial.
       const buildArgs = (harnesses) => composeRunArgs({ composeFile, certsFile: judgeEnv.AGENT_CA_DIR ? certsFile : null, overrideFile, project: judgeProject,
@@ -289,7 +292,7 @@ async function runPrepared({ opts, d, root, setup }) {
     }
 
     const fingerprint = localFingerprint({ image: layer.image, imageId: layer.imageId, e2eImage: layer.tag, cliVersions, baseCommit: sha, dir, config,
-      verifierHash: criteria ? verifierHash({ config, criteria }) : null, language: lang });
+      verifierHash: criteria ? verifierHash({ config, criteria }) : null, language: lang, e2eSection: e2eSectionUsed });
     const run = writeRun({ runDir, ticket: opts.ticket, fingerprint, trials, aborted, error });
     let cmp = null;
     try { cmp = compareWithBaseline({ dir, runDir, run, config, baseline: opts.baseline }); } catch (err) { d.error(`! baseline compare failed: ${err.message}`); }

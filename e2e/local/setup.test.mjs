@@ -4,7 +4,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, wri
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createScriptedPrompter } from '../../agent-src/lib/onboard.mjs';
-import { detectTestCommand, e2eChanges, makePrompter, ownComposeRun, projectVolume, runSetup, stepContainerFiles, stepEnvValues, stepInterview, stepLogins, stepProjectConfig, stepTicket } from './setup.mjs';
+import { detectTestCommand, e2eChanges, makePrompter, ownComposeRun, projectVolume, runSetup, renderE2eSection, stepContainerFiles, stepE2eSection, stepEnvValues, stepInterview, stepLogins, stepProjectConfig, stepTicket } from './setup.mjs';
+import { composeProject } from './session.mjs';
 import { readTicket, ticketDir, writeTicket } from './store.mjs';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'adw-setup-'));
@@ -479,4 +480,78 @@ test('stepEnvValues: names already set (env file, process env) are not asked; no
   await stepEnvValues({ root: g.root, opts: {}, d: g.d, prompter: g.prompter, state: { envAdditions: {} } });
   assert.deepEqual(g.spy, []);
   assert.equal(envFile(g.root), null);
+});
+
+test('renderE2eSection: the heading and four lines in order', () => {
+  assert.equal(renderE2eSection({ start: 'npm start', ready: 'port 3000 listens', url: 'http://localhost:3000', stop: 'npm run stop' }),
+    '## End-to-end testing\n\n- Start: npm start\n- Ready when: port 3000 listens\n- Base URL: http://localhost:3000\n- Stop: npm run stop');
+});
+
+const e2eFixture = (agentsMd = '# P\n') => {
+  const root = tmp();
+  writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' } }));
+  if (agentsMd !== null) writeFileSync(path.join(root, 'AGENTS.md'), agentsMd);
+  const out = [];
+  const d = { log: (s) => out.push(String(s)), error() {}, env: {}, exec: () => ({ status: 0 }), callLlm: () => { throw new Error('no llm'); } };
+  const state = { envAdditions: {}, ticketText: { title: 'T', body: 'b' },
+    config: { language: 'en', answerer: { harness: 'claude-code', model: null, timeoutSec: 60 }, env: [] }, creds: { envNames: [], authFiles: [] } };
+  return { root, out, d, state, draft: path.join(root, '.adw', 'e2e', 'agents-e2e-section.md'),
+    run: (answers, over = {}) => stepE2eSection({ root, opts: {}, d: { ...d, ...over.d }, prompter: over.prompter === undefined ? createScriptedPrompter(answers) : over.prompter, state: over.state ?? state }) };
+};
+
+test('stepE2eSection: [a]sk writes the four lines, accepted, to AGENTS.md and deletes the draft', async () => {
+  const f = e2eFixture();
+  await f.run({ setup: { e2eSection: 'a', e2eSectionConfirm: 'a', e2e: { start: 'npm start', ready: 'up', url: 'http://localhost:3000', stop: 'npm stop' } } });
+  assert.equal(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'),
+    `# P\n\n${renderE2eSection({ start: 'npm start', ready: 'up', url: 'http://localhost:3000', stop: 'npm stop' })}\n`);
+  assert.equal(existsSync(f.draft), false);
+  assert.match(f.out.join('\n'), /Commit AGENTS\.md so later base commits include it; \/init in your coding agent writes the rest of the file\./);
+  rmSync(f.root, { recursive: true });
+});
+
+test('stepE2eSection: AGENTS.md is created when missing', async () => {
+  const f = e2eFixture(null);
+  await f.run({ setup: { e2eSection: 'a', e2eSectionConfirm: 'a', e2e: { start: 's', ready: 'r', url: 'u', stop: 'x' } } });
+  assert.match(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), /^## End-to-end testing\n\n- Start: s\n/);
+  rmSync(f.root, { recursive: true });
+});
+
+test('stepE2eSection: scripted default, a missing confirm, a present section, no prompter or no config change nothing', async () => {
+  const f = e2eFixture();
+  await f.run({});
+  await f.run({ setup: { e2eSection: 'a', e2e: { start: 's', ready: 'r', url: 'u', stop: 'x' } } });
+  assert.equal(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), '# P\n');
+  assert.equal(existsSync(f.draft), false);
+  await f.run({ setup: { e2eSection: 'a', e2eSectionConfirm: 'a' } }, { prompter: null });
+  await f.run({ setup: { e2eSection: 'a', e2eSectionConfirm: 'a' } }, { state: { ...f.state, config: null } });
+  writeFileSync(path.join(f.root, 'AGENTS.md'), '## End-to-end testing\n\nown\n');
+  await f.run({ setup: { e2eSection: 'a', e2eSectionConfirm: 'a', e2e: { start: 's', ready: 'r', url: 'u', stop: 'x' } } });
+  assert.equal(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), '## End-to-end testing\n\nown\n');
+  rmSync(f.root, { recursive: true });
+});
+
+test('stepE2eSection: [d]raft calls the LLM read-only in the setup compose project and appends its section', async () => {
+  const f = e2eFixture();
+  let seen;
+  const section = renderE2eSection({ start: 'make run', ready: 'ok', url: 'http://localhost:1', stop: 'make stop' });
+  await f.run({ setup: { e2eSection: 'd', e2eSectionConfirm: 'a' } }, { d: { callLlm: (a) => { seen = a; return { section }; } } });
+  assert.equal(seen.role, 'agents-e2e');
+  assert.equal(seen.harness, 'claude-code');
+  assert.equal(seen.tools, 'read');
+  assert.equal(seen.readOnly, true);
+  assert.equal(seen.checkout, f.root);
+  assert.match(seen.input, /Reply in English|English/);
+  assert.match(seen.input, /\{"section":/);
+  const argv = seen.buildArgs({ name: 'n', checkout: f.root, readOnly: true, argv: ['x'] });
+  assert.ok(argv.includes('-p'));
+  assert.ok(argv.includes(composeProject(f.root, 'setup')));
+  assert.match(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), /- Start: make run/);
+  rmSync(f.root, { recursive: true });
+});
+
+test('stepE2eSection: a failed draft is reported and writes nothing', async () => {
+  const f = e2eFixture();
+  await f.run({ setup: { e2eSection: 'd', e2eSectionConfirm: 'a' } }, { d: { callLlm: () => ({ section: 'no heading' }) } });
+  assert.equal(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), '# P\n');
+  rmSync(f.root, { recursive: true });
 });

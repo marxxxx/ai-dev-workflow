@@ -1,5 +1,6 @@
 // Trial records, run.json, report.md and the baseline compare for local runs (adw e2e).
 // Same record and run shape as the Harbor self-test, so summary, report and compare are shared.
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,7 +51,7 @@ export function buildLocalTrialRecord({ id, harness, trialDir, config, criteria,
 
 // `root` is the adw package root. Every role's harness, model and CLI version is part of it, so a
 // role change shows up in the fingerprint diff; ticket, answers and acceptance are file hashes.
-export function localFingerprint({ root = PACKAGE_ROOT, image, imageId, e2eImage = null, cliVersions, baseCommit, dir, config, verifierHash, language }) {
+export function localFingerprint({ root = PACKAGE_ROOT, image, imageId, e2eImage = null, cliVersions, baseCommit, dir, config, verifierHash, language, e2eSection = null }) {
   const roles = Object.fromEntries(ROLES.map((r) => [r, { harness: config[r].harness, model: config[r].model ?? null,
     cliVersion: cliVersions[config[r].harness] ?? null }]));
   return {
@@ -58,7 +59,7 @@ export function localFingerprint({ root = PACKAGE_ROOT, image, imageId, e2eImage
     baseCommit, image: { ref: image, id: imageId, e2e: e2eImage }, roles,
     models: { target: roleName(roles.agent), answerer: roleName(roles.answerer), verifier: roleName(roles.verifier), review: roleName(roles.review) },
     ticket: hashIfAny(path.join(dir, 'ticket.md')), answers: hashIfAny(path.join(dir, 'answers.json')),
-    acceptance: hashIfAny(path.join(dir, 'acceptance.md')), verifierHash, language, config: configHash(config),
+    acceptance: hashIfAny(path.join(dir, 'acceptance.md')), verifierHash, language, e2eSection: e2eSection ? createHash('sha256').update(e2eSection).digest('hex') : null, config: configHash(config),
   };
 }
 

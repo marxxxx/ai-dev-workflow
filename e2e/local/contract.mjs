@@ -28,14 +28,18 @@ export function evaluateLocalContract({ ticket, ticketFile, branches, prs = [], 
   };
 }
 
-export const hasE2eSection = (markdown) => /^## End-to-end testing\s*$/mi.test(markdown);
-
-// First local app URL's port inside the `## End-to-end testing` section (up to the next `## `).
-export function appPortFromAgentsMd(markdown) {
+// The `## End-to-end testing` heading through the line before the next `## ` (or the end), trimmed; null without one.
+export function e2eSectionOf(markdown) {
   const start = /^## End-to-end testing\s*$/mi.exec(markdown);
   if (!start) return null;
   const rest = markdown.slice(start.index + start[0].length);
-  const section = rest.split(/^## /m)[0];
-  const m = /http:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d+)/.exec(section);
+  return (start[0] + rest.split(/^## /m)[0]).trim();
+}
+
+export const hasE2eSection = (markdown) => e2eSectionOf(markdown) !== null;
+
+// First local app URL's port inside the E2E section.
+export function appPortFromAgentsMd(markdown) {
+  const m = /http:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d+)/.exec(e2eSectionOf(markdown) ?? '');
   return m ? Number(m[1]) : null;
 }

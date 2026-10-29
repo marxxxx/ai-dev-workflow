@@ -206,6 +206,7 @@ test('runE2e: the order of a first run; the ticket is imported, acceptance draft
     assert.equal(s.seen.record.config.appPort, 3000);
     const run = runJson(root);
     assert.equal(run.fingerprint.baseCommit, 'abc123');
+    assert.match(run.fingerprint.e2eSection, /^[0-9a-f]{64}$/);
     assert.equal(run.fingerprint.roles.agent.cliVersion, 'claude-code 1.0');
     assert.equal(run.trials[0].acceptance, 1);
     assert.equal(run.trials[0].reward, 1);

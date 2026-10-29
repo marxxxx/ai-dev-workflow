@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseCriteria } from '../lib/criteria.mjs';
-import { buildDraftPrompt, confirmAcceptance, draftAcceptance, renderAcceptance } from './acceptance.mjs';
+import { buildDraftPrompt, confirmAcceptance, confirmDraft, draftAcceptance, renderAcceptance } from './acceptance.mjs';
 
 const CRITERIA = [{ id: 'AC1', text: 'A todo can get a due date.' }, { id: 'AC2', text: 'Filter "a | b" works.' }];
 const tmpFile = () => join(mkdtempSync(join(tmpdir(), 'acc-')), 'acceptance.md');
@@ -71,4 +71,12 @@ test('a prompt that throws (Ctrl-C) removes the unconfirmed draft and propagates
   const err = Object.assign(new Error('interrupted'), { interrupted: true });
   await assert.rejects(confirmAcceptance({ draft: renderAcceptance('T', CRITERIA), file, prompt: async () => { throw err; }, editor: () => {} }), err);
   assert.equal(existsSync(file), false);
+});
+
+test('confirmDraft: a parse that throws re-asks with the error as the note; label names the thing', async () => {
+  const file = tmpFile(); const p = replies('e', 'a');
+  const parse = (t) => { if (t !== 'good') throw new Error('not good'); return t; };
+  const out = await confirmDraft({ draft: 'bad', file, prompt: p.fn, editor: (f) => writeFileSync(f, 'good'), parse, label: 'Thing' });
+  assert.equal(out, 'good');
+  assert.match(p.asked[0], /Thing in /);
 });

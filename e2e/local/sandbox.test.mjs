@@ -107,3 +107,23 @@ test('collectSandbox: no branch gives no bundle, one branch gives a bundleBranch
     assert.deepEqual(collectSandbox({ ...sb, ticket: 7 }).prs, [{ tool: 'gh', branch: 'feat/7', draft: true, title: '7: F' }]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('e2eSection: overlaid and committed when the base commit has none, untouched when it has one', () => {
+  const section = '## End-to-end testing\n\n- Start: x';
+  const a = makeRepo(AZURE);
+  const b = makeRepo(AZURE);
+  try {
+    writeFileSync(path.join(b.root, 'AGENTS.md'), '# A\n\n## End-to-end testing\n\n- Start: own\n');
+    g(['add', '-A'], b.root);
+    g([...COMMIT, 'commit', '-qm', 'agents'], b.root);
+    const r1 = createSandbox({ root: a.root, baseCommit: a.base, ticket: 7, ticketText: TICKET, trialDir: path.join(a.dir, 'trial'), e2eSection: section });
+    assert.equal(r1.e2eOverlay, true);
+    assert.match(readFileSync(path.join(r1.work, 'AGENTS.md'), 'utf8'), /## End-to-end testing\n\n- Start: x\n$/);
+    assert.match(g(['show', 'main:AGENTS.md'], r1.origin), /- Start: x/);
+    const r2 = createSandbox({ root: b.root, baseCommit: g(['rev-parse', 'HEAD'], b.root), ticket: 7, ticketText: TICKET, trialDir: path.join(b.dir, 'trial'), e2eSection: section });
+    assert.equal(r2.e2eOverlay, false);
+    assert.match(readFileSync(path.join(r2.work, 'AGENTS.md'), 'utf8'), /Start: own/);
+    const r3 = createSandbox({ root: a.root, baseCommit: a.base, ticket: 7, ticketText: TICKET, trialDir: path.join(a.dir, 'trial3') });
+    assert.equal(r3.e2eOverlay, false);
+  } finally { rmSync(a.dir, { recursive: true, force: true }); rmSync(b.dir, { recursive: true, force: true }); }
+});

@@ -64,25 +64,28 @@ export function spawnEditor(file) {
   if (r.error) throw r.error;
 }
 
-// `draft` is the rendered markdown, `prompt` is (question) => Promise<string>. Returns the accepted criteria,
-// or null when skipped (the file is deleted: no verifier this run). A confirmation that throws (Ctrl-C) removes
-// a draft it created, so a later run never trusts unconfirmed criteria.
-export async function confirmAcceptance({ draft, file, prompt, editor = spawnEditor }) {
+// `draft` is the rendered markdown, `prompt` is (question) => Promise<string>, `parse` turns the file's text into the
+// result or throws (its message is shown and the human asked again). Returns the accepted result, or null when
+// skipped (the file is deleted). A confirmation that throws (Ctrl-C) removes a draft it created, so a later run
+// never trusts unconfirmed content. `label` names what is confirmed.
+export async function confirmDraft({ draft, file, prompt, editor = spawnEditor, parse, label }) {
   mkdirSync(dirname(file), { recursive: true });
   const existed = existsSync(file);
   writeFileSync(file, draft);
   try {
     let note = '';
     for (;;) {
-      const answer = String(await prompt(`${note}Acceptance criteria in ${file}: [a]ccept / [e]dit / [s]kip? `)).trim().toLowerCase();
+      const answer = String(await prompt(`${note}${label} in ${file}: [a]ccept / [e]dit / [s]kip? `)).trim().toLowerCase();
       note = '';
       if (answer === 's' || answer === 'skip') { rmSync(file, { force: true }); return null; }
       if (answer === 'e' || answer === 'edit') await editor(file);
       else if (answer !== 'a' && answer !== 'accept') { note = 'Please answer a, e or s. '; continue; }
-      try { return parseCriteria(readFileSync(file, 'utf8')); } catch (err) { note = `${err.message}. `; }
+      try { return parse(readFileSync(file, 'utf8')); } catch (err) { note = `${err.message}. `; }
     }
   } catch (err) {
     if (!existed) rmSync(file, { force: true });
     throw err;
   }
 }
+
+export const confirmAcceptance = (args) => confirmDraft({ ...args, parse: parseCriteria, label: 'Acceptance criteria' });

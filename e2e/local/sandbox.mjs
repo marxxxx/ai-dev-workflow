@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { ISOLATE, COMMIT } from '../lib/bundle.mjs';
 import { renderAll, writeAll } from '../../agent-src/lib/pipeline.mjs';
 import { removeObsoleteOutputs } from '../../agent-src/lib/upgrade.mjs';
+import { e2eSectionOf } from './contract.mjs';
 
 const TEMPLATE = path.join(fileURLToPath(new URL('../../agent-src/config/', import.meta.url)), 'ai-project.template.json');
 const defaultGit = (args) => execFileSync('git', [...ISOLATE, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 256 * 1024 * 1024 });
@@ -27,7 +28,7 @@ function sandboxConfig(work, root) {
   };
 }
 
-export function createSandbox({ root, baseCommit, ticket, ticketText, trialDir, git = defaultGit }) {
+export function createSandbox({ root, baseCommit, ticket, ticketText, trialDir, e2eSection = null, git = defaultGit }) {
   const work = path.join(trialDir, 'work');
   const origin = path.join(trialDir, 'origin.git');
   mkdirSync(trialDir, { recursive: true });
@@ -61,12 +62,18 @@ export function createSandbox({ root, baseCommit, ticket, ticketText, trialDir, 
   console.log = () => {};
   try { writeAll(outputs, work); } finally { console.log = log; }
 
+  // A base commit older than the project's AGENTS.md section gets the working tree's, so the verifier can run the app.
+  const agentsFile = path.join(work, 'AGENTS.md');
+  const agents = existsSync(agentsFile) ? readFileSync(agentsFile, 'utf8') : '';
+  const e2eOverlay = Boolean(e2eSection) && e2eSectionOf(agents) === null;
+  if (e2eOverlay) writeFileSync(agentsFile, `${agents}${agents === '' || agents.endsWith('\n\n') ? '' : agents.endsWith('\n') ? '\n' : '\n\n'}${e2eSection}\n`);
+
   git(['-C', work, 'add', '-A']);
   git([...COMMIT, '-C', work, 'commit', '-q', '-m', 'e2e setup']);
   git(['-C', work, 'push', '-q', 'origin', 'main']);
   mkdirSync(path.join(work, '.git', 'info'), { recursive: true });
   appendFileSync(path.join(work, '.git', 'info', 'exclude'), '.acpxrc.json\n');
-  return { work, origin };
+  return { work, origin, e2eOverlay };
 }
 
 export function collectSandbox({ work, origin, ticket, git = defaultGit }) {
