@@ -491,11 +491,11 @@ const e2eFixture = (agentsMd = '# P\n') => {
   const root = tmp();
   writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' } }));
   if (agentsMd !== null) writeFileSync(path.join(root, 'AGENTS.md'), agentsMd);
-  const out = [];
-  const d = { log: (s) => out.push(String(s)), error() {}, env: {}, exec: () => ({ status: 0 }), callLlm: () => { throw new Error('no llm'); } };
+  const out = []; const errors = []; const execs = [];
+  const d = { log: (s) => out.push(String(s)), error: (s) => errors.push(String(s)), env: {}, exec: (c, a) => { execs.push(a); return { status: 0 }; }, callLlm: () => { throw new Error('no llm'); } };
   const state = { envAdditions: {}, ticketText: { title: 'T', body: 'b' },
     config: { language: 'en', answerer: { harness: 'claude-code', model: null, timeoutSec: 60 }, env: [] }, creds: { envNames: [], authFiles: [] } };
-  return { root, out, d, state, draft: path.join(root, '.adw', 'e2e', 'agents-e2e-section.md'),
+  return { root, out, errors, execs, d, state, draft: path.join(root, '.adw', 'e2e', 'agents-e2e-section.md'),
     run: (answers, over = {}) => stepE2eSection({ root, opts: {}, d: { ...d, ...over.d }, prompter: over.prompter === undefined ? createScriptedPrompter(answers) : over.prompter, state: over.state ?? state }) };
 };
 
@@ -540,12 +540,13 @@ test('stepE2eSection: [d]raft calls the LLM read-only in the setup compose proje
   assert.equal(seen.tools, 'read');
   assert.equal(seen.readOnly, true);
   assert.equal(seen.checkout, f.root);
-  assert.match(seen.input, /Reply in English|English/);
+  assert.match(seen.input, /Four parts, in English:/);
   assert.match(seen.input, /\{"section":/);
   const argv = seen.buildArgs({ name: 'n', checkout: f.root, readOnly: true, argv: ['x'] });
   assert.ok(argv.includes('-p'));
   assert.ok(argv.includes(composeProject(f.root, 'setup')));
   assert.match(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), /- Start: make run/);
+  assert.deepEqual(f.execs.find((a) => a.includes('down')), ['compose', '-f', path.join(f.root, 'compose.ai-dev.yml'), '-p', composeProject(f.root, 'setup'), 'down', '-v']);
   rmSync(f.root, { recursive: true });
 });
 
@@ -553,5 +554,15 @@ test('stepE2eSection: a failed draft is reported and writes nothing', async () =
   const f = e2eFixture();
   await f.run({ setup: { e2eSection: 'd', e2eSectionConfirm: 'a' } }, { d: { callLlm: () => ({ section: 'no heading' }) } });
   assert.equal(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), '# P\n');
+  assert.match(f.errors.join('\n'), /! AGENTS\.md draft failed/);
+  assert.equal(existsSync(f.draft), false);
+  rmSync(f.root, { recursive: true });
+});
+
+test('stepE2eSection: a scripted confirm answer other than a, e or s skips instead of looping', async () => {
+  const f = e2eFixture();
+  await f.run({ setup: { e2eSection: 'a', e2eSectionConfirm: 'y', e2e: { start: 's', ready: 'r', url: 'u', stop: 'x' } } });
+  assert.equal(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), '# P\n');
+  assert.equal(existsSync(f.draft), false);
   rmSync(f.root, { recursive: true });
 });

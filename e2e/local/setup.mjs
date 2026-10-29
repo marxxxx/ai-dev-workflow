@@ -289,9 +289,16 @@ Rules:
 
 Output JSON only: {"section":"## End-to-end testing\\n\\n- Start: …\\n- Ready when: …\\n- Base URL: …\\n- Stop: …"}
 `;
-  const out = (d.callLlm ?? callLlm)({ role: 'agents-e2e', harness: answerer.harness, model: answerer.model, tools: 'read', readOnly: true, checkout: root,
-    input, buildArgs, name: `${composeProject(root, 'setup')}-agents-e2e`, timeoutMs: answerer.timeoutSec * 1000,
-    run: (cmd, args, o = {}) => d.exec(cmd, args, { ...o, env: { ...o.env, ...env } }) });
+  const project = composeProject(root, 'setup');
+  let out;
+  try {
+    out = (d.callLlm ?? callLlm)({ role: 'agents-e2e', harness: answerer.harness, model: answerer.model, tools: 'read', readOnly: true, checkout: root,
+      input, buildArgs, name: `${project}-agents-e2e`, timeoutMs: answerer.timeoutSec * 1000,
+      run: (cmd, args, o = {}) => d.exec(cmd, args, { ...o, env: { ...o.env, ...env } }) });
+  } finally {
+    // The run created the setup project's network and agent-home volume.
+    d.exec('docker', ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), ...(env.AGENT_CA_DIR ? ['-f', certsFile] : []), '-p', project, 'down', '-v'], { env, encoding: 'utf8' });
+  }
   if (typeof out?.section !== 'string' || e2eSectionOf(out.section) === null) throw new Error('the draft has no "## End-to-end testing" section');
   return e2eSectionOf(out.section);
 }
@@ -327,8 +334,15 @@ export async function stepE2eSection({ root, opts, d, prompter, state }) {
       return;
     }
   } else return;
+  // A scripted prompter repeats one answer: the second invalid one in a row skips instead of looping.
+  let invalid = 0;
+  const confirm = async (q) => {
+    const answer = await prompter.ask(q, 'setup.e2eSectionConfirm', prompter.scripted ? 's' : '');
+    if (!prompter.scripted || /^(a|accept|e|edit|s|skip)$/i.test(String(answer).trim())) return answer;
+    return ++invalid >= 2 ? 's' : answer;
+  };
   const section = await confirmDraft({ draft: `${draft}\n`, file: path.join(root, '.adw', 'e2e', 'agents-e2e-section.md'), parse: requireSection,
-    label: 'E2E section', editor: d.editor ?? spawnEditor, prompt: (q) => prompter.ask(q, 'setup.e2eSectionConfirm', prompter.scripted ? 's' : '') });
+    label: 'E2E section', editor: d.editor ?? spawnEditor, prompt: confirm });
   if (section === null) return;
   writeFileSync(agentsFile, `${current}${current === '' || current.endsWith('\n\n') ? '' : current.endsWith('\n') ? '\n' : '\n\n'}${section}\n`);
   rmSync(path.join(root, '.adw', 'e2e', 'agents-e2e-section.md'), { force: true });
