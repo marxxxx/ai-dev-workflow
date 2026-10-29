@@ -82,7 +82,11 @@ test('parseE2eArgs: positionals and flags; the harness is optional', () => {
   assert.deepEqual(parseE2eArgs(['abc', '7', 'codex', '--repetitions', '2', '--model', 'm', '--ticket-file', 'i.md', '--baseline', 'b', '--root', '/p']),
     { baseCommit: 'abc', ticket: 7, harness: 'codex', repetitions: 2, model: 'm', ticketFile: 'i.md', baseline: 'b', root: '/p' });
   assert.deepEqual(parseE2eArgs(['HEAD', '12']),
-    { baseCommit: 'HEAD', ticket: 12, harness: null, repetitions: 1, model: null, ticketFile: null, baseline: null, root: process.cwd() });
+    { baseCommit: 'HEAD', ticket: 12, harness: null, repetitions: 1, model: null, ticketFile: null, baseline: null, root: null });
+});
+
+test('parseE2eArgs: root is null without --root', () => {
+  assert.equal(parseE2eArgs(['HEAD', '7']).root, null);
 });
 
 test('parseE2eArgs: usage errors', () => {
@@ -399,4 +403,41 @@ test('judge-side compose calls (answerer, judges, own tests, teardown) use the e
     assert.ok(compose.some((c) => c.argv.includes('bash')) && compose.some((c) => c.argv.includes('down')));
     for (const c of compose) assert.equal(c.argv[c.argv.indexOf('-p') - 1], '/run/o.yml', c.argv.join(' '));
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('runE2e resolves the root from git toplevel', async () => {
+  const root = project(); const sub = path.join(root, 'sub'); mkdirSync(sub);
+  const { deps, calls, exec, out } = stubs(root, { cwd: sub });
+  const base = deps.exec;
+  deps.exec = (cmd, args, o) => (cmd === 'git' && args.includes('--show-toplevel') ? { status: 0, stdout: `${root}\n`, stderr: '' } : base(cmd, args, o));
+  assert.equal(await runE2e(opts(root, { root: null }), deps), 0, out.join('\n'));
+  assert.ok(calls.includes('sandbox'));
+  assert.ok(exec.some((c) => c.argv.includes('rev-parse') && c.argv.includes(root)));
+});
+
+test('runE2e falls back to cwd when git finds no toplevel', async () => {
+  const root = project();
+  const { deps, calls, out } = stubs(root, { cwd: root });
+  const base = deps.exec;
+  deps.exec = (cmd, args, o) => (cmd === 'git' && args.includes('--show-toplevel') ? { status: 128, stdout: '', stderr: 'not a git repo' } : base(cmd, args, o));
+  assert.equal(await runE2e(opts(root, { root: null }), deps), 0, out.join('\n'));
+  assert.ok(calls.includes('sandbox'));
+});
+
+test('preflight reads .env.ai-dev', async () => {
+  const root = project();
+  writeFileSync(path.join(root, '.env.ai-dev'), 'CLAUDE_CODE_OAUTH_TOKEN=file-tok\n');
+  const { deps, out, seen } = stubs(root, { env: { PATH: process.env.PATH } });
+  assert.equal(await runE2e(opts(root), deps), 0, out.join('\n'));
+  assert.ok(!out.some((l) => l.includes('✗ preflight')), out.join('\n'));
+  seen.decide.onStdout('{"leak":"file-tok"}\n');
+  assert.ok(!readFileSync(path.join(root, '.adw/e2e/7/runs/2026-10-19T1000Z/claude-code/claude-code-1/answerer.jsonl'), 'utf8').includes('file-tok'));
+});
+
+test('e2e.env value from .env.ai-dev passes preflight', async () => {
+  const root = project({ env: ['AZ_KEY'] });
+  writeFileSync(path.join(root, '.env.ai-dev'), 'AZ_KEY=x\n');
+  const { deps, out } = stubs(root);
+  await runE2e(opts(root), deps);
+  assert.ok(!out.some((l) => l.includes('e2e.env: AZ_KEY is not set')), out.join('\n'));
 });

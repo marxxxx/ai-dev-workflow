@@ -48,7 +48,7 @@ export function parseE2eArgs(argv) {
   if (harness !== null && !HARNESSES.includes(harness)) throw usageError(`unknown harness "${harness}" (${HARNESSES.join(', ')})`);
   if (v.repetitions !== undefined && !/^[1-9]\d*$/.test(v.repetitions)) throw usageError(`--repetitions must be a positive integer, got "${v.repetitions}"`);
   return { baseCommit, ticket: Number(ticket), harness, repetitions: Number(v.repetitions ?? 1), model: v.model ?? null,
-    ticketFile: v['ticket-file'] ?? null, baseline: v.baseline ?? null, root: v.root ?? process.cwd() };
+    ticketFile: v['ticket-file'] ?? null, baseline: v.baseline ?? null, root: v.root ?? null };
 }
 
 // One line typed on the terminal (the acceptance confirmation). Not a TTY readline, so Ctrl-C stays a SIGINT.
@@ -66,7 +66,7 @@ function onSignal(handler) {
 }
 
 const DEFAULT_DEPS = {
-  env: process.env, home: homedir(), uid: process.getuid?.() ?? 1000, gid: process.getgid?.() ?? 1000,
+  env: process.env, cwd: process.cwd(), home: homedir(), uid: process.getuid?.() ?? 1000, gid: process.getgid?.() ?? 1000,
   exec: (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts }),
   importTicket, ensureE2eImage, createSandbox, collectSandbox, startSession, makeDecide, runConversation, askHuman: askHumanTty(),
   draftAcceptance, confirmAcceptance, prompt: promptLine, postVerify, buildLocalTrialRecord,
@@ -74,16 +74,16 @@ const DEFAULT_DEPS = {
 };
 
 // Every problem that would stop the run later, found before any container starts.
-function preflight({ root, config, baseCommit, d }) {
+function preflight({ root, config, baseCommit, d, env }) {
   const problems = [];
   const docker = d.exec('docker', ['version', '--format', '{{.Server.Version}}']);
   if (docker.error || docker.status !== 0) problems.push('docker not found or not running');
   if (!existsSync(path.join(root, 'compose.ai-dev.yml'))) problems.push(`${path.join(root, 'compose.ai-dev.yml')} not found: run adw init and write the container files`);
-  const creds = stageCredentials({ harnesses: ROLES.map((r) => config[r].harness), env: d.env, home: d.home });
+  const creds = stageCredentials({ harnesses: ROLES.map((r) => config[r].harness), env, home: d.home });
   for (const role of ROLES) {
     for (const m of creds.missing.filter((x) => x.harness === config[role].harness)) problems.push(`${role} uses ${m.harness}: ${m.what} not found`);
   }
-  for (const name of config.env) if (!d.env[name]) problems.push(`e2e.env: ${name} is not set`);
+  for (const name of config.env) if (!env[name]) problems.push(`e2e.env: ${name} is not set`);
   const git = d.exec('git', ['-C', root, 'rev-parse', '--verify', `${baseCommit}^{commit}`]);
   const sha = git.status === 0 ? String(git.stdout).trim() : null;
   if (!sha) problems.push(`base commit ${baseCommit} does not resolve`);
@@ -96,15 +96,19 @@ const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 
 export async function runE2e(opts, deps = {}) {
   const d = { ...DEFAULT_DEPS, ...deps };
-  const root = path.resolve(opts.root);
+  // Without --root the project is the git toplevel of the working directory, so adw e2e works from any subdirectory.
+  const top = opts.root ? null : d.exec('git', ['-C', d.cwd, 'rev-parse', '--show-toplevel']);
+  const root = path.resolve(opts.root ?? (top.status === 0 ? String(top.stdout).trim() : d.cwd));
   const config = loadLocalConfig(root, { harness: opts.harness ?? undefined, model: opts.model ?? undefined });
-  const { problems, creds, sha } = preflight({ root, config, baseCommit: opts.baseCommit, d });
+  // Same sources as the containers: `.env.ai-dev` under the process env.
+  const env = composeEnv({ root, work: root, env: d.env, uid: d.uid, gid: d.gid });
+  const { problems, creds, sha } = preflight({ root, config, baseCommit: opts.baseCommit, d, env });
   if (problems.length) {
     for (const p of problems) d.error(`✗ preflight: ${p}`);
     return 1;
   }
   // Only the values of e2e.secretEnv names are scrubbed and redacted like logins; other e2e.env values stay readable.
-  creds.secrets.push(...config.secretEnv.map((n) => d.env[n]).filter(Boolean));
+  creds.secrets.push(...config.secretEnv.map((n) => env[n]).filter(Boolean));
   for (const r of ROLES) d.log(`${r.padEnd(9)} ${config[r].harness}/${config[r].model ?? 'default'}`);
   const self = selfJudged(config);
   if (self.length) d.log(`! ${self.join(', ')} judge with the agent's own harness and model: self-judging`);
