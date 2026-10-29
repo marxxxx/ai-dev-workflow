@@ -488,7 +488,10 @@ test('runE2e: every distinct answerer/judge harness and model is probed once, be
   const root = project({ verifier: { model: 'opus-x' }, review: { model: 'opus-x' } });
   try {
     const s = stubs(root);
+    const mounted = [];
+    s.deps.probeModel = (a) => { mounted.push(existsSync(path.join(a.checkout, 'n_m'))); s.calls.push('probe'); (s.seen.probes ??= []).push(a); };
     assert.equal(await runE2e(opts(root), s.deps), 0);
+    assert.deepEqual(mounted, [true, true], 'the volume mount points exist in the read-only probe checkout');
     assert.deepEqual(s.seen.probes.map((p) => [p.harness, p.model]), [['claude-code', null], ['claude-code', 'opus-x']]);
     assert.ok(s.calls.lastIndexOf('probe') < s.calls.indexOf('sandbox'));
     assert.ok(s.calls.indexOf('image') < s.calls.indexOf('probe'));

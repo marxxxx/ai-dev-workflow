@@ -48,7 +48,7 @@ function stripAgentSettings(dir) {
 // The judges' compose service may mount volumes inside /workspace (adw e2e: image.mjs mountPoints). Their mount points are
 // mostly gitignored (node_modules), so a fresh checkout lacks them, and Docker cannot create them in the review's read-only
 // /workspace. Created only inside the checkout: a path leaving it, or running through a committed symlink, is skipped.
-function createMountPoints(dir, mountPoints) {
+export function createMountPoints(dir, mountPoints) {
   for (const { path: rel, file } of mountPoints) {
     const parts = path.posix.normalize(rel).split('/').filter(Boolean);
     if (path.posix.isAbsolute(rel) || parts.includes('..')) continue;

@@ -12,7 +12,7 @@ import { parseCriteria } from '../lib/criteria.mjs';
 import { median } from '../lib/summary.mjs';
 import { redactSecrets } from '../lib/secrets.mjs';
 import { applyPostVerification, emptyOutcome } from '../lib/trial.mjs';
-import { postVerify, verifierHash } from '../lib/postverify.mjs';
+import { createMountPoints, postVerify, verifierHash } from '../lib/postverify.mjs';
 import { cmdInit } from '../../agent-src/lib/onboard.mjs';
 import { cleanupSetup, makePrompter, newSetupState, runSetup } from './setup.mjs';
 import { detectLanguage, textsFor } from './language.mjs';
@@ -186,7 +186,7 @@ async function runPrepared({ opts, d, root, setup }) {
     uid: d.uid, gid: d.gid, envNames: [...config.env, ...creds.envNames],
     authMounts: creds.authFiles.filter((f) => harnesses.includes(f.harness)).map((f) => `${f.from}:${f.to}`) });
   // Probes every distinct answerer/judge harness and model in its own compose project; returns the first failure, or null.
-  const probeModels = () => {
+  const probeModels = (mountPoints) => {
     const pairs = new Map();
     for (const r of ['answerer', 'verifier', 'review']) {
       const key = `${config[r].harness}/${config[r].model ?? 'default'}`;
@@ -195,6 +195,8 @@ async function runPrepared({ opts, d, root, setup }) {
     const project = composeProject(root, `${opts.ticket}-${ts}-probe`);
     const checkout = path.join(runDir, 'probe');
     mkdirSync(checkout, { recursive: true });
+    // Like the judges' checkouts: Docker cannot create the service's volume mount points in a read-only /workspace.
+    createMountPoints(checkout, mountPoints);
     const env = composeEnv({ root, work: checkout, env: d.env, uid: d.uid, gid: d.gid });
     active.set(project, { work: checkout, agent: false });
     d.log(`checking models: ${[...pairs.keys()].join(', ')}`);
@@ -229,7 +231,7 @@ async function runPrepared({ opts, d, root, setup }) {
     const layer = d.ensureE2eImage({ root, runDir, composeFiles: [composeFile, ...(rootEnv.AGENT_CA_DIR ? [certsFile] : [])],
       env: rootEnv, exec: d.exec, log: d.log });
     overrideFile = layer.overrideFile;
-    const probeFailed = probeModels();
+    const probeFailed = probeModels(layer.mountPoints);
     if (probeFailed) { d.error(`✗ preflight: ${probeFailed}`); return 1; }
     for (let i = 1; i <= opts.repetitions; i++) {
       const id = `${harness}-${i}`;
