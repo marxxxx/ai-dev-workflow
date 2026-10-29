@@ -13,6 +13,7 @@ import { median } from '../lib/summary.mjs';
 import { redactSecrets } from '../lib/secrets.mjs';
 import { applyPostVerification, emptyOutcome } from '../lib/trial.mjs';
 import { postVerify, verifierHash } from '../lib/postverify.mjs';
+import { detectLanguage, textsFor } from './language.mjs';
 import { loadLocalConfig, selfJudged } from './config.mjs';
 import { appendAnswer, ensureGitignore, newRunDir, readAnswers, readTicket, ticketDir, writeTicket } from './store.mjs';
 import { importTicket } from './ticket-import.mjs';
@@ -27,7 +28,6 @@ import { buildLocalTrialRecord, compareWithBaseline, localFingerprint, localRewa
 export const USAGE = 'usage: adw e2e <base-commit> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m] [--ticket-file f] [--baseline runDir] [--root dir]';
 const SERVICE = 'ai-dev-workflow';
 const ROLES = ['agent', 'answerer', 'verifier', 'review'];
-const opening = (ticket) => `Nutze den agent-dev Skill für Ticket ${ticket}.`;
 // YYYY-MM-DDTHHMMSSZ: a quick re-run gets its own run dir and compose names; sorts by time.
 export const timestamp = (date = new Date()) => date.toISOString().replace(/\.\d+Z$/, 'Z').replace(/:/g, '');
 // spawnSync blocks the event loop: yielding once lets a pending Ctrl-C handler run before the next step.
@@ -122,12 +122,15 @@ export async function runE2e(opts, deps = {}) {
     writeTicket(dir, d.importTicket({ root, ticket: opts.ticket, project, ticketFile }));
   }
   const ticketText = readTicket(dir);
+  // The simulated user speaks the language of the ticket unless e2e.language says otherwise.
+  const lang = config.language ?? detectLanguage(`${ticketText.title}\n${ticketText.body}`);
+  const texts = textsFor(lang);
   const acceptanceFile = path.join(dir, 'acceptance.md');
   let criteria = existsSync(acceptanceFile) ? parseCriteria(readFileSync(acceptanceFile, 'utf8')) : null;
   const ts = d.now();
   const harness = config.agent.harness;
   const runDir = newRunDir(dir, harness, ts);
-  const store = { list: () => readAnswers(dir), append: (a) => appendAnswer(dir, a) };
+  const store = { list: () => readAnswers(dir, texts.defaultAnswers), append: (a) => appendAnswer(dir, a, texts.defaultAnswers) };
   const composeFile = path.join(root, 'compose.ai-dev.yml');
   const certsFile = path.join(root, 'compose.ai-dev.certs.yml');
   // The e2e layer's override (ensured below): every compose project of a trial runs on it, without published ports.
@@ -186,10 +189,10 @@ export async function runE2e(opts, deps = {}) {
           }
           const decide = d.makeDecide({ ticket: ticketText, harness: config.answerer.harness, model: config.answerer.model,
             buildArgs: buildArgs([config.answerer.harness]), name: `${judgeProject}-answerer`, checkout: work,
-            timeoutMs: config.answerer.timeoutSec * 1000, run, onStdout: transcript('answerer') });
+            timeoutMs: config.answerer.timeoutSec * 1000, run, onStdout: transcript('answerer'), replyLanguage: texts.replyLanguage });
           const t0 = d.clock();
-          conversation = await d.runConversation({ ticket: opts.ticket, harness, opening: opening(opts.ticket), session, decide,
-            askHuman: d.askHuman, store, maxTurns: config.maxTurns });
+          conversation = await d.runConversation({ ticket: opts.ticket, harness, opening: texts.opening(opts.ticket), session, decide,
+            askHuman: d.askHuman, store, maxTurns: config.maxTurns, continueText: texts.continueText });
           agentSeconds = Math.round((d.clock() - t0) / 1000);
           await tick();
           port = appPortFromAgentsMd(readIf(path.join(work, 'AGENTS.md'))) ?? config.appPort;
@@ -216,7 +219,7 @@ export async function runE2e(opts, deps = {}) {
         // The first PR head without stored criteria: draft them from ticket + answers, the human confirms.
         if (!criteria && collected.bundle) {
           try {
-            const draft = d.draftAcceptance({ ticket: ticketText, answers: readAnswers(dir), harness: config.answerer.harness,
+            const draft = d.draftAcceptance({ ticket: ticketText, answers: readAnswers(dir, texts.defaultAnswers), harness: config.answerer.harness,
               model: config.answerer.model, buildArgs: buildArgs([config.answerer.harness]), name: `${judgeProject}-acceptance`,
               checkout: work, timeoutMs: config.answerer.timeoutSec * 1000, run });
             // A readline aborted by Ctrl-C rejects with an AbortError: that is an interrupt, not a failed draft.
@@ -272,7 +275,7 @@ export async function runE2e(opts, deps = {}) {
     }
 
     const fingerprint = localFingerprint({ image: layer.image, imageId: layer.imageId, e2eImage: layer.tag, cliVersions, baseCommit: sha, dir, config,
-      verifierHash: criteria ? verifierHash({ config, criteria }) : null });
+      verifierHash: criteria ? verifierHash({ config, criteria }) : null, language: lang });
     const run = writeRun({ runDir, ticket: opts.ticket, fingerprint, trials, aborted, error });
     let cmp = null;
     try { cmp = compareWithBaseline({ dir, runDir, run, config, baseline: opts.baseline }); } catch (err) { d.error(`! baseline compare failed: ${err.message}`); }

@@ -41,6 +41,7 @@
     "e2e/local/answerer.mjs",
     "e2e/local/acceptance.mjs",
     "e2e/local/record.mjs",
+    "e2e/local/language.mjs",
     "e2e/local/defaults.json",
     "e2e/local/image.mjs",
     "e2e/local/image/Dockerfile",

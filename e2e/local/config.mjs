@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HARNESSES } from '../lib/llm.mjs';
+import { LANGUAGES } from './language.mjs';
 
 const DEFAULTS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'defaults.json'), 'utf8'));
 const ROLES = ['answerer', 'verifier', 'review'];
@@ -30,6 +31,8 @@ export function loadLocalConfig(projectRoot, { harness, model } = {}) {
   if (!Array.isArray(merged.secretEnv) || !merged.secretEnv.every((n) => typeof n === 'string')) throw new Error('e2e.secretEnv must be an array of strings');
   const stray = merged.secretEnv.filter((n) => !merged.env.includes(n));
   if (stray.length) throw new Error(`e2e.secretEnv names must also be listed in e2e.env: ${stray.join(', ')}`);
+
+  if (merged.language !== null && !LANGUAGES.includes(merged.language)) throw new Error(`e2e.language must be one of ${LANGUAGES.join(', ')} or null`);
 
   const agent = { harness: harness ?? merged.agent.harness, model: model ?? merged.agent.model };
   checkHarness('agent', agent.harness);

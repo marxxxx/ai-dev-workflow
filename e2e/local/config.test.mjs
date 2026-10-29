@@ -75,3 +75,9 @@ test('selfJudged lists roles on the agent harness and model', () => {
   const model = loadLocalConfig(project({ agent: { harness: 'codex', model: 'a' } }));
   assert.deepEqual(selfJudged(model), []);
 });
+
+test('e2e.language defaults to null, accepts en and de, rejects anything else', () => {
+  assert.equal(loadLocalConfig(project({ agent: { harness: 'codex' } })).language, null);
+  assert.equal(loadLocalConfig(project({ agent: { harness: 'codex' }, language: 'de' })).language, 'de');
+  assert.throws(() => loadLocalConfig(project({ agent: { harness: 'codex' }, language: 'fr' })), /e2e.language must be one of en, de or null/);
+});

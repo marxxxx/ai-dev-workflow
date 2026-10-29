@@ -23,7 +23,7 @@ function project(e2e = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'adw-cli-'));
   writeFileSync(path.join(root, 'compose.ai-dev.yml'), 'services: {}\n');
   writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' }, e2e }));
-  writeFileSync(path.join(root, 'issue.md'), '# Fälligkeitsdatum\n\nTodos bekommen ein Datum.\n');
+  writeFileSync(path.join(root, 'issue.md'), '# Fälligkeitsdatum\n\nTodos bekommen ein Datum, das nicht leer ist und mit der Liste erscheint.\n');
   mkdirSync(path.join(root, 'home'));
   return root;
 }
@@ -144,7 +144,7 @@ test('runE2e: the order of a first run; the ticket is imported, acceptance draft
     assert.equal(await runE2e(opts(root), s.deps), 0);
     assert.deepEqual(s.calls, ['image', 'sandbox', 'session', 'makeDecide', 'conversation', 'appListening', 'close', 'collect', 'draft', 'confirm', 'record', 'postVerify']);
     const dir = path.join(root, '.adw/e2e/7');
-    assert.equal(readFileSync(path.join(dir, 'ticket.md'), 'utf8'), '# Fälligkeitsdatum\n\nTodos bekommen ein Datum.\n');
+    assert.equal(readFileSync(path.join(dir, 'ticket.md'), 'utf8'), '# Fälligkeitsdatum\n\nTodos bekommen ein Datum, das nicht leer ist und mit der Liste erscheint.\n');
     assert.equal(readFileSync(path.join(root, '.adw/e2e/.gitignore'), 'utf8'), '*/runs/\n');
     assert.ok(existsSync(path.join(dir, 'acceptance.md')));
     assert.equal(s.seen.conversation.opening, 'Nutze den agent-dev Skill für Ticket 7.');
@@ -440,4 +440,17 @@ test('e2e.env value from .env.ai-dev passes preflight', async () => {
   const { deps, out } = stubs(root);
   await runE2e(opts(root), deps);
   assert.ok(!out.some((l) => l.includes('e2e.env: AZ_KEY is not set')), out.join('\n'));
+});
+
+test('language: an English ticket gets the English opening and fingerprint; e2e.language overrides the detection', async () => {
+  for (const [e2e, opening, lang] of [[{}, 'Use the agent-dev skill for ticket 7.', 'en'], [{ language: 'de' }, 'Nutze den agent-dev Skill für Ticket 7.', 'de']]) {
+    const root = project(e2e);
+    try {
+      writeFileSync(path.join(root, 'issue.md'), '# Due dates\n\nTodos get a due date that is shown with the list.\n');
+      const s = stubs(root);
+      await runE2e(opts(root), s.deps);
+      assert.equal(s.seen.conversation.opening, opening);
+      assert.equal(runJson(root).fingerprint.language, lang);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }
 });

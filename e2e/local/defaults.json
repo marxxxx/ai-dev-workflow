@@ -1,4 +1,5 @@
 {
+  "language": null,
   "agent": { "harness": null, "model": null },
   "answerer": { "harness": null, "model": null, "timeoutSec": 300 },
   "verifier": { "harness": null, "model": null, "timeoutSec": 900 },

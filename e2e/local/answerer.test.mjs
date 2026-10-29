@@ -287,3 +287,11 @@ test('askHumanTty rejects when the input closes without an answer', async () => 
   setImmediate(() => input.end());
   await assert.rejects(answer, /input closed/);
 });
+
+test('buildAnswererPrompt names the reply language; runConversation sends the given continueText', async () => {
+  assert.match(buildAnswererPrompt({ ticket: { title: 't', body: 'b' }, answers: DEFAULT_ANSWERS, message: 'm', replyLanguage: 'English' }), /short, English/);
+  const session = stubSession(['still running', 'fertig']);
+  const decide = stubDecide([{ action: 'continue' }, { action: 'done', stuck: false }]);
+  await runConversation({ ticket: 7, harness: 'claude-code', opening: OPENING, session, decide, askHuman: noHuman, store: memStore(), maxTurns: 10, continueText: 'go on' });
+  assert.deepEqual(session.sent, [OPENING, 'go on']);
+});
