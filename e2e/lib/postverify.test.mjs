@@ -162,6 +162,32 @@ test('postVerify labels each judge transcript with its kind', () => {
   assert.doesNotThrow(() => quiet.seen.verifier.onTranscript('V'), 'transcripts are optional');
 });
 
+test('mount points of the judges\' compose service are created in both checkouts before the judges run', () => {
+  const seen = {};
+  const exists = (dir) => ({ dir: lstatSync(path.join(dir, 'a/node_modules')).isDirectory(), file: lstatSync(path.join(dir, '.env.local')).isFile() });
+  const { deps } = fakes({
+    runVerifier: (a) => { seen.verify = exists(a.checkout); return { criteria: { AC1: { pass: true }, AC2: { pass: true } }, error: null }; },
+    runReview: (a) => { seen.review = exists(a.checkout); return { scores, reasons: {}, error: null }; },
+  });
+  postVerify({ config, bundle: 'b', criteria, image: 'img', deps, mountPoints: [{ path: 'a/node_modules', file: false }, { path: '.env.local', file: true }] });
+  assert.deepEqual(seen, { verify: { dir: true, file: true }, review: { dir: true, file: true } });
+});
+
+test('mount points never leave the checkout: no .. path, no committed symlink is followed', () => {
+  const outside = mkdtempSync(path.join(tmpdir(), 'adw-pv-outside-'));
+  try {
+    const seen = {};
+    const { deps } = fakes({
+      checkoutBundle: (bundle, dir) => { mkdirSync(dir, { recursive: true }); symlinkSync(outside, path.join(dir, 'link')); return { diff: '' }; },
+      runReview: (a) => { seen.escaped = existsSync(path.join(path.dirname(a.checkout), 'escaped')); return { scores, reasons: {}, error: null }; },
+    });
+    postVerify({ config, bundle: 'b', criteria, image: 'img', deps, skipVerifier: 'x',
+      mountPoints: [{ path: 'link/node_modules', file: false }, { path: '../escaped', file: false }] });
+    assert.equal(existsSync(path.join(outside, 'node_modules')), false);
+    assert.equal(seen.escaped, false);
+  } finally { rmSync(outside, { recursive: true, force: true }); }
+});
+
 test('postVerify forwards buildArgs to both judges', () => {
   const { seen, deps } = fakes();
   const buildArgs = () => [];

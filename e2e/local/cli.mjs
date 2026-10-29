@@ -237,7 +237,7 @@ export async function runE2e(opts, deps = {}) {
         if (!collected.bundle) outcome = emptyOutcome(criteria ?? []);
         else {
           d.log(skipVerifier ? '  post-verifying (review)' : '  post-verifying (E2E verifier, review)');
-          outcome = d.postVerify({ config, bundle: collected.bundle, criteria: criteria ?? [], env: judgeEnv, skipVerifier,
+          outcome = d.postVerify({ config, bundle: collected.bundle, criteria: criteria ?? [], env: judgeEnv, skipVerifier, mountPoints: layer.mountPoints,
             buildArgs: buildArgs([...(skipVerifier ? [] : [config.verifier.harness]), config.review.harness]),
             spec: sectionOf(collected.ticketFile, 'Approved Spec'), summary: sectionOf(collected.ticketFile, 'Implementation Summary'),
             onTranscript: (kind, text) => transcript(kind)(text) });

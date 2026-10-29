@@ -1,7 +1,7 @@
 // The agent under test runs on the project's own dev image plus a thin layer with acpx and the ACP adapters
 // (e2e/local/image). Built once per adw e2e call when its tag is missing; the project's older layers are pruned.
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -26,8 +26,20 @@ export const overrideYaml = (tag, services) => [
   ...services.filter((s) => s !== SERVICE).flatMap((s) => [`  ${s}:`, '    ports: !reset []']), '',
 ].join('\n');
 
+const isHostFile = (p) => statSync(p, { throwIfNoEntry: false })?.isFile() ?? false;
+
+// The service's mount targets below /workspace, relative to it: a judge's fresh checkout must have them (postverify.mjs).
+// A bind of a single host file needs a file as its mount point, everything else a directory.
+function workspaceMountPoints(service, isFile) {
+  return (service.volumes ?? []).flatMap((v) => {
+    const rel = path.posix.relative('/workspace', v.target ?? '');
+    if (!rel || rel.startsWith('..') || path.posix.isAbsolute(rel)) return [];
+    return [{ path: rel, file: v.type === 'bind' && isFile(v.source) }];
+  });
+}
+
 // `composeFiles` and `env` are a trial's (compose.ai-dev.yml, the certs overlay when set; composeEnv).
-export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, imageDir = IMAGE_DIR }) {
+export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, imageDir = IMAGE_DIR, isFile = isHostFile }) {
   // Streamed steps (stdio inherit) have no stderr to quote: their output is already on the terminal.
   const docker = (args, opts = {}) => {
     const r = exec('docker', args, opts);
@@ -73,5 +85,5 @@ export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, ima
   mkdirSync(runDir, { recursive: true });
   const overrideFile = path.join(runDir, 'compose.adw-e2e.yml');
   writeFileSync(overrideFile, overrideYaml(tag, Object.keys(services)));
-  return { image, imageId, tag, overrideFile };
+  return { image, imageId, tag, overrideFile, mountPoints: workspaceMountPoints(service, isFile) };
 }

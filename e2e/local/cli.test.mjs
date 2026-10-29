@@ -48,7 +48,7 @@ function stubs(root, over = {}) {
       return { work, origin: path.join(trialDir, 'origin.git') };
     }),
     startSession: rec('session', (a) => { seen.session = a; return session; }),
-    ensureE2eImage: rec('image', (a) => { seen.image = a; return { image: 'img:1', imageId: 'sha256:1', tag: 'adw-e2e:abc', overrideFile: '/run/o.yml' }; }),
+    ensureE2eImage: rec('image', (a) => { seen.image = a; return { image: 'img:1', imageId: 'sha256:1', tag: 'adw-e2e:abc', overrideFile: '/run/o.yml', mountPoints: [{ path: 'n_m', file: false }] }; }),
     makeDecide: rec('makeDecide', (a) => { seen.decide = a; return () => ({ action: 'done', stuck: false }); }),
     runConversation: rec('conversation', async (a) => { seen.conversation = a; return { turns: 2, humanAsked: 0, done: true, stuck: false, error: null }; }),
     askHuman: () => 'x',
@@ -148,6 +148,7 @@ test('runE2e: the order of a first run; the ticket is imported, acceptance draft
     assert.deepEqual(s.seen.conversation.store.list().map((a) => a.id).slice(0, 2), ['A1', 'A2']);
     assert.equal(s.seen.session.envNames.length, 0);
     assert.equal(s.seen.postVerify.spec.includes('the spec'), true);
+    assert.deepEqual(s.seen.postVerify.mountPoints, [{ path: 'n_m', file: false }]);
     // The app port comes from the AGENTS.md E2E section.
     assert.equal(s.seen.record.config.appPort, 3000);
     const run = runJson(root);

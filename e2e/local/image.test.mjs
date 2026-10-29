@@ -54,7 +54,7 @@ test('builds the layer on the compose image, labels it, prunes older ones and wr
     [is('image', 'ls'), { status: 0, stdout: `${tag}\nadw-e2e:000000000000\n` }],
   ]);
   const out = ensureE2eImage(opts);
-  assert.deepEqual(out, { image: ref, imageId: BASE_ID, tag, overrideFile: path.join(opts.runDir, 'compose.adw-e2e.yml') });
+  assert.deepEqual(out, { image: ref, imageId: BASE_ID, tag, overrideFile: path.join(opts.runDir, 'compose.adw-e2e.yml'), mountPoints: [] });
   const build = calls.find((c) => c.args[0] === 'build');
   // BuildKit reads `FROM sha256:…` as a Docker Hub repository: the base goes in by name, its ID only into the tag.
   assert.deepEqual(build.args, ['build', '--build-arg', `BASE_IMAGE=${ref}`, '--build-arg', 'BASE_USER=root',
@@ -117,6 +117,21 @@ test('a failed build throws before any override is written', (t) => {
     [is('build'), { status: 1, stdout: null, stderr: null }],
   ]);
   assert.throws(() => ensureE2eImage(opts), /docker build failed \(exit 1\)/);
+});
+
+test('the mount points are the service\'s mount targets below /workspace; a bind of a host file needs a file', (t) => {
+  const volumes = [
+    { type: 'bind', source: '/proj', target: '/workspace' },
+    { type: 'volume', source: 'web-node-modules', target: '/workspace/apps/web/node_modules' },
+    { type: 'bind', source: '/proj/.env.local', target: '/workspace/.env.local' },
+    { type: 'bind', source: '/proj/cache', target: '/workspace/.cache/' },
+    { type: 'volume', source: 'agent-home', target: '/home/agent' },
+    { type: 'volume', source: 'x', target: '/workspace-other' },
+  ];
+  const ref = 'img:1';
+  const { opts } = setup(t, [[isConfig, configJson({ image: ref, volumes })], baseInspect(ref)]);
+  const out = ensureE2eImage({ ...opts, isFile: (p) => p === '/proj/.env.local' });
+  assert.deepEqual(out.mountPoints, [{ path: 'apps/web/node_modules', file: false }, { path: '.env.local', file: true }, { path: '.cache', file: false }]);
 });
 
 test('overrideYaml replaces the image, drops the build section and every service\'s published ports', () => {
