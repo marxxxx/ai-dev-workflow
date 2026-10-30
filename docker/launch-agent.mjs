@@ -164,7 +164,7 @@ function readlinkSafe(file) {
 // The image provisions language servers read-only under <source>/<Class>/<package>; Serena
 // looks for them below $SERENA_HOME/language_servers/static/<Class>/ and downloads what is
 // missing. Only packages are linked: Serena writes logs into the class directory itself.
-function linkLanguageServers(source, serenaHome) {
+export function linkLanguageServers(source, serenaHome) {
   if (!existsSync(source)) return;
   const staticRoot = path.join(serenaHome, 'language_servers', 'static');
   for (const className of readdirSync(source)) {
