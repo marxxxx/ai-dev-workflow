@@ -49,7 +49,8 @@ export function provision(sourceFile, typescriptPackage, destination) {
   if (!existsSync(path.join(typescriptPackage, 'lib', 'tsserver.js'))) throw new Error(`${typescriptPackage} has no lib/tsserver.js`);
   const modules = path.join(destination, pin.className, pin.packageName, 'node_modules');
   mkdirSync(modules, { recursive: true });
-  symlinkSync(typescriptPackage, path.join(modules, 'typescript'), 'dir');
+  // 'junction' is ignored on Linux; on Windows it needs no symlink privilege (tests).
+  symlinkSync(typescriptPackage, path.join(modules, 'typescript'), 'junction');
   console.log(`Linked TypeScript ${version} for Serena's tsserver pin at ${modules}/typescript`);
 }
 
