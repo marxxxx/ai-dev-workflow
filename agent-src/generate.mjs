@@ -11,6 +11,7 @@
 //   ai-dev-workflow init --answers <file.json>    non-interactive onboarding from a JSON answers file
 //   ai-dev-workflow upgrade [--dry-run]           delete ≤0.22 generated files + obsolete config keys, generate,
 //                                                 then install/update the pinned third-party skills (show-me)
+//                                                 and name fixes the project-owned compose.ai-dev.yml needs
 //   ai-dev-workflow e2e <base-commit|.> <ticket> [harness] [--repetitions n] [--model m] [--ticket-file f] [--baseline runDir]
 //                                                 [--no-input] [--answers file] [--reconfigure]
 //                                                 replayable E2E run of agent-dev on a ticket (e2e/local/cli.mjs)
@@ -41,6 +42,7 @@ import { renderAll, writeAll, checkAll } from './lib/pipeline.mjs';
 import { removeObsoleteOutputs, cleanProjectConfig, findCustomLeftovers } from './lib/upgrade.mjs';
 import { syncSkills, skillWarnings, reportSkills } from './lib/skills.mjs';
 import { readJson } from './lib/config.mjs';
+import { containerWarnings } from './lib/container.mjs';
 
 // ---------------------------------------------------------------------------
 // Aggregated public API — re-exported so importers keep using `generate.mjs`.
@@ -107,9 +109,10 @@ function main() {
   }
   if (command === 'upgrade') process.exit(upgrade(outputs, projectRoot, process.argv.includes('--dry-run')));
   const status = command === 'check' ? checkAll(outputs, projectRoot) : (writeAll(outputs, projectRoot), 0);
-  // Missing skills are not drift: point at `upgrade`, keep the exit status.
+  // Missing skills and container fixes are not drift: point at them, keep the exit status.
   const project = readJson(path.join(projectRoot, 'ai-project.json'), 'ai-project.json', false);
   for (const line of skillWarnings(projectRoot, project)) console.warn(line);
+  for (const line of containerWarnings(projectRoot)) console.warn(line);
   process.exit(status);
 }
 
@@ -130,6 +133,8 @@ function upgrade(outputs, projectRoot, dryRun) {
   if (deleted.length === 0 && removed.length === 0) console.log('Nothing obsolete found.');
   if (!dryRun) writeAll(outputs, projectRoot);
   reportSkills(syncSkills(projectRoot, { dryRun }), { dryRun });
+  // The container files are project-owned: name the fixes, never apply them.
+  for (const line of containerWarnings(projectRoot)) console.warn(line);
   if (dryRun) console.log(`Dry run: would generate ${outputs.length} file(s); nothing was written.`);
   return 0;
 }

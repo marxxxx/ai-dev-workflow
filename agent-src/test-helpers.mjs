@@ -40,7 +40,10 @@ const [, ref] = /\\/tree\\/([0-9a-f]+)\\//.exec(args[3]) || [];
 const name = args[3].split('/').pop();
 fs.writeFileSync('skills-lock.json', JSON.stringify({ version: 1, skills: { [name]: { ref } } }));
 `, { mode: 0o755 });
-  return file;
+  if (process.platform !== 'win32') return file;
+  // Windows ignores shebangs; skills.mjs runs npx through cmd, which needs a .cmd wrapper.
+  fs.writeFileSync(`${file}.cmd`, `@"${process.execPath}" "%~dp0npx" %*\r\n`);
+  return `${file}.cmd`;
 })();
 
 /**

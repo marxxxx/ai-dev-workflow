@@ -33,7 +33,7 @@ try {
     // Same isolation as the Compose template, plus no network at all.
     const result = docker([
       'run', '--rm', '--init', '--network', 'none',
-      '--cap-drop', 'ALL', '--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE', '--cap-add', 'FOWNER',
+      '--cap-drop', 'ALL', '--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE', '--cap-add', 'FOWNER', '--cap-add', 'KILL',
       '--cap-add', 'SETUID', '--cap-add', 'SETGID', '--security-opt', 'no-new-privileges:true',
       '-e', `PROJECT_ROOT=${project}`, ...hostIds,
       '--mount', `type=bind,source=${project},target=/workspace`,

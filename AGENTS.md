@@ -75,7 +75,8 @@ pipeline: **config → tokens → units → renderers → outputs**.
   install is a warning, never an error. Tests run `npx` as `ADW_NPX` (a fake in `test-helpers.mjs`).
 - **`container.mjs`** + `container/` — the dev-container files `init` offers to write
   (`compose.ai-dev.yml`, certs and opt-in dind overlays, `ai-dev.sh`/`.ps1`, `AI-DEV.md`) from `@@KEY@@` templates.
-  Written once when missing, then **project-owned**: never rendered, checked or upgraded by the pipeline.
+  Written once when missing, then **project-owned**: never rendered, checked or upgraded by the pipeline;
+  `upgrade`/`generate`/`check` only print the known fixes an older template needs (`containerWarnings`).
 - **`e2e/local/`** — the `adw e2e` command (`cli.mjs`, dispatched from `generate.mjs`): replays
   `agent-dev` on a consumer project's real ticket in a throwaway clone on the `file` backend, driven
   through the project's ai-dev container plus a locally built layer with `acpx` (`image.mjs`,

@@ -13,7 +13,8 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    # Root setup remaps dev and owns its home, then drops privileges.
+    # Root setup remaps dev and owns its home, then drops privileges. KILL lets the root init
+    # (tini) forward signals such as SIGWINCH to dev's processes; without it tini exits.
     cap_add:
       - CHOWN
       - DAC_OVERRIDE

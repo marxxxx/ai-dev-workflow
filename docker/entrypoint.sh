@@ -79,7 +79,12 @@ if [[ "$(id -u)" == 0 ]]; then
     groupmod -o -g "$HOST_GID" "$APP_USER" || fail 'Could not map runtime group.'
   fi
   if [[ "$(id -u "$APP_USER")" != "$HOST_UID" ]]; then
-    usermod -o -u "$HOST_UID" -g "$HOST_GID" "$APP_USER" || fail 'Could not map runtime user.'
+    # usermod also chowns the home tree, after updating the account, and fails when another
+    # container deletes entries during that walk. own_tree below repeats the walk race-tolerantly,
+    # so only the account change has to succeed.
+    output="$(usermod -o -u "$HOST_UID" -g "$HOST_GID" "$APP_USER" 2>&1)" ||
+      [[ "$(id -u "$APP_USER"):$(id -g "$APP_USER")" == "$HOST_UID:$HOST_GID" ]] ||
+      fail "Could not map runtime user: $output"
   fi
   mkdir -p "$APP_HOME"
   # Reused homes can have old IDs.

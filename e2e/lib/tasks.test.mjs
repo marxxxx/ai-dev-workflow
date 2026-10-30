@@ -36,7 +36,8 @@ test('selectTasks defaults to all tasks, keeps a requested subset and rejects un
   assert.throws(() => selectTasks(config, ['b', 'nope']), /unknown task: nope \(known: a, b\)/);
 });
 
-test('syncShared mirrors every shared file, overwrites a stale copy and keeps the executable bit', () => {
+// Windows has no executable bit, so the mode check cannot hold there.
+test('syncShared mirrors every shared file, overwrites a stale copy and keeps the executable bit', { skip: process.platform === 'win32' && 'no executable bit on Windows' }, () => {
   const { root, shared, config } = fixture();
   try {
     const dir = taskDir(config, 'a');
@@ -89,7 +90,7 @@ test('every configured task has its stack-specific files, and its Dockerfile bui
 
 test('shared files are tracked only in _shared/, and their mirrored copies are git-ignored in every task', () => {
   const shared = sharedFiles(path.join(tasksRoot(repo), SHARED));
-  assert.ok(shared.includes('acceptance-criteria.md') && shared.includes('tests/verify.mjs'));
+  assert.ok(shared.includes('acceptance-criteria.md') && shared.includes(path.normalize('tests/verify.mjs')));
   for (const name of taskNames(repo)) {
     const dir = rel(taskDir(repo, name));
     const tracked = new Set(gitIn('ls-files', '-z', '--', dir).split('\0').filter(Boolean).map((f) => path.relative(dir, f)));
