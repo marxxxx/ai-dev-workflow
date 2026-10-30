@@ -51,6 +51,9 @@ test('opencode one-shot argv and permission config per profile: the prompt is st
   assert.deepEqual(ocConfig(cmd('read', { addDirs: ['/diff'] })).permission.external_directory, { '/diff/*': 'allow' },
     'opencode run auto-rejects reads outside the workspace');
   assert.deepEqual(oneShotCommand({ harness: 'opencode', tools: 'none' }).argv, ['opencode', 'run', '--format', 'json']);
+  for (const tools of ['none', 'read', 'verify']) {
+    assert.equal(cmd(tools).env.OPENCODE_DISABLE_PROJECT_CONFIG, '1', `${tools}: the checkout's .opencode/ neither steers the call nor is written`);
+  }
 });
 
 test('parseOneShot reads the answer text of each recorded CLI', () => {

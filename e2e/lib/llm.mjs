@@ -31,11 +31,14 @@ function codexCommand({ model, tools, playwright }) {
 }
 
 // opencode run auto-rejects every permission it would ask for, reads outside the workspace included: addDirs are allowed explicitly.
+// OPENCODE_DISABLE_PROJECT_CONFIG: like claude's --setting-sources user, the checkout's opencode.json and .opencode/ (written by
+// the agent) never steer the call; opencode also stops writing .opencode/.gitignore, which fails in a read-only /workspace.
 function opencodeCommand({ model, tools, playwright, addDirs }) {
   const permission = { edit: 'deny', bash: tools === 'verify' ? 'allow' : 'deny', webfetch: 'deny',
     ...(addDirs.length ? { external_directory: Object.fromEntries(addDirs.map((d) => [`${d}/*`, 'allow'])) } : {}) };
   const mcp = playwright ? { playwright: { type: 'local', command: PLAYWRIGHT } } : {};
-  return { argv: ['opencode', 'run', '--format', 'json', ...(model ? ['-m', model] : [])], env: { OPENCODE_CONFIG_CONTENT: JSON.stringify({ permission, mcp }) } };
+  return { argv: ['opencode', 'run', '--format', 'json', ...(model ? ['-m', model] : [])],
+    env: { OPENCODE_CONFIG_CONTENT: JSON.stringify({ permission, mcp }), OPENCODE_DISABLE_PROJECT_CONFIG: '1' } };
 }
 
 const COMMANDS = { 'claude-code': claudeCommand, codex: codexCommand, opencode: opencodeCommand };
