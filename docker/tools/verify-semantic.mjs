@@ -8,9 +8,11 @@ import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { once } from 'node:events';
 import path from 'node:path';
+import { linkLanguageServers } from './launch-agent.mjs';
 
 const RUNTIME = '/usr/local/lib/agent-runtime';
-const PROVISIONED_ROSLYN = '/opt/serena-runtime/ls/CSharpLanguageServer';
+const PROVISIONED_LANGUAGE_SERVERS = '/opt/serena-runtime/ls';
+const PROVISIONED_ROSLYN = `${PROVISIONED_LANGUAGE_SERVERS}/CSharpLanguageServer`;
 
 async function withSerena({ command, args, env, timeoutMs }, body) {
   const child = spawn(command, args, { env: { ...env, NO_COLOR: '1' }, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -90,6 +92,8 @@ async function verifyTypeScript() {
   await writeFile(`${fixture}/sample.ts`, 'export function semanticAnswer(): number { return 42; }\n');
   await mkdir('/tmp/serena-home', { recursive: true });
   await copyFile('/opt/serena-runtime/serena_config.yml', '/tmp/serena-home/serena_config.yml');
+  // The fixture is untrusted, so Serena refuses to start tsserver without the image's TypeScript linked in.
+  linkLanguageServers(PROVISIONED_LANGUAGE_SERVERS, '/tmp/serena-home');
   await withSerena({
     command: '/opt/uv/bin/serena',
     args: ['start-mcp-server', '--context', 'codex', '--project', fixture, '--enable-web-dashboard', 'false'],

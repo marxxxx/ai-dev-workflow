@@ -3,7 +3,7 @@
 FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
 
 ARG UV_VERSION=0.13.6
-ARG SERENA_REVISION=96c27473f4402c649f8d01ea7ba00eb0d1061fba
+ARG SERENA_REVISION=ede329aaf0c824bea75455a2926f01420d7aa620
 ARG SUPERPOWERS_REVISION=2ce8aa15d05bd57213e6f746f953aafb7ded7a8b
 ARG AZURE_CLI_VERSION=2.91.0-1~bookworm
 ARG AZURE_DEVOPS_EXTENSION_VERSION=1.0.10
@@ -93,7 +93,7 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*
 
 # Pin uv and install Serena as a real offline-usable tool, including its Python runtime.
-COPY tools/prepare-serena-config.mjs /tmp/prepare-serena-config.mjs
+COPY tools/prepare-serena-config.mjs tools/serena-typescript.mjs /tmp/
 RUN set -eux; \
     curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" -o /tmp/install-uv.sh; \
     sh /tmp/install-uv.sh; \
@@ -106,7 +106,12 @@ RUN set -eux; \
     node /tmp/prepare-serena-config.mjs \
       /opt/uv/tools/serena-agent/lib/python3.12/site-packages/serena/resources/serena_config.template.yml \
       /opt/serena-runtime/serena_config.yml; \
-    rm /tmp/prepare-serena-config.mjs; \
+    node /tmp/serena-typescript.mjs \
+      /opt/uv/tools/serena-agent/lib/python3.12/site-packages/solidlsp/language_servers/typescript_language_server.py \
+      /opt/agent-tools/node_modules/typescript-serena \
+      /opt/serena-runtime/ls; \
+    rm /tmp/prepare-serena-config.mjs /tmp/serena-typescript.mjs; \
+    chmod -R a+rX,go-w /opt/serena-runtime/ls; \
     chmod -R a+rX /opt/uv
 
 # Pin and validate the complete Superpowers plugin source. Each harness loads this local checkout.

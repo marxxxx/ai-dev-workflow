@@ -1,10 +1,13 @@
 import { spawn } from 'node:child_process';
+import { copyFile, mkdir } from 'node:fs/promises';
 
 const definitions = [
   {
     name: 'serena',
     command: '/opt/uv/bin/serena',
     args: ['start-mcp-server', '--context', 'codex', '--project', '/tmp', '--enable-web-dashboard', 'false'],
+    // The image's managed config, as launch-agent.mjs installs it; without one Serena writes its own template default.
+    serenaHome: '/tmp/mcp-probe-home/serena',
     expected: ['get_symbols_overview'],
   },
   {
@@ -31,8 +34,15 @@ const definitions = [
 ];
 
 async function probe(definition) {
+  if (definition.serenaHome) {
+    await mkdir(definition.serenaHome, { recursive: true });
+    await copyFile('/opt/serena-runtime/serena_config.yml', `${definition.serenaHome}/serena_config.yml`);
+  }
   const child = spawn(definition.command, definition.args, {
-    env: { ...process.env, HOME: '/tmp/mcp-probe-home', NO_COLOR: '1' },
+    env: {
+      ...process.env, HOME: '/tmp/mcp-probe-home', NO_COLOR: '1',
+      ...(definition.serenaHome ? { SERENA_HOME: definition.serenaHome } : {}),
+    },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   let stdout = '';

@@ -492,7 +492,10 @@ node docker/tools/inventory.mjs check        # drift gate (CI and build.mjs)
 - `npmMajorHolds`: `@azure-devops/mcp` stays on v2 (launcher arguments and
   `ADO_MCP_TOOLS` target v2). `typescript-serena` stays on TypeScript 5 because
   Serena's language server needs `lib/tsserver.js`, which native TypeScript 7 no
-  longer ships.
+  longer ships. It must also be the version Serena pins tsserver to for untrusted
+  projects (`DEFAULT_TYPESCRIPT_VERSION` in Serena's source):
+  `tools/serena-typescript.mjs` links it into Serena's home and fails the build on a
+  mismatch.
 - `npmFollowDependency`: `playwright` always equals the exact version `@playwright/mcp`
   depends on, so the installed Chromium matches the MCP.
 - `dotnetChannel`: the SDK and `dotnet-ef` follow the latest patch of this channel.
