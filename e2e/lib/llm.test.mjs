@@ -11,7 +11,8 @@ const COMMON = ['claude', '-p', '--model', 'm', '--output-format', 'stream-json'
 const PW_JSON = '{"mcpServers":{"playwright":{"command":"playwright-mcp","args":["--headless","--browser","chromium","--isolated"]}}}';
 const CODEX = ['codex', 'exec', '--json', '--skip-git-repo-check', '--ephemeral', '-o', '/tmp/adw-last.txt'];
 const CODEX_PW = ['-c', 'mcp_servers.playwright.command="playwright-mcp"', '-c', 'mcp_servers.playwright.args=["--headless","--browser","chromium","--isolated"]'];
-const ocConfig = (cmd) => JSON.parse(cmd.env.OPENCODE_CONFIG_CONTENT);
+const OC_LAUNCH = 'f="${TMPDIR:-/tmp}/adw-opencode.json"; printf \'%s\' "$ADW_OPENCODE_CONFIG" > "$f" && OPENCODE_CONFIG="$f" exec opencode "$@"';
+const ocConfig = (cmd) => JSON.parse(cmd.env.ADW_OPENCODE_CONFIG);
 
 test('the harnesses and tool profiles', () => {
   assert.deepEqual(HARNESSES, ['claude-code', 'codex', 'opencode']);
@@ -43,14 +44,16 @@ test('codex one-shot argv per profile: the prompt is stdin', () => {
 test('opencode one-shot argv and permission config per profile: the prompt is stdin', () => {
   const cmd = (tools, o = {}) => oneShotCommand({ harness: 'opencode', model: 'p/m', tools, ...o });
   const denyAll = { edit: 'deny', bash: 'deny', webfetch: 'deny' };
-  assert.deepEqual(cmd('none').argv, ['opencode', 'run', '--format', 'json', '-m', 'p/m']);
+  // The image's wrapper overwrites OPENCODE_CONFIG_CONTENT: the config goes through an OPENCODE_CONFIG file written in the container.
+  assert.deepEqual(cmd('none').argv, ['sh', '-c', OC_LAUNCH, 'sh', 'run', '--format', 'json', '-m', 'p/m']);
+  assert.equal(cmd('none').env.OPENCODE_CONFIG_CONTENT, undefined);
   assert.deepEqual(ocConfig(cmd('none')), { permission: denyAll, mcp: {} });
   assert.deepEqual(ocConfig(cmd('read')), { permission: denyAll, mcp: {} });
   assert.deepEqual(ocConfig(cmd('verify', { playwright: true })), { permission: { edit: 'deny', bash: 'allow', webfetch: 'deny' },
     mcp: { playwright: { type: 'local', command: ['playwright-mcp', '--headless', '--browser', 'chromium', '--isolated'] } } });
   assert.deepEqual(ocConfig(cmd('read', { addDirs: ['/diff'] })).permission.external_directory, { '/diff/*': 'allow' },
     'opencode run auto-rejects reads outside the workspace');
-  assert.deepEqual(oneShotCommand({ harness: 'opencode', tools: 'none' }).argv, ['opencode', 'run', '--format', 'json']);
+  assert.deepEqual(oneShotCommand({ harness: 'opencode', tools: 'none' }).argv, ['sh', '-c', OC_LAUNCH, 'sh', 'run', '--format', 'json']);
   for (const tools of ['none', 'read', 'verify']) {
     assert.equal(cmd(tools).env.OPENCODE_DISABLE_PROJECT_CONFIG, '1', `${tools}: the checkout's .opencode/ neither steers the call nor is written`);
   }

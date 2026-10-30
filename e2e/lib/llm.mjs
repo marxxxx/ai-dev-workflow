@@ -33,12 +33,15 @@ function codexCommand({ model, tools, playwright }) {
 // opencode run auto-rejects every permission it would ask for, reads outside the workspace included: addDirs are allowed explicitly.
 // OPENCODE_DISABLE_PROJECT_CONFIG: like claude's --setting-sources user, the checkout's opencode.json and .opencode/ (written by
 // the agent) never steer the call; opencode also stops writing .opencode/.gitignore, which fails in a read-only /workspace.
+// The image's opencode wrapper overwrites OPENCODE_CONFIG_CONTENT (its MCP servers and plugin), so the call's config goes
+// through an OPENCODE_CONFIG file written in the container (each call runs in its own container), as for the agent's session.
+const OPENCODE_LAUNCH = 'f="${TMPDIR:-/tmp}/adw-opencode.json"; printf \'%s\' "$ADW_OPENCODE_CONFIG" > "$f" && OPENCODE_CONFIG="$f" exec opencode "$@"';
 function opencodeCommand({ model, tools, playwright, addDirs }) {
   const permission = { edit: 'deny', bash: tools === 'verify' ? 'allow' : 'deny', webfetch: 'deny',
     ...(addDirs.length ? { external_directory: Object.fromEntries(addDirs.map((d) => [`${d}/*`, 'allow'])) } : {}) };
   const mcp = playwright ? { playwright: { type: 'local', command: PLAYWRIGHT } } : {};
-  return { argv: ['opencode', 'run', '--format', 'json', ...(model ? ['-m', model] : [])],
-    env: { OPENCODE_CONFIG_CONTENT: JSON.stringify({ permission, mcp }), OPENCODE_DISABLE_PROJECT_CONFIG: '1' } };
+  return { argv: ['sh', '-c', OPENCODE_LAUNCH, 'sh', 'run', '--format', 'json', ...(model ? ['-m', model] : [])],
+    env: { ADW_OPENCODE_CONFIG: JSON.stringify({ permission, mcp }), OPENCODE_DISABLE_PROJECT_CONFIG: '1' } };
 }
 
 const COMMANDS = { 'claude-code': claudeCommand, codex: codexCommand, opencode: opencodeCommand };
@@ -163,7 +166,7 @@ const AUTH_ENV = ['CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_FORCE_OAUTH'];
 
 // E2E_VERIFY=1 skips the task image's Gitea seed hook (environment/seed/seed.sh). AGENT_TOOLSTACK_ONLY=1
 // configures only the tool stack: a calibration checkout has no ai-project.json, and a judge needs no ticketing.
-// `env` is the command's own non-secret settings (OPENCODE_CONFIG_CONTENT); `authMounts` are `host:container` login files.
+// `env` is the command's own non-secret settings (ADW_OPENCODE_CONFIG); `authMounts` are `host:container` login files.
 // `readOnly` mounts the checkout read-only (the review judge).
 function containerFlags({ uid, gid, envNames, authMounts, name, checkout, readOnly, mounts, env }) {
   return ['--name', name, '-e', `HOST_UID=${uid}`, '-e', `HOST_GID=${gid}`, '-e', 'E2E_VERIFY=1', '-e', 'AGENT_TOOLSTACK_ONLY=1',
