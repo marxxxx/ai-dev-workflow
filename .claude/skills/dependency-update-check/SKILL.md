@@ -47,6 +47,12 @@ through `adw upgrade`, so it needs no image build. Judge it by what changes in t
 a renamed skill, a moved `SKILL.md`, or a dropped `disable-model-invocation` breaks or changes
 `agent-dev`'s show-me hook, so it is adjustable or needs a decision, never non-breaking.
 
+For a serena / superpowers revision, read the whole range: take the commit count from
+`gh api repos/<owner>/<repo>/compare/<old>...<new>` (`total_commits`) and diff the `CHANGELOG.md`
+between both revisions. Also diff the config templates the image builds on (serena's
+`serena_config.template.yml`, read by `docker/tools/prepare-serena-config.mjs`): a changed default
+there changes the image even when no changelog entry calls it breaking.
+
 ### 2. Classify each update
 
 | Class | Definition |
@@ -63,8 +69,9 @@ a renamed skill, a moved `SKILL.md`, or a dropped `disable-model-invocation` bre
    `inventory.json` directly for non-npm pins, then `node docker/tools/inventory.mjs sync`).
 2. `node docker/tools/inventory.mjs check` must pass (no drift).
 3. `node docker/build.mjs` — confirm all three images still build.
-4. Run `node --test docker/tests/*.test.mjs` plus `docker/tests/runtime-smoke.sh` **if a container
-   runtime is available**; note in the PR if smoke tests could not run.
+4. Run `npm ci --prefix docker/tools --ignore-scripts`, then `bash docker/verify-runtime.sh`, the
+   same verification CI's container job runs (unit tests, in-image tool and MCP probes, runtime and
+   dind smoke, Serena C#), **if a container runtime is available**; note in the PR if it could not run.
 5. Open a PR titled `chore(docker): update <deps> (non-breaking)` summarizing each bump with a link
    to its changelog / release notes, and stating what was verified (check, build, tests).
 
@@ -74,7 +81,7 @@ a renamed skill, a moved `SKILL.md`, or a dropped `disable-model-invocation` bre
 2. Make the **minimal** corresponding changes in `docker/Dockerfile*`, `docker/*.sh`,
    `docker/tools/*.mjs`, or MCP/config wiring so the stack keeps working — do not over-refactor
    beyond what the breaking change requires.
-3. Verify with `inventory.mjs check`, `node docker/build.mjs`, and the docker test suite.
+3. Verify with `inventory.mjs check`, `node docker/build.mjs`, and `docker/verify-runtime.sh` (step 4 above).
 4. Open a PR titled `fix(docker): adapt to <dep> breaking change` that: quotes the specific
    breaking change from the changelog, explains the adjustment, and lists verification steps. Flag
    anything you could not verify locally (e.g. requires the published Docker Hub image or a live
