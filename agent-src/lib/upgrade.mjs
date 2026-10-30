@@ -18,7 +18,8 @@ export const OBSOLETE_UNITS = {
 export const OBSOLETE_INCLUDES = ['e2e-runtime', 'handoff'];
 
 // Dotted ai-project.json paths: dropped by 0.23 (branchPattern, the review/QA states), older
-// leftovers (itemNoun, e2e, app, handoff) and identity fields no rendered output uses anymore.
+// leftovers (itemNoun, the e2e script keys, app, handoff) and identity fields no rendered output uses anymore.
+// `e2e` itself is adw e2e's settings now: only the leaves of the old e2e-up/e2e-down block go.
 export const OBSOLETE_PROJECT_KEYS = [
   'project.slug',
   'project.serenaProject',
@@ -29,7 +30,10 @@ export const OBSOLETE_PROJECT_KEYS = [
   'ticketing.azureDevOps.stateMapping.failed',
   'ticketing.azureDevOps.stateMapping.acceptance-test',
   'git.branchPattern',
-  'e2e',
+  'e2e.up',
+  'e2e.down',
+  'e2e.readinessTimeout',
+  'e2e.logsDir',
   'app',
   'handoff',
 ];
@@ -119,6 +123,8 @@ export function pruneProjectConfig(config) {
       removed.push(key);
     }
   }
+  // A legacy-only e2e block is left empty: drop it, not adw e2e's settings.
+  if (removed.some((k) => k.startsWith('e2e.')) && Object.keys(copy.e2e).length === 0) delete copy.e2e;
   return { config: copy, removed };
 }
 

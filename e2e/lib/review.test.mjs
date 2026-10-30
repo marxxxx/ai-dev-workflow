@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { isInterrupt } from './claude.mjs';
 import { loadConfig } from './config.mjs';
 import { buildReviewPrompt, runReview, validateReviewAnswer } from './review.mjs';
+import { oneShotCommand } from './llm.mjs';
 
 const config = loadConfig();
 const rubric = config.review.criteria;
@@ -41,7 +42,7 @@ test('runReview runs in a task container: checkout at /workspace, the diff read-
   for (const k of ['CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_FORCE_OAUTH']) assert.equal(args[args.indexOf(k) - 1], '-e', `${k} by name`);
   assert.ok(!args.some((a) => a.includes('sk-secret')), 'token value on argv');
   assert.equal(seen.env.CLAUDE_CODE_OAUTH_TOKEN, 'sk-secret', 'docker inherits the token through its env');
-  assert.equal(args[args.indexOf('/tmp/pv/review:/workspace') - 1], '-v');
+  assert.equal(args[args.indexOf('/tmp/pv/review:/workspace:ro') - 1], '-v', 'the review checkout is read-only');
   assert.equal(args[args.indexOf('/tmp/pv:/diff:ro') - 1], '-v');
   assert.ok(args.indexOf('/tmp/pv:/diff:ro') < args.indexOf('img'), 'mounts precede the image');
   assert.equal(args[args.indexOf('claude') - 1], 'img');
@@ -64,7 +65,7 @@ test('a failed review gives null scores and an error, and the container is still
   const run = (cmd, args) => { calls.push(args); return args[0] === 'run' ? { status: 1, stdout: '', stderr: 'boom' } : { status: 0 }; };
   const bad = runReview({ config, checkout: '/c', ...input, image: 'img', name: 'r2', run, uid: 1, gid: 1 });
   assert.deepEqual(bad.scores, Object.fromEntries(Object.keys(rubric).map((k) => [k, null])));
-  assert.match(bad.error, /review exit 1: boom/);
+  assert.match(bad.error, /^review \(claude-code\): exit 1: boom$/);
   assert.deepEqual(calls.at(-1), ['rm', '-f', 'r2']);
 });
 
@@ -81,4 +82,16 @@ test('runReview hands the raw transcript to onTranscript', () => {
   runReview({ config, checkout: '/c', ...input, image: 'img', name: 'r4', uid: 1, gid: 1, onTranscript: (s) => seen.push(s),
     run: (cmd, args) => (args[0] === 'run' ? { status: 0, stdout } : { status: 0 }) });
   assert.deepEqual(seen, [stdout]);
+});
+
+test('an opencode review runs read-only with the diff directory readable', () => {
+  const calls = [];
+  const ocConfig = { ...config, review: { ...config.review, harness: 'opencode', model: 'p/m' } };
+  const stdout = JSON.stringify({ type: 'text', part: { type: 'text', messageID: 'm1', text: JSON.stringify(good) } });
+  const r = runReview({ config: ocConfig, checkout: '/c', ...input, name: 'r5', buildArgs: ({ name, checkout, readOnly, mounts, argv, env }) => ['run', name, `${checkout}:${readOnly ? 'ro' : 'rw'}`, ...mounts, JSON.stringify(env), ...argv],
+    run: (cmd, args) => { calls.push(args); return args[0] === 'run' ? { status: 0, stdout } : { status: 0 }; } });
+  assert.equal(r.error, null);
+  const cmd = oneShotCommand({ harness: 'opencode', model: 'p/m', tools: 'read', addDirs: ['/diff'] });
+  assert.deepEqual(calls[0], ['run', 'r5', '/c:ro', '/tmp/pv:/diff:ro', JSON.stringify(cmd.env), ...cmd.argv]);
+  assert.deepEqual(calls.at(-1), ['rm', '-f', 'r5']);
 });

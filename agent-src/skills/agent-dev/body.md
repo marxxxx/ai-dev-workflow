@@ -54,9 +54,6 @@ it occurs, wherever the workflow puts it.
   the ticket already said everything. If the scope changes later in the run, post the final version
   again at close-out.
 - **Branch or worktree created** — name it per **Naming** below.
-- **Subagent dispatched** — never give it the platform's premium top model tier, even when you run
-  on it yourself: use at most the standard flagship tier below it, or a cheaper one where the task
-  allows.
 - **Implementation verified, before integrating** — if the work sits on `{{git.prTarget}}`, move it
   to a branch per **Naming**. Only if the agreed scope says the agent tests end to end: start the
   app as the `AGENTS.md` end-to-end section describes, exercise the changed flows in a browser

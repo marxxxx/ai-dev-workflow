@@ -1,0 +1,162 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { ISOLATE, COMMIT, bundleBranch } from '../lib/bundle.mjs';
+import { createSandbox, collectSandbox, snapshotWorkingTree } from './sandbox.mjs';
+
+const g = (args, cwd) => execFileSync('git', [...ISOLATE, ...args], { cwd, encoding: 'utf8' }).trim();
+const TICKET = { title: 'Add Due Dates!', body: 'Todos get a due date.' };
+
+function makeRepo(aiProject) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'adw-sandbox-'));
+  const root = path.join(dir, 'proj');
+  mkdirSync(root);
+  g(['init', '-q', '-b', 'main'], root);
+  writeFileSync(path.join(root, 'README.md'), 'hi\n');
+  if (aiProject) writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(aiProject));
+  g(['add', '-A'], root);
+  g([...COMMIT, 'commit', '-qm', 'base'], root);
+  g(['remote', 'add', 'origin', 'https://example.invalid/real.git'], root);
+  return { dir, root, base: g(['rev-parse', 'HEAD'], root) };
+}
+
+const AZURE = {
+  project: { name: 'Proj' }, repository: { slug: 'proj' }, git: { prTarget: 'develop' },
+  ticketing: { backend: 'azure-devops', azureDevOps: { organization: 'o', project: 'p', featureType: 'Issue', bugType: 'Issue', processTemplate: 'basic', stateMapping: { new: 'To Do', 'in-progress': 'Doing', review: 'Doing' } } },
+};
+
+test('sandbox switches to the file backend, generates, and isolates the remote', () => {
+  const { dir, root, base } = makeRepo(AZURE);
+  try {
+    const trialDir = path.join(dir, 'trial');
+    const { work, origin } = createSandbox({ root, baseCommit: base, ticket: 7, ticketText: TICKET, trialDir });
+    const cfg = JSON.parse(readFileSync(path.join(work, 'ai-project.json'), 'utf8'));
+    assert.equal(cfg.ticketing.backend, 'file');
+    assert.equal(cfg.git.prTarget, 'main');
+    assert.equal(cfg.project.name, 'Proj');
+    const ticket = readFileSync(path.join(work, '.tickets/issues/7_add_due_dates.md'), 'utf8');
+    assert.match(ticket, /^---\ntitle: "Add Due Dates!"\nstatus: new\n---\n\nTodos get a due date\.\n$/);
+    assert.ok(existsSync(path.join(work, '.claude/skills/agent-dev/SKILL.md')));
+    assert.equal(g(['remote'], work), 'origin');
+    assert.equal(g(['remote', 'get-url', 'origin'], work), origin);
+    assert.equal(g(['rev-parse', 'main'], origin), g(['rev-parse', 'HEAD'], work));
+    assert.equal(g(['status', '--porcelain'], work), '');
+    assert.match(readFileSync(path.join(work, '.git/info/exclude'), 'utf8'), /^\.acpxrc\.json$/m);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the work clone takes no host template hooks and keeps only main', () => {
+  const { dir, root, base } = makeRepo(null);
+  try {
+    // A host init.templateDir with a hook, and a root checked out on another branch.
+    const template = path.join(dir, 'template');
+    mkdirSync(path.join(template, 'hooks'), { recursive: true });
+    writeFileSync(path.join(template, 'hooks', 'pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    g(['checkout', '-qb', 'develop'], root);
+    const git = (args) => execFileSync('git', [...ISOLATE, '-c', `init.templateDir=${template}`, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const { work } = createSandbox({ root, baseCommit: base, ticket: 1, ticketText: TICKET, trialDir: path.join(dir, 'trial'), git });
+    assert.equal(existsSync(path.join(work, '.git', 'hooks', 'pre-commit')), false);
+    assert.equal(g(['for-each-ref', '--format=%(refname:short)', 'refs/heads/'], work), 'main');
+    assert.match(readFileSync(path.join(work, '.git/info/exclude'), 'utf8'), /^\.acpxrc\.json$/m);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the work clone has its own git identity: the container has none, and an agent must not invent one', () => {
+  const { dir, root, base } = makeRepo(null);
+  try {
+    const { work } = createSandbox({ root, baseCommit: base, ticket: 1, ticketText: TICKET, trialDir: path.join(dir, 'trial') });
+    assert.equal(g(['config', '--local', 'user.name'], work), 'ADW E2E Agent');
+    assert.equal(g(['config', '--local', 'user.email'], work), 'agent@e2e.local');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a base commit without ai-project.json still works', () => {
+  const { dir, root, base } = makeRepo(null);
+  try {
+    const { work } = createSandbox({ root, baseCommit: base, ticket: 1, ticketText: TICKET, trialDir: path.join(dir, 'trial') });
+    const cfg = JSON.parse(readFileSync(path.join(work, 'ai-project.json'), 'utf8'));
+    assert.equal(cfg.project.name, 'proj');
+    assert.equal(cfg.ticketing.backend, 'file');
+    assert.ok(existsSync(path.join(work, '.agents/skills/agent-dev/SKILL.md')));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('collectSandbox: no branch gives no bundle, one branch gives a bundleBranch-valid bundle', () => {
+  const { dir, root, base } = makeRepo(AZURE);
+  try {
+    const sb = createSandbox({ root, baseCommit: base, ticket: 7, ticketText: TICKET, trialDir: path.join(dir, 'trial') });
+    const none = collectSandbox({ ...sb, ticket: 7 });
+    assert.deepEqual([none.branches, none.bundle, none.diff, none.prs], [[], null, '', []]);
+    assert.match(none.ticketFile, /status: new/);
+
+    g(['checkout', '-qb', 'feat/7'], sb.work);
+    writeFileSync(path.join(sb.work, 'f.txt'), 'x\n');
+    g(['add', '-A'], sb.work);
+    g([...COMMIT, 'commit', '-qm', 'feat'], sb.work);
+    g(['push', '-q', 'origin', 'feat/7'], sb.work);
+    const one = collectSandbox({ ...sb, ticket: 7 });
+    assert.deepEqual(one.branches, ['feat/7']);
+    assert.equal(bundleBranch(one.bundle), 'feat/7');
+    assert.match(one.diff, /\+x/);
+    // What the e2e layer's fake gh/tea/az recorded in the clone's git dir.
+    mkdirSync(path.join(sb.work, '.git', 'adw-e2e'));
+    writeFileSync(path.join(sb.work, '.git', 'adw-e2e', 'pr.jsonl'), `${JSON.stringify({ tool: 'gh', branch: 'feat/7', draft: true, title: '7: F' })}\n`);
+    assert.deepEqual(collectSandbox({ ...sb, ticket: 7 }).prs, [{ tool: 'gh', branch: 'feat/7', draft: true, title: '7: F' }]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('e2eSection: overlaid and committed when the base commit has none, untouched when it has one', () => {
+  const section = '## End-to-end testing\n\n- Start: x';
+  const a = makeRepo(AZURE);
+  const b = makeRepo(AZURE);
+  try {
+    writeFileSync(path.join(b.root, 'AGENTS.md'), '# A\n\n## End-to-end testing\n\n- Start: own\n');
+    g(['add', '-A'], b.root);
+    g([...COMMIT, 'commit', '-qm', 'agents'], b.root);
+    const r1 = createSandbox({ root: a.root, baseCommit: a.base, ticket: 7, ticketText: TICKET, trialDir: path.join(a.dir, 'trial'), e2eSection: section });
+    assert.equal(r1.e2eOverlay, true);
+    assert.match(readFileSync(path.join(r1.work, 'AGENTS.md'), 'utf8'), /## End-to-end testing\n\n- Start: x\n$/);
+    assert.match(g(['show', 'main:AGENTS.md'], r1.origin), /- Start: x/);
+    const r2 = createSandbox({ root: b.root, baseCommit: g(['rev-parse', 'HEAD'], b.root), ticket: 7, ticketText: TICKET, trialDir: path.join(b.dir, 'trial'), e2eSection: section });
+    assert.equal(r2.e2eOverlay, false);
+    assert.match(readFileSync(path.join(r2.work, 'AGENTS.md'), 'utf8'), /Start: own/);
+    const r3 = createSandbox({ root: a.root, baseCommit: a.base, ticket: 7, ticketText: TICKET, trialDir: path.join(a.dir, 'trial3') });
+    assert.equal(r3.e2eOverlay, false);
+  } finally { rmSync(a.dir, { recursive: true, force: true }); rmSync(b.dir, { recursive: true, force: true }); }
+});
+
+test('snapshotWorkingTree: uncommitted and untracked files, never ignored ones or .adw/e2e, refs untouched', () => {
+  const { dir, root } = makeRepo();
+  try {
+    writeFileSync(path.join(root, '.gitignore'), '.env.ai-dev\n');
+    g(['add', '-A'], root);
+    g([...COMMIT, 'commit', '-qm', 'ignore'], root);
+    const head = g(['rev-parse', 'HEAD'], root);
+    assert.deepEqual(snapshotWorkingTree(root), { head, commit: head, worktree: null });
+
+    writeFileSync(path.join(root, 'README.md'), 'changed\n');
+    writeFileSync(path.join(root, 'AGENTS.md'), '# new\n');
+    writeFileSync(path.join(root, '.env.ai-dev'), 'SECRET=1\n');
+    mkdirSync(path.join(root, '.adw/e2e/7'), { recursive: true });
+    writeFileSync(path.join(root, '.adw/e2e/7/acceptance.md'), 'AC1\n');
+    const status = g(['status', '--porcelain'], root);
+    const snap = snapshotWorkingTree(root);
+    assert.equal(snap.head, head);
+    assert.notEqual(snap.commit, head);
+    assert.equal(g(['rev-parse', `${snap.commit}^`], root), head);
+    assert.equal(snap.worktree, g(['rev-parse', `${snap.commit}^{tree}`], root));
+    assert.deepEqual(g(['ls-tree', '-r', '--name-only', snap.commit], root).split('\n').sort(), ['.gitignore', 'AGENTS.md', 'README.md']);
+    assert.equal(g(['show', `${snap.commit}:README.md`], root), 'changed');
+    // The same state gives the same tree; HEAD, branch and index stay as they were.
+    assert.equal(snapshotWorkingTree(root).worktree, snap.worktree);
+    assert.equal(g(['rev-parse', 'HEAD'], root), head);
+    assert.equal(g(['status', '--porcelain'], root), status);
+
+    const { work } = createSandbox({ root, baseCommit: snap.commit, ticket: 7, ticketText: TICKET, trialDir: path.join(dir, 'trial') });
+    assert.equal(readFileSync(path.join(work, 'README.md'), 'utf8'), 'changed\n');
+    assert.equal(readFileSync(path.join(work, 'AGENTS.md'), 'utf8'), '# new\n');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

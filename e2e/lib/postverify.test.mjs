@@ -89,6 +89,20 @@ test('a failed verifier gives null acceptance, and a usage limit skips the revie
   assert.deepEqual(limited.review, nulls);
 });
 
+test('skipVerifier: no verifier and no verify checkout, the reason as its error; the review still runs', () => {
+  let verified = false;
+  const { seen, deps } = fakes({ runVerifier: () => { verified = true; } });
+  const pv = postVerify({ config, bundle: 'b', criteria, image: 'img', deps, skipVerifier: 'no E2E section' });
+  assert.equal(verified, false);
+  assert.equal(seen.checkouts.length, 1);
+  assert.equal(seen.review.checkout, seen.checkouts[0]);
+  assert.equal(seen.review.diffText, 'DIFF');
+  assert.equal(pv.verifierError, 'no E2E section');
+  assert.equal(pv.acceptance, null);
+  assert.deepEqual(pv.acceptanceCriteria, { AC1: null, AC2: null });
+  assert.deepEqual(pv.review, scores);
+});
+
 test('a bundle that cannot be checked out yields errors for both roles instead of throwing', () => {
   const pv = postVerify({ config, bundle: 'b', criteria, image: 'img',
     deps: fakes({ checkoutBundle: () => { throw new Error('bundle must hold main and one PR branch, has: refs/heads/x'); } }).deps });
@@ -118,6 +132,16 @@ test('verifierHash is stable and changes with criteria, models and rubric, not w
   assert.equal(verifierHash({ config: { ...config, verifier: { ...config.verifier, timeoutSec: 1 } }, criteria }), h);
 });
 
+// Pinned before the judges moved onto llm.mjs: the Harbor self-test's claude-code judges keep today's hash.
+const PINNED_HASH = 'b4e65b6b799779720d40f8594844fb61968c28a967de2a62fd93ffca1e48f271';
+
+test('verifierHash for claude-code judges is the pinned value; another judge harness changes it', () => {
+  assert.equal(verifierHash({ config, criteria }), PINNED_HASH);
+  assert.equal(verifierHash({ config: { ...config, verifier: { ...config.verifier, harness: 'claude-code' } }, criteria }), PINNED_HASH);
+  assert.notEqual(verifierHash({ config: { ...config, review: { ...config.review, harness: 'opencode' } }, criteria }), PINNED_HASH);
+  assert.notEqual(verifierHash({ config: { ...config, verifier: { ...config.verifier, harness: 'codex' } }, criteria }), PINNED_HASH);
+});
+
 test('the task image is built from the task environment as adw-e2e-<task>', () => {
   let call;
   assert.equal(buildTaskImage({ config, task: 'demo-todo', exec: (cmd, args) => { call = [cmd, ...args]; } }), 'adw-e2e-demo-todo');
@@ -136,4 +160,38 @@ test('postVerify labels each judge transcript with its kind', () => {
   const quiet = fakes();
   postVerify({ config, bundle: 'b', criteria, image: 'img', deps: quiet.deps });
   assert.doesNotThrow(() => quiet.seen.verifier.onTranscript('V'), 'transcripts are optional');
+});
+
+test('mount points of the judges\' compose service are created in both checkouts before the judges run', () => {
+  const seen = {};
+  const exists = (dir) => ({ dir: lstatSync(path.join(dir, 'a/node_modules')).isDirectory(), file: lstatSync(path.join(dir, '.env.local')).isFile() });
+  const { deps } = fakes({
+    runVerifier: (a) => { seen.verify = exists(a.checkout); return { criteria: { AC1: { pass: true }, AC2: { pass: true } }, error: null }; },
+    runReview: (a) => { seen.review = exists(a.checkout); return { scores, reasons: {}, error: null }; },
+  });
+  postVerify({ config, bundle: 'b', criteria, image: 'img', deps, mountPoints: [{ path: 'a/node_modules', file: false }, { path: '.env.local', file: true }] });
+  assert.deepEqual(seen, { verify: { dir: true, file: true }, review: { dir: true, file: true } });
+});
+
+test('mount points never leave the checkout: no .. path, no committed symlink is followed', () => {
+  const outside = mkdtempSync(path.join(tmpdir(), 'adw-pv-outside-'));
+  try {
+    const seen = {};
+    const { deps } = fakes({
+      checkoutBundle: (bundle, dir) => { mkdirSync(dir, { recursive: true }); symlinkSync(outside, path.join(dir, 'link')); return { diff: '' }; },
+      runReview: (a) => { seen.escaped = existsSync(path.join(path.dirname(a.checkout), 'escaped')); return { scores, reasons: {}, error: null }; },
+    });
+    postVerify({ config, bundle: 'b', criteria, image: 'img', deps, skipVerifier: 'x',
+      mountPoints: [{ path: 'link/node_modules', file: false }, { path: '../escaped', file: false }] });
+    assert.equal(existsSync(path.join(outside, 'node_modules')), false);
+    assert.equal(seen.escaped, false);
+  } finally { rmSync(outside, { recursive: true, force: true }); }
+});
+
+test('postVerify forwards buildArgs to both judges', () => {
+  const { seen, deps } = fakes();
+  const buildArgs = () => [];
+  postVerify({ config, bundle: 'b', criteria, image: 'img', buildArgs, deps });
+  assert.equal(seen.verifier.buildArgs, buildArgs);
+  assert.equal(seen.review.buildArgs, buildArgs);
 });

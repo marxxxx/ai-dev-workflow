@@ -1,12 +1,11 @@
-// Code-review judge: one claude -p run in a fresh task container (like the verifier), read-only on a fresh
-// checkout of the PR head at /workspace and the diff at /diff.
+// Code-review judge: one one-shot LLM run (config.review.harness, claude-code by default) in a fresh container
+// (like the verifier), read-only on a fresh checkout of the PR head at /workspace and the diff at /diff.
 // It derives conventions and architecture from AGENTS.md and the code; the prompt holds no stack knowledge.
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { buildClaudeDockerArgs, callClaude, isInterrupt } from './claude.mjs';
+import { callLlm, dockerRunArgs, isInterrupt } from './llm.mjs';
 
-export const REVIEW_ALLOWED_TOOLS = 'Read,Grep,Glob';
-export const REVIEW_DENIED_TOOLS = 'Bash,Edit,Write,NotebookEdit,Task,WebFetch,WebSearch';
+export { REVIEW_ALLOWED_TOOLS, REVIEW_DENIED_TOOLS } from './llm.mjs';
 
 export function buildReviewPrompt({ rubric, criteria, spec, summary, diffPath }) {
   return `You are a strict senior code reviewer. A coding agent implemented a ticket in the repository that is your current directory; its pull request branch is checked out. The full change against the base branch is in ${diffPath}.
@@ -45,12 +44,11 @@ export function validateReviewAnswer(answer, rubric) {
 }
 
 export function runReview({ config, checkout, diffPath, criteria, spec, summary, env = {}, image, name = `adw-review-${process.pid}-${Date.now()}`,
-  run = spawnSync, uid = process.getuid(), gid = process.getgid(), onTranscript }) {
-  const { model, criteria: rubric, timeoutSec } = config.review;
+  run = spawnSync, uid = process.getuid(), gid = process.getgid(), onTranscript, buildArgs = dockerRunArgs({ image, uid, gid }) }) {
+  const { harness = 'claude-code', model = null, criteria: rubric, timeoutSec } = config.review;
   try {
-    const answer = callClaude({ cmd: 'docker', env, run, onStdout: onTranscript, label: 'review', timeoutMs: timeoutSec * 1000,
-      args: buildClaudeDockerArgs({ image, name, checkout, model, uid, gid, mounts: [`${path.dirname(diffPath)}:/diff:ro`],
-        claudeArgs: ['--add-dir', '/diff', '--allowedTools', REVIEW_ALLOWED_TOOLS, '--disallowedTools', REVIEW_DENIED_TOOLS] }),
+    const answer = callLlm({ role: 'review', harness, model, tools: 'read', addDirs: ['/diff'], buildArgs, name, checkout, readOnly: true,
+      mounts: [`${path.dirname(diffPath)}:/diff:ro`], env, timeoutMs: timeoutSec * 1000, run, onStdout: onTranscript,
       input: buildReviewPrompt({ rubric, criteria, spec, summary, diffPath: `/diff/${path.basename(diffPath)}` }) });
     return { ...validateReviewAnswer(answer, rubric), error: null };
   } catch (err) {

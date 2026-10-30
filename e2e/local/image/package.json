@@ -1,0 +1,11 @@
+{
+  "name": "adw-e2e-layer",
+  "private": true,
+  "description": "Pinned ACP tooling adw e2e layers on a project's dev image (derived from docker/tools/inventory.json e2eNpmPackages)",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.97.0",
+    "@agentclientprotocol/codex-acp": "1.12.0",
+    "acpx": "0.21.1"
+  }
+}

@@ -20,6 +20,11 @@
     "typescript-serena": "npm:typescript@5.9.3",
     "yarn": "1.22.22"
   },
+  "e2eNpmPackages": {
+    "@agentclientprotocol/claude-agent-acp": "0.97.0",
+    "@agentclientprotocol/codex-acp": "1.12.0",
+    "acpx": "0.21.1"
+  },
   "systemTools": {
     "azureCliDebianPackage": "2.91.0-1~bookworm",
     "azureDevOpsCliExtension": "1.0.10",

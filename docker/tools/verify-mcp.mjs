@@ -10,7 +10,7 @@ const definitions = [
   {
     name: 'playwright',
     command: 'playwright-mcp',
-    args: ['--headless', '--browser', 'chromium', '--isolated'],
+    args: ['--headless', '--browser', 'chromium', '--isolated', '--output-dir', '/tmp'],
     expected: ['browser_navigate'],
   },
   {

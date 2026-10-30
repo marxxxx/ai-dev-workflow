@@ -9,7 +9,7 @@
 //   node docker/tools/inventory.mjs outdated           list available updates (network)
 //   node docker/tools/inventory.mjs update [--only a,b] apply updates, then sync (network)
 import { spawnSync } from 'node:child_process';
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -24,7 +24,15 @@ const LOCKFILE = 'tools/package-lock.json';
 const DIND_OVERLAY = '../agent-src/container/compose.ai-dev.dind.yml';
 // Read by adw init/upgrade, which install these skills into consuming projects with `npx skills`.
 const SKILLS_CONFIG = '../agent-src/config/skills.json';
-const DERIVED_FILES = [PACKAGE_JSON, 'Dockerfile', 'Dockerfile.dotnet', DIND_OVERLAY, SKILLS_CONFIG];
+// The ACP tooling adw e2e layers on a project's dev image (e2e/local/image), never part of the dev images.
+const E2E_PACKAGE_JSON = '../e2e/local/image/package.json';
+const E2E_LOCKFILE = '../e2e/local/image/package-lock.json';
+const DERIVED_FILES = [PACKAGE_JSON, E2E_PACKAGE_JSON, 'Dockerfile', 'Dockerfile.dotnet', DIND_OVERLAY, SKILLS_CONFIG];
+// Each npm group and the package.json + lockfile derived from it.
+const NPM_GROUPS = [
+  { key: 'npmPackages', manifest: PACKAGE_JSON, lockfile: LOCKFILE },
+  { key: 'e2eNpmPackages', manifest: E2E_PACKAGE_JSON, lockfile: E2E_LOCKFILE },
+];
 
 const DOCKERFILE_ARGS = {
   Dockerfile: {
@@ -70,9 +78,12 @@ function replaceLine(text, pattern, line, file) {
 }
 
 export function renderDerivedFiles(inventory, current) {
-  const manifest = JSON.parse(current[PACKAGE_JSON]);
-  manifest.dependencies = sorted(inventory.npmPackages);
-  const rendered = { [PACKAGE_JSON]: toJson(manifest) };
+  const rendered = {};
+  for (const { key, manifest } of NPM_GROUPS) {
+    const value = JSON.parse(current[manifest]);
+    value.dependencies = sorted(inventory[key]);
+    rendered[manifest] = toJson(value);
+  }
   for (const [file, args] of Object.entries(DOCKERFILE_ARGS)) {
     let text = current[file];
     if (file === 'Dockerfile') {
@@ -99,17 +110,38 @@ function firstDifference(actual, expected) {
   return `expected "${expectedLines[index]?.trim()}", found "${actualLines[index]?.trim()}"`;
 }
 
-function lockfileDrift(inventory, lock) {
+// npm before 11.7 drops `libc` from the lockfile, so `npm ci` also installs the musl binaries
+// (`…-linux-x64-musl`, sharp's `@img/sharp-linuxmusl-x64`).
+export function muslWithoutLibc(lock) {
+  return Object.entries(lock.packages ?? {})
+    .filter(([key, entry]) => /musl/.test(key.slice(key.lastIndexOf('node_modules/') + 13)) && !entry.libc)
+    .map(([key]) => key);
+}
+
+// `sync` regenerates a lockfile whose root dependencies differ from the inventory or that lost libc.
+export function lockfileStale(packages, lock) {
+  return !isDeepStrictEqual(sorted(lock.packages?.['']?.dependencies ?? {}), sorted(packages)) || muslWithoutLibc(lock).length > 0;
+}
+
+function lockfileDrift(packages, lock, lockfile) {
   const drift = [];
-  if (!isDeepStrictEqual(sorted(lock.packages?.['']?.dependencies ?? {}), sorted(inventory.npmPackages))) {
-    drift.push(`${LOCKFILE}: root dependencies differ from ${INVENTORY}`);
+  if (!isDeepStrictEqual(sorted(lock.packages?.['']?.dependencies ?? {}), sorted(packages))) {
+    drift.push(`${lockfile}: root dependencies differ from ${INVENTORY}`);
   }
-  for (const [name, spec] of Object.entries(inventory.npmPackages)) {
+  for (const [name, spec] of Object.entries(packages)) {
     const resolved = lock.packages?.[`node_modules/${name}`]?.version;
     if (resolved !== versionOf(spec)) {
-      drift.push(`${LOCKFILE}: ${name} resolves to ${resolved ?? 'nothing'}, inventory pins ${versionOf(spec)}`);
+      drift.push(`${lockfile}: ${name} resolves to ${resolved ?? 'nothing'}, inventory pins ${versionOf(spec)}`);
     }
   }
+  for (const key of muslWithoutLibc(lock)) {
+    drift.push(`${lockfile}: ${key} has no libc (regenerate with node docker/tools/inventory.mjs sync)`);
+  }
+  return drift;
+}
+
+function followerDrift(inventory, lock) {
+  const drift = [];
   for (const [follower, target] of Object.entries(inventory.updatePolicy?.npmFollowDependency ?? {})) {
     const required = lock.packages?.[`node_modules/${target}`]?.dependencies?.[follower];
     if (required !== inventory.npmPackages[follower]) {
@@ -126,13 +158,20 @@ export function findDrift(dir = DOCKER_DIR) {
   const drift = DERIVED_FILES
     .filter(file => rendered[file] !== current[file])
     .map(file => `${file}: ${firstDifference(current[file], rendered[file])}`);
-  return [...drift, ...lockfileDrift(inventory, JSON.parse(read(dir, LOCKFILE)))];
+  const locks = NPM_GROUPS.flatMap(({ key, lockfile }) => lockfileDrift(inventory[key], JSON.parse(read(dir, lockfile)), lockfile));
+  return [...drift, ...locks, ...followerDrift(inventory, JSON.parse(read(dir, LOCKFILE)))];
 }
 
-// Fixed flags only: npm is a .cmd shim on Windows and needs a shell there.
-function npm(args, cwd) {
-  const result = spawnSync(['npm', ...args].join(' '), { cwd, stdio: 'inherit', shell: true });
-  if (result.status !== 0) throw new Error(`npm ${args.join(' ')} failed with exit code ${result.status}`);
+// The base image's npm, not the host's: an older npm drops the libc fields (see muslWithoutLibc).
+export function lockfileCommand(inventory, dir, { uid, gid }) {
+  return ['docker', ['run', '--rm', '-u', `${uid}:${gid}`, '-e', 'HOME=/tmp', '-v', `${dir}:/w`, '-w', '/w', '--entrypoint', 'npm',
+    inventory.baseImage.reference, 'install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund']];
+}
+
+function generateLockfile(inventory, dir) {
+  const [cmd, args] = lockfileCommand(inventory, dir, { uid: process.getuid?.() ?? 1000, gid: process.getgid?.() ?? 1000 });
+  const result = spawnSync(cmd, args, { stdio: 'inherit' });
+  if (result.status !== 0) throw new Error(`npm install --package-lock-only in ${dir} failed with exit code ${result.status}`);
 }
 
 // Rewrites derived files; regenerates the lockfile when its root dependencies are stale,
@@ -143,12 +182,16 @@ export function syncDerivedFiles(dir = DOCKER_DIR, { regenerateLockfile = true, 
   const rendered = renderDerivedFiles(inventory, current);
   const changed = DERIVED_FILES.filter(file => rendered[file] !== current[file]);
   for (const file of changed) writeFileSync(path.join(dir, file), rendered[file]);
-  const lock = JSON.parse(read(dir, LOCKFILE));
-  const stale = !isDeepStrictEqual(sorted(lock.packages?.['']?.dependencies ?? {}), sorted(inventory.npmPackages));
-  if (regenerateLockfile && (freshLockfile || stale)) {
-    if (freshLockfile) rmSync(path.join(dir, LOCKFILE));
-    npm(['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], path.join(dir, 'tools'));
-    changed.push(LOCKFILE);
+  if (!regenerateLockfile) return changed;
+  for (const { key, lockfile } of NPM_GROUPS) {
+    const file = path.join(dir, lockfile);
+    const lock = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
+    const stale = lockfileStale(inventory[key], lock);
+    if (!freshLockfile && !stale) continue;
+    // A lockfile that lost libc is regenerated from scratch: npm keeps entries it already resolved.
+    if (freshLockfile || muslWithoutLibc(lock).length) rmSync(file, { force: true });
+    generateLockfile(inventory, path.dirname(file));
+    changed.push(lockfile);
   }
   return changed;
 }
@@ -219,13 +262,15 @@ export async function resolveUpdates(inventory, sources) {
     return packuments.get(name);
   };
   const resolved = {};
-  for (const [name, spec] of Object.entries(inventory.npmPackages)) {
-    if (follows[name]) continue;
-    const document = await packument(aliasTarget(name, spec));
-    resolved[name] = holds[name] === undefined
-      ? document['dist-tags'].latest
-      : latestVersion(Object.keys(document.versions), { major: holds[name] });
-    propose(name, ['npmPackages', name], spec, withVersion(spec, resolved[name]));
+  for (const group of ['npmPackages', 'e2eNpmPackages']) {
+    for (const [name, spec] of Object.entries(inventory[group] ?? {})) {
+      if (follows[name]) continue;
+      const document = await packument(aliasTarget(name, spec));
+      resolved[name] = holds[name] === undefined
+        ? document['dist-tags'].latest
+        : latestVersion(Object.keys(document.versions), { major: holds[name] });
+      propose(name, [group, name], spec, withVersion(spec, resolved[name]));
+    }
   }
   for (const [name, target] of Object.entries(follows)) {
     if (!(name in inventory.npmPackages)) continue;
@@ -269,8 +314,8 @@ export async function resolveUpdates(inventory, sources) {
 }
 
 export function inventoryNames(inventory) {
-  return ['baseImage', 'dindImage', ...Object.keys(inventory.npmPackages), ...Object.keys(inventory.systemTools),
-    ...Object.keys(inventory.sourceRevisions), ...Object.keys(inventory.derivedImages),
+  return ['baseImage', 'dindImage', ...Object.keys(inventory.npmPackages), ...Object.keys(inventory.e2eNpmPackages ?? {}),
+    ...Object.keys(inventory.systemTools), ...Object.keys(inventory.sourceRevisions), ...Object.keys(inventory.derivedImages),
     'skills', ...Object.keys(inventory.agentSkills.skills)];
 }
 

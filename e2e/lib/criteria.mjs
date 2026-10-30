@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 
 export function parseCriteria(markdown) {
-  const criteria = [...markdown.matchAll(/^\|\s*(AC\d+)\s*\|\s*(.+?)\s*\|\s*$/gm)].map(([, id, text]) => ({ id, text }));
+  const criteria = [...markdown.matchAll(/^\|\s*(AC\d+)\s*\|\s*(.+?)\s*\|\s*$/gm)].map(([, id, text]) => ({ id, text: text.replace(/\\\|/g, '|') }));
   if (!criteria.length) throw new Error('no acceptance criteria found');
   const ids = criteria.map((c) => c.id);
   const dup = ids.find((id, i) => ids.indexOf(id) !== i);

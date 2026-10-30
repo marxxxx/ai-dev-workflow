@@ -45,3 +45,10 @@ test('summary counts MCP calls and the trials that used each server', () => {
     t({ serena: { find_symbol: 1 }, playwright: { browser_navigate: 1 } }), { reward: 1, checks: {} }]);
   assert.deepEqual(s.mcp, { serena: { calls: 1, trials: 1 }, playwright: { calls: 4, trials: 2 } });
 });
+
+test('summary rates ignore null checks and null own tests', () => {
+  const s = summarizeTrials([{ checks: { a: 1, b: null }, ownTests: null, acceptance: 1 }, { checks: { a: 1, b: 1 }, ownTests: null, acceptance: 1 }]);
+  assert.equal(s.checkRates.b, 1);
+  assert.equal(s.checkRates.ownTests, null);
+  assert.equal(summarizeTrials([{ checks: { a: 1 } }, { checks: {} }]).checkRates.a, 0.5, 'a missing check still fails');
+});

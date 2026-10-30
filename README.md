@@ -83,6 +83,7 @@ and logged in — see [Gitea backend setup](docs/gitea-backend-setup.md).
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
 | `upgrade` | The command for every version bump. Deletes the files the pre-v0.23 workflow generated and strips obsolete keys from `ai-project.json`, then `generate`s, then installs or updates the pinned [show-me](#reviewing-specs-and-plans-with-show-me) skill (unless `"skills": { "show-me": false }`). Only deletes files carrying the generator's banner for a removed unit; other skills and subagents are never touched. A failed skill install is a warning with the manual command, never an error. `--dry-run` lists the changes without writing anything. See [Updating](#updating). |
 | `init` | Interactive onboarding: prompts for project name, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), asks whether to install the [show-me](#reviewing-specs-and-plans-with-show-me) skill (default yes; runs `npx skills add`), then writes `ai-project.json`. It prints the [tooling](#tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
+| `e2e` | `adw e2e <base-commit\|.> <ticket> [harness]`: replay `agent-dev` on one of your tickets in a throwaway clone and score the result. See [E2E on your project](#e2e-on-your-project). |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
 
@@ -224,6 +225,9 @@ and records the `skills` opt-in. Run
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
 
+**`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
+changes the config hash); no `upgrade` step is needed.
+
 **Upgrading to v0.29.1.** The `compose.ai-dev.yml` that `init` wrote lacked the `KILL` capability,
 so the container's init process (tini) could not forward signals to the agent and stopped the
 container with `Unexpected error when forwarding signal: 'Operation not permitted'` (for example
@@ -275,7 +279,8 @@ hand-written file with the same name is kept and reported), plus the unit direct
 It also removes the keys nothing reads anymore from `ai-project.json`: `git.branchPattern` (branch
 and PR names now derive from the ticket), `ticketing.azureDevOps.stateMapping.{test,failed,acceptance-test}`,
 `project.{slug,serenaProject,description}`, `repository.defaultBranch`, and the older `ticketing.itemNoun`,
-`e2e`, `app` and `handoff` blocks. If a project's `tokens` or `agent-custom/` files used
+`e2e.{up,down,readinessTimeout,logsDir}`, `app` and `handoff` blocks (the rest of `e2e` is
+[`adw e2e`](#e2e-on-your-project)'s settings and stays). If a project's `tokens` or `agent-custom/` files used
 `{{project.slug}}`, `{{project.serena}}`, `{{project.description}}` or `{{repo.defaultBranch}}`,
 generation now fails on that token; replace it, or define it under `tokens` in `ai-project.json`.
 
@@ -287,6 +292,102 @@ you still need to `agent-custom/skills/agent-dev/append.md`. Tickets left in ret
 **Upgrading to v0.20.0.** The generator now requires **Node >= 24** (previously `>=18`). Upgrade Node
 on dev boxes and CI runners before bumping the pinned tag — older runtimes are unsupported and only get
 an engine warning, not a clear error.
+
+## E2E on your project
+
+`adw e2e` replays the `agent-dev` workflow on one of your real tickets, at a fixed commit, and scores
+the outcome. Compare runs after you change `agent-custom/`, `AGENTS.md`, the model or the adw version.
+
+```bash
+npx @strobl_dev/adw e2e <base-commit|.> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m] \
+  [--ticket-file <file>] [--baseline <runDir>] [--no-input] [--answers <file>] [--reconfigure]
+```
+
+The ticket is read once from your real backend and never written: `gh issue view`, `tea api`,
+`az boards work-item show` (the host needs `az` with the `azure-devops` extension, logged in or with
+`AZURE_DEVOPS_EXT_PAT` set), or the file backend. `--ticket-file <file>` is the manual fallback: a
+Markdown file whose first line is `# <title>`, followed by the body. `--baseline <runDir>` compares
+with that run (`.adw/e2e/<ticket>/runs/<ts>/<harness>`) instead of the newest earlier one.
+
+Every run happens in a throwaway clone at `<base-commit>` on the `file` ticketing backend, with its
+remote pointing at a local bare repo, so nothing reaches your tracker or your real remote. Opening the draft PR
+(`gh`, `tea` or `az`) is recorded and answered with a placeholder link, never sent to your git host. Its containers publish no host
+ports, so a run does not clash with your own `./ai-dev.sh`. The first run asks you the spec questions and
+confirms drafted acceptance criteria; later runs replay your stored answers. When the agent only reports progress
+and asks nothing, the run tells it to carry on (counted as `nudged`) instead of asking you.
+
+Prerequisites: Docker and a git repo. On the first run `adw e2e` asks for the rest and writes it:
+
+- `ai-project.json`, if there is none: it offers the `init` interview first;
+- the container files (`compose.ai-dev.yml`), if `init` did not write them. The run builds a thin layer with
+  `acpx` and the ACP adapters on your dev image (about 480 MB, cached until the image or the pins change; older
+  layers are removed; the build uses your proxy variables and `AGENT_CA_DIR`);
+- the `e2e` block of `ai-project.json`: the agent's harness and model, the judge model, `testCommand`, provider
+  variables and the language, shown before it is written;
+- values that `e2e.env` names but nothing sets (secrets are read without echo). They can be saved to `.env.ai-dev`
+  next to the project, which the containers read;
+- the ticket, when your backend cannot be read from the host: it is fetched in your dev container, then by opening
+  `$EDITOR` (both interactive only). `--ticket-file` skips this;
+- the logins, see below;
+- an `AGENTS.md` section "End-to-end testing" saying how to start and exercise the app, for the app-level check.
+  If it is missing you can have the answerer role's harness and model draft it from your committed files ([d]raft),
+  answer four questions ([a]sk) or [s]kip it; it is appended only after you confirm. `e2e.testCommand` optionally
+  runs your own tests too.
+
+`--no-input` asks nothing, on a terminal too, and fails on what is missing; without a terminal nothing is asked
+either. `--answers <file>` answers the questions from a JSON file nested by the dotted question keys, e.g.
+`{"setup":{"writeE2e":"y"},"e2e":{"agent":{"harness":"codex"}}}`; every yes/no question it leaves out counts as
+"no", so nothing is written without an explicit answer. `--reconfigure` asks the `e2e` questions again, with the
+stored values as defaults. `.adw/e2e/local.json` (git-ignored) keeps this machine's choices: the volume logins and
+a skipped `AGENTS.md` section are not asked again; delete it to be asked again.
+When the base commit predates the `AGENTS.md` section, the run overlays the current one onto the clone.
+
+`.` as the base commit runs on your working tree: uncommitted changes and untracked files on top of `HEAD`, without
+committing anything (git-ignored files such as `.env.ai-dev` stay out; `.adw/e2e/` stays as committed). Use it to try a
+change, e.g. to `AGENTS.md`, before you commit it: `adw e2e . 1 codex`. The run is compared with the newest run on
+the committed `HEAD`, and is itself never picked as a baseline; its report says `+ working tree`.
+
+Logins: the containers never share the project's agent-home volume, they get a login staged from the host.
+- Codex: `~/.codex/auth.json` on the host, or `OPENAI_API_KEY`. If you only logged in through `./ai-dev.sh`, the
+  setup offers to copy the login from the project's volume.
+- OpenCode: `~/.local/share/opencode/auth.json`, or provider variables in `e2e.env`. Same volume offer, whenever a
+  role uses OpenCode and the host has no `auth.json`.
+- Claude Code: a long-lived token, never taken from the volume. Run `claude setup-token` on the host and export
+  `CLAUDE_CODE_OAUTH_TOKEN`, or let the setup run it (`docker run --rm -it --entrypoint claude <dev image>
+  setup-token`; it asks you to paste the token without echo and offers to save it to `.env.ai-dev`). For
+  Bedrock or Vertex set `CLAUDE_CODE_USE_BEDROCK` / `CLAUDE_CODE_USE_VERTEX` and that provider's variables in `e2e.env`.
+
+Each of the four LLM roles (agent, answerer, verifier, review) has its own harness and model, so a
+project can stay inside the providers it may use. In `ai-project.json`:
+
+```json
+"e2e": {
+  "agent":    { "harness": "codex",       "model": "gpt-6.1-sol" },
+  "answerer": { "harness": "opencode",    "model": "azure/gpt-6.1-mini" },
+  "verifier": { "harness": "opencode",    "model": "azure/gpt-6.1", "timeoutSec": 900 },
+  "review":   { "harness": "opencode",    "model": "azure/gpt-6.1" },
+  "env": ["AZURE_API_KEY", "AZURE_RESOURCE_NAME"],
+  "secretEnv": ["AZURE_API_KEY"],
+  "language": "en"
+}
+```
+
+A role without its own harness uses the agent's; a role without its own model uses that CLI's default
+model. So one login is enough. `language` (`en` or `de`) is the language of the simulated user's answers; the
+setup detects it from the ticket.
+`env` lists variable names passed into the containers by name. Values of names in `e2e.secretEnv` are removed from transcripts and logs; other `e2e.env` values are kept as they are, so list every key or token there.
+
+Under `.adw/e2e/<ticket>/`, commit `ticket.md`, `answers.json` and `acceptance.md`; `runs/` holds the
+per-run records and reports and is git-ignored (the command writes `.adw/e2e/.gitignore`). A run is
+compared with the newest earlier fully replayed run with the same base commit, ticket and harness.
+Before the first trial, one short call per answerer and judge harness and model checks that the model exists and the
+login works, so a misspelled model fails in seconds, not after the agent's trial. A run whose verifier or review fails
+(other than the verifier being skipped) is aborted: it gets no compare verdict and is never a baseline.
+
+Trade-offs: no calibration, one repetition by default, and your first-time answers shape the result, so
+scores are less precise than the Harbor self-test. Variance between identical runs is large: compare
+medians over several repetitions, never single runs. When a judge shares the agent's harness and model,
+the report warns that it is self-judging.
 
 ## Run in a container
 

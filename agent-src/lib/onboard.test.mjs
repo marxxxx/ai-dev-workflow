@@ -5,7 +5,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { PassThrough } from 'node:stream';
 import { cmdInit, createScriptedPrompter, buildProjectConfig } from '../generate.mjs';
+import { createReadlinePrompter } from './onboard.mjs';
 import { makeTmpRoot } from '../test-helpers.mjs';
 
 /** Collect console.log output until restore(). */
@@ -296,4 +298,44 @@ test('cmdInit still succeeds when the show-me install fails, and prints the manu
     console.warn = orig;
     cleanup();
   }
+});
+
+test('scripted askSecret: trimmed value, empty when absent', async () => {
+  const p = createScriptedPrompter({ a: { b: ' t ' } });
+  assert.equal(await p.askSecret('x', 'a.b'), 't');
+  assert.equal(await p.askSecret('x', 'a.c'), '');
+});
+
+// A terminal-like input: readline turns the Ctrl-C byte into its 'SIGINT' event.
+function fakeTerminal() {
+  const input = new PassThrough();
+  input.isTTY = true;
+  input.setRawMode = () => {};
+  return { input, output: new PassThrough(), terminal: true };
+}
+
+test('readline prompter: Ctrl-C at a question rejects it as a SIGINT interrupt', async () => {
+  const t = fakeTerminal();
+  const p = createReadlinePrompter(t);
+  try {
+    const question = p.ask('Continue', 'k', 'y');
+    t.input.write('\x03');
+    await assert.rejects(question, (e) => e.interrupted === true && e.signal === 'SIGINT');
+    const secret = p.askSecret('Token', 'k');
+    t.input.write('\x03');
+    await assert.rejects(secret, (e) => e.interrupted === true);
+    // A rejected question leaves nothing behind: the next one gets its own answer.
+    const next = p.ask('Again', 'k', 'd');
+    t.input.write('yes\n');
+    assert.equal(await next, 'yes');
+  } finally { p.close(); }
+});
+
+test('readline prompter: a Ctrl-C between questions rejects the next one', async () => {
+  const t = fakeTerminal();
+  const p = createReadlinePrompter(t);
+  try {
+    t.input.write('\x03');
+    await assert.rejects(p.ask('Continue', 'k', 'y'), (e) => e.interrupted === true);
+  } finally { p.close(); }
 });

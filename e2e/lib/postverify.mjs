@@ -29,6 +29,9 @@ export function verifierHash({ config, criteria }) {
     reviewTools: [REVIEW_ALLOWED_TOOLS, REVIEW_DENIED_TOOLS], reviewRuntime: 'container',
     models: { verifier: config.verifier.model, review: config.review.model },
   };
+  // Only a non-default judge harness enters the material, so claude-code judges keep the hash they always had.
+  const harness = { verifier: config.verifier.harness ?? 'claude-code', review: config.review.harness ?? 'claude-code' };
+  if (Object.values(harness).some((h) => h !== 'claude-code')) material.harness = harness;
   return createHash('sha256').update(JSON.stringify(material)).digest('hex');
 }
 
@@ -42,28 +45,54 @@ function stripAgentSettings(dir) {
   for (const f of ['settings.json', 'settings.local.json']) rmSync(path.join(claude, f), { force: true });
 }
 
+// The judges' compose service may mount volumes inside /workspace (adw e2e: image.mjs mountPoints). Their mount points are
+// mostly gitignored (node_modules), so a fresh checkout lacks them, and Docker cannot create them in the review's read-only
+// /workspace. Created only inside the checkout: a path leaving it, or running through a committed symlink, is skipped.
+export function createMountPoints(dir, mountPoints) {
+  for (const { path: rel, file } of mountPoints) {
+    const parts = path.posix.normalize(rel).split('/').filter(Boolean);
+    if (path.posix.isAbsolute(rel) || parts.includes('..')) continue;
+    let cur = dir;
+    for (const [i, part] of parts.entries()) {
+      cur = path.join(cur, part);
+      const st = lstatSync(cur, { throwIfNoEntry: false });
+      const last = i === parts.length - 1;
+      if (!st) {
+        if (last && file) writeFileSync(cur, ''); else mkdirSync(cur);
+      } else if (!last && (st.isSymbolicLink() || !st.isDirectory())) break;
+    }
+  }
+}
+
 const DEFAULT_DEPS = { checkoutBundle, runVerifier, runReview };
 
-// `onTranscript(kind, text)` receives each judge's raw claude output ('verifier', 'review'), so its verdict can be traced.
-export function postVerify({ config, bundle, criteria, spec, summary, env = {}, image, deps = DEFAULT_DEPS, onTranscript = () => {} }) {
+// `onTranscript(kind, text)` receives each judge's raw CLI output ('verifier', 'review'), so its verdict can be traced.
+// `buildArgs` (llm.mjs dockerRunArgs / composeRunArgs) picks the judges' container; by default the task image.
+// `skipVerifier` (a reason) leaves acceptance unjudged with that reason as its error; the review still runs.
+// `mountPoints` ({ path, file } relative to /workspace) are created in both checkouts.
+export function postVerify({ config, bundle, criteria, spec, summary, env = {}, image, buildArgs, skipVerifier, mountPoints = [], deps = DEFAULT_DEPS,
+  onTranscript = () => {} }) {
   const nulls = Object.fromEntries(Object.keys(config.review.criteria).map((k) => [k, null]));
   const work = mkdtempSync(path.join(tmpdir(), 'adw-postverify-'));
   try {
     let verdict; let review;
     try {
       // Separate checkouts: the verifier runs the app in its tree, the review reads a pristine one.
-      const { diff } = deps.checkoutBundle(bundle, path.join(work, 'verify'));
-      deps.checkoutBundle(bundle, path.join(work, 'review'));
-      stripAgentSettings(path.join(work, 'verify'));
+      const { diff } = deps.checkoutBundle(bundle, path.join(work, skipVerifier ? 'review' : 'verify'));
+      if (!skipVerifier) deps.checkoutBundle(bundle, path.join(work, 'review'));
+      if (!skipVerifier) stripAgentSettings(path.join(work, 'verify'));
       stripAgentSettings(path.join(work, 'review'));
+      if (!skipVerifier) createMountPoints(path.join(work, 'verify'), mountPoints);
+      createMountPoints(path.join(work, 'review'), mountPoints);
       // The diff gets its own directory: the review's --add-dir exposes only the diff, never the checkouts.
       mkdirSync(path.join(work, 'diff'));
       const diffPath = path.join(work, 'diff', 'pr.diff');
       writeFileSync(diffPath, diff);
-      verdict = deps.runVerifier({ config, checkout: path.join(work, 'verify'), criteria, env, image,
-        onTranscript: (text) => onTranscript('verifier', text) });
+      verdict = skipVerifier ? { criteria: null, error: skipVerifier }
+        : deps.runVerifier({ config, checkout: path.join(work, 'verify'), criteria, env, image, buildArgs,
+          onTranscript: (text) => onTranscript('verifier', text) });
       review = isQuota(verdict.error) ? { scores: nulls, reasons: {}, error: verdict.error }
-        : deps.runReview({ config, checkout: path.join(work, 'review'), diffPath, criteria, spec, summary, env, image,
+        : deps.runReview({ config, checkout: path.join(work, 'review'), diffPath, criteria, spec, summary, env, image, buildArgs,
           onTranscript: (text) => onTranscript('review', text) });
     } catch (err) {
       if (isInterrupt(err)) throw err; // Ctrl-C ends the command; it is no verdict

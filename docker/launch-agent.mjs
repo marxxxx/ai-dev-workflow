@@ -100,9 +100,11 @@ function managedServers(agent, project, home, environment) {
       // Serena's own tool_timeout (240s) so Serena reports a real hang itself.
       codex: { tool_timeout_sec: 300 },
     },
+    // Playwright MCP writes only below the workspace and its output dir (default <workspace>/.playwright-mcp):
+    // /tmp lets screenshots stay out of the repo, as agent-dev asks.
     playwright: {
       command: 'playwright-mcp',
-      args: ['--headless', '--browser', 'chromium', '--isolated'],
+      args: ['--headless', '--browser', 'chromium', '--isolated', '--output-dir', '/tmp'],
       env: { PLAYWRIGHT_BROWSERS_PATH: '/opt/ms-playwright' },
     },
     context7: { command: 'context7-mcp', args: [] },

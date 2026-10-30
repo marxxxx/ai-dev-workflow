@@ -139,7 +139,7 @@ const LEGACY_PROJECT = {
     },
   },
   git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'develop' },
-  e2e: { up: 'scripts/e2e-up', down: 'scripts/e2e-down' },
+  e2e: { up: 'scripts/e2e-up', down: 'scripts/e2e-down', readinessTimeout: 120, logsDir: '.e2e/logs' },
   app: {},
   handoff: {},
   tokens: { custom: 'x' },
@@ -163,7 +163,7 @@ test('pruneProjectConfig removes the obsolete keys and keeps everything else in 
   });
   assert.deepEqual(Object.keys(config), ['project', 'repository', 'ticketing', 'git', 'tokens']);
   assert.deepEqual([...removed].sort(), [
-    'app', 'e2e', 'git.branchPattern', 'handoff',
+    'app', 'e2e.down', 'e2e.logsDir', 'e2e.readinessTimeout', 'e2e.up', 'git.branchPattern', 'handoff',
     'project.description', 'project.serenaProject', 'project.slug',
     'repository.defaultBranch',
     'ticketing.azureDevOps.stateMapping.acceptance-test',
@@ -172,6 +172,13 @@ test('pruneProjectConfig removes the obsolete keys and keeps everything else in 
     'ticketing.itemNoun',
   ]);
   assert.deepEqual(input, LEGACY_PROJECT, 'input must not be mutated');
+});
+
+test('pruneProjectConfig keeps the adw e2e block and removes only the legacy e2e script keys from it', () => {
+  const e2e = { agent: { harness: 'claude-code', model: 'm' }, review: { model: 'r' }, env: ['K'], testCommand: 'npm test' };
+  assert.deepEqual(pruneProjectConfig({ project: { name: 'P' }, e2e }), { config: { project: { name: 'P' }, e2e }, removed: [] });
+  const mixed = pruneProjectConfig({ e2e: { ...e2e, up: 'scripts/e2e-up', logsDir: '.e2e/logs' } });
+  assert.deepEqual(mixed, { config: { e2e }, removed: ['e2e.up', 'e2e.logsDir'] });
 });
 
 test('cleanProjectConfig rewrites ai-project.json only when something was removed', () => {
