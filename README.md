@@ -229,9 +229,7 @@ and records the `skills` opt-in. Run
 changes the config hash); no `upgrade` step is needed.
 
 **Upgrading to v0.30.0.** `agent-dev` now names the superpowers skills by bare id (`brainstorming`, not
-`superpowers:brainstorming`), which OpenCode 2 needs; `upgrade` regenerates it. `show-me` now also
-installs where git prints non-English messages; if an earlier `init` or `upgrade` could not install it,
-`upgrade` installs it now.
+`superpowers:brainstorming`), which OpenCode 2 needs; `upgrade` regenerates it.
 
 **Upgrading to v0.29.1.** The `compose.ai-dev.yml` that `init` wrote lacked the `KILL` capability,
 so the container's init process (tini) could not forward signals to the agent and stopped the
