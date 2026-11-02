@@ -13,7 +13,7 @@ import { buildLocalTrialRecord } from './record.mjs';
 import { confirmAcceptance } from './acceptance.mjs';
 import { USAGE, main, parseE2eArgs, runE2e, timestamp } from './cli.mjs';
 import { runSetup } from './setup.mjs';
-import { composeProject } from './session.mjs';
+import { OPENCODE_LOGIN_HELP, composeProject } from './session.mjs';
 import { createScriptedPrompter } from '../../agent-src/lib/onboard.mjs';
 
 const GENERATE = fileURLToPath(new URL('../../agent-src/generate.mjs', import.meta.url));
@@ -408,6 +408,17 @@ test('runE2e: own tests run in the work tree through compose when testCommand is
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('runE2e: an opencode role without a login file logs OPENCODE_LOGIN_HELP once, not as a problem', async () => {
+  const root = project({ verifier: { harness: 'opencode', model: 'azure/gpt' }, review: { harness: 'opencode', model: 'azure/gpt' }, env: ['AZURE_API_KEY'] });
+  try {
+    const s = stubs(root);
+    s.deps.env = { ...s.deps.env, OPENAI_API_KEY: 'sk-x', AZURE_API_KEY: 'az' };
+    assert.equal(await runE2e(opts(root), s.deps), 0);
+    assert.equal(s.out.filter((l) => l === OPENCODE_LOGIN_HELP).length, 1);
+    assert.ok(!s.out.some((l) => l.startsWith('✗ preflight')));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('timestamp has second resolution and sorts lexicographically', () => {
   assert.equal(timestamp(new Date('2026-10-19T10:00:05.123Z')), '2026-10-19T100005Z');
   assert.ok(timestamp(new Date('2026-10-19T10:00:05Z')) < timestamp(new Date('2026-10-19T10:00:06Z')));
@@ -512,6 +523,17 @@ test('runE2e: a failing probe stops before any trial and names the roles', async
     assert.equal(s.calls.includes('sandbox'), false);
     assert.ok(downs(s.exec).includes(composeProject(root, '7-2026-10-19T1000Z-probe')));
     assert.equal(existsSync(path.join(root, '.adw/e2e/7/runs/2026-10-19T1000Z/claude-code/run.json')), false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('runE2e: files close() could not scrub are named in a warning; the session warns through d.log', async () => {
+  const root = project();
+  try {
+    const s = stubs(root);
+    s.session.close = () => ({ redacted: [], skippedWithSecret: ['/t/agent/opencode.db-wal', '/t/agent/blob.bin'] });
+    await runE2e(opts(root), s.deps);
+    assert.ok(s.out.includes('! secrets in binary/db files left untouched (remove manually):\n/t/agent/opencode.db-wal\n/t/agent/blob.bin'), s.out.join('\n'));
+    assert.equal(s.seen.session.warn, s.deps.log);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

@@ -1,0 +1,477 @@
+diff --git a/docs/superpowers/plans/2026-11-01-due-date.md b/docs/superpowers/plans/2026-11-01-due-date.md
+new file mode 100644
+index 0000000..5a38af7
+--- /dev/null
++++ b/docs/superpowers/plans/2026-11-01-due-date.md
+@@ -0,0 +1,104 @@
++# Due date for todos — Implementation Plan
++
++> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
++
++**Goal:** Todos get an optional, date-only due date; a todo is overdue when it is not done and its due date is before today (UTC). Overdue is visible in the JSON API (computed `overdue` flag, `GET /todos?overdue=` filter) and on the list page („überfällig" marker plus a "nur überfällige" toggle). Ticket #1.
++
++**Architecture:** `Todo` gains `DateOnly? DueDate` and a computed `Overdue` property — one rule shared by the API and the page. `TodoPatch` carries the due date as a tri-state (`DueDatePatch` + a System.Text.Json converter) so an explicit JSON `null` clears it while an absent field keeps it. `TodoStore.List(bool? overdue = null)` does the filtering; `GET /todos?overdue=...` and the page toggle both call it. The page stays read-only for todo data (no input for the date).
++
++**Tech Stack:** .NET 10, Blazor Web App (Interactive Server render mode), minimal APIs, System.Text.Json, xUnit + `WebApplicationFactory<Program>`.
++
++**Spec:** `docs/superpowers/specs/2026-11-01-due-date-design.md` (posted as Approved Spec on ticket #1)
++
++## Global Constraints
++
++- No new NuGet packages.
++- Validation errors stay `System.ComponentModel.DataAnnotations.ValidationException`, mapped to HTTP 400 `{"error": "..."}` by the existing middleware in `Program.cs`. Malformed bodies and invalid due dates throw `JsonException` → `BadHttpRequestException` → the same 400 shape (the converter must let the `JsonException` propagate).
++- TDD: failing test first, then minimal implementation, then a green test run, then commit.
++- Every UI element tests rely on carries a `data-testid`.
++- JSON is camelCase; todo response property order is `id, title, done, dueDate, overdue`.
++- End-to-end: the agent starts the app on http://localhost:3000 and drives it with Playwright; screenshots go outside the repo (e.g. under `/tmp/opencode`).
++
++## Review Focus
++
++1. Invalid due dates (`"2026-02-30"`, `"30.02.2026"`, `"next Friday"`) must yield 400, not 500 → API tests in Task 2.
++2. PATCH `{"dueDate": null}` must clear the date while an omitted field must keep it — a tri-state mix-up silently wipes or keeps dates → store tests in Task 1 plus an API test in Task 2.
++3. Boundary: due today (UTC) is NOT overdue; a done todo is never overdue; no date → never overdue → store test in Task 1.
++4. `GET /todos?overdue=banana` must yield 400 → API test in Task 2.
++5. The prerendered page HTML already contains the new `data-testid`s; the "nur überfällige" toggle filters once the Blazor circuit connects → page test in Task 3 plus E2E in Task 4.
++
++---
++
++### Task 1: Store — due date model, overdue rule, tri-state patch, filtered list
++
++**Files:**
++- Modify: `src/DemoTodo/TodoStore.cs`
++- Test: `tests/DemoTodo.Tests/TodoStoreTests.cs`
++
++**Interfaces:**
++- Consumes: nothing (first task).
++- Produces (used by Tasks 2 and 3):
++  - `public record Todo(int Id, string Title, bool Done, DateOnly? DueDate)` with `public bool Overdue => !Done && DueDate is { } due && due < DateOnly.FromDateTime(DateTime.UtcNow);`
++  - `public record NewTodo(string? Title, DateOnly? DueDate);`
++  - `public readonly record struct DueDatePatch(bool IsSet, DateOnly? Value);` + `public sealed class DueDatePatchConverter : JsonConverter<DueDatePatch>` — `Read` returns `new DueDatePatch(true, null)` on a JSON null token, otherwise `new DueDatePatch(true, JsonSerializer.Deserialize<DateOnly?>(ref reader, options))`; `Write` throws `NotSupportedException` (request-only).
++  - `public record TodoPatch(string? Title, bool? Done, [property: JsonConverter(typeof(DueDatePatchConverter))] DueDatePatch DueDate);`
++  - `TodoStore.List(bool? overdue = null)` — filters by `t.Overdue == overdue.Value` when set.
++  - `TodoStore.Add(NewTodo)` stores `input.DueDate`; `TodoStore.Update` applies `DueDate = patch.DueDate.IsSet ? patch.DueDate.Value : todo.DueDate`.
++
++- [ ] **Step 1: Write the failing tests** in `tests/DemoTodo.Tests/TodoStoreTests.cs`. Update the three existing tests for the new signatures (`new Todo(2, "B", false, null)`, `new TodoPatch(null, true, default)`, `new TodoPatch("B", null, default)`). Add:
++  - `AddsATodoWithADueDate` — `store.Add(new NewTodo("A", new DateOnly(2026, 11, 5)))` equals `new Todo(1, "A", false, new DateOnly(2026, 11, 5))`.
++  - `OverdueIsTrueOnlyWhenNotDoneAndDueBeforeTodayUtc` — with `today = DateOnly.FromDateTime(DateTime.UtcNow)`: `new Todo(1, "A", false, today.AddDays(-1)).Overdue` is true; due today, done-but-past, and no-date todos are false.
++  - `PatchSetsKeepsAndClearsTheDueDate` — `new DueDatePatch(true, date)` sets, `default` keeps (combined with a title change), `new DueDatePatch(true, null)` clears to null.
++  - `ListCanBeFilteredByOverdue` — one overdue, one plain, one done-with-past-date todo; `List(true)` returns only the overdue one, `List(false)` the other two, `List()` all three.
++- [ ] **Step 2: Run to verify failure** — `dotnet test --filter TodoStoreTests` → compile errors (missing members), i.e. red.
++- [ ] **Step 3: Implement** in `src/DemoTodo/TodoStore.cs` exactly the signatures above (`using System.Text.Json; using System.Text.Json.Serialization;` added). Keep the existing lock/validation style; `Add` still trims and requires a title.
++- [ ] **Step 4: Run to verify green** — `dotnet test --filter TodoStoreTests` → all pass.
++- [ ] **Step 5: Commit** — `git add src/DemoTodo/TodoStore.cs tests/DemoTodo.Tests/TodoStoreTests.cs && git commit -m "feat: due date, overdue rule, and overdue filter in TodoStore"`
++
++### Task 2: API — `overdue` in responses, `?overdue=` filter, 400 for invalid dates, PATCH clear
++
++**Files:**
++- Modify: `src/DemoTodo/Program.cs`
++- Test: `tests/DemoTodo.Tests/TodoApiTests.cs`
++
++**Interfaces:**
++- Consumes: Task 1's `Todo`, `NewTodo`, `TodoPatch`, `DueDatePatch`, `TodoStore.List(bool?)`.
++- Produces: `GET /todos` accepts `bool? overdue` query param and returns `store.List(overdue)`; all todo responses serialize `dueDate` and the computed `overdue`.
++
++- [ ] **Step 1: Write the failing tests** in `tests/DemoTodo.Tests/TodoApiTests.cs`. Update `CreatesAndListsTodos` to expect `"""[{"id":1,"title":"Milch kaufen","done":false,"dueDate":null,"overdue":false}]"""`. Add:
++  - `CreatesATodoWithADueDateAndComputedOverdue` — POST `{title="A", dueDate="2020-01-01"}` → 201, deserialized `Todo` has `DueDate == new DateOnly(2020,1,1)` and `Overdue == true`.
++  - `FiltersTodosByOverdue` — POST one with `dueDate="2020-01-01"`, one plain; `GET /todos?overdue=true` returns exactly the first; `GET /todos` returns both; also `GET /todos?overdue=false` returns only the plain one.
++  - `PatchClearsTheDueDateWithNull` — POST with `dueDate="2030-01-01"`, then `PatchAsJsonAsync("/todos/1", new { dueDate = (string?)null })` → response `DueDate` null, `Overdue` false.
++  - `RejectsInvalidDueDatesWithBadRequest` — POST a plain todo, then for each of `"2026-02-30"`, `"30.02.2026"`, `"next Friday"`: POST and PATCH with that `dueDate` → 400.
++  - `RejectsANonBooleanOverdueFilter` — `GET /todos?overdue=banana` → 400.
++- [ ] **Step 2: Run to verify failure** — `dotnet test --filter TodoApiTests` → red (filter/400 tests fail; the exact-JSON test fails on the missing fields).
++- [ ] **Step 3: Implement** in `src/DemoTodo/Program.cs`: change only the list endpoint to `todos.MapGet("", (bool? overdue, TodoStore store) => store.List(overdue));`. No other endpoint changes — `NewTodo`/`TodoPatch` already flow into the store.
++- [ ] **Step 4: Run to verify green** — `dotnet test --filter TodoApiTests` → all pass.
++- [ ] **Step 5: Commit** — `git add src/DemoTodo/Program.cs tests/DemoTodo.Tests/TodoApiTests.cs && git commit -m "feat: overdue flag, ?overdue= filter, and due-date clearing in the API"`
++
++### Task 3: List page — due date display, „überfällig" marker, "nur überfällige" toggle
++
++**Files:**
++- Modify: `src/DemoTodo/Components/Pages/Home.razor`
++- Test: `tests/DemoTodo.Tests/TodoApiTests.cs`
++
++**Interfaces:**
++- Consumes: Task 1's `Todo.DueDate`, `Todo.Overdue`, `TodoStore.List(bool?)`.
++- Produces: prerendered HTML containing `data-testid="todo-list"`, `todo-item`, `todo-title` (unchanged) plus `todo-due-date`, `todo-overdue`, `overdue-only-filter`.
++
++- [ ] **Step 1: Write the failing test** in `tests/DemoTodo.Tests/TodoApiTests.cs`: `MarksOverdueTodosOnTheListPage` — POST `{title="Alt", dueDate="2020-01-01"}` and `{title="Neu"}`; `GET /`; assert the HTML contains `data-testid="todo-overdue"`, `data-testid="todo-due-date"`, `data-testid="overdue-only-filter"`, `2020-01-01`, and `überfällig`.
++- [ ] **Step 2: Run to verify failure** — `dotnet test --filter "MarksOverdueTodosOnTheListPage"` → red.
++- [ ] **Step 3: Implement** in `src/DemoTodo/Components/Pages/Home.razor`: add a checkbox `<input type="checkbox" data-testid="overdue-only-filter" @bind="showOnlyOverdue" /> nur überfällige` above the list; iterate `Store.List(showOnlyOverdue ? true : null)`; inside each `todo-item`, after the title span, render `<span data-testid="todo-due-date">@todo.DueDate?.ToString("yyyy-MM-dd")</span>` when `DueDate` is set, and `<span data-testid="todo-overdue">überfällig</span>` when `todo.Overdue`; add `private bool showOnlyOverdue;` in `@code`.
++- [ ] **Step 4: Run to verify green** — `dotnet test` (whole suite) → all pass.
++- [ ] **Step 5: Commit** — `git add src/DemoTodo/Components/Pages/Home.razor tests/DemoTodo.Tests/TodoApiTests.cs && git commit -m "feat: due date, überfällig marker, and nur überfällige toggle on the list page"`
++
++### Task 4: End-to-end verification in the running app (no code changes)
++
++**Files:** none (screenshots go to `/tmp/opencode`, outside the repo).
++
++- [ ] **Step 1: Full test suite green** — `dotnet test` → 0 failures.
++- [ ] **Step 2: Start the app** — `dotnet run --project src/DemoTodo --urls http://localhost:3000 &` from the repo root; wait until `curl -s http://localhost:3000/health` returns `{"ok":true}` (allow up to a minute for the build).
++- [ ] **Step 3: Exercise the API with curl** — POST `{title, dueDate="<yesterday UTC as yyyy-MM-dd>"}` → response shows `"overdue":true`; POST a plain todo; `GET /todos?overdue=true` lists only the overdue one; `PATCH /todos/1 {"dueDate": null}` → `"dueDate":null,"overdue":false`; POST with `dueDate="2026-02-30"` → 400; `GET /todos?overdue=banana` → 400.
++- [ ] **Step 4: Drive the page with Playwright** — navigate to http://localhost:3000/, wait ~1s for the Blazor circuit, confirm the overdue todo shows `2020-…`-style date and `überfällig`; screenshot to `/tmp/opencode/e2e-list.png`; tick the `overdue-only-filter` checkbox → only the overdue todo remains; screenshot to `/tmp/opencode/e2e-overdue-only.png`.
++- [ ] **Step 5: Shut the app down** — kill the background `dotnet run` process.
++- [ ] Record the observed results (commands + key outputs + screenshot paths) in the run's final summary; nothing to commit.
+diff --git a/docs/superpowers/specs/2026-11-01-due-date-design.md b/docs/superpowers/specs/2026-11-01-due-date-design.md
+new file mode 100644
+index 0000000..a5f95c2
+--- /dev/null
++++ b/docs/superpowers/specs/2026-11-01-due-date-design.md
+@@ -0,0 +1,80 @@
++# Design: Due date for todos (Ticket #1)
++
++Ticket: #1 "Fälligkeitsdatum für Todos" — todos get a due date so overdue items are
++visible, in the API and in the list page.
++
++## Intent and why
++The list and the API should show which todos are overdue, so what is due soon or
++already past gets attention. Due dates are set through the JSON API; the list page
++only displays them.
++
++## Goals
++- `Todo` carries an optional, date-only due date (`DateOnly? DueDate`), serialized as
++  `"dueDate": "YYYY-MM-DD"` (`null` when absent). No time component.
++- Overdue rule: a todo is overdue iff it is **not done**, **has a due date**, and that
++  date is **before today (UTC)**. A todo without a due date is never overdue.
++- The API exposes the rule: every todo response includes a computed `"overdue"` flag,
++  and `GET /todos?overdue=true` (or `=false`) filters the list by it.
++- A due date can be set, changed, **and removed** again: `PATCH` with `"dueDate": null`
++  clears the date; omitting the field leaves it unchanged (existing PATCH convention).
++- Invalid due dates — wrong format (e.g. `"30.02.2026"`, `"next Friday"`) or an
++  impossible calendar date (e.g. `"2026-02-30"`) — are rejected with HTTP 400
++  `{"error": "..."}` like other malformed bodies.
++- The list page shows each todo's due date; an overdue todo is marked with the word
++  **„überfällig"**. A "nur überfällige" control on the page shows only overdue todos.
++- Agreed scope (checks): `dotnet test` (store, API, page tests) **plus** the agent tests
++  the changed flows end to end in the running app with Playwright (API filter, page
++  marking, page "nur überfällige" control), per the AGENTS.md end-to-end section;
++  screenshots go outside the repo.
++
++## Non-goals
++- No due-date input in the UI; the page stays read-only.
++- No time-of-day, no time zones beyond "today in UTC".
++- No sorting or grouping by due date.
++- PATCH keeps its "absent = unchanged" convention for `title`/`done`; for `dueDate`
++  an explicit `null` means "clear" (tri-state, see below).
++
++## Constraints
++- No new NuGet packages.
++- Validation errors stay `System.ComponentModel.DataAnnotations.ValidationException`,
++  mapped to HTTP 400 `{"error": "..."}` in `Program.cs`. Malformed request bodies
++  (including unparsable/invalid due dates) already surface as `BadHttpRequestException`
++  and map to the same 400 shape; the new date parsing must throw `JsonException` so it
++  lands there too.
++- TDD: failing test in `tests/` first.
++- Every UI element tests rely on carries a `data-testid`.
++
++## Approaches
++- **A (chosen):** `DueDate` plus a computed `Overdue` property on the `Todo` record —
++  one source of truth for the rule; the API serializes `overdue` into JSON for free
++  and the page sees it over the Blazor circuit.
++- **B (rejected):** computed `overdue` only in an API response DTO, page computes it
++  separately — two definitions of the rule, drift risk, plus mapping code.
++- **C (rejected):** persist an `overdue` flag — goes stale at midnight UTC and would
++  need a background job.
++
++## Decisions agreed with the human
++- Due date is optional and date-only (`DateOnly?`), no time.
++- Overdue = not done AND due date before today (UTC); never overdue without a date.
++- The API is filterable via `?overdue=true|false`.
++- A due date can be removed again: `PATCH {"dueDate": null}` clears it; omitting the
++  field keeps it (the PATCH record needs a tri-state for `dueDate` — absent vs.
++  explicit null).
++- Invalid due dates (wrong format or impossible date such as Feb 30) are rejected
++  with HTTP 400 `{"error": "..."}`.
++- The page marks an overdue todo with the word „überfällig" and has a
++  "nur überfällige" control that lists only overdue todos.
++- The agent tests end to end itself (Playwright in the running app).
++
++## Left to the builder
++- The tri-state mechanism for `TodoPatch.DueDate` (e.g. a small wrapper type with a
++  `System.Text.Json` converter that turns an explicit JSON `null` into "clear" and
++  throws `JsonException` for invalid date strings so they map to 400).
++- Filtering by the shared `Overdue` rule for both `GET /todos?overdue=...` and the
++  page's "nur überfällige" control (store method or in-place LINQ — one rule).
++- Exact markup/styling of the due date, the „überfällig" marker, and the
++  "nur überfällige" control, plus the new `data-testid`s (planned: `todo-due-date`,
++  `todo-overdue`, `overdue-only-filter`).
++- JSON shape details: camelCase `dueDate` / `overdue`, property order follows the
++  record declaration.
++- Test updates for the new JSON fields in existing assertions.
+diff --git a/src/DemoTodo/Components/Pages/Home.razor b/src/DemoTodo/Components/Pages/Home.razor
+index 10e75f0..0745eeb 100644
+--- a/src/DemoTodo/Components/Pages/Home.razor
++++ b/src/DemoTodo/Components/Pages/Home.razor
+@@ -6,11 +6,28 @@
+ 
+ <h1>Todos</h1>
+ 
++<label>
++    <input type="checkbox" data-testid="overdue-only-filter" @bind="showOnlyOverdue" />
++    nur überfällige
++</label>
++
+ <ul data-testid="todo-list">
+-    @foreach (var todo in Store.List())
++    @foreach (var todo in Store.List(showOnlyOverdue ? true : null))
+     {
+         <li data-testid="todo-item">
+             <span data-testid="todo-title">@todo.Title@(todo.Done ? " ✓" : "")</span>
++            @if (todo.DueDate is { } dueDate)
++            {
++                <span data-testid="todo-due-date">@dueDate.ToString("yyyy-MM-dd")</span>
++            }
++            @if (todo.Overdue)
++            {
++                <span data-testid="todo-overdue">überfällig</span>
++            }
+         </li>
+     }
+ </ul>
++
++@code {
++    private bool showOnlyOverdue;
++}
+diff --git a/src/DemoTodo/Program.cs b/src/DemoTodo/Program.cs
+index fd7934d..67eab7b 100644
+--- a/src/DemoTodo/Program.cs
++++ b/src/DemoTodo/Program.cs
+@@ -47,7 +47,7 @@ app.MapRazorComponents<App>()
+ app.MapGet("/health", () => new { ok = true });
+ 
+ var todos = app.MapGroup("/todos");
+-todos.MapGet("", (TodoStore store) => store.List());
++todos.MapGet("", (bool? overdue, TodoStore store) => store.List(overdue));
+ todos.MapPost("", (NewTodo input, TodoStore store) =>
+ {
+     var todo = store.Add(input);
+diff --git a/src/DemoTodo/TodoStore.cs b/src/DemoTodo/TodoStore.cs
+index c5509e1..9ffac9a 100644
+--- a/src/DemoTodo/TodoStore.cs
++++ b/src/DemoTodo/TodoStore.cs
+@@ -1,12 +1,33 @@
+ using System.ComponentModel.DataAnnotations;
++using System.Text.Json;
++using System.Text.Json.Serialization;
+ 
+ namespace DemoTodo;
+ 
+-public record Todo(int Id, string Title, bool Done);
++public record Todo(int Id, string Title, bool Done, DateOnly? DueDate)
++{
++    // Overdue: not done, has a due date, and that date is before today (UTC). Never overdue without a date.
++    public bool Overdue => !Done && DueDate is { } due && due < DateOnly.FromDateTime(DateTime.UtcNow);
++}
++
++public record NewTodo(string? Title, DateOnly? DueDate = null);
++
++// Tri-state PATCH field for the due date: absent = keep, explicit JSON null = clear, value = set.
++public readonly record struct DueDatePatch(bool IsSet, DateOnly? Value);
++
++public sealed class DueDatePatchConverter : JsonConverter<DueDatePatch>
++{
++    public override DueDatePatch Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
++    {
++        if (reader.TokenType == JsonTokenType.Null) return new DueDatePatch(true, null);
++        return new DueDatePatch(true, JsonSerializer.Deserialize<DateOnly?>(ref reader, options));
++    }
+ 
+-public record NewTodo(string? Title);
++    public override void Write(Utf8JsonWriter writer, DueDatePatch value, JsonSerializerOptions options)
++        => throw new NotSupportedException("DueDatePatch is request-only.");
++}
+ 
+-public record TodoPatch(string? Title, bool? Done);
++public record TodoPatch(string? Title, bool? Done, [property: JsonConverter(typeof(DueDatePatchConverter))] DueDatePatch DueDate = default);
+ 
+ // In-memory todo store, registered as a singleton: the API and the list page share it.
+ public class TodoStore
+@@ -15,9 +36,10 @@ public class TodoStore
+     private readonly SortedDictionary<int, Todo> _todos = [];
+     private int _nextId = 1;
+ 
+-    public IReadOnlyList<Todo> List()
++    public IReadOnlyList<Todo> List(bool? overdue = null)
+     {
+-        lock (_lock) return [.. _todos.Values];
++        lock (_lock)
++            return [.. _todos.Values.Where(t => overdue is null || t.Overdue == overdue.Value)];
+     }
+ 
+     public Todo? Get(int id)
+@@ -31,7 +53,7 @@ public class TodoStore
+         if (string.IsNullOrEmpty(title)) throw new ValidationException("title is required");
+         lock (_lock)
+         {
+-            var todo = new Todo(_nextId++, title, false);
++            var todo = new Todo(_nextId++, title, false, input.DueDate);
+             _todos[todo.Id] = todo;
+             return todo;
+         }
+@@ -44,7 +66,12 @@ public class TodoStore
+         lock (_lock)
+         {
+             if (!_todos.TryGetValue(id, out var todo)) return null;
+-            todo = todo with { Title = title ?? todo.Title, Done = patch.Done ?? todo.Done };
++            todo = todo with
++            {
++                Title = title ?? todo.Title,
++                Done = patch.Done ?? todo.Done,
++                DueDate = patch.DueDate.IsSet ? patch.DueDate.Value : todo.DueDate,
++            };
+             _todos[id] = todo;
+             return todo;
+         }
+diff --git a/tests/DemoTodo.Tests/TodoApiTests.cs b/tests/DemoTodo.Tests/TodoApiTests.cs
+index f20e459..4db9662 100644
+--- a/tests/DemoTodo.Tests/TodoApiTests.cs
++++ b/tests/DemoTodo.Tests/TodoApiTests.cs
+@@ -20,7 +20,7 @@ public class TodoApiTests : IDisposable
+         var created = await _client.PostAsJsonAsync("/todos", new { title = "Milch kaufen" });
+         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+         var list = await _client.GetStringAsync("/todos");
+-        Assert.Equal("""[{"id":1,"title":"Milch kaufen","done":false}]""", list);
++        Assert.Equal("""[{"id":1,"title":"Milch kaufen","done":false,"dueDate":null,"overdue":false}]""", list);
+     }
+ 
+     [Fact]
+@@ -62,4 +62,73 @@ public class TodoApiTests : IDisposable
+         Assert.Contains("data-testid=\"todo-list\"", html);
+         Assert.Contains("Milch kaufen", html);
+     }
++
++    [Fact]
++    public async Task CreatesATodoWithADueDateAndComputedOverdue()
++    {
++        var created = await _client.PostAsJsonAsync("/todos", new { title = "A", dueDate = "2020-01-01" });
++        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
++        var todo = await created.Content.ReadFromJsonAsync<Todo>();
++        Assert.Equal(new DateOnly(2020, 1, 1), todo!.DueDate);
++        Assert.True(todo.Overdue);
++    }
++
++    [Fact]
++    public async Task FiltersTodosByOverdue()
++    {
++        await _client.PostAsJsonAsync("/todos", new { title = "overdue", dueDate = "2020-01-01" });
++        await _client.PostAsJsonAsync("/todos", new { title = "plain" });
++        var only = await _client.GetFromJsonAsync<List<Todo>>("/todos?overdue=true");
++        Assert.Single(only!);
++        Assert.Equal("overdue", only[0].Title);
++        var notOverdue = await _client.GetFromJsonAsync<List<Todo>>("/todos?overdue=false");
++        Assert.Single(notOverdue!);
++        Assert.Equal("plain", notOverdue[0].Title);
++        Assert.Equal(2, (await _client.GetFromJsonAsync<List<Todo>>("/todos"))!.Count);
++    }
++
++    [Fact]
++    public async Task PatchClearsTheDueDateWithNull()
++    {
++        await _client.PostAsJsonAsync("/todos", new { title = "A", dueDate = "2030-01-01" });
++        var res = await _client.PatchAsJsonAsync("/todos/1", new { dueDate = (string?)null });
++        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
++        var todo = await res.Content.ReadFromJsonAsync<Todo>();
++        Assert.Null(todo!.DueDate);
++        Assert.False(todo.Overdue);
++    }
++
++    [Fact]
++    public async Task RejectsInvalidDueDatesWithBadRequest()
++    {
++        await _client.PostAsJsonAsync("/todos", new { title = "A" });
++        foreach (var bad in new[] { "2026-02-30", "30.02.2026", "next Friday" })
++        {
++            var post = await _client.PostAsJsonAsync("/todos", new { title = "B", dueDate = bad });
++            Assert.Equal(HttpStatusCode.BadRequest, post.StatusCode);
++            var patch = await _client.PatchAsJsonAsync("/todos/1", new { dueDate = bad });
++            Assert.Equal(HttpStatusCode.BadRequest, patch.StatusCode);
++        }
++    }
++
++    [Fact]
++    public async Task RejectsANonBooleanOverdueFilter()
++    {
++        var res = await _client.GetAsync("/todos?overdue=banana");
++        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
++    }
++
++    [Fact]
++    public async Task MarksOverdueTodosOnTheListPage()
++    {
++        await _client.PostAsJsonAsync("/todos", new { title = "Alt", dueDate = "2020-01-01" });
++        await _client.PostAsJsonAsync("/todos", new { title = "Neu" });
++        var html = await (await _client.GetAsync("/")).Content.ReadAsStringAsync();
++        Assert.Contains("data-testid=\"todo-due-date\"", html);
++        Assert.Contains("2020-01-01", html);
++        Assert.Contains("data-testid=\"todo-overdue\"", html);
++        Assert.Contains("überfällig", html);
++        Assert.Contains("data-testid=\"overdue-only-filter\"", html);
++        Assert.Contains("nur überfällige", html);
++    }
+ }
+diff --git a/tests/DemoTodo.Tests/TodoStoreTests.cs b/tests/DemoTodo.Tests/TodoStoreTests.cs
+index 25b31fb..8337010 100644
+--- a/tests/DemoTodo.Tests/TodoStoreTests.cs
++++ b/tests/DemoTodo.Tests/TodoStoreTests.cs
+@@ -10,8 +10,8 @@ public class TodoStoreTests
+         var store = new TodoStore();
+         store.Add(new NewTodo("A"));
+         var todo = store.Add(new NewTodo("  B  "));
+-        Assert.Equal(new Todo(2, "B", false), todo);
+-        Assert.Equal([new Todo(1, "A", false), todo], store.List());
++        Assert.Equal(new Todo(2, "B", false, null), todo);
++        Assert.Equal([new Todo(1, "A", false, null), todo], store.List());
+     }
+ 
+     [Fact]
+@@ -25,7 +25,52 @@ public class TodoStoreTests
+     {
+         var store = new TodoStore();
+         var todo = store.Add(new NewTodo("A"));
+-        Assert.Equal(todo with { Done = true }, store.Update(todo.Id, new TodoPatch(null, true)));
+-        Assert.Null(store.Update(42, new TodoPatch("B", null)));
++        Assert.Equal(todo with { Done = true }, store.Update(todo.Id, new TodoPatch(null, true, default)));
++        Assert.Null(store.Update(42, new TodoPatch("B", null, default)));
++    }
++
++    [Fact]
++    public void AddsATodoWithADueDate()
++    {
++        var store = new TodoStore();
++        var todo = store.Add(new NewTodo("A", new DateOnly(2026, 11, 5)));
++        Assert.Equal(new Todo(1, "A", false, new DateOnly(2026, 11, 5)), todo);
++    }
++
++    [Fact]
++    public void OverdueIsTrueOnlyWhenNotDoneAndDueBeforeTodayUtc()
++    {
++        var today = DateOnly.FromDateTime(DateTime.UtcNow);
++        Assert.True(new Todo(1, "A", false, today.AddDays(-1)).Overdue);
++        Assert.False(new Todo(2, "B", false, today).Overdue);
++        Assert.False(new Todo(3, "C", true, today.AddDays(-1)).Overdue);
++        Assert.False(new Todo(4, "D", false, null).Overdue);
++    }
++
++    [Fact]
++    public void PatchSetsKeepsAndClearsTheDueDate()
++    {
++        var store = new TodoStore();
++        var todo = store.Add(new NewTodo("A"));
++        var set = store.Update(todo.Id, new TodoPatch(null, null, new DueDatePatch(true, new DateOnly(2026, 11, 5))));
++        Assert.Equal(new DateOnly(2026, 11, 5), set!.DueDate);
++        var kept = store.Update(todo.Id, new TodoPatch("B", null, default));
++        Assert.Equal(new Todo(todo.Id, "B", false, new DateOnly(2026, 11, 5)), kept);
++        var cleared = store.Update(todo.Id, new TodoPatch(null, null, new DueDatePatch(true, null)));
++        Assert.Null(cleared!.DueDate);
++    }
++
++    [Fact]
++    public void ListCanBeFilteredByOverdue()
++    {
++        var store = new TodoStore();
++        var yesterday = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1);
++        var overdue = store.Add(new NewTodo("overdue", yesterday));
++        var plain = store.Add(new NewTodo("plain"));
++        var done = store.Add(new NewTodo("done", yesterday));
++        var doneUpdated = store.Update(done.Id, new TodoPatch(null, true, default));
++        Assert.Equal([overdue], store.List(true));
++        Assert.Equal([plain, doneUpdated], store.List(false));
++        Assert.Equal(3, store.List().Count);
+     }
+ }

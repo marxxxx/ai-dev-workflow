@@ -10,7 +10,7 @@ export const CONTINUE_TEXT = 'Mach weiter und melde dich, wenn du Ergebnisse has
 const MAX_NUDGES = 3;
 const SPEC_APPROVAL = 'Spec approval';
 // Only a negated "kenne … Skill" counts: "Ich kenne den agent-dev Skill" is the agent starting.
-const UNKNOWN_SKILL = /unknown skill|no skill named|\bkenne\b.{0,30}\b(keinen|keine|nicht)\b.{0,30}skill|\bkenne den .{0,40}skill nicht/i;
+const UNKNOWN_SKILL = /unknown skill|no skill named|unable to load skill|\bkenne\b.{0,30}\b(keinen|keine|nicht)\b.{0,30}skill|\bkenne den .{0,40}skill nicht/i;
 
 // The command that invokes the skill directly when the agent does not recognise the opening message.
 export const fallbackCommand = (harness, ticket) => `${harness === 'claude-code' ? '/' : '$'}agent-dev ${ticket}`;

@@ -11,7 +11,7 @@
     "@upstash/context7-mcp": "4.4.4",
     "ccusage": "20.0.45",
     "jsonc-parser": "3.3.1",
-    "opencode-ai": "1.19.5",
+    "@opencode/cli": "2.2.3",
     "playwright": "1.64.0-alpha-1790635538000",
     "pnpm": "12.16.1",
     "smol-toml": "1.9.1",

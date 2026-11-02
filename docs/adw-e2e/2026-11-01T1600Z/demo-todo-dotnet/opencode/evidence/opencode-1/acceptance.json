@@ -1,0 +1,21 @@
+{
+  "criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass",
+    "AC5": "pass",
+    "AC6": "pass",
+    "AC7": "pass"
+  },
+  "evidence": {
+    "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-10-31\"} returned 201 with dueDate \"2026-10-31\". I created other todos with dates (2026-11-01, 2027-01-01, 2020-01-01), and all came back as plain calendar dates. POST /todos with {\"title\":\"nodue\"} returned 201 with dueDate null, so the date is optional.",
+    "AC2": "PATCH /todos/3 {\"dueDate\":\"2026-01-01\"} returned 200 and changed the date from 2027-01-01 to 2026-01-01. PATCH {\"title\":\"future2\"} left the date unchanged. PATCH {\"dueDate\":null} returned 200 with dueDate null, so the date was removed.",
+    "AC3": "POST with dueDate \"2026-02-30\", \"31-12-2026\", \"abc\" and \"2026-13-01\" each returned 400 with the error 'dueDate must be a YYYY-MM-DD date'. POST with dueDate 123 returned 400. PATCH /todos/1 {\"dueDate\":\"2026-02-30\"} returned 400.",
+    "AC4": "Today in UTC is 2026-11-01. I had todos with dates yesterday, today, 2027-01-01 and 2020-01-01 (this last one marked done), plus one with no date and one whose date I removed. GET /todos?overdue=true returned only the todo dated 2026-10-31. Excluded: due today, done with a past date, no date, and date removed. In the full GET /todos list, only the 2026-10-31 todo has overdue true.",
+    "AC5": "The list page at / showed 2026-10-31 next to 'past', 2026-11-01 next to 'today' and 2020-01-01 next to 'pastdone'. The todos with no date showed none.",
+    "AC6": "In the page snapshot, only the 'past' todo (2026-10-31) showed the text 'überfällig'. The todos due today, done with a past date, with no date and with the date removed showed no label.",
+    "AC7": "The page has a checkbox labelled 'nur überfällige'. Clicking it reduced the list to a single item, 'past' with the 'überfällig' label."
+  },
+  "error": null
+}

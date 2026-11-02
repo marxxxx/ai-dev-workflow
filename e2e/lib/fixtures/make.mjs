@@ -40,19 +40,26 @@ export function makeCodexTrial(dir, { read } = {}) {
   return dir;
 }
 
-export function makeOpenCodeTrial(dir, { read } = {}) {
+// OpenCode 2: messages in session_message, each assistant message holding its tool calls in `content`;
+// MCP tools run inside Code Mode's `execute`.
+export function makeOpenCodeTrial(dir, { read, skills = [] } = {}) {
   const d = path.join(dir, 'agent/opencode/xdg-data/opencode');
   mkdirSync(d, { recursive: true });
   const db = new DatabaseSync(path.join(d, 'opencode.db'));
-  db.exec('create table message (id text, data text); create table part (id text, data text);');
-  const msg = db.prepare('insert into message values (?, ?)');
-  msg.run('1', JSON.stringify({ role: 'user' }));
-  msg.run('2', JSON.stringify({ role: 'assistant', tokens: { input: 100, output: 20, reasoning: 5, cache: { read: 400, write: 0 } } }));
-  msg.run('3', JSON.stringify({ role: 'assistant', tokens: { input: 50, output: 10, reasoning: 0, cache: { read: 300, write: 7 } } }));
-  const part = db.prepare('insert into part values (?, ?)');
-  part.run('a', JSON.stringify({ type: 'tool', tool: 'playwright_browser_navigate', state: { status: 'completed', input: { url: 'http://localhost:3000' } } }));
-  part.run('b', JSON.stringify({ type: 'tool', tool: 'bash', state: { status: 'error', input: { command: 'x' } } }));
-  if (read) part.run('c', JSON.stringify({ type: 'tool', tool: 'read', state: { status: 'completed', input: { filePath: `/workspace/${read}` } } }));
+  db.exec('create table session_message (id text, session_id text, type text, seq integer, data text);');
+  const msg = db.prepare('insert into session_message values (?, ?, ?, ?, ?)');
+  const tool = (name, status, input) => ({ type: 'tool', name, state: { status, input } });
+  msg.run('1', 's', 'user', 1, JSON.stringify({ text: 'hi' }));
+  msg.run('2', 's', 'assistant', 2, JSON.stringify({ tokens: { input: 100, output: 20, reasoning: 5, cache: { read: 400, write: 0 } }, content: [
+    tool('execute', 'completed', { code: 'return await tools.playwright.browser_navigate({ url: "http://localhost:3000" })' }),
+    tool('shell', 'error', { command: 'x' }),
+  ] }));
+  msg.run('3', 's', 'assistant', 3, JSON.stringify({ tokens: { input: 50, output: 10, reasoning: 0, cache: { read: 300, write: 7 } }, content: [
+    { type: 'text', text: 'ok' },
+    tool('execute', 'completed', { code: 'return await search("symbol")' }),
+    ...skills.map(({ id, status }) => tool('skill', status, { id })),
+    ...(read ? [tool('read', 'completed', { path: `/workspace/${read}` })] : []),
+  ] }));
   db.close();
   writeUserLog(dir, true);
   return dir;

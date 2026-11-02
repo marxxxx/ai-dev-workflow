@@ -78,10 +78,13 @@ RUN set -eux; \
     useradd --uid 1000 --gid 1000 --create-home --home-dir "${APP_HOME}" --shell /bin/bash "${APP_USER}"
 
 # Every Node CLI and MCP server is resolved by the committed lockfile under one prefix.
+# OpenCode's postinstall links the binary it selected into @opencode/cli/bin; its platform
+# packages (all four linux-x64 variants, about 1 GB) are unused after that.
 COPY tools/package.json tools/package-lock.json /opt/agent-tools/
 RUN set -eux; \
     npm ci --prefix /opt/agent-tools --omit=dev --no-audit --no-fund; \
     chmod 0755 /opt/agent-tools/node_modules/@ccusage/ccusage-linux-x64/bin/ccusage; \
+    rm -rf /opt/agent-tools/node_modules/@opencode/cli-linux-*; \
     npm cache clean --force
 COPY tools/inventory.json /opt/agent-tools/inventory.json
 

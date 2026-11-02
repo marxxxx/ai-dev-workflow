@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  loadSkillPins, installArgs, manualCommand, skillWarnings, syncSkills, installSkills,
+  loadSkillPins, installArgs, manualCommand, skillWarnings, syncSkills, installSkills, npxEnv,
 } from './skills.mjs';
 import { makeTmpRoot, MINIMAL_PROJECT } from '../test-helpers.mjs';
 
@@ -164,4 +164,11 @@ test('skillWarnings flags a missing or stale wanted skill and stays quiet otherw
   } finally {
     cleanup();
   }
+});
+
+test('npxEnv forces English git messages, so the CLI recognizes a pinned commit and fetches it', () => {
+  const env = npxEnv({ LANG: 'de_DE.UTF-8', LC_ALL: 'de_DE.UTF-8', PATH: '/bin' });
+  assert.equal(env.LC_ALL, 'C');
+  assert.equal(env.PATH, '/bin');
+  assert.equal(env.DISABLE_TELEMETRY, '1');
 });

@@ -99,6 +99,10 @@ test('ownComposeRun: own compose project argv, certs overlay and entrypoint', ()
   ownComposeRun({ root, env: { AGENT_CA_DIR: '/c' }, exec, argv: ['sh'], entrypoint: 'sh' });
   assert.deepEqual(calls[1][1].slice(0, 6), ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), '-f', path.join(root, 'compose.ai-dev.certs.yml'), 'run']);
   assert.ok(calls[1][1].join(' ').includes('--entrypoint sh ai-dev-workflow sh'));
+  // As the volume owner: the uid the entrypoint maps dev to, with dev's HOME.
+  ownComposeRun({ root, env: { HOST_UID: '1234', HOST_GID: '5678' }, exec, argv: ['x'], entrypoint: 'sh', asHostUser: true });
+  assert.ok(calls[2][1].join(' ').includes('-T -u 1234:5678 -e HOME=/home/dev --entrypoint sh ai-dev-workflow x'), calls[2][1].join(' '));
+  assert.ok(!calls[0][1].includes('-u') && !calls[1][1].includes('-u'));
   rmSync(root, { recursive: true });
 });
 
@@ -308,7 +312,9 @@ test('stepInterview: without a prompter nothing happens', async () => {
 });
 
 // stepLogins: a project whose only harness is `harness`; `exec` records every docker call.
-function loginsFixture(harness, { setupExit = 0, catStatus = 0, volume = true, cat = '{"tokens":{"refresh_token":"r"}}', envFile = null } = {}) {
+const EXPORT = '[{"id":"c","integrationID":"x","label":"API key","active":true,"value":{"type":"key","key":"k"}}]';
+
+function loginsFixture(harness, { setupExit = 0, catStatus = 0, volume = true, cat = '{"tokens":{"refresh_token":"r"}}', envFile = null, exportOut = EXPORT, exportStatus = 0 } = {}) {
   const root = tmp();
   const home = tmp();
   writeFileSync(path.join(root, 'compose.ai-dev.yml'), 'services: {}\n');
@@ -321,6 +327,7 @@ function loginsFixture(harness, { setupExit = 0, catStatus = 0, volume = true, c
     if (args.includes('setup-token')) return { status: setupExit };
     if (args.includes('config')) return { status: 0, stdout: '{"name":"proj","services":{"ai-dev-workflow":{"image":"dev:1"}}}' };
     if (args[0] === 'volume') return { status: volume ? 0 : 1, stdout: '' };
+    if (args.some((a) => /auth export/.test(a))) return { status: exportStatus, stdout: exportOut };
     if (args.includes('cat')) return { status: catStatus, stdout: cat };
     return { status: 0, stdout: '' };
   };
@@ -484,20 +491,52 @@ test('stepLogins: the terminal is handed over around setup-token; a failing run 
   f.clean();
 });
 
-test('stepLogins: opencode without a login file is offered the volume login', async () => {
-  const f = loginsFixture('opencode', { cat: '{"anthropic":{"refresh":"r"}}' });
+test('stepLogins: opencode without a login file is offered an export of the volume login', async () => {
+  const f = loginsFixture('opencode', { exportOut: EXPORT });
   const state = await runLogins(f, { setup: { volumeLogin: { opencode: 'y' } } });
-  const file = path.join(state.fallbackHome, '.local/share/opencode/auth.json');
+  const file = path.join(state.fallbackHome, '.config/adw/opencode-credentials.json');
+  assert.equal(readFileSync(file, 'utf8'), EXPORT);
   assert.equal(statSync(file).mode & 0o777, 0o600);
   assert.equal(state.creds.authFiles[0].from, file);
+  const run = f.calls.find(([, a]) => a.includes('run'))[1];
+  assert.equal(run[run.indexOf('--entrypoint') + 1], 'sh');
+  // Not as root (HOME=/root holds no login, and root-owned files would be left in the volume): as the volume owner.
+  assert.equal(run[run.indexOf('-u') + 1], `${process.getuid()}:${process.getgid()}`);
+  assert.equal(run[run.indexOf('-e') + 1], 'HOME=/home/dev');
+  assert.deepEqual(run.slice(-3), ['ai-dev-workflow', '-c', 'cd /tmp && /opt/agent-tools/node_modules/.bin/opencode --standalone auth export']);
+  assert.ok(run.includes('-T') && !run.includes('-t') && !run.includes('-it'));
   rmSync(state.fallbackHome, { recursive: true, force: true });
+  f.clean();
+});
+
+test('stepLogins: an opencode volume export that is not an array is reported and copies nothing', async () => {
+  const f = loginsFixture('opencode', { exportOut: 'oops' });
+  const state = await runLogins(f, { setup: { volumeLogin: { opencode: 'y' } } });
+  assert.ok(f.out.includes('! no usable OpenCode login in the agent-home volume'), f.out.join('\n'));
+  assert.equal(state.fallbackHome, null);
+  f.clean();
+});
+
+test('stepLogins: an empty opencode export (no login in the volume) is reported and copies nothing', async () => {
+  const f = loginsFixture('opencode', { exportOut: '[]' });
+  const state = await runLogins(f, { setup: { volumeLogin: { opencode: 'y' } } });
+  assert.ok(f.out.includes('! no usable OpenCode login in the agent-home volume'), f.out.join('\n'));
+  assert.equal(state.fallbackHome, null);
+  f.clean();
+});
+
+test('stepLogins: a failing opencode volume export is reported and copies nothing', async () => {
+  const f = loginsFixture('opencode', { exportStatus: 1 });
+  const state = await runLogins(f, { setup: { volumeLogin: { opencode: 'y' } } });
+  assert.ok(f.out.includes('! reading the OpenCode login from the agent-home volume failed'), f.out.join('\n'));
+  assert.equal(state.fallbackHome, null);
   f.clean();
 });
 
 test('stepLogins: opencode with a host login file asks nothing', async () => {
   const f = loginsFixture('opencode');
-  mkdirSync(path.join(f.home, '.local/share/opencode'), { recursive: true });
-  writeFileSync(path.join(f.home, '.local/share/opencode/auth.json'), '{"a":{"refresh":"h"}}');
+  mkdirSync(path.join(f.home, '.config/adw'), { recursive: true });
+  writeFileSync(path.join(f.home, '.config/adw/opencode-credentials.json'), EXPORT);
   await runLogins(f, { setup: { volumeLogin: { opencode: 'y' } } });
   assert.deepEqual(f.calls, []);
   f.clean();

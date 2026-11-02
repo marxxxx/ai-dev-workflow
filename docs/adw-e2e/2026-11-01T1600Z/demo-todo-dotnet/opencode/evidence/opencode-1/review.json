@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 5,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria appear in the final spec and the diff, including the UTC overdue rule, the 'überfällig' word and the 'nur überfällige' control.",
+    "scope": "The change adds only what the ticket asks for. It also commits the spec and plan documents, which the workflow produces.",
+    "tests": "The new tests cover set, change and clear of the due date, invalid input, the overdue boundaries, the API filter and the page markup. Gaps: no test clicks the UI filter to show it hides non-overdue todos, and the page test only checks that strings appear somewhere in the HTML. Existing tests were adapted to the new signatures, not weakened.",
+    "conventions": "It follows AGENTS.md: ValidationException from the store, data-testid on the new elements, TDD, and no new packages. Minor: the filter checkbox's data-testid is on the input, not the label.",
+    "architecture": "Logic sits in TodoStore and Todo, the page filters over the store, and the API filter is a small change to the existing GET handler. Minor: the overdue filter exists in both Program.cs and Home.razor.",
+    "codeQuality": "Parsing is strict and the PATCH switch handles all three states and rejects other kinds. Small issues: Overdue reads DateTime.UtcNow on every access, so it can flip mid-request, and an absent JsonElement relies on default(JsonElement) being Undefined."
+  },
+  "error": null
+}

@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven ACs are covered by the spec and the diff: optional date, PATCH change and null removal, 400 on invalid input, the overdue filter, and the UI date, label and toggle.",
+    "scope": "The change stays on-ticket. The only extras are a small `.gitignore` entry for `.superpowers/` and the committed spec and plan docs.",
+    "tests": "The new tests cover validation, PATCH set and clear, UTC overdue, the done case and the filter, and the existing test was updated rather than weakened. The UI is checked only by markup regex, and the 'today' case is tested against a real clock.",
+    "conventions": "The code uses `ValidationError` for HTTP 400, adds `data-testid` to every new UI element, uses only Node builtins, and keeps the existing test style.",
+    "architecture": "Validation sits in the store and the computed overdue field and filter sit in the HTTP layer, as the spec says. The list filter calls `withOverdue` twice per todo, which is minor duplication.",
+    "codeQuality": "The code is clean and handles edge cases such as the 2026-02-30 round-trip check and non-string input. Minor issues: `update` does not guard against a null patch, and the UI fetch has no error handling."
+  },
+  "error": null
+}

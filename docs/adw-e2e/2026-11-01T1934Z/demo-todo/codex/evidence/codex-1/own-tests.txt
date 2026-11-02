@@ -1,0 +1,58 @@
+
+> demo-todo@1.0.0 test
+> node --test
+
+✔ creates and lists todos (43.124148ms)
+✔ rejects an empty title (9.011654ms)
+✔ marks a todo done (7.980156ms)
+✔ serves the list page (6.780706ms)
+✔ exposes due dates and overdue status when creating, reading and updating (15.87561ms)
+✔ filters overdue todos only for the exact query value true (19.228236ms)
+✔ returns HTTP 400 for invalid due dates without partially updating todos (59.179758ms)
+✔ recomputes HTTP results after UTC midnight without a write (4.835659ms)
+✔ defaults an omitted or null due date to null (2.904107ms)
+✔ sets, preserves, changes and removes a due date (0.663626ms)
+✔ accepts the real calendar date 0001-01-01 (0.310649ms)
+✔ accepts the real calendar date 0099-12-31 (0.253438ms)
+✔ accepts the real calendar date 2000-02-29 (0.231132ms)
+✔ accepts the real calendar date 2024-02-29 (0.23418ms)
+✔ accepts the real calendar date 9999-12-31 (0.259151ms)
+✔ rejects invalid due date "0000-01-01" without changing stored data (0.846538ms)
+✔ rejects invalid due date "1900-02-29" without changing stored data (0.334412ms)
+✔ rejects invalid due date "2026-02-29" without changing stored data (0.335039ms)
+✔ rejects invalid due date "2026-02-30" without changing stored data (0.211899ms)
+✔ rejects invalid due date "2026-13-01" without changing stored data (0.174958ms)
+✔ rejects invalid due date "2026-00-01" without changing stored data (0.123498ms)
+✔ rejects invalid due date "2026-11-00" without changing stored data (0.175982ms)
+✔ rejects invalid due date "2026-04-31" without changing stored data (0.133316ms)
+✔ rejects invalid due date "2026-1-01" without changing stored data (0.136263ms)
+✔ rejects invalid due date "2026-11-1" without changing stored data (0.151868ms)
+✔ rejects invalid due date "2026-11-01T00:00:00Z" without changing stored data (0.133524ms)
+✔ rejects invalid due date " 2026-11-01" without changing stored data (0.1163ms)
+✔ rejects invalid due date "2026-11-01\n" without changing stored data (0.105129ms)
+✔ rejects invalid due date "" without changing stored data (0.08631ms)
+✔ rejects invalid due date 42 without changing stored data (0.138698ms)
+✔ rejects invalid due date false without changing stored data (0.148544ms)
+✔ rejects invalid due date {} without changing stored data (0.160421ms)
+✔ rejects invalid due date [] without changing stored data (0.152474ms)
+✔ validates all patch fields before modifying a todo (0.290436ms)
+✔ filters only unfinished past-due todos while preserving insertion order (0.341205ms)
+✔ recomputes overdue at UTC midnight without any writes (0.178512ms)
+✔ uses the UTC date when the local date in a supplied instant differs (0.121097ms)
+✔ retains missing-id and deletion behavior (0.12994ms)
+✔ renders API dates beside titles and marks only overdue todos as text (9.282134ms)
+✔ checkbox loads the server filter, replaces results and recovers from empty results (2.55348ms)
+✔ a slow filter response cannot overwrite the last checkbox selection (3.857033ms)
+✔ a slow initial response cannot overwrite a newer filtered list (1.86585ms)
+✔ a failed network filter request clears stale rows and allows recovery (1.935002ms)
+✔ a failed http filter request clears stale rows and allows recovery (1.427364ms)
+✔ a failed unfilter request cannot silently retain an incomplete list (2.047965ms)
+✔ a stale request failure cannot clear newer results or show an outdated error (1.526805ms)
+ℹ tests 46
+ℹ suites 0
+ℹ pass 46
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 276.252625

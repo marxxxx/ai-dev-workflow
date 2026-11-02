@@ -9,7 +9,7 @@ import { loadConfig } from './lib/config.mjs';
 import { buildFingerprint } from './lib/fingerprint.mjs';
 import { buildHarborArgs, cleanupCompose, runHarbor } from './lib/harbor.mjs';
 import { runPreflight } from './lib/preflight.mjs';
-import { stageSecrets, scanForSecrets, redactSecrets, scrubSecretsInTree, removeOpenCodeAuthCopies } from './lib/secrets.mjs';
+import { stageSecrets, scanForSecrets, redactSecrets, scrubSecretsInTree, removeOpenCodeDbCredentials } from './lib/secrets.mjs';
 import { applyPostVerification, buildTrialRecord, emptyOutcome, section, unjudgedOutcome } from './lib/trial.mjs';
 import { summarizeTrials } from './lib/summary.mjs';
 import { compareRuns, findBaseline } from './lib/compare.mjs';
@@ -80,7 +80,7 @@ function safeCleanupCompose() {
 
 function preflight() {
   const staged = stageSecrets({ config, invocationDir: path.join(config.root, config.jobsDir, 'preflight') });
-  const has = { 'claude-code': 'CLAUDE_CODE_OAUTH_TOKEN', codex: 'CODEX_AUTH_JSON_PATH', opencode: 'OPENCODE_AUTH_JSON_PATH' };
+  const has = { 'claude-code': 'CLAUDE_CODE_OAUTH_TOKEN', codex: 'CODEX_AUTH_JSON_PATH', opencode: 'OPENCODE_CREDENTIALS_PATH' };
   let r;
   try {
     r = runPreflight({ config, harnesses, tasks, env: staged.env, authPresent: (h) => Boolean(staged.env[has[h]]) });
@@ -181,7 +181,7 @@ async function run() {
   const cleanup = () => {
     if (cleanedUp) return;
     cleanedUp = true;
-    try { removeOpenCodeAuthCopies(jobsDir); } catch (e) { console.warn(`! auth copy removal failed: ${e.message}`); }
+    try { removeOpenCodeDbCredentials(jobsDir); } catch (e) { console.warn(`! opencode.db credential removal failed: ${e.message}`); }
     if (staged) scrubJobs(jobsDir, staged.values);
     staged?.cleanup();
     safeCleanupCompose();
@@ -217,8 +217,12 @@ async function run() {
             const trialDir = existsSync(jobDir) ? readdirSync(jobDir).map((d) => path.join(jobDir, d)).find((d) => path.basename(d).startsWith(`${t.name}__`)) : null;
             trial = trialDir ? buildTrialRecord({ id, harness, trialDir, config, criteria: t.criteria }) : failed(`harbor exit ${code}`);
             if (trialDir && code !== 0 && !trial.errors.harbor) trial.errors.harbor = `harbor exit ${code}`;
-            // The OpenCode adapter uploads its auth.json into the bind-mounted logs dir: never keep it.
-            if (trialDir) rmSync(path.join(trialDir, 'agent/opencode/xdg-data/opencode/auth.json'), { force: true });
+            // The OpenCode adapter imports its login into opencode.db in the bind-mounted logs dir, which therefore
+            // loses its credential rows.
+            if (trialDir) {
+              // The run's cleanup tries again.
+              try { removeOpenCodeDbCredentials(trialDir); } catch (e) { console.warn(`! opencode.db credential removal failed: ${e.message}`); }
+            }
             if (trialDir && existsSync(path.join(trialDir, 'verifier'))) {
               const ev = path.join(outRoot, t.name, harness, 'evidence', id);
               mkdirSync(ev, { recursive: true });

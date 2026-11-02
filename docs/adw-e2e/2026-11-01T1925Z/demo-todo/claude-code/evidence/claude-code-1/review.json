@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, and the agent's own decisions (field name, injectable `today`) are labelled as such.",
+    "scope": "The PATCH atomicity refactor of title and done goes beyond the ticket, but it is needed so a rejected dueDate leaves the todo unchanged, and it is documented and tested. The plan and spec docs are the expected process artifacts.",
+    "tests": "The store and HTTP tests cover boundaries, invalid values, clearing the date and atomic PATCH. Gaps: the page test only checks for static strings, a PATCH over HTTP is never tested, and the only existing-test change is a legitimate update to the expected shape.",
+    "conventions": "The change uses ValidationError and 400, zero dependencies, TDD, new data-testid attributes, and the existing test style.",
+    "architecture": "The overdue rule lives only in the store and the app maps the query parameter to it. The page makes two requests and marks todos by id, which the spec accepts as approach A.",
+    "codeQuality": "The code is clean and the date validation is robust. Minor edges: the page keeps stale overdue data after any change, and it does not handle fetch errors (the original page did not either)."
+  },
+  "error": null
+}

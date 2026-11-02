@@ -115,11 +115,27 @@ test('OpenCode inline config retains custom servers and uses the local plugin', 
     workspace, home, checkAzureAuth: () => true,
   });
   const config = JSON.parse(plan.env.OPENCODE_CONFIG_CONTENT);
-  assert.equal(config.mcp.dxdocs.url, 'https://docs.example/mcp');
-  assert.deepEqual(config.mcp.ado.command.slice(0, 3), ['mcp-server-azuredevops', 'fixture-org', '-d']);
-  assert.equal(config.mcp.serena.environment.SERENA_HOME, path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena'));
-  assert.ok(config.plugin.includes('/opt/superpowers'));
+  // OpenCode 2's native shape: servers under mcp.servers, `disabled` instead of `enabled`, `plugins`.
+  assert.deepEqual(Object.keys(config).sort(), ['mcp', 'plugins']);
+  assert.deepEqual(Object.keys(config.mcp), ['servers']);
+  assert.equal(config.mcp.serena, undefined);
+  assert.deepEqual(config.mcp.servers.dxdocs, { disabled: false, type: 'remote', url: 'https://docs.example/mcp' });
+  assert.deepEqual(config.mcp.servers.ado.command.slice(0, 3), ['mcp-server-azuredevops', 'fixture-org', '-d']);
+  assert.equal(config.mcp.servers.ado.type, 'local');
+  assert.equal(config.mcp.servers.ado.disabled, false);
+  assert.equal(config.mcp.servers.ado.enabled, undefined);
+  assert.equal(config.mcp.servers.serena.environment.SERENA_HOME, path.posix.join(home, '.cache', 'ai-dev-workflow', 'serena'));
+  assert.deepEqual(config.plugins, ['/opt/superpowers']);
   assert.deepEqual(plan.args, ['run', 'read only']);
+});
+
+test('OpenCode inline config keeps a project server switched off as disabled', t => {
+  const { workspace, home } = fixture(t, 'github');
+  writeFileSync(path.join(workspace, '.mcp.json'), JSON.stringify({ mcpServers: {
+    off: { command: 'off-mcp', args: ['--x'], enabled: false },
+  } }));
+  const config = JSON.parse(buildLaunchPlan('opencode', [], { workspace, home }).env.OPENCODE_CONFIG_CONTENT);
+  assert.deepEqual(config.mcp.servers.off, { command: ['off-mcp', '--x'], disabled: true, type: 'local' });
 });
 
 test('ADO launch fails with a device-login diagnostic while agent login remains usable', t => {
@@ -320,7 +336,7 @@ function serenaEnvironments(workspace, home, environment) {
   const codexEnv = Object.fromEntries(codex
     .filter(arg => arg.startsWith('mcp_servers.serena.env.'))
     .map(arg => { const [key, value] = arg.slice('mcp_servers.serena.env.'.length).split('='); return [key, JSON.parse(value)]; }));
-  return { codex: codexEnv, claude: claude.mcpServers.serena.env, opencode: opencode.mcp.serena.environment };
+  return { codex: codexEnv, claude: claude.mcpServers.serena.env, opencode: opencode.mcp.servers.serena.environment };
 }
 
 test('Serena receives the .NET build redirect under every agent', t => {

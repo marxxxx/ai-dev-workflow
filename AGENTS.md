@@ -93,8 +93,9 @@ pipeline: **config → tokens → units → renderers → outputs**.
 Units: one skill, `agent-dev`. It adds only the ticket edges around the unmodified superpowers chain:
 `in-progress` at the start, the approved spec as a comment, and the implementation summary, cost
 summary and `review` at the end.
-It names only entry skills — `superpowers:brainstorming`, plus `superpowers:writing-plans` when
-resuming an in-progress ticket whose spec is already approved — and hooks in at events (spec or plan
+It names only entry skills, by bare id (OpenCode 2 cannot resolve `superpowers:<skill>`) — the
+superpowers `brainstorming` skill, plus `writing-plans` when resuming an in-progress ticket whose spec
+is already approved — and hooks in at events (spec or plan
 handed over for review → a `show-me` view, spec approved, branch created, integration offered), never
 at superpowers' internal skill order — that is theirs to
 change. **Keep it lean**: every rendered byte is read on every run, so do not restate superpowers
@@ -141,6 +142,9 @@ allowed only in `e2e/agents/` (Harbor custom agents). See `docs/adw-e2e/README.m
   adjust a contract check in `e2e/lib/trial.mjs` / `e2e/tasks/_shared/` and run it with the
   `e2e-run` skill. If a feature needs neither, say why.
 
+- **User docs say only what the user needs.** README notes (e.g. "Upgrading to vX") state the
+  user-visible change and what to do, usually "`upgrade` does it". No states that existed only
+  during development, no implementation details; those belong in commit messages.
 - **Zero runtime dependencies** — don't add packages.
 - **LF line endings** everywhere.
 - Shared guidance goes in `body.md`; `overlays/<platform>.md` only for genuinely platform-specific

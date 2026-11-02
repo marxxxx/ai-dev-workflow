@@ -1,0 +1,6 @@
+05a5a1f feat: due date, overdue label and 'nur überfällige' filter on list page
+3c52173 fix: distinguish absent vs null dueDate via non-nullable JsonElement (plan ruling)
+8593d3d feat: due date on todo store with strict validation
+c58879a docs: implementation plan for ticket #1 due date
+a84fe35 docs: spec v2 - overdue filter (UTC), 'überfällig' label, 'nur überfällige' control
+38fdc92 docs: design spec for ticket #1 due date (approach A)

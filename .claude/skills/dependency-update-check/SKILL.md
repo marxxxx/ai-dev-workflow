@@ -37,6 +37,9 @@ image, the Azure CLI Debian package + azure-devops extension, `uv`, `tea`, the .
 serena / superpowers / `agentSkills` HEAD revisions and the `skills` CLI — honoring `updatePolicy` in `inventory.json` (major-version
 holds, `npmFollowDependency` coupling such as `playwright` following `@playwright/mcp`). Treat its
 output as the authoritative "current pin → latest available" diff for this pass.
+It only sees new versions under the pinned package name: a pinned tool that moved to a new
+npm package name never shows up, so also skim the harnesses'
+release notes for a rename or a new major line.
 
 For each changed dependency, fetch its changelog / release notes from upstream (npm `CHANGELOG.md`
 or GitHub releases; Azure CLI / azure-devops extension release notes; .NET SDK release notes; the

@@ -9,7 +9,7 @@ The generator is a zero-dependency Node script, published to npm as
 [`@strobl_dev/adw`](https://www.npmjs.com/package/@strobl_dev/adw). The consuming project does
 **not** need to be a Node project. It works in any repo (C#/.NET, Go, Rust, …) — the only
 requirement is Node on the machine that runs the generator (your dev box and CI). Pin a version
-(e.g. `@0.29.1`) so devs and CI stay in sync.
+(e.g. `@0.30.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -33,7 +33,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
-npx @strobl_dev/adw@0.29.1 init
+npx @strobl_dev/adw@0.30.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -43,12 +43,12 @@ npx @strobl_dev/adw@0.29.1 init
 #    with your coding agent's native /init.)
 
 # 3. generate the platform files
-npx @strobl_dev/adw@0.29.1 generate
+npx @strobl_dev/adw@0.30.0 generate
 
 # 4. commit ai-project.json and the generated dirs
 ```
 
-Pin the version (`@0.29.1`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the version (`@0.30.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 Versions up to v0.23.0 were only distributed from Git (`npx github:marxxxx/ai-dev-workflow#v0.23.0`).
 npm 12 refuses git specs by default (`EALLOWGIT`); add `--allow-git=all` if you still need one.
@@ -228,6 +228,9 @@ and records the `skills` opt-in. Run
 **`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
 changes the config hash); no `upgrade` step is needed.
 
+**Upgrading to v0.30.0.** `agent-dev` now names the superpowers skills by bare id (`brainstorming`, not
+`superpowers:brainstorming`), which OpenCode 2 needs; `upgrade` regenerates it.
+
 **Upgrading to v0.29.1.** The `compose.ai-dev.yml` that `init` wrote lacked the `KILL` capability,
 so the container's init process (tini) could not forward signals to the agent and stopped the
 container with `Unexpected error when forwarding signal: 'Operation not permitted'` (for example
@@ -259,8 +262,8 @@ the developer journal/handoff, and the e2e include are gone; ticket states shrin
 longer produces; run `upgrade` instead, which removes them and then generates:
 
 ```bash
-npx @strobl_dev/adw@0.29.1 upgrade --dry-run   # list what would change
-npx @strobl_dev/adw@0.29.1 upgrade
+npx @strobl_dev/adw@0.30.0 upgrade --dry-run   # list what would change
+npx @strobl_dev/adw@0.30.0 upgrade
 ```
 
 It deletes these files, but only where they still carry the generator's `DO NOT EDIT` banner (a
@@ -350,8 +353,9 @@ the committed `HEAD`, and is itself never picked as a baseline; its report says 
 Logins: the containers never share the project's agent-home volume, they get a login staged from the host.
 - Codex: `~/.codex/auth.json` on the host, or `OPENAI_API_KEY`. If you only logged in through `./ai-dev.sh`, the
   setup offers to copy the login from the project's volume.
-- OpenCode: `~/.local/share/opencode/auth.json`, or provider variables in `e2e.env`. Same volume offer, whenever a
-  role uses OpenCode and the host has no `auth.json`.
+- OpenCode: `~/.config/adw/opencode-credentials.json`, an `opencode auth export` file, or provider variables in `e2e.env`.
+  The containers import it with `opencode auth import`. If the file is missing, the setup offers to export the login of
+  the project's volume (after `./ai-dev.sh opencode auth login`) and prints the host command.
 - Claude Code: a long-lived token, never taken from the volume. Run `claude setup-token` on the host and export
   `CLAUDE_CODE_OAUTH_TOKEN`, or let the setup run it (`docker run --rm -it --entrypoint claude <dev image>
   setup-token`; it asks you to paste the token without echo and offers to save it to `.env.ai-dev`). For

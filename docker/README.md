@@ -148,7 +148,8 @@ one-time ChatGPT device login in a host browser. The account must permit device
 authentication. Project definitions contain agent instructions, not user credentials.
 Claude authentication/config lives in `.claude` and `.claude.json`; use its interactive
 login inside the runtime. OpenCode uses `.config/opencode` for configuration and
-`.local/share/opencode` for data including `auth.json`; use `opencode auth login`.
+`.local/share/opencode` for data; use `opencode auth login`. OpenCode 2 keeps logins in
+`opencode.db`.
 The volume also persists Azure CLI state (`.azure`), caches and global Serena state.
 Project Serena metadata remains under `/workspace/.serena`.
 
@@ -208,7 +209,8 @@ Use the launcher commands `codex`, `claude` and `opencode` on PATH. They forward
 argument vectors directly to the installed binaries and apply container-specific
 MCP execution settings. Codex receives CLI overrides above project configuration;
 Claude receives an effective MCP file including custom project servers; OpenCode
-receives inline runtime overrides. Host-side generated `npx` definitions remain
+receives inline runtime overrides in OpenCode 2's native shape (`mcp.servers`, `plugins`;
+`opencode debug config` lists them as one of its config sources). Host-side generated `npx` definitions remain
 portable and unchanged. Custom servers such as `dxdocs` remain available.
 
 ```text

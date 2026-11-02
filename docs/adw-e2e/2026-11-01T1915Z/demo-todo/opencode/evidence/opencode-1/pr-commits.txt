@@ -1,0 +1,4 @@
+bc72e87 docs: spec and plan for ticket #1 (todo due date)
+6c99383 feat: show due date, overdue label and overdue-only toggle on the list page
+4fbf21e feat: compute overdue (UTC) in API responses and add ?overdue=true filter
+9e2eda5 feat: store dueDate with strict YYYY-MM-DD validation

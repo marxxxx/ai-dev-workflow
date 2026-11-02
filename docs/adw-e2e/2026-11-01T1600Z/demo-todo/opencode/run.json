@@ -1,0 +1,493 @@
+{
+  "schema": 2,
+  "task": "demo-todo",
+  "harness": "opencode",
+  "fingerprint": {
+    "adw": {
+      "version": "0.29.1",
+      "sha": "fe1008afb211e9f52b5988e4bb307f31e2366833",
+      "dirty": true
+    },
+    "skill": {
+      "claude": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "codex": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "opencode": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:9905aed6ff6a01bbb005f626e5bf6af85f9bde49ed2b27cee46a1f2302aecce8"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-node:latest",
+      "id": "sha256:2a6d97cd22c3814476944c4e385570ca0f5bc49c84d692410d5fb03207c0cab8",
+      "inventory": "744051c6c8aed8068d0e43ed8a7b2db293ec5168e46b3dd94c7aa34e41678f06",
+      "harnessVersion": "2.2.3",
+      "superpowers": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "1eadd18e4adb30f8a23b1b462c648fb05751115e5020228fd38062b5d4f1404e",
+      "lib": "111974075d79e79d6221fda2e8acf38ed24d1e7f1fbc6ea7cbfd1fdb7afa780b"
+    },
+    "config": "a4909ab6baa953566d2d849ffba7effc04b089e43d535064fa94c5784cab9db1",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "mistral/mistral-large-4",
+      "subagents": null,
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "8a5565521b06dd7c3aaa1cfa17b438d5e2849af40fa061f0c8104a0a26968e68"
+  },
+  "calibration": "2026-10-12T1659Z",
+  "config": {
+    "model": "mistral/mistral-large-4",
+    "subagentModel": null,
+    "agentKwargs": {},
+    "repetitions": 3
+  },
+  "trials": [
+    {
+      "id": "opencode-1",
+      "reward": 0,
+      "contract": 0.9286,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "show_me_read": 0,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 5,
+        "architecture": 5,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria (optional date on create, change and remove via PATCH, 400 on invalid dates, overdue filter, due date shown, 'überfällig' marker, 'nur überfällige' toggle) are in the spec and the diff.",
+        "scope": "The change stays on the ticket. The plan and spec docs are extra but follow the workflow, and the `?overdue=banana` 400 is a small addition that the spec states openly.",
+        "tests": "The tests cover the happy path, the invalid-date cases, the leap day, the UTC boundary with an injected clock, a done todo, PATCH change and remove, and the filter values. The UI tests only grep the static HTML for testids, and the existing test was updated rather than weakened.",
+        "conventions": "The change uses ValidationError → 400, writes tests first, gives new elements data-testids, keeps the page in German and adds no dependencies.",
+        "architecture": "Validation and the computed overdue flag live in the store, the query filter lives in app.mjs, and rendering lives in the page. An injectable clock keeps the store testable without changing existing callers.",
+        "codeQuality": "The code is clear and the date validation is correct. A PATCH that returns 400 can still apply earlier fields, and the agent noted this as an existing problem. Also, `due` in a POST body is not null-checked consistently with how the body is read, which is a minor point."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 9,
+        "agent": 811,
+        "verifier": 1,
+        "total": 865
+      },
+      "tokens": {
+        "input": 184198,
+        "output": 54953,
+        "cacheRead": 5878528,
+        "cacheWrite": 0,
+        "total": 6117679
+      },
+      "cost": 0.655837,
+      "ccusage": {
+        "ccusageTotal": 6117679,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.655837,
+        "models": {
+          "mistral-large-4": {
+            "input": 184198,
+            "output": 54953,
+            "cacheRead": 5878528,
+            "cacheWrite": 0,
+            "total": 6117679,
+            "cost": 0.655837
+          }
+        }
+      },
+      "userTokens": {
+        "total": 136148
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 3,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 7,
+          "shell": 63,
+          "glob": 3,
+          "read": 19,
+          "bash": 1,
+          "execute": 5,
+          "question": 2,
+          "write": 4,
+          "edit": 7,
+          "subagent": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 4,
+            "browser_snapshot": 6,
+            "browser_evaluate": 15,
+            "browser_click": 11,
+            "browser_network_requests": 1,
+            "browser_close": 5,
+            "browser_wait_for": 10,
+            "browser_take_screenshot": 4,
+            "browser_console_messages": 1
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "opencode-2",
+      "reward": 0,
+      "contract": 0.9286,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "show_me_read": 0,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 3,
+        "conventions": 4,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover AC1–AC7, and the spec adds sensible decisions such as a strict `<` comparison, a 400 for bad `overdue` values, and the testids.",
+        "scope": "The change stays on the ticket. The extra `res.ok` fetch guard in the list page and the plan and spec docs committed to the repo are small additions beyond what was asked.",
+        "tests": "The API tests are solid, covering validation, patch set/clear, overdue boundaries, and the filter. The UI is only checked with regex matches on the HTML, including a brittle `res.ok` source match, and nothing tests the marker, the date display, or the filter behaviour. The one edited existing test was extended, not weakened.",
+        "conventions": "The change uses `ValidationError`, adds testids, has no new dependencies, and follows TDD. The test names and style match the existing tests.",
+        "architecture": "Validation sits in the store, and `overdue` is computed in one place in the app layer and reused for every response and the filter. The pure-function helpers live in `app.mjs`, which is acceptable.",
+        "codeQuality": "The code is clear, and the date round-trip check handles impossible dates and non-strings. The `normalizeDueDate` condition is a bit dense, and `update` can partly mutate a todo before a later field fails validation."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 727,
+        "verifier": 1,
+        "total": 775
+      },
+      "tokens": {
+        "input": 261091,
+        "output": 54215,
+        "cacheRead": 6837120,
+        "cacheWrite": 0,
+        "total": 7152426
+      },
+      "cost": 0.763562,
+      "ccusage": {
+        "ccusageTotal": 7152426,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.763562,
+        "models": {
+          "mistral-large-4": {
+            "input": 214836,
+            "output": 52087,
+            "cacheRead": 6780928,
+            "cacheWrite": 0,
+            "total": 7047851,
+            "cost": 0.734433
+          },
+          "mistral-large-latest": {
+            "input": 46255,
+            "output": 2128,
+            "cacheRead": 56192,
+            "cacheWrite": 0,
+            "total": 104575,
+            "cost": 0.029129
+          }
+        }
+      },
+      "userTokens": {
+        "total": 167912
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 4,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 7,
+          "read": 17,
+          "shell": 63,
+          "glob": 4,
+          "question": 1,
+          "write": 4,
+          "edit": 23,
+          "bash": 1,
+          "execute": 1,
+          "subagent": 2
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 2,
+            "browser_wait_for": 9,
+            "browser_run_code_unsafe": 9,
+            "browser_take_screenshot": 6,
+            "browser_click": 7,
+            "browser_console_messages": 2,
+            "browser_close": 2
+          },
+          "context7": {},
+          "opencode": {
+            "models": 2
+          }
+        }
+      }
+    },
+    {
+      "id": "opencode-3",
+      "reward": 0,
+      "contract": 0.9286,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "show_me_read": 0,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 5,
+        "architecture": 5,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover all seven acceptance criteria, including the empty-string, null-clearing and today-not-overdue edge cases.",
+        "scope": "The change stays focused on the ticket; the only extras are the spec and plan docs and an unrequested exported `todayUtc` with a `now` parameter.",
+        "tests": "The API tests are thorough (invalid dates, clearing, PATCH without the field, today, done, filter), but the UI test only checks static HTML, so the toggle and marker rely on manual E2E, and one existing assertion was extended rather than weakened.",
+        "conventions": "Follows AGENTS.md: ValidationError maps to 400, zero dependencies, new elements carry data-testid, TDD tests were added, and the UI stays in German.",
+        "architecture": "Validation and the overdue predicate live in the store, the filter and the computed field in app.mjs through a single `view` mapper, and rendering in the page, with no new modules.",
+        "codeQuality": "The code is clear and correct, with a calendar round-trip check and string-compared ISO dates; minor nits are the duplicated overdue evaluation (filter, then view) and no fetch error handling in the page."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 16,
+        "agent": 727,
+        "verifier": 1,
+        "total": 780
+      },
+      "tokens": {
+        "input": 153517,
+        "output": 58908,
+        "cacheRead": 5347072,
+        "cacheWrite": 0,
+        "total": 5559497
+      },
+      "cost": 0.605464,
+      "ccusage": {
+        "ccusageTotal": 5559497,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.605464,
+        "models": {
+          "mistral-large-4": {
+            "input": 153517,
+            "output": 58908,
+            "cacheRead": 5347072,
+            "cacheWrite": 0,
+            "total": 5559497,
+            "cost": 0.605463
+          }
+        }
+      },
+      "userTokens": {
+        "total": 140657
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 3,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 7,
+          "shell": 50,
+          "read": 21,
+          "glob": 1,
+          "question": 1,
+          "write": 4,
+          "edit": 9,
+          "execute": 1,
+          "subagent": 2,
+          "bash": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 2,
+            "browser_wait_for": 4,
+            "browser_evaluate": 4,
+            "browser_take_screenshot": 4,
+            "browser_click": 2,
+            "browser_console_messages": 1,
+            "browser_close": 1
+          },
+          "context7": {},
+          "opencode": {
+            "worktree_create": 1,
+            "session_move": 1,
+            "models": 1
+          }
+        }
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 0,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 1,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "show_me_read": 0,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 1,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 1,
+      "ac:AC4": 1,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 1
+    },
+    "median": {
+      "tokens": 6117679,
+      "cost": 0.655837,
+      "agent": 727
+    },
+    "mcp": {
+      "serena": {
+        "calls": 0,
+        "trials": 0
+      },
+      "playwright": {
+        "calls": 112,
+        "trials": 3
+      },
+      "context7": {
+        "calls": 0,
+        "trials": 0
+      },
+      "opencode": {
+        "calls": 5,
+        "trials": 2
+      }
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 4,
+      "tests": 4,
+      "conventions": 5,
+      "architecture": 5,
+      "codeQuality": 4
+    },
+    "errorClasses": []
+  }
+}

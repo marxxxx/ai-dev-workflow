@@ -1,0 +1,5 @@
+25650f4 feat: show due date and overdue marker, add 'nur überfällige' toggle (ticket #1)
+43b3302 feat: filter overdue todos via GET /todos?overdue= (ticket #1)
+9af1d59 feat: optional due date with computed overdue flag (ticket #1)
+ee5de47 docs: implementation plan for ticket #1 (due date for todos)
+5675008 docs: design spec for ticket #1 (due date for todos)

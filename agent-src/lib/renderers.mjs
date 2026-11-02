@@ -73,7 +73,6 @@ function renderOpenCodeAgent(unit, body) {
     ['description', unit.manifest.description],
     ['mode', cfg.mode],
     ['model', cfg.model],
-    ['temperature', cfg.temperature],
   ];
   return [{ path: path.join('.opencode', 'agents', `${unit.name}.md`), content: frontmatterDoc(unit, fields, body) }];
 }

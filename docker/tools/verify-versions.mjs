@@ -33,7 +33,7 @@ export function versionChecks(inventory, variant) {
     { label: 'node', expected: inventory.baseImage.node, command: ['node', '--version'] },
     { label: 'claude', expected: npm('@anthropic-ai/claude-code'), command: [`${BIN}/claude`, '--version'] },
     { label: 'codex', expected: npm('@openai/codex'), command: [`${BIN}/codex`, '--version'] },
-    { label: 'opencode', expected: npm('opencode-ai'), command: [`${BIN}/opencode`, '--version'] },
+    { label: 'opencode', expected: npm('@opencode/cli'), command: [`${BIN}/opencode`, '--version'] },
     { label: 'uv', expected: inventory.systemTools.uv, command: ['uv', '--version'] },
     { label: 'tea', expected: inventory.systemTools.tea, command: ['tea', '--version'] },
     { label: 'az', expected: debianUpstreamVersion(inventory.systemTools.azureCliDebianPackage), command: ['az', 'version', '--output', 'json'] },

@@ -1,0 +1,462 @@
+{
+  "schema": 2,
+  "task": "demo-todo-dotnet",
+  "harness": "opencode",
+  "fingerprint": {
+    "adw": {
+      "version": "0.29.1",
+      "sha": "fe1008afb211e9f52b5988e4bb307f31e2366833",
+      "dirty": true
+    },
+    "skill": {
+      "claude": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "codex": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "opencode": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:9905aed6ff6a01bbb005f626e5bf6af85f9bde49ed2b27cee46a1f2302aecce8"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-dotnet:latest",
+      "id": "sha256:4096fc4dcc771abd47dbdf2651f5dba4e30c4151ecd3070b7a757abfac8de325",
+      "inventory": "744051c6c8aed8068d0e43ed8a7b2db293ec5168e46b3dd94c7aa34e41678f06",
+      "harnessVersion": "2.2.3",
+      "superpowers": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "1eadd18e4adb30f8a23b1b462c648fb05751115e5020228fd38062b5d4f1404e",
+      "lib": "111974075d79e79d6221fda2e8acf38ed24d1e7f1fbc6ea7cbfd1fdb7afa780b"
+    },
+    "config": "a4909ab6baa953566d2d849ffba7effc04b089e43d535064fa94c5784cab9db1",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "mistral/mistral-large-4",
+      "subagents": null,
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "02f3bc8b7df8bf0a3cf0980f916af00e3b348323bad9757899aa679095f67472"
+  },
+  "calibration": "2026-10-13T1704Z",
+  "config": {
+    "model": "mistral/mistral-large-4",
+    "subagentModel": null,
+    "agentKwargs": {},
+    "repetitions": 3
+  },
+  "trials": [
+    {
+      "id": "opencode-1",
+      "reward": 0,
+      "contract": 0.9286,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "show_me_read": 0,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 5,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria appear in the final spec and the diff, including the UTC overdue rule, the 'überfällig' word and the 'nur überfällige' control.",
+        "scope": "The change adds only what the ticket asks for. It also commits the spec and plan documents, which the workflow produces.",
+        "tests": "The new tests cover set, change and clear of the due date, invalid input, the overdue boundaries, the API filter and the page markup. Gaps: no test clicks the UI filter to show it hides non-overdue todos, and the page test only checks that strings appear somewhere in the HTML. Existing tests were adapted to the new signatures, not weakened.",
+        "conventions": "It follows AGENTS.md: ValidationException from the store, data-testid on the new elements, TDD, and no new packages. Minor: the filter checkbox's data-testid is on the input, not the label.",
+        "architecture": "Logic sits in TodoStore and Todo, the page filters over the store, and the API filter is a small change to the existing GET handler. Minor: the overdue filter exists in both Program.cs and Home.razor.",
+        "codeQuality": "Parsing is strict and the PATCH switch handles all three states and rejects other kinds. Small issues: Overdue reads DateTime.UtcNow on every access, so it can flip mid-request, and an absent JsonElement relies on default(JsonElement) being Undefined."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 13,
+        "agent": 900,
+        "verifier": 10,
+        "total": 961
+      },
+      "tokens": {
+        "input": 175690,
+        "output": 64694,
+        "cacheRead": 6072320,
+        "cacheWrite": 0,
+        "total": 6312704
+      },
+      "cost": 0.683903,
+      "ccusage": {
+        "ccusageTotal": 6312704,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.683903,
+        "models": {
+          "mistral-large-4": {
+            "input": 175690,
+            "output": 64694,
+            "cacheRead": 6072320,
+            "cacheWrite": 0,
+            "total": 6312704,
+            "cost": 0.683903
+          }
+        }
+      },
+      "userTokens": {
+        "total": 222235
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 4,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 7,
+          "shell": 65,
+          "glob": 3,
+          "read": 17,
+          "bash": 2,
+          "question": 1,
+          "write": 4,
+          "edit": 29,
+          "execute": 5,
+          "subagent": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 3,
+            "browser_wait_for": 6,
+            "browser_snapshot": 8,
+            "browser_click": 5,
+            "browser_take_screenshot": 9,
+            "browser_find": 1,
+            "browser_close": 1
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "opencode-2",
+      "reward": 0,
+      "contract": 0.9286,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "show_me_read": 0,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": null,
+        "scope": null,
+        "tests": null,
+        "conventions": null,
+        "architecture": null,
+        "codeQuality": null
+      },
+      "reviewReasons": {},
+      "reviewError": "review (claude-code): answer holds no JSON object; answer ends: \"\"score\": 5, \"reason\": \"The overdue rule lives once on `Todo`, the store does the filtering, and the page injects the store directly, as the repo layout requires. The tri-state is handled in a small converter type.\"}, \"codeQuality\": {\"score\": 4, \"reason\": \"The code is compact and correct at the edges: due today is not overdue, null dates are handled, and invalid dates surface as `JsonException`. Minor smells are `showOnlyOverdue ? true : null` and a `Write` that throws `NotSupportedException`.\"}}\"",
+      "durations": {
+        "setup": 13,
+        "agent": 749,
+        "verifier": 10,
+        "total": 809
+      },
+      "tokens": {
+        "input": 139049,
+        "output": 51556,
+        "cacheRead": 5769216,
+        "cacheWrite": 0,
+        "total": 5959821
+      },
+      "cost": 0.609447,
+      "ccusage": {
+        "ccusageTotal": 5959821,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.609447,
+        "models": {
+          "mistral-large-4": {
+            "input": 139049,
+            "output": 51556,
+            "cacheRead": 5769216,
+            "cacheWrite": 0,
+            "total": 5959821,
+            "cost": 0.609447
+          }
+        }
+      },
+      "userTokens": {
+        "total": 197618
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 1,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 6,
+          "shell": 49,
+          "glob": 5,
+          "read": 10,
+          "question": 1,
+          "write": 8,
+          "edit": 11,
+          "execute": 2
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 1,
+            "browser_wait_for": 3,
+            "browser_take_screenshot": 3,
+            "browser_snapshot": 2,
+            "browser_click": 1,
+            "browser_find": 2,
+            "browser_close": 1
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "opencode-3",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "show_me_read": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria appear in the spec and the diff, including the clear/keep semantics for PATCH, the strictly-before-today rule in UTC, and the exact UI labels and test ids.",
+        "scope": "The code changes stay within the ticket. The plan and spec docs were added, which fits the workflow, but AGENTS.md was not updated with the new data-testids.",
+        "tests": "Store and API tests cover set, keep, clear, invalid dates, the today/done/no-date overdue edges, and the filter. Existing tests were only adapted to the new signatures. The page test only checks the server-rendered HTML, so the toggle's filtering is never tested.",
+        "conventions": "The change follows the existing conventions: ValidationException thrown from the store, data-testid on new elements, xUnit style, and the page calling the store directly. It misses the AGENTS.md locator list update.",
+        "architecture": "Validation and PATCH semantics live in TodoStore and IsOverdue sits on the record, so there is one source of truth. The page and the API both reuse it. The only wart is the raw-string and JsonElement DTO shape, which the agent justified.",
+        "codeQuality": "The code is readable, uses strict yyyy-MM-dd invariant parsing, and handles non-string JSON kinds. The Update method's setDueDate/dueDate flag pair is slightly clunky, and the test class computes Today once in a static field, which could be off around midnight UTC."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 900,
+        "verifier": 10,
+        "total": 957
+      },
+      "tokens": {
+        "input": 244269,
+        "output": 67129,
+        "cacheRead": 6224640,
+        "cacheWrite": 0,
+        "total": 6536038
+      },
+      "cost": 0.747684,
+      "ccusage": {
+        "ccusageTotal": 6536038,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.747684,
+        "models": {
+          "mistral-large-4": {
+            "input": 244269,
+            "output": 67129,
+            "cacheRead": 6224640,
+            "cacheWrite": 0,
+            "total": 6536038,
+            "cost": 0.747684
+          }
+        }
+      },
+      "userTokens": {
+        "total": 237686
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 4,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 7,
+          "read": 14,
+          "shell": 55,
+          "glob": 3,
+          "write": 11,
+          "edit": 16,
+          "bash": 3,
+          "execute": 4,
+          "subagent": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 1,
+            "browser_wait_for": 7,
+            "browser_snapshot": 11,
+            "browser_click": 6,
+            "browser_take_screenshot": 8,
+            "browser_close": 2
+          },
+          "context7": {}
+        }
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 0.33,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 1,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "show_me_read": 0.33,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 1,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 1,
+      "ac:AC4": 1,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 1
+    },
+    "median": {
+      "tokens": 6312704,
+      "cost": 0.683903,
+      "agent": 900
+    },
+    "mcp": {
+      "serena": {
+        "calls": 0,
+        "trials": 0
+      },
+      "playwright": {
+        "calls": 81,
+        "trials": 3
+      },
+      "context7": {
+        "calls": 0,
+        "trials": 0
+      }
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 4.5,
+      "tests": 4,
+      "conventions": 4,
+      "architecture": 4,
+      "codeQuality": 4
+    },
+    "errorClasses": [
+      "judge"
+    ]
+  }
+}

@@ -176,7 +176,8 @@ test('other prompt and decide errors stop the loop with a labelled error; interr
 });
 
 test('an unknown-skill first reply gets the harness fallback once', async () => {
-  for (const [harness, reply] of [['claude-code', 'Unknown skill: agent-dev'], ['codex', 'Ich kenne keinen solchen Skill.'], ['opencode', 'There is no skill named agent-dev.']]) {
+  for (const [harness, reply] of [['claude-code', 'Unknown skill: agent-dev'], ['codex', 'Ich kenne keinen solchen Skill.'], ['opencode', 'There is no skill named agent-dev.'],
+    ['opencode', 'Unable to load skill agent-dev.']]) {
     const session = stubSession([reply, 'Unknown skill again', 'fertig']);
     const decide = stubDecide([{ action: 'reply', text: 'Ja.', usedIds: ['A4'] }, { action: 'done', stuck: false }]);
     const r = await runConversation({ ticket: 7, harness, opening: OPENING, session, decide, askHuman: noHuman, store: memStore(), maxTurns: 10 });

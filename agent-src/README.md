@@ -132,7 +132,7 @@ project override) → platform overlay → project append**. These files are gen
   this map is not emitted. Per-platform config:
   - **claude**: `model`, `tools[]` (allowlist, emitted verbatim).
   - **codex**: `model`, `model_reasoning_effort`, `nickname_candidates[]`.
-  - **opencode**: `model`, `temperature`, `mode`.
+  - **opencode** (OpenCode 2): `model` (`provider/model#variant`), `mode` (`primary` | `subagent` | `all`). `temperature` is not a V2 agent key (V2 ignores it); set sampling options on a model variant in OpenCode config instead.
 - `interface` (skills only) — Codex skill descriptor written to `agents/openai.yaml`
   (`display_name`, `short_description`, `default_prompt`).
 - `tokens` — per-unit `{{token}}` overrides (string or per-platform map). These override the global

@@ -169,11 +169,26 @@ test('toolUsage reads codex MCP calls from completed items, also inside code-mod
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('toolUsage splits opencode tool names at the configured server prefixes', () => {
+test('opencode superpowersActive needs a successful superpowers skill call', () => {
+  const cases = [
+    [[], false],
+    [[{ id: 'superpowers:brainstorming', status: 'error' }], false],
+    [[{ id: 'agent-dev', status: 'completed' }], false],
+    [[{ id: 'brainstorming', status: 'completed' }], true],
+    [[{ id: 'writing-plans', status: 'completed' }], true],
+  ];
+  for (const [skills, expected] of cases) {
+    const dir = makeOpenCodeTrial(tmp(), { skills });
+    try { assert.equal(softSignals('opencode', dir).superpowersActive, expected, JSON.stringify(skills)); }
+    finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('toolUsage counts the MCP calls inside opencode Code Mode execute calls', () => {
   const dir = makeOpenCodeTrial(tmp());
   try {
     assert.deepEqual(toolUsage('opencode', dir, SERVERS), {
-      builtin: { bash: 1 }, mcp: { serena: {}, playwright: { browser_navigate: 1 }, context7: {} } });
+      builtin: { shell: 1, execute: 1 }, mcp: { serena: {}, playwright: { browser_navigate: 1 }, context7: {} } });
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

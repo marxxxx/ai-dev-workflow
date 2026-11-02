@@ -7,7 +7,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { walk } from '../lib/fsutil.mjs';
 import { isCliQuota } from '../lib/llm.mjs';
-import { scrubSecretsInTree, secretLeaves } from '../lib/secrets.mjs';
+import { OPENCODE_CREDENTIALS, openCodeExport, removeOpenCodeDbCredentials, scrubSecretsInTree, secretLeaves } from '../lib/secrets.mjs';
 
 const HOME = '/home/dev';
 const SERVICE = 'ai-dev-workflow';
@@ -48,13 +48,17 @@ export function acpCommand(harness, model, { cli = null } = {}) {
     return ['env', 'NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', ...(model ? [`CODEX_CONFIG=${JSON.stringify({ model: model.split('/').at(-1) })}`] : []),
       ...(cli ? [`CODEX_PATH=${cli}`] : []), 'codex-acp'];
   }
-  if (harness === 'opencode') return ['env', 'OPENCODE_FAKE_VCS=git', ...(model ? [`OPENCODE_CONFIG=${OPENCODE_MODEL_FILE}`] : []), 'opencode', 'acp'];
+  if (harness === 'opencode') return ['env', ...(model ? [`OPENCODE_CONFIG=${OPENCODE_MODEL_FILE}`] : []), 'opencode', 'acp'];
   throw new Error(`unknown harness: ${harness}`);
 }
 
 export const acpxConfig = ([command, ...args], timeoutSec = 1800) => ({
   agents: { target: { command, args } }, defaultAgent: 'target', defaultPermissions: 'approve-all', ttl: 0, timeout: timeoutSec, format: 'quiet',
 });
+
+// The OpenCode 2 login: an `opencode auth export` file, relative to the home directory.
+export const OPENCODE_LOGIN = '.config/adw/opencode-credentials.json';
+export const OPENCODE_LOGIN_HELP = 'No OpenCode login file (~/.config/adw/opencode-credentials.json); providers then come from e2e.env only. To use an OpenCode login: ./ai-dev.sh opencode auth login, then rerun adw e2e and let it copy the login from the dev container, or with OpenCode 2 on the host: (umask 077; mkdir -p ~/.config/adw && opencode auth export > ~/.config/adw/opencode-credentials.json)';
 
 const kebab = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
@@ -95,11 +99,12 @@ export function composeEnv({ root, work, env = process.env, uid = process.getuid
 // A login missing under `home` is looked up under `fallbackHome` (a copy taken from the project's agent-home volume).
 export function stageCredentials({ harnesses, env = process.env, home = homedir(), fallbackHome = null }) {
   const out = { envNames: [], authFiles: [], secrets: [], missing: [] };
-  const authFile = (harness, rel) => {
+  const authFile = (harness, rel, to = path.posix.join(HOME, rel)) => {
     const from = [home, fallbackHome].filter(Boolean).map((h) => path.join(h, rel)).find((f) => existsSync(f));
     if (!from) return false;
-    out.authFiles.push({ harness, from, to: path.posix.join(HOME, rel) });
-    out.secrets.push(...secretLeaves(JSON.parse(readFileSync(from, 'utf8'))));
+    out.authFiles.push({ harness, from, to });
+    const text = readFileSync(from, 'utf8');
+    out.secrets.push(...secretLeaves(harness === 'opencode' ? openCodeExport(text, from) : JSON.parse(text)));
     return true;
   };
   for (const harness of new Set(harnesses)) {
@@ -118,11 +123,14 @@ export function stageCredentials({ harnesses, env = process.env, home = homedir(
       } else out.missing.push({ harness, what: '~/.codex/auth.json or OPENAI_API_KEY' });
     } else if (harness === 'opencode') {
       // Optional: opencode providers may be configured by env alone.
-      authFile(harness, '.local/share/opencode/auth.json');
+      authFile(harness, OPENCODE_LOGIN, OPENCODE_CREDENTIALS);
     } else throw new Error(`unknown harness: ${harness}`);
   }
   return out;
 }
+
+// `host:container` mounts of the logins `harnesses` need.
+export const authMounts = (creds, harnesses) => creds.authFiles.filter((f) => harnesses.includes(f.harness)).map((f) => `${f.from}:${f.to}`);
 
 // The entrypoint has handed over to the container command once `sleep infinity` runs.
 const READY = 'for f in /proc/[0-9]*/cmdline; do [ "$(tr \'\\0\' \' \' < "$f" 2>/dev/null)" = "sleep infinity " ] && exit 0; done; exit 1';
@@ -138,7 +146,7 @@ export function listening(procNetTcp, port) {
 // `exec` has spawnSync's signature. Starts the container, stages the agent's auth and opens the acpx session.
 // `origin` (the sandbox's bare remote) is mounted at its host path: the clone's remote URL then works in the container too.
 export function startSession({ root, work, origin = null, harness, model, project, creds, envNames = [], exec = defaultExec, env = process.env,
-  turnTimeoutSec = 1800, readyTimeoutSec = 300, overrideFile = null }) {
+  turnTimeoutSec = 1800, readyTimeoutSec = 300, overrideFile = null, warn = (m) => console.warn(m) }) {
   const name = `${project}-agent`;
   const cenv = composeEnv({ root, work, env });
   const compose = ['compose', '-f', path.join(root, 'compose.ai-dev.yml'),
@@ -176,7 +184,10 @@ export function startSession({ root, work, origin = null, harness, model, projec
       pause(1000);
     }
     // Auth files by stdin into the default homes, owned by dev, mode 600.
-    for (const f of creds.authFiles.filter((a) => a.harness === harness)) writeIn(f.to, readFileSync(f.from));
+    for (const f of creds.authFiles.filter((a) => a.harness === harness)) {
+      writeIn(f.to, readFileSync(f.from));
+      if (harness === 'opencode') inAgent(['sh', '-c', 'cd /tmp && opencode auth import --standalone "$1"; rc=$?; rm -f "$1"; exit $rc', 'sh', f.to]);
+    }
     if (model && harness === 'claude-code') {
       // Merged after startup, so whatever the image or the project put there stays.
       const current = inAgent(['sh', '-c', 'cat "$1" 2>/dev/null || true', 'sh', CLAUDE_SETTINGS]).trim();
@@ -204,7 +215,8 @@ export function startSession({ root, work, origin = null, harness, model, projec
       }
       return Promise.resolve(String(r.stdout).trim());
     },
-    // Copies the harness's logs into <trialDir>/agent, drops auth copies, scrubs secrets; always tears down.
+    // Copies the harness's logs into <trialDir>/agent, drops auth copies (opencode.db credentials too), scrubs secrets;
+    // always tears down.
     close(trialDir) {
       const { from, to } = LOGS[harness];
       const agentDir = path.join(trialDir, 'agent');
@@ -220,6 +232,8 @@ export function startSession({ root, work, origin = null, harness, model, projec
         try {
           if (existsSync(agentDir)) {
             for (const f of walk(agentDir).filter((f) => path.basename(f) === 'auth.json')) rmSync(f, { force: true });
+            // A failure must not skip the log scrub below.
+            try { removeOpenCodeDbCredentials(agentDir); } catch (e) { warn(`! opencode.db credential removal failed: ${e.message}`); }
             scrubbed = scrubSecretsInTree(agentDir, creds.secrets);
           }
         } finally {

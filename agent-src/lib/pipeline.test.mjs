@@ -73,9 +73,12 @@ test('agent-dev enters the superpowers workflow and defers ticketing and cost to
     const outputs = renderAll(root);
     for (const p of AGENT_DEV_PATHS.filter((p) => p.endsWith('SKILL.md'))) {
       const body = outputs.find((o) => o.path === p).content;
-      assert.match(body, /superpowers:brainstorming/, `${p} must enter the workflow via superpowers:brainstorming`);
-      const entrySkills = ['superpowers:brainstorming', 'superpowers:writing-plans'];
-      assert.deepEqual(body.match(/superpowers:[\w-]+/g).filter((s) => !entrySkills.includes(s)), [],
+      assert.match(body, /superpowers `brainstorming` skill/, `${p} must enter the workflow via brainstorming`);
+      // OpenCode 2 resolves skills by bare id only, so `superpowers:<skill>` would fail there.
+      assert.doesNotMatch(body, /superpowers:[\w-]+/, `${p} must name skills by bare id`);
+      const entrySkills = ['brainstorming', 'writing-plans'];
+      const named = [...body.matchAll(/superpowers `([\w-]+)` skill/g)].map((m) => m[1]);
+      assert.deepEqual(named.filter((s) => !entrySkills.includes(s)), [],
         `${p} must name only entry skills, not restate superpowers' internal chain`);
       assert.match(body, /\.agents\/includes\/ticketing\.md/);
       assert.match(body, /\.agents\/includes\/cost\.md/);
@@ -326,7 +329,7 @@ test('agent-custom append.md is appended after the package body with tokens reso
     writeCustom(root, 'skills/agent-dev/append.md', '## House rules\nAlways lint for {{project.name}}.\n');
     const dev = renderAll(root).find((o) => o.path === AGENT_DEV);
     // Package prose still present…
-    assert.match(dev.content, /superpowers:brainstorming/);
+    assert.match(dev.content, /superpowers `brainstorming` skill/);
     // …and the fragment is appended, with {{project.name}} resolved from MINIMAL_PROJECT.
     assert.match(dev.content, /## House rules\nAlways lint for Test Project\./);
     assert.doesNotMatch(dev.content, /\{\{.*?\}\}/);
@@ -343,7 +346,7 @@ test('agent-custom body.md fully overrides the package body', () => {
     writeCustom(root, 'skills/agent-dev/body.md', 'Custom agent-dev for {{project.name}} only.\n');
     const dev = renderAll(root).find((o) => o.path === AGENT_DEV);
     assert.match(dev.content, /Custom agent-dev for Test Project only\./);
-    assert.doesNotMatch(dev.content, /superpowers:brainstorming/, 'package body must be gone');
+    assert.doesNotMatch(dev.content, /superpowers `brainstorming` skill/, 'package body must be gone');
     assert.doesNotMatch(dev.content, /\{\{.*?\}\}/);
   } finally {
     cleanup();
@@ -358,7 +361,7 @@ test('agent-custom override and append combine (override is the base, append fol
     const dev = renderAll(root).find((o) => o.path === AGENT_DEV);
     // A blank-line separator sits between base and fragment (same as the overlay append).
     assert.match(dev.content, /BASE override\.\n\nEXTRA appended\./);
-    assert.doesNotMatch(dev.content, /superpowers:brainstorming/);
+    assert.doesNotMatch(dev.content, /superpowers `brainstorming` skill/);
   } finally {
     cleanup();
   }

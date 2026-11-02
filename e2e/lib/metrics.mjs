@@ -16,13 +16,26 @@ export function codexEvents(trialDir) {
   return walk(path.join(trialDir, 'agent/sessions'))
     .filter((f) => /rollout-.*\.jsonl$/.test(f)).sort().flatMap(readJsonl);
 }
-export function openCodeRows(trialDir, table) {
+// OpenCode 2 keeps messages in session_message, each assistant one with its tool calls in `content`.
+function openCodeRows(trialDir) {
   const file = path.join(trialDir, 'agent/opencode/xdg-data/opencode/opencode.db');
-  if (!existsSync(file)) return [];
+  if (!existsSync(file)) return { messages: [] };
   const db = new DatabaseSync(file, { readOnly: true });
-  try { return db.prepare(`select data from ${table}`).all().map((r) => JSON.parse(r.data)); }
-  finally { db.close(); }
+  try {
+    const messages = db.prepare('select type, data from session_message order by seq').all()
+      .map((r) => ({ ...JSON.parse(r.data), role: r.type }));
+    return { messages };
+  } finally { db.close(); }
 }
+
+// Every opencode tool call as {name, status, input}.
+function openCodeTools(trialDir) {
+  return openCodeRows(trialDir).messages.flatMap((m) => m.content ?? []).filter((c) => c.type === 'tool')
+    .map((c) => ({ name: c.name, status: c.state?.status, input: c.state?.input ?? {} }));
+}
+
+// The entry skills agent-dev names; loading one of them is the proof that superpowers is active.
+export const SUPERPOWERS_ENTRY_SKILLS = ['brainstorming', 'writing-plans'];
 
 export function targetTokens(harness, trialDir) {
   if (harness === 'claude-code') {
@@ -53,7 +66,7 @@ export function targetTokens(harness, trialDir) {
     return any ? finish(t) : null;
   }
   if (harness === 'opencode') {
-    const msgs = openCodeRows(trialDir, 'message').filter((m) => m.role === 'assistant');
+    const msgs = openCodeRows(trialDir).messages.filter((m) => m.role === 'assistant');
     if (!msgs.length) return null;
     const t = zero();
     for (const { tokens: k = {} } of msgs) {
@@ -88,16 +101,18 @@ export function toolCalls(harness, trialDir) {
     return codexEvents(trialDir).filter((e) => e.type === 'response_item' && ['function_call', 'custom_tool_call'].includes(e.payload?.type))
       .map((e) => ({ name: e.payload.name ?? '', text: String(e.payload.arguments ?? e.payload.input ?? '') }));
   }
-  return openCodeRows(trialDir, 'part').filter((p) => p.type === 'tool')
-    .map((p) => ({ name: p.tool, text: JSON.stringify(p.state?.input ?? {}) }));
+  return openCodeTools(trialDir).map((c) => ({ name: c.name, text: JSON.stringify(c.input) }));
 }
 
 // Codex runs MCP tools inside its code-mode exec, so its calls come from the completed items.
 const CODEX_NON_TOOL_ITEMS = new Set(['UserMessage', 'AgentMessage', 'Reasoning', 'SubAgentActivity']);
 
 // Calls per tool name: built-ins, and MCP tools grouped by server. Every configured server is
-// listed, so an unused one shows up with no calls. opencode joins server and tool with "_", so
-// only the configured server names can split its names.
+// listed, so an unused one shows up with no calls. OpenCode 2 calls MCP tools from Code Mode's
+// `execute` code (`tools.<server>.<tool>(…)`); an execute without one counts as a built-in.
+// A server with `codemode: false` exposes its tools directly, which OpenCode 2 names `<server>_<tool>`; only the
+// configured server names can split those.
+const CODE_MODE_CALL = /\btools(?:\.([\w$]+)|\[["']([^"']+)["']\])\.([\w$]+)\s*\(/g;
 export function toolUsage(harness, trialDir, servers) {
   const usage = { builtin: {}, mcp: Object.fromEntries(servers.map((s) => [s, {}])) };
   const count = (bucket, name) => { bucket[name] = (bucket[name] ?? 0) + 1; };
@@ -111,7 +126,14 @@ export function toolUsage(harness, trialDir, servers) {
     return usage;
   }
   const prefixes = [...servers].sort((a, b) => b.length - a.length);
-  for (const { name } of toolCalls(harness, trialDir)) {
+  for (const { name, text } of toolCalls(harness, trialDir)) {
+    if (harness === 'opencode' && name === 'execute') {
+      const code = JSON.parse(text).code ?? '';
+      const calls = [...code.matchAll(CODE_MODE_CALL)];
+      if (!calls.length) count(usage.builtin, name);
+      for (const [, server, quoted, tool] of calls) mcp(server ?? quoted, tool);
+      continue;
+    }
     const parts = harness === 'claude-code' ? name.match(/^mcp__(.+?)__(.+)$/)?.slice(1) : null;
     const server = harness === 'opencode' ? prefixes.find((s) => name.startsWith(`${s}_`)) : parts?.[0];
     if (!server || server === 'acp') count(usage.builtin, parts?.[1] ?? name); // the ACP bridge serves Claude's built-ins
@@ -129,7 +151,7 @@ function toolErrorCount(harness, trialDir) {
     return codexEvents(trialDir).filter((e) => e.payload?.type === 'function_call_output'
       && /^(failed to|error:|Exit code [1-9])/i.test(String(e.payload.output ?? ''))).length;
   }
-  return openCodeRows(trialDir, 'part').filter((p) => p.type === 'tool' && p.state?.status === 'error').length;
+  return openCodeTools(trialDir).filter((c) => c.status === 'error').length;
 }
 
 export function errors(harness, trialDir, result) {
@@ -156,8 +178,10 @@ export function showMeRead(harness, trialDir) {
 }
 
 export function softSignals(harness, trialDir) {
-  const blob = harness === 'opencode'
-    ? JSON.stringify([openCodeRows(trialDir, 'message'), openCodeRows(trialDir, 'part')])
-    : JSON.stringify(harness === 'codex' ? codexEvents(trialDir) : claudeEvents(trialDir));
-  return { superpowersActive: blob.includes('using-superpowers') };
+  if (harness === 'opencode') {
+    // The superpowers plugin injects its bootstrap per request and never stores it, so look for a skill call.
+    return { superpowersActive: openCodeTools(trialDir).some((t) => t.name === 'skill' && t.status === 'completed' && SUPERPOWERS_ENTRY_SKILLS.includes(t.input?.id)) };
+  }
+  const events = harness === 'codex' ? codexEvents(trialDir) : claudeEvents(trialDir);
+  return { superpowersActive: JSON.stringify(events).includes('using-superpowers') };
 }

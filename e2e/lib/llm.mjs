@@ -1,5 +1,6 @@
 // One non-interactive LLM call in a fresh container, on any harness: the E2E judges and the simulated user share it.
 // The prompt goes on stdin; the answer is the JSON object in the model's final text.
+import { OPENCODE_CREDENTIALS } from './secrets.mjs';
 
 export const HARNESSES = ['claude-code', 'codex', 'opencode'];
 export const TOOL_PROFILES = ['none', 'read', 'verify'];
@@ -30,18 +31,23 @@ function codexCommand({ model, tools, playwright }) {
     '-s', tools === 'verify' ? 'danger-full-access' : 'read-only', ...browser, '-'], env: {} };
 }
 
-// opencode run auto-rejects every permission it would ask for, reads outside the workspace included: addDirs are allowed explicitly.
+// OpenCode 2 config: `permissions` rules (last match wins) on top of its allow-everything base policy, MCP under mcp.servers.
+// opencode run auto-rejects every permission it would ask for: addDirs (reads outside the workspace) are allowed explicitly.
 // OPENCODE_DISABLE_PROJECT_CONFIG: like claude's --setting-sources user, the checkout's opencode.json and .opencode/ (written by
 // the agent) never steer the call; opencode also stops writing .opencode/.gitignore, which fails in a read-only /workspace.
 // The image's opencode wrapper overwrites OPENCODE_CONFIG_CONTENT (its MCP servers and plugin), so the call's config goes
 // through an OPENCODE_CONFIG file written in the container (each call runs in its own container), as for the agent's session.
-const OPENCODE_LAUNCH = 'f="${TMPDIR:-/tmp}/adw-opencode.json"; printf \'%s\' "$ADW_OPENCODE_CONFIG" > "$f" && OPENCODE_CONFIG="$f" exec opencode "$@"';
+// --standalone: without it, opencode 2 runs on a shared background server that keeps the env of whichever client started it.
+// A login that adw e2e mounts (OPENCODE_CREDENTIALS) goes in through `opencode auth import` first.
+const OPENCODE_LAUNCH = `c=${OPENCODE_CREDENTIALS}; { [ ! -f "$c" ] || (cd /tmp && opencode auth import --standalone "$c" >/dev/null); } && `
+  + 'f="${TMPDIR:-/tmp}/adw-opencode.json"; printf \'%s\' "$ADW_OPENCODE_CONFIG" > "$f" && OPENCODE_CONFIG="$f" exec opencode "$@"';
 function opencodeCommand({ model, tools, playwright, addDirs }) {
-  const permission = { edit: 'deny', bash: tools === 'verify' ? 'allow' : 'deny', webfetch: 'deny',
-    ...(addDirs.length ? { external_directory: Object.fromEntries(addDirs.map((d) => [`${d}/*`, 'allow'])) } : {}) };
-  const mcp = playwright ? { playwright: { type: 'local', command: PLAYWRIGHT } } : {};
-  return { argv: ['sh', '-c', OPENCODE_LAUNCH, 'sh', 'run', '--format', 'json', ...(model ? ['-m', model] : [])],
-    env: { ADW_OPENCODE_CONFIG: JSON.stringify({ permission, mcp }), OPENCODE_DISABLE_PROJECT_CONFIG: '1' } };
+  const rule = (action, effect, resource = '*') => ({ action, resource, effect });
+  const permissions = [rule('edit', 'deny'), rule('shell', tools === 'verify' ? 'allow' : 'deny'), rule('webfetch', 'deny'),
+    ...addDirs.map((d) => rule('external_directory', 'allow', `${d}/*`))];
+  const servers = playwright ? { playwright: { type: 'local', command: PLAYWRIGHT } } : {};
+  return { argv: ['sh', '-c', OPENCODE_LAUNCH, 'sh', 'run', '--standalone', '--format', 'json', ...(model ? ['-m', model] : [])],
+    env: { ADW_OPENCODE_CONFIG: JSON.stringify({ permissions, mcp: { servers } }), OPENCODE_DISABLE_PROJECT_CONFIG: '1' } };
 }
 
 const COMMANDS = { 'claude-code': claudeCommand, codex: codexCommand, opencode: opencodeCommand };

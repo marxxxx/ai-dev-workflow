@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria, including the empty-string, null-clearing and today-not-overdue edge cases.",
+    "scope": "The change stays focused on the ticket; the only extras are the spec and plan docs and an unrequested exported `todayUtc` with a `now` parameter.",
+    "tests": "The API tests are thorough (invalid dates, clearing, PATCH without the field, today, done, filter), but the UI test only checks static HTML, so the toggle and marker rely on manual E2E, and one existing assertion was extended rather than weakened.",
+    "conventions": "Follows AGENTS.md: ValidationError maps to 400, zero dependencies, new elements carry data-testid, TDD tests were added, and the UI stays in German.",
+    "architecture": "Validation and the overdue predicate live in the store, the filter and the computed field in app.mjs through a single `view` mapper, and rendering in the page, with no new modules.",
+    "codeQuality": "The code is clear and correct, with a calendar round-trip check and string-compared ISO dates; minor nits are the duplicated overdue evaluation (filter, then view) and no fetch error handling in the page."
+  },
+  "error": null
+}
