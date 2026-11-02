@@ -32,13 +32,21 @@ export function manualCommand(pins, name) {
   return `npx ${installArgs(pins, name).join(' ')}`;
 }
 
+/**
+ * The CLI fetches a pinned commit only after it recognizes git's English "branch not found"
+ * message, so a localized git would fail every install. LC_ALL=C keeps git's messages English.
+ */
+export function npxEnv(base = process.env) {
+  return { ...base, DISABLE_TELEMETRY: '1', LC_ALL: 'C' };
+}
+
 /** npx is a .cmd shim on Windows and needs a shell there. ADW_NPX replaces it in tests. */
 function runNpx(args, cwd) {
   const result = spawnSync(process.env.ADW_NPX || 'npx', args, {
     cwd,
     encoding: 'utf8',
     shell: process.platform === 'win32',
-    env: { ...process.env, DISABLE_TELEMETRY: '1' },
+    env: npxEnv(),
   });
   if (result.error) return { ok: false, message: result.error.message };
   if (result.status !== 0) return { ok: false, message: (result.stderr || result.stdout || `exit ${result.status}`).trim() };
