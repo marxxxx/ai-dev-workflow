@@ -142,6 +142,9 @@ allowed only in `e2e/agents/` (Harbor custom agents). See `docs/adw-e2e/README.m
   adjust a contract check in `e2e/lib/trial.mjs` / `e2e/tasks/_shared/` and run it with the
   `e2e-run` skill. If a feature needs neither, say why.
 
+- **User docs say only what the user needs.** README notes (e.g. "Upgrading to vX") state the
+  user-visible change and what to do, usually "`upgrade` does it". No states that existed only
+  during development, no implementation details; those belong in commit messages.
 - **Zero runtime dependencies** — don't add packages.
 - **LF line endings** everywhere.
 - Shared guidance goes in `body.md`; `overlays/<platform>.md` only for genuinely platform-specific
