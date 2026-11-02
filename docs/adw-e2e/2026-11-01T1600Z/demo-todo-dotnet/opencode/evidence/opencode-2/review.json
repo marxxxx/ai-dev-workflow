@@ -1,0 +1,12 @@
+{
+  "scores": {
+    "requirements": null,
+    "scope": null,
+    "tests": null,
+    "conventions": null,
+    "architecture": null,
+    "codeQuality": null
+  },
+  "reasons": {},
+  "error": "review (claude-code): answer holds no JSON object; answer ends: \"\"score\": 5, \"reason\": \"The overdue rule lives once on `Todo`, the store does the filtering, and the page injects the store directly, as the repo layout requires. The tri-state is handled in a small converter type.\"}, \"codeQuality\": {\"score\": 4, \"reason\": \"The code is compact and correct at the edges: due today is not overdue, null dates are handled, and invalid dates surface as `JsonException`. Minor smells are `showOnlyOverdue ? true : null` and a `Write` that throws `NotSupportedException`.\"}}\""
+}

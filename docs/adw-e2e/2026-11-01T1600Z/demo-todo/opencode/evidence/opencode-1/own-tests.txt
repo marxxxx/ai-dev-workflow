@@ -1,0 +1,27 @@
+
+> demo-todo@1.0.0 test
+> node --test
+
+✔ creates and lists todos (33.037237ms)
+✔ rejects an empty title (10.482531ms)
+✔ marks a todo done (7.316936ms)
+✔ serves the list page (8.672423ms)
+✔ create with future due date: 201, due stored, overdue false (4.970384ms)
+✔ create with past due date: overdue true (4.421324ms)
+✔ invalid due dates are rejected with 400 (10.554199ms)
+✔ leap day 2028-02-29 is accepted (5.093116ms)
+✔ due today (UTC) is not overdue, due yesterday is (4.546244ms)
+✔ a done todo with a past due date is not overdue (5.177756ms)
+✔ PATCH can change and remove the due date (6.500812ms)
+✔ GET /todos?overdue=true returns only overdue todos (6.096162ms)
+✔ GET /todos?overdue=false returns all todos (5.356804ms)
+✔ GET /todos?overdue=banana is a 400 (2.492699ms)
+✔ list page ships the overdue UI elements (2.750869ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 220.814947

@@ -14,7 +14,10 @@ Agentic verification: `docs/superpowers/specs/2026-10-12-adw-e2e-agentic-verific
 - Logins, used as copies and never committed:
   - Claude: `claude setup-token`, then put `CLAUDE_CODE_OAUTH_TOKEN=<token>` into `e2e/.env`
   - Codex: `codex login --device-auth` (refresh it if a model is refused)
-  - OpenCode: `opencode auth login` for the configured provider
+  - OpenCode: `opencode auth login` for the configured provider, then
+    `(umask 077; mkdir -p ~/.config/adw && opencode auth export > ~/.config/adw/opencode-credentials.json)`. That file is
+    `auth.opencodeCredentials` in `e2e/config.json`. Each trial imports the provider's entries with
+    `opencode auth import`.
 
 ### Windows
 

@@ -1,0 +1,12 @@
+  Determining projects to restore...
+  Restored /tmp/pr-9waFSK/src/DemoTodo/DemoTodo.csproj (in 550 ms).
+  Restored /tmp/pr-9waFSK/tests/DemoTodo.Tests/DemoTodo.Tests.csproj (in 566 ms).
+  DemoTodo -> /tmp/pr-9waFSK/src/DemoTodo/bin/Debug/net10.0/DemoTodo.dll
+/tmp/pr-9waFSK/tests/DemoTodo.Tests/TodoApiTests.cs(83,33): warning CS8602: Dereference of a possibly null reference. [/tmp/pr-9waFSK/tests/DemoTodo.Tests/DemoTodo.Tests.csproj]
+/tmp/pr-9waFSK/tests/DemoTodo.Tests/TodoApiTests.cs(86,31): warning CS8602: Dereference of a possibly null reference. [/tmp/pr-9waFSK/tests/DemoTodo.Tests/DemoTodo.Tests.csproj]
+/tmp/pr-9waFSK/tests/DemoTodo.Tests/TodoStoreTests.cs(73,30): warning CS8601: Possible null reference assignment. [/tmp/pr-9waFSK/tests/DemoTodo.Tests/DemoTodo.Tests.csproj]
+  DemoTodo.Tests -> /tmp/pr-9waFSK/tests/DemoTodo.Tests/bin/Debug/net10.0/DemoTodo.Tests.dll
+Test run for /tmp/pr-9waFSK/tests/DemoTodo.Tests/bin/Debug/net10.0/DemoTodo.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 1 s - DemoTodo.Tests.dll (net10.0)

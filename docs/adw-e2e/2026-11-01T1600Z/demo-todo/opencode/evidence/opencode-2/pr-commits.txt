@@ -1,0 +1,8 @@
+0950609 fix: clearer dueDate error message; guard list-page fetch against HTTP errors
+5269c1e feat: show due date and overdue marker, filter 'nur überfällige' on list page
+eaf513d feat: ?overdue=true|false filter on GET /todos
+3ec899c feat: compute overdue flag per request (UTC) in todo API
+f35060b feat: optional dueDate on todos with validation
+61cfbae docs: implementation plan for ticket #1 due date
+d8769a3 docs: add overdue filter (?overdue=) and list-page control to spec #1
+9b72523 docs: design spec for ticket #1 due date (faelligkeitsdatum)

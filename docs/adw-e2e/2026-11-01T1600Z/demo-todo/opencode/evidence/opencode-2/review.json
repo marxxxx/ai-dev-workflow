@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 3,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover AC1–AC7, and the spec adds sensible decisions such as a strict `<` comparison, a 400 for bad `overdue` values, and the testids.",
+    "scope": "The change stays on the ticket. The extra `res.ok` fetch guard in the list page and the plan and spec docs committed to the repo are small additions beyond what was asked.",
+    "tests": "The API tests are solid, covering validation, patch set/clear, overdue boundaries, and the filter. The UI is only checked with regex matches on the HTML, including a brittle `res.ok` source match, and nothing tests the marker, the date display, or the filter behaviour. The one edited existing test was extended, not weakened.",
+    "conventions": "The change uses `ValidationError`, adds testids, has no new dependencies, and follows TDD. The test names and style match the existing tests.",
+    "architecture": "Validation sits in the store, and `overdue` is computed in one place in the app layer and reused for every response and the filter. The pure-function helpers live in `app.mjs`, which is acceptable.",
+    "codeQuality": "The code is clear, and the date round-trip check handles impossible dates and non-strings. The `normalizeDueDate` condition is a bit dense, and `update` can partly mutate a todo before a later field fails validation."
+  },
+  "error": null
+}

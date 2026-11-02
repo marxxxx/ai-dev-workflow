@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria (optional date on create, change and remove via PATCH, 400 on invalid dates, overdue filter, due date shown, 'überfällig' marker, 'nur überfällige' toggle) are in the spec and the diff.",
+    "scope": "The change stays on the ticket. The plan and spec docs are extra but follow the workflow, and the `?overdue=banana` 400 is a small addition that the spec states openly.",
+    "tests": "The tests cover the happy path, the invalid-date cases, the leap day, the UTC boundary with an injected clock, a done todo, PATCH change and remove, and the filter values. The UI tests only grep the static HTML for testids, and the existing test was updated rather than weakened.",
+    "conventions": "The change uses ValidationError → 400, writes tests first, gives new elements data-testids, keeps the page in German and adds no dependencies.",
+    "architecture": "Validation and the computed overdue flag live in the store, the query filter lives in app.mjs, and rendering lives in the page. An injectable clock keeps the store testable without changing existing callers.",
+    "codeQuality": "The code is clear and the date validation is correct. A PATCH that returns 400 can still apply earlier fields, and the agent noted this as an existing problem. Also, `due` in a POST body is not null-checked consistently with how the body is read, which is a minor point."
+  },
+  "error": null
+}

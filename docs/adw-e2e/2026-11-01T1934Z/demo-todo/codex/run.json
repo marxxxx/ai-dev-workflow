@@ -1,0 +1,232 @@
+{
+  "schema": 2,
+  "task": "demo-todo",
+  "harness": "codex",
+  "fingerprint": {
+    "adw": {
+      "version": "0.29.1",
+      "sha": "fe1008afb211e9f52b5988e4bb307f31e2366833",
+      "dirty": true
+    },
+    "skill": {
+      "claude": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "codex": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "opencode": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:9905aed6ff6a01bbb005f626e5bf6af85f9bde49ed2b27cee46a1f2302aecce8"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-node:latest",
+      "id": "sha256:2a6d97cd22c3814476944c4e385570ca0f5bc49c84d692410d5fb03207c0cab8",
+      "inventory": "744051c6c8aed8068d0e43ed8a7b2db293ec5168e46b3dd94c7aa34e41678f06",
+      "harnessVersion": "0.166.0",
+      "superpowers": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "1eadd18e4adb30f8a23b1b462c648fb05751115e5020228fd38062b5d4f1404e",
+      "lib": "111974075d79e79d6221fda2e8acf38ed24d1e7f1fbc6ea7cbfd1fdb7afa780b"
+    },
+    "config": "a4909ab6baa953566d2d849ffba7effc04b089e43d535064fa94c5784cab9db1",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "openai/gpt-6.1-sol",
+      "subagents": null,
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "7ca0d929da22bcf718ca8500e49ca31355e495b1da30e483f4ac9448b717b51e"
+  },
+  "calibration": "2026-10-12T1659Z",
+  "config": {
+    "model": "openai/gpt-6.1-sol",
+    "subagentModel": null,
+    "agentKwargs": {
+      "reasoning_effort": "high"
+    },
+    "repetitions": 1
+  },
+  "trials": [
+    {
+      "id": "codex-1",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "show_me_read": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 5,
+        "conventions": 4,
+        "architecture": 5,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven acceptance criteria are covered by the spec and the diff, including strict date validation, UTC overdue logic computed per response, and the filter checkbox with the exact labels.",
+        "scope": "The change stays within the ticket. It adds an unrequested error-status element with load-failure handling, and it commits long plan and spec docs.",
+        "tests": "Store, HTTP and UI tests cover the date validation table, atomic PATCH, UTC midnight, filter semantics, empty results and stale or failed responses. The only existing test change is adding the two new fields to one expected response.",
+        "conventions": "The change follows the conventions in AGENTS.md: zero dependencies, ValidationError mapped to 400, `data-testid` on new elements, and tests written first. The date check is somewhat redundant, and the `test/ui.test.mjs` DOM stub is bespoke.",
+        "architecture": "Validation and overdue logic live centrally in the store with an injectable clock. The handler only passes the query through and the page renders API fields without computing overdue itself.",
+        "codeQuality": "The code is correct at the edges, with projections, atomic updates and a latest-request guard. `validateDueDate` has redundant checks (length plus regex plus NaN), and the stub-based UI test is brittle."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 10,
+        "agent": 705,
+        "verifier": 1,
+        "total": 765
+      },
+      "tokens": {
+        "input": 109967,
+        "output": 33934,
+        "cacheRead": 3253376,
+        "cacheWrite": 0,
+        "total": 3397277
+      },
+      "cost": 1.22938,
+      "ccusage": {
+        "ccusageTotal": 3397277,
+        "deviation": 0,
+        "warning": null,
+        "cost": 1.22938,
+        "models": {
+          "gpt-6.1-sol": {
+            "input": 82941,
+            "output": 32520,
+            "cacheRead": 3173376,
+            "cacheWrite": 0,
+            "total": 3288837,
+            "cost": 0.80842
+          },
+          "gpt-6-astra": {
+            "input": 27026,
+            "output": 1414,
+            "cacheRead": 80000,
+            "cacheWrite": 0,
+            "total": 108440,
+            "cost": 0.42096
+          }
+        }
+      },
+      "userTokens": {
+        "total": 199407
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 0,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "CommandExecution": 51,
+          "FileChange": 10,
+          "ImageView": 1,
+          "CollabAgentToolCall": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 1,
+            "browser_run_code_unsafe": 2,
+            "browser_console_messages": 1,
+            "browser_close": 2
+          },
+          "context7": {}
+        }
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 1,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 1,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "show_me_read": 1,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 1,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 1,
+      "ac:AC4": 1,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 1
+    },
+    "median": {
+      "tokens": 3397277,
+      "cost": 1.22938,
+      "agent": 705
+    },
+    "mcp": {
+      "serena": {
+        "calls": 0,
+        "trials": 0
+      },
+      "playwright": {
+        "calls": 6,
+        "trials": 1
+      },
+      "context7": {
+        "calls": 0,
+        "trials": 0
+      }
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 4,
+      "tests": 5,
+      "conventions": 4,
+      "architecture": 5,
+      "codeQuality": 4
+    },
+    "errorClasses": []
+  }
+}

@@ -1,0 +1,228 @@
+{
+  "schema": 2,
+  "task": "demo-todo",
+  "harness": "opencode",
+  "fingerprint": {
+    "adw": {
+      "version": "0.29.1",
+      "sha": "fe1008afb211e9f52b5988e4bb307f31e2366833",
+      "dirty": true
+    },
+    "skill": {
+      "claude": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "codex": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "opencode": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:9905aed6ff6a01bbb005f626e5bf6af85f9bde49ed2b27cee46a1f2302aecce8"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-node:latest",
+      "id": "sha256:2a6d97cd22c3814476944c4e385570ca0f5bc49c84d692410d5fb03207c0cab8",
+      "inventory": "744051c6c8aed8068d0e43ed8a7b2db293ec5168e46b3dd94c7aa34e41678f06",
+      "harnessVersion": "2.2.3",
+      "superpowers": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "1eadd18e4adb30f8a23b1b462c648fb05751115e5020228fd38062b5d4f1404e",
+      "lib": "111974075d79e79d6221fda2e8acf38ed24d1e7f1fbc6ea7cbfd1fdb7afa780b"
+    },
+    "config": "a4909ab6baa953566d2d849ffba7effc04b089e43d535064fa94c5784cab9db1",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "mistral/mistral-large-4",
+      "subagents": null,
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "7ca0d929da22bcf718ca8500e49ca31355e495b1da30e483f4ac9448b717b51e"
+  },
+  "calibration": "2026-10-12T1659Z",
+  "config": {
+    "model": "mistral/mistral-large-4",
+    "subagentModel": null,
+    "agentKwargs": {},
+    "repetitions": 1
+  },
+  "trials": [
+    {
+      "id": "opencode-1",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "show_me_read": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 5,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "All seven ACs are covered by the spec and the diff: optional date, PATCH change and null removal, 400 on invalid input, the overdue filter, and the UI date, label and toggle.",
+        "scope": "The change stays on-ticket. The only extras are a small `.gitignore` entry for `.superpowers/` and the committed spec and plan docs.",
+        "tests": "The new tests cover validation, PATCH set and clear, UTC overdue, the done case and the filter, and the existing test was updated rather than weakened. The UI is checked only by markup regex, and the 'today' case is tested against a real clock.",
+        "conventions": "The code uses `ValidationError` for HTTP 400, adds `data-testid` to every new UI element, uses only Node builtins, and keeps the existing test style.",
+        "architecture": "Validation sits in the store and the computed overdue field and filter sit in the HTTP layer, as the spec says. The list filter calls `withOverdue` twice per todo, which is minor duplication.",
+        "codeQuality": "The code is clean and handles edge cases such as the 2026-02-30 round-trip check and non-string input. Minor issues: `update` does not guard against a null patch, and the UI fetch has no error handling."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 9,
+        "agent": 466,
+        "verifier": 1,
+        "total": 514
+      },
+      "tokens": {
+        "input": 154205,
+        "output": 32429,
+        "cacheRead": 3077120,
+        "cacheWrite": 0,
+        "total": 3263754
+      },
+      "cost": 0.391443,
+      "ccusage": {
+        "ccusageTotal": 3263754,
+        "deviation": 0,
+        "warning": null,
+        "cost": 0.391443,
+        "models": {
+          "mistral-large-4": {
+            "input": 154205,
+            "output": 32429,
+            "cacheRead": 3077120,
+            "cacheWrite": 0,
+            "total": 3263754,
+            "cost": 0.391443
+          }
+        }
+      },
+      "userTokens": {
+        "total": 202530
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 0,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "skill": 5,
+          "shell": 32,
+          "glob": 5,
+          "read": 12,
+          "write": 3,
+          "edit": 9,
+          "execute": 3
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 3,
+            "browser_wait_for": 5,
+            "browser_snapshot": 1,
+            "browser_evaluate": 5,
+            "browser_take_screenshot": 4,
+            "browser_click": 2,
+            "browser_close": 1
+          },
+          "context7": {}
+        }
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 1,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 1,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "show_me_read": 1,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 1,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 1,
+      "ac:AC4": 1,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 1
+    },
+    "median": {
+      "tokens": 3263754,
+      "cost": 0.391443,
+      "agent": 466
+    },
+    "mcp": {
+      "serena": {
+        "calls": 0,
+        "trials": 0
+      },
+      "playwright": {
+        "calls": 21,
+        "trials": 1
+      },
+      "context7": {
+        "calls": 0,
+        "trials": 0
+      }
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 4,
+      "tests": 4,
+      "conventions": 5,
+      "architecture": 4,
+      "codeQuality": 4
+    },
+    "errorClasses": []
+  }
+}

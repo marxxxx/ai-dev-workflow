@@ -1,0 +1,7 @@
+e7e70f7 docs: record verified implementation and draft PR handoff
+72bf2b3 fix: keep overdue filter results consistent when loading fails
+3fc11a1 feat: show due dates and overdue filter on the todo list
+3aff241 feat: filter overdue todos through the HTTP API
+c6d1b40 feat: add validated todo due dates and UTC overdue status
+60a5e18 docs: plan todo due date implementation and verification
+8c7e532 docs: describe todo due dates and overdue filtering

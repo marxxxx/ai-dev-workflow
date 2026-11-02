@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria appear in the spec and the diff, including the clear/keep semantics for PATCH, the strictly-before-today rule in UTC, and the exact UI labels and test ids.",
+    "scope": "The code changes stay within the ticket. The plan and spec docs were added, which fits the workflow, but AGENTS.md was not updated with the new data-testids.",
+    "tests": "Store and API tests cover set, keep, clear, invalid dates, the today/done/no-date overdue edges, and the filter. Existing tests were only adapted to the new signatures. The page test only checks the server-rendered HTML, so the toggle's filtering is never tested.",
+    "conventions": "The change follows the existing conventions: ValidationException thrown from the store, data-testid on new elements, xUnit style, and the page calling the store directly. It misses the AGENTS.md locator list update.",
+    "architecture": "Validation and PATCH semantics live in TodoStore and IsOverdue sits on the record, so there is one source of truth. The page and the API both reuse it. The only wart is the raw-string and JsonElement DTO shape, which the agent justified.",
+    "codeQuality": "The code is readable, uses strict yyyy-MM-dd invariant parsing, and handles non-string JSON kinds. The Update method's setDueDate/dueDate flag pair is slightly clunky, and the test class computes Today once in a static field, which could be off around midnight UTC."
+  },
+  "error": null
+}
