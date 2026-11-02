@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { scanForSecrets } from '../lib/secrets.mjs';
-import { acpCommand, acpxConfig, composeEnv, composeProject, listening, parseEnvFile, stageCredentials, startSession } from './session.mjs';
+import { OPENCODE_CREDENTIALS, scanForSecrets } from '../lib/secrets.mjs';
+import { OPENCODE_LOGIN, OPENCODE_LOGIN_HELP, acpCommand, acpxConfig, authMounts, composeEnv, composeProject, listening, parseEnvFile, stageCredentials, startSession } from './session.mjs';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'adw-session-'));
 
@@ -15,8 +15,8 @@ test('acpCommand per harness, with and without a model or the image CLI', () => 
   assert.deepEqual(acpCommand('codex', null), ['env', 'NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', 'codex-acp']);
   assert.deepEqual(acpCommand('codex', 'openai/gpt-5', { cli: '/usr/local/bin/codex' }),
     ['env', 'NO_BROWSER=1', 'INITIAL_AGENT_MODE=agent-full-access', 'CODEX_CONFIG={"model":"gpt-5"}', 'CODEX_PATH=/usr/local/bin/codex', 'codex-acp']);
-  assert.deepEqual(acpCommand('opencode', null), ['env', 'OPENCODE_FAKE_VCS=git', 'opencode', 'acp']);
-  assert.deepEqual(acpCommand('opencode', 'anthropic/x'), ['env', 'OPENCODE_FAKE_VCS=git', 'OPENCODE_CONFIG=/home/dev/.adw-e2e/opencode.json', 'opencode', 'acp']);
+  assert.deepEqual(acpCommand('opencode', null), ['env', 'opencode', 'acp']);
+  assert.deepEqual(acpCommand('opencode', 'anthropic/x'), ['env', 'OPENCODE_CONFIG=/home/dev/.adw-e2e/opencode.json', 'opencode', 'acp']);
   assert.throws(() => acpCommand('gemini', null), /unknown harness/);
 });
 
@@ -64,14 +64,14 @@ test('stageCredentials is a pure lookup per harness', () => {
 
     mkdirSync(path.join(home, '.codex'));
     writeFileSync(path.join(home, '.codex/auth.json'), JSON.stringify({ auth_mode: 'chatgpt', tokens: { access_token: 'AT1', account_id: 'acc' } }));
-    mkdirSync(path.join(home, '.local/share/opencode'), { recursive: true });
-    writeFileSync(path.join(home, '.local/share/opencode/auth.json'), JSON.stringify({ anthropic: { type: 'oauth', refresh: 'RT2' } }));
+    mkdirSync(path.join(home, '.config/adw'), { recursive: true });
+    writeFileSync(path.join(home, OPENCODE_LOGIN), JSON.stringify([{ id: 'c', integrationID: 'x', label: 'API key', active: true, value: { type: 'key', key: 'RT2' } }]));
     c = stageCredentials({ harnesses: ['claude-code', 'codex', 'opencode', 'codex'], env: { CLAUDE_CODE_OAUTH_TOKEN: 'TOK' }, home });
     assert.deepEqual(c.missing, []);
     assert.deepEqual(c.envNames, ['CLAUDE_CODE_OAUTH_TOKEN']);
     assert.deepEqual(c.authFiles, [
       { harness: 'codex', from: path.join(home, '.codex/auth.json'), to: '/home/dev/.codex/auth.json' },
-      { harness: 'opencode', from: path.join(home, '.local/share/opencode/auth.json'), to: '/home/dev/.local/share/opencode/auth.json' },
+      { harness: 'opencode', from: path.join(home, OPENCODE_LOGIN), to: '/home/dev/.adw-e2e/opencode-credentials.json' },
     ]);
     assert.deepEqual(c.secrets.sort(), ['AT1', 'RT2', 'TOK']);
 
@@ -178,6 +178,53 @@ test('opencode: the model goes into an OPENCODE_CONFIG file; nothing written wit
     r = recorder();
     startSession({ root, work, harness: 'claude-code', model: null, project: 'p1', creds, exec: r.exec, env: {} });
     assert.ok(!r.calls.some((c) => c.opts.input !== undefined || c.args.includes('/home/dev/.claude/settings.json')));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('opencode: the export file is staged and imported, then removed', () => {
+  const { dir, root, work } = fixture();
+  try {
+    const home = path.join(dir, 'home');
+    mkdirSync(path.join(home, '.config/adw'), { recursive: true });
+    const from = path.join(home, OPENCODE_LOGIN);
+    const bytes = `${JSON.stringify([{ id: 'cred_1', integrationID: 'mistral', label: 'API key', active: true, value: { type: 'key', key: 'MK' } }], null, 2)}\n`;
+    writeFileSync(from, bytes);
+    const staged = stageCredentials({ harnesses: ['opencode'], env: {}, home });
+    assert.deepEqual(staged.authFiles, [{ harness: 'opencode', from, to: OPENCODE_CREDENTIALS }]);
+    const r = recorder();
+    startSession({ root, work, harness: 'opencode', model: null, project: 'p1', creds: staged, exec: r.exec, env: {} });
+    const write = r.calls.find((c) => c.opts.input !== undefined);
+    assert.equal(write.args.at(-1), OPENCODE_CREDENTIALS);
+    assert.equal(String(write.opts.input), bytes);
+    const imported = r.calls.findIndex((c) => c.args.join(' ').includes('opencode auth import --standalone'));
+    assert.ok(imported > r.calls.indexOf(write), 'imported after it was written');
+    assert.ok(r.calls[imported].args.join(' ').includes('rm -f'), 'the staged copy does not stay in the container');
+    assert.ok(imported < r.calls.findIndex((c) => c.args.includes('ensure')), 'before the ACP session starts');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('stageCredentials rejects an OpenCode 1 auth.json as the login file', () => {
+  const home = tmp();
+  try {
+    mkdirSync(path.join(home, '.config/adw'), { recursive: true });
+    writeFileSync(path.join(home, OPENCODE_LOGIN), JSON.stringify({ anthropic: { type: 'oauth', refresh: 'RT' } }));
+    assert.throws(() => stageCredentials({ harnesses: ['opencode'], env: {}, home }), /opencode auth export/);
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
+test('OPENCODE_LOGIN_HELP names the file and both ways to create it', () => {
+  assert.equal(OPENCODE_LOGIN, '.config/adw/opencode-credentials.json');
+  assert.equal(OPENCODE_LOGIN_HELP, 'No OpenCode login file (~/.config/adw/opencode-credentials.json); providers then come from e2e.env only. To use an OpenCode login: ./ai-dev.sh opencode auth login, then rerun adw e2e and let it copy the login from the dev container, or with OpenCode 2 on the host: (umask 077; mkdir -p ~/.config/adw && opencode auth export > ~/.config/adw/opencode-credentials.json)');
+});
+
+test('authMounts mounts every login file as-is', () => {
+  const { dir } = fixture();
+  try {
+    const codex = path.join(dir, 'codex.json'), oc = path.join(dir, 'oc.json');
+    const creds = { authFiles: [{ harness: 'codex', from: codex, to: '/home/dev/.codex/auth.json' },
+      { harness: 'opencode', from: oc, to: OPENCODE_CREDENTIALS }] };
+    assert.deepEqual(authMounts(creds, ['codex']), [`${codex}:/home/dev/.codex/auth.json`]);
+    assert.deepEqual(authMounts(creds, ['opencode']), [`${oc}:${OPENCODE_CREDENTIALS}`]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -306,6 +353,28 @@ test('close skips a missing log dir and runs down -v after a throwing cp', () =>
     assert.ok(!existsSync(path.join(t2, 'agent/sessions/auth.json')));
     assert.deepEqual(scanForSecrets(path.join(t2, 'agent'), creds.secrets), []);
     assert.deepEqual(r.calls.at(-1).args.slice(-2), ['down', '-v']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('close still scrubs the logs and warns when the opencode.db credential removal fails', () => {
+  const { dir, root, work, creds } = fixture();
+  try {
+    const trialDir = path.join(dir, 'trial');
+    const { calls, exec } = recorder({ results: (a) => {
+      if (a[0] !== 'cp') return null;
+      mkdirSync(a[2], { recursive: true });
+      writeFileSync(path.join(a[2], 'opencode.db'), 'not a database, but long enough to fail the sqlite header check');
+      writeFileSync(path.join(a[2], 'session.log'), '{"token":"AT1"}\n');
+      return null;
+    } });
+    const warnings = [];
+    const s = startSession({ root, work, harness: 'opencode', model: null, project: 'p1', creds, exec, env: {}, warn: (m) => warnings.push(m) });
+    const scrubbed = s.close(trialDir);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /^! opencode\.db credential removal failed: .*opencode\.db/);
+    assert.equal(readFileSync(path.join(trialDir, 'agent/opencode/xdg-data/opencode/session.log'), 'utf8'), '{"token":"***"}\n');
+    assert.deepEqual(scrubbed.redacted, [path.join(trialDir, 'agent/opencode/xdg-data/opencode/session.log')]);
+    assert.deepEqual(calls.at(-1).args.slice(-2), ['down', '-v']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

@@ -13,8 +13,8 @@ when you report cost.
    already was, this run **resumes** an earlier one. Find where that one stopped, working on the
    ticket's branch or worktree (see **Naming**) if one exists:
    - **Spec file, no plan** — a `{{artifact.spec}}` comment names an approved spec file. Skip
-     brainstorming: invoke `superpowers:writing-plans` with that spec, then follow the workflow from
-     there.
+     brainstorming: invoke the superpowers `writing-plans` skill with that spec, then follow the
+     workflow from there.
    - **Spec file and plan** (a plan file for that spec) — development was interrupted. Compare the
      plan's tasks with the branch's commits and working tree to find what is done, confirm that with
      the user, then continue executing the plan from the first unfinished task, as its header says.
@@ -31,7 +31,7 @@ when you report cost.
 
 ## 2. Superpowers workflow
 
-Invoke `superpowers:brainstorming` and follow the workflow it leads you through, as its skills
+Invoke the superpowers `brainstorming` skill and follow the workflow it leads you through, as its skills
 write it. This skill adds only the hooks below. They are events, not steps: apply each one whenever
 it occurs, wherever the workflow puts it.
 

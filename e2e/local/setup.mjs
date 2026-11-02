@@ -13,7 +13,8 @@ import { e2eSectionOf } from './contract.mjs';
 import { LANGUAGES, detectLanguage, textsFor } from './language.mjs';
 import { loadLocalConfig } from './config.mjs';
 import { devImage } from './image.mjs';
-import { composeEnv, composeProject, stageCredentials } from './session.mjs';
+import { OPENCODE_LOGIN, authMounts, composeEnv, composeProject, stageCredentials } from './session.mjs';
+import { openCodeExport } from '../lib/secrets.mjs';
 import { readLocalState, readTicket, ticketDir, writeLocalState, writeTicket } from './store.mjs';
 
 const DEFAULTS = JSON.parse(readFileSync(new URL('./defaults.json', import.meta.url), 'utf8'));
@@ -63,10 +64,14 @@ export async function stepContainerFiles({ root, prompter }) {
 const ownComposeFiles = (root, cenv) => ['compose', '-f', path.join(root, 'compose.ai-dev.yml'),
   ...(cenv.AGENT_CA_DIR ? ['-f', path.join(root, 'compose.ai-dev.certs.yml')] : [])];
 
-export function ownComposeRun({ root, env, exec, argv, entrypoint = null, stdio = 'pipe' }) {
+// `asHostUser` runs as the uid the entrypoint maps dev to (the agent-home volume's owner) with dev's HOME, for an
+// `entrypoint` that bypasses that mapping: root would read /root and leave root-owned files in the volume.
+export function ownComposeRun({ root, env, exec, argv, entrypoint = null, asHostUser = false, stdio = 'pipe' }) {
   const cenv = composeEnv({ root, work: root, env });
   const args = [...ownComposeFiles(root, cenv),
-    'run', '--rm', '--no-deps', '-T', ...(entrypoint ? ['--entrypoint', entrypoint] : []), 'ai-dev-workflow', ...argv];
+    'run', '--rm', '--no-deps', '-T',
+    ...(asHostUser ? ['-u', `${cenv.HOST_UID}:${cenv.HOST_GID}`, '-e', 'HOME=/home/dev'] : []),
+    ...(entrypoint ? ['--entrypoint', entrypoint] : []), 'ai-dev-workflow', ...argv];
   return exec('docker', args, { env: cenv, encoding: 'utf8', stdio });
 }
 
@@ -220,7 +225,7 @@ export function projectVolume(root, env, exec) {
 }
 
 const LOGIN_ROLES = ['agent', 'answerer', 'verifier', 'review'];
-const VOLUME_LOGIN = { codex: '.codex/auth.json', opencode: '.local/share/opencode/auth.json' };
+const VOLUME_LOGIN = { codex: '.codex/auth.json', opencode: OPENCODE_LOGIN };
 
 // Missing logins, offered in priority order after env and host files: the project's agent-home volume (codex, opencode),
 // a guided `claude setup-token` (claude-code). Leaves `state.config`, `state.creds` and `state.fallbackHome` for the later steps.
@@ -271,17 +276,26 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
       if (!volume) continue;
       const rel = VOLUME_LOGIN[harness];
       if (stored !== true) {
-        const answer = yes(await ask(`Use the ${harness} login of this project's dev container (agent-home volume)? A trial may refresh it; then log in again with ./ai-dev.sh. (Y/n)`,
+        const question = harness === 'opencode'
+          ? "Export the OpenCode login of this project's dev container (agent-home volume)? A trial may refresh it; then log in again with ./ai-dev.sh. (Y/n)"
+          : `Use the ${harness} login of this project's dev container (agent-home volume)? A trial may refresh it; then log in again with ./ai-dev.sh. (Y/n)`;
+        const answer = yes(await ask(question,
           `setup.volumeLogin.${harness}`));
         // Only a typed answer is remembered: a scripted run's default "no" must not stick on this machine.
         if (!prompter.scripted) writeLocalState(root, { loginFromVolume: { [harness]: answer } });
         if (!answer) continue;
       }
-      const r = freed(prompter, () => ownComposeRun({ root, env: env(), exec: d.exec, entrypoint: 'cat', argv: [`/home/dev/${rel}`] }));
+      const isOpenCode = harness === 'opencode';
+      const r = freed(prompter, () => ownComposeRun({ root, env: env(), exec: d.exec,
+        ...(isOpenCode ? { entrypoint: 'sh', asHostUser: true, argv: ['-c', 'cd /tmp && /opt/agent-tools/node_modules/.bin/opencode --standalone auth export'] }
+          : { entrypoint: 'cat', argv: [`/home/dev/${rel}`] }) }));
       throwIfInterrupted(r);
-      if (r.error || r.status !== 0) { d.log(`! reading ${rel} from the agent-home volume failed`); continue; }
+      if (r.error || r.status !== 0) { d.log(`! reading ${isOpenCode ? 'the OpenCode login' : rel} from the agent-home volume failed`); continue; }
       const text = String(r.stdout ?? '');
-      try { JSON.parse(text); } catch { d.log(`! no usable ${rel} in the agent-home volume`); continue; }
+      try { if (isOpenCode) openCodeExport(text, 'opencode auth export'); else JSON.parse(text); } catch {
+        d.log(`! no usable ${isOpenCode ? 'OpenCode login' : rel} in the agent-home volume`);
+        continue;
+      }
       state.fallbackHome ??= mkdtempSync(path.join(os.tmpdir(), 'adw-e2e-auth-'));
       const target = path.join(state.fallbackHome, rel);
       mkdirSync(path.dirname(target), { recursive: true });
@@ -343,7 +357,7 @@ function draftE2eSection({ root, state, d, language, prompter }) {
   const certsFile = path.join(root, 'compose.ai-dev.certs.yml');
   const buildArgs = composeRunArgs({ composeFile: path.join(root, 'compose.ai-dev.yml'), certsFile: env.AGENT_CA_DIR ? certsFile : null,
     project: composeProject(root, 'setup'), uid: d.uid, gid: d.gid, envNames: [...state.config.env, ...(creds?.envNames ?? [])],
-    authMounts: (creds?.authFiles ?? []).filter((f) => f.harness === answerer.harness).map((f) => `${f.from}:${f.to}`) });
+    authMounts: authMounts(creds ?? { authFiles: [] }, [answerer.harness]) });
   const input = `Draft the "End-to-end testing" section of this repository's AGENTS.md. An independent verifier will use it to start the app, wait until it is ready, open it in a browser and stop it again.
 
 Rules:

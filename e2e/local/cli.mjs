@@ -22,7 +22,7 @@ import { importTicket } from './ticket-import.mjs';
 import { ensureE2eImage } from './image.mjs';
 import { collectSandbox, createSandbox, snapshotWorkingTree } from './sandbox.mjs';
 import { appPortFromAgentsMd, e2eSectionOf, evaluateLocalContract, hasE2eSection } from './contract.mjs';
-import { composeEnv, composeProject, stageCredentials, startSession } from './session.mjs';
+import { OPENCODE_LOGIN_HELP, authMounts, composeEnv, composeProject, stageCredentials, startSession } from './session.mjs';
 import { askHumanTty, makeDecide, runConversation } from './answerer.mjs';
 import { confirmAcceptance, draftAcceptance, renderAcceptance, spawnEditor } from './acceptance.mjs';
 import { buildLocalTrialRecord, compareWithBaseline, localFingerprint, localReward, writeRun } from './record.mjs';
@@ -89,6 +89,8 @@ function preflight({ root, config, baseCommit, d, env, fallbackHome = null }) {
   if (docker.error || docker.status !== 0) problems.push('docker not found or not running');
   if (!existsSync(path.join(root, 'compose.ai-dev.yml'))) problems.push(`${path.join(root, 'compose.ai-dev.yml')} not found: run adw init and write the container files`);
   const creds = stageCredentials({ harnesses: ROLES.map((r) => config[r].harness), env, home: d.home, fallbackHome });
+  // Optional, so no problem: providers may come from e2e.env alone.
+  if (ROLES.some((r) => config[r].harness === 'opencode') && !creds.authFiles.some((f) => f.harness === 'opencode')) d.log(OPENCODE_LOGIN_HELP);
   for (const role of ROLES) {
     for (const m of creds.missing.filter((x) => x.harness === config[role].harness)) problems.push(`${role} uses ${m.harness}: ${m.what} not found`);
   }
@@ -184,7 +186,7 @@ async function runPrepared({ opts, d, root, setup }) {
   // The argv builder of a judge-side container in compose project `project`, with the logins `harnesses` need.
   const judgeArgs = (project, env) => (harnesses) => composeRunArgs({ composeFile, certsFile: env.AGENT_CA_DIR ? certsFile : null, overrideFile, project,
     uid: d.uid, gid: d.gid, envNames: [...config.env, ...creds.envNames],
-    authMounts: creds.authFiles.filter((f) => harnesses.includes(f.harness)).map((f) => `${f.from}:${f.to}`) });
+    authMounts: authMounts(creds, harnesses) });
   // Probes every distinct answerer/judge harness and model in its own compose project; returns the first failure, or null.
   const probeModels = (mountPoints) => {
     const pairs = new Map();
@@ -258,7 +260,7 @@ async function runPrepared({ opts, d, root, setup }) {
       try {
         let conversation; let appListening = null; let agentSeconds = null; let port = null;
         const session = d.startSession({ root, work, origin, harness, model: config.agent.model, project, creds, envNames: config.env,
-          env: d.env, turnTimeoutSec: config.turnTimeoutSec, overrideFile });
+          env: d.env, turnTimeoutSec: config.turnTimeoutSec, overrideFile, warn: d.log });
         try {
           for (const h of new Set(ROLES.map((r) => config[r].harness))) {
             try { cliVersions[h] ??= session.cliVersion(h); } catch { cliVersions[h] ??= 'unknown'; }
@@ -276,7 +278,10 @@ async function runPrepared({ opts, d, root, setup }) {
             try { appListening = session.appListening(port); } catch { appListening = null; }
           }
         } finally {
-          try { session.close(trialDir); } finally { active.delete(project); }
+          try {
+            const skipped = session.close(trialDir)?.skippedWithSecret ?? [];
+            if (skipped.length) d.log(`! secrets in binary/db files left untouched (remove manually):\n${skipped.join('\n')}`);
+          } finally { active.delete(project); }
         }
 
         const collected = d.collectSandbox({ work, origin, ticket: opts.ticket });

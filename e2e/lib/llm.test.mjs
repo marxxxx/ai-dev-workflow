@@ -11,7 +11,9 @@ const COMMON = ['claude', '-p', '--model', 'm', '--output-format', 'stream-json'
 const PW_JSON = '{"mcpServers":{"playwright":{"command":"playwright-mcp","args":["--headless","--browser","chromium","--isolated"]}}}';
 const CODEX = ['codex', 'exec', '--json', '--skip-git-repo-check', '--ephemeral', '-o', '/tmp/adw-last.txt'];
 const CODEX_PW = ['-c', 'mcp_servers.playwright.command="playwright-mcp"', '-c', 'mcp_servers.playwright.args=["--headless","--browser","chromium","--isolated"]'];
-const OC_LAUNCH = 'f="${TMPDIR:-/tmp}/adw-opencode.json"; printf \'%s\' "$ADW_OPENCODE_CONFIG" > "$f" && OPENCODE_CONFIG="$f" exec opencode "$@"';
+// A login mounted by adw e2e goes in through `opencode auth import` first (OpenCode 2 reads no auth.json into a new database).
+const OC_LAUNCH = 'c=/home/dev/.adw-e2e/opencode-credentials.json; { [ ! -f "$c" ] || (cd /tmp && opencode auth import --standalone "$c" >/dev/null); } && '
+  + 'f="${TMPDIR:-/tmp}/adw-opencode.json"; printf \'%s\' "$ADW_OPENCODE_CONFIG" > "$f" && OPENCODE_CONFIG="$f" exec opencode "$@"';
 const ocConfig = (cmd) => JSON.parse(cmd.env.ADW_OPENCODE_CONFIG);
 
 test('the harnesses and tool profiles', () => {
@@ -43,17 +45,20 @@ test('codex one-shot argv per profile: the prompt is stdin', () => {
 
 test('opencode one-shot argv and permission config per profile: the prompt is stdin', () => {
   const cmd = (tools, o = {}) => oneShotCommand({ harness: 'opencode', model: 'p/m', tools, ...o });
-  const denyAll = { edit: 'deny', bash: 'deny', webfetch: 'deny' };
+  // OpenCode 2 rules (last match wins), on top of its allow-everything base policy.
+  const rule = (action, effect, resource = '*') => ({ action, resource, effect });
+  const denyAll = [rule('edit', 'deny'), rule('shell', 'deny'), rule('webfetch', 'deny')];
   // The image's wrapper overwrites OPENCODE_CONFIG_CONTENT: the config goes through an OPENCODE_CONFIG file written in the container.
-  assert.deepEqual(cmd('none').argv, ['sh', '-c', OC_LAUNCH, 'sh', 'run', '--format', 'json', '-m', 'p/m']);
+  assert.deepEqual(cmd('none').argv, ['sh', '-c', OC_LAUNCH, 'sh', 'run', '--standalone', '--format', 'json', '-m', 'p/m']);
   assert.equal(cmd('none').env.OPENCODE_CONFIG_CONTENT, undefined);
-  assert.deepEqual(ocConfig(cmd('none')), { permission: denyAll, mcp: {} });
-  assert.deepEqual(ocConfig(cmd('read')), { permission: denyAll, mcp: {} });
-  assert.deepEqual(ocConfig(cmd('verify', { playwright: true })), { permission: { edit: 'deny', bash: 'allow', webfetch: 'deny' },
-    mcp: { playwright: { type: 'local', command: ['playwright-mcp', '--headless', '--browser', 'chromium', '--isolated'] } } });
-  assert.deepEqual(ocConfig(cmd('read', { addDirs: ['/diff'] })).permission.external_directory, { '/diff/*': 'allow' },
-    'opencode run auto-rejects reads outside the workspace');
-  assert.deepEqual(oneShotCommand({ harness: 'opencode', tools: 'none' }).argv, ['sh', '-c', OC_LAUNCH, 'sh', 'run', '--format', 'json']);
+  assert.deepEqual(ocConfig(cmd('none')), { permissions: denyAll, mcp: { servers: {} } });
+  assert.deepEqual(ocConfig(cmd('read')), { permissions: denyAll, mcp: { servers: {} } });
+  assert.deepEqual(ocConfig(cmd('verify', { playwright: true })), {
+    permissions: [rule('edit', 'deny'), rule('shell', 'allow'), rule('webfetch', 'deny')],
+    mcp: { servers: { playwright: { type: 'local', command: ['playwright-mcp', '--headless', '--browser', 'chromium', '--isolated'] } } } });
+  assert.deepEqual(ocConfig(cmd('read', { addDirs: ['/diff'] })).permissions, [...denyAll, rule('external_directory', 'allow', '/diff/*')],
+    'reads outside the workspace are allowed explicitly');
+  assert.deepEqual(oneShotCommand({ harness: 'opencode', tools: 'none' }).argv, ['sh', '-c', OC_LAUNCH, 'sh', 'run', '--standalone', '--format', 'json']);
   for (const tools of ['none', 'read', 'verify']) {
     assert.equal(cmd(tools).env.OPENCODE_DISABLE_PROJECT_CONFIG, '1', `${tools}: the checkout's .opencode/ neither steers the call nor is written`);
   }
@@ -198,7 +203,7 @@ test('dockerRunArgs: a fresh task container, provider env and auth by name, auth
 
 test('composeRunArgs: the project\'s compose service, last before the argv; env by name only; auth files read-only', () => {
   const build = composeRunArgs({ composeFile: '/p/compose.ai-dev.yml', certsFile: '/p/compose.ai-dev.certs.yml', project: 'adw-e2e-1', uid: 1, gid: 2,
-    envNames: ['OPENAI_API_KEY'], authMounts: ['/h/auth.json:/home/dev/.local/share/opencode/auth.json'] });
+    envNames: ['OPENAI_API_KEY'], authMounts: ['/h/auth.json:/home/dev/.adw-e2e/opencode-credentials.json'] });
   const args = build({ name: 'n', checkout: '/c', mounts: [], argv: ARGV, env: {} });
   assert.deepEqual(args.slice(0, 7), ['compose', '-f', '/p/compose.ai-dev.yml', '-f', '/p/compose.ai-dev.certs.yml', '-p', 'adw-e2e-1']);
   assert.deepEqual(args.slice(7, 12), ['run', '--rm', '-T', '--name', 'n']);
@@ -207,7 +212,7 @@ test('composeRunArgs: the project\'s compose service, last before the argv; env 
   assert.ok(!args.slice(0, -ARGV.length).some((a) => /^(OPENAI_API_KEY|CLAUDE_CODE_OAUTH_TOKEN)=/.test(a)), 'no provider value on argv');
   for (const e of ['HOST_UID=1', 'HOST_GID=2', 'E2E_VERIFY=1', 'AGENT_TOOLSTACK_ONLY=1']) assert.equal(args[args.indexOf(e) - 1], '-e', e);
   assert.equal(args[args.indexOf('/c:/workspace') - 1], '-v');
-  assert.equal(args[args.indexOf('/h/auth.json:/home/dev/.local/share/opencode/auth.json:ro') - 1], '-v');
+  assert.equal(args[args.indexOf('/h/auth.json:/home/dev/.adw-e2e/opencode-credentials.json:ro') - 1], '-v');
   const plain = composeRunArgs({ composeFile: 'c.yml', project: 'p', service: 'app', uid: 1, gid: 1 })({ name: 'n', checkout: '/c', mounts: [], argv: ARGV, env: {} });
   assert.deepEqual(plain.slice(0, 5), ['compose', '-f', 'c.yml', '-p', 'p']);
   assert.equal(plain.at(-ARGV.length - 1), 'app');

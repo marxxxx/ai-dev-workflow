@@ -126,16 +126,18 @@ function claudeServer(definition) {
   };
 }
 
+// OpenCode 2 server shape (mcp.servers.<name>); a project server's `enabled: false` becomes `disabled`.
 function openCodeServer(definition) {
+  const disabled = definition.enabled === false;
   if (definition.url) {
     return {
-      type: 'remote', url: definition.url, enabled: definition.enabled ?? true,
+      type: 'remote', url: definition.url, disabled,
       ...(definition.headers ? { headers: definition.headers } : {}),
     };
   }
   if (!definition.command) fail('A local MCP server definition is missing command.');
   return {
-    type: 'local', command: [definition.command, ...(definition.args ?? [])], enabled: definition.enabled ?? true,
+    type: 'local', command: [definition.command, ...(definition.args ?? [])], disabled,
     ...(definition.env ? { environment: definition.env } : {}),
   };
 }
@@ -331,7 +333,7 @@ export function buildLaunchPlan(agent, forwardedArgs, {
     args: [...forwardedArgs],
     env: {
       ...environment,
-      OPENCODE_CONFIG_CONTENT: JSON.stringify({ mcp: deepSort(effectiveServers), plugin: [superpowersRoot] }),
+      OPENCODE_CONFIG_CONTENT: JSON.stringify({ mcp: { servers: deepSort(effectiveServers) }, plugins: [superpowersRoot] }),
     },
   };
 }

@@ -93,8 +93,9 @@ pipeline: **config → tokens → units → renderers → outputs**.
 Units: one skill, `agent-dev`. It adds only the ticket edges around the unmodified superpowers chain:
 `in-progress` at the start, the approved spec as a comment, and the implementation summary, cost
 summary and `review` at the end.
-It names only entry skills — `superpowers:brainstorming`, plus `superpowers:writing-plans` when
-resuming an in-progress ticket whose spec is already approved — and hooks in at events (spec or plan
+It names only entry skills, by bare id (OpenCode 2 cannot resolve `superpowers:<skill>`) — the
+superpowers `brainstorming` skill, plus `writing-plans` when resuming an in-progress ticket whose spec
+is already approved — and hooks in at events (spec or plan
 handed over for review → a `show-me` view, spec approved, branch created, integration offered), never
 at superpowers' internal skill order — that is theirs to
 change. **Keep it lean**: every rendered byte is read on every run, so do not restate superpowers

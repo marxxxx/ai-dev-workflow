@@ -8,7 +8,7 @@ export function defaultProbe(harness, config, { env = {}, model } = {}) {
   const h = { ...config.harnesses[harness], ...(model ? { model } : {}) };
   const [cmd, args] = harness === 'claude-code' ? ['claude', ['-p', '--model', h.model, 'Antworte nur mit OK']]
     : harness === 'codex' ? ['codex', ['exec', '--skip-git-repo-check', '-m', h.model.split('/').pop(), 'Antworte nur mit OK']]
-      : ['opencode', ['run', '-m', h.model, 'Antworte nur mit OK']];
+      : ['opencode', ['run', '--standalone', '-m', h.model, 'Antworte nur mit OK']];
   const r = spawnSync(cmd, args, { encoding: 'utf8', timeout: 180000, env: { ...process.env, ...env } });
   if (r.error) return r.error.message;
   const out = `${r.stdout}${r.stderr}`;

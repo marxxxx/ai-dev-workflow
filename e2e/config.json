@@ -24,7 +24,7 @@
     },
     "opencode": {
       "agent": "agents.opencode_subscription:OpenCodeSubscription",
-      "inventoryPackage": "opencode-ai",
+      "inventoryPackage": "@opencode/cli",
       "model": "mistral/mistral-large-4",
       "agentKwargs": {}
     }
@@ -53,7 +53,7 @@
   "auth": {
     "claudeEnvFile": "e2e/.env",
     "codexAuthJson": "~/.codex/auth.json",
-    "opencodeAuthJson": "~/.local/share/opencode/auth.json"
+    "opencodeCredentials": "~/.config/adw/opencode-credentials.json"
   },
   "resultsDir": "docs/adw-e2e",
   "jobsDir": "e2e/jobs"

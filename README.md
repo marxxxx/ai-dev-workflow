@@ -228,6 +228,9 @@ and records the `skills` opt-in. Run
 **`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
 changes the config hash); no `upgrade` step is needed.
 
+**Upgrading to v0.30.0.** `agent-dev` now names the superpowers skills by bare id (`brainstorming`, not
+`superpowers:brainstorming`), which OpenCode 2 needs; `upgrade` regenerates it.
+
 **Upgrading to v0.29.1.** The `compose.ai-dev.yml` that `init` wrote lacked the `KILL` capability,
 so the container's init process (tini) could not forward signals to the agent and stopped the
 container with `Unexpected error when forwarding signal: 'Operation not permitted'` (for example
@@ -350,8 +353,9 @@ the committed `HEAD`, and is itself never picked as a baseline; its report says 
 Logins: the containers never share the project's agent-home volume, they get a login staged from the host.
 - Codex: `~/.codex/auth.json` on the host, or `OPENAI_API_KEY`. If you only logged in through `./ai-dev.sh`, the
   setup offers to copy the login from the project's volume.
-- OpenCode: `~/.local/share/opencode/auth.json`, or provider variables in `e2e.env`. Same volume offer, whenever a
-  role uses OpenCode and the host has no `auth.json`.
+- OpenCode: `~/.config/adw/opencode-credentials.json`, an `opencode auth export` file, or provider variables in `e2e.env`.
+  The containers import it with `opencode auth import`. If the file is missing, the setup offers to export the login of
+  the project's volume (after `./ai-dev.sh opencode auth login`) and prints the host command.
 - Claude Code: a long-lived token, never taken from the volume. Run `claude setup-token` on the host and export
   `CLAUDE_CODE_OAUTH_TOKEN`, or let the setup run it (`docker run --rm -it --entrypoint claude <dev image>
   setup-token`; it asks you to paste the token without echo and offers to save it to `.env.ai-dev`). For
