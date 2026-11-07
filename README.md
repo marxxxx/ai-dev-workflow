@@ -357,8 +357,8 @@ Logins: the containers never share the project's agent-home volume, they get a l
   The containers import it with `opencode auth import`. If the file is missing, the setup offers to export the login of
   the project's volume (after `./ai-dev.sh opencode auth login`) and prints the host command.
 - Claude Code: a long-lived token, never taken from the volume. Run `claude setup-token` on the host and export
-  `CLAUDE_CODE_OAUTH_TOKEN`, or let the setup run it (`docker run --rm -it --entrypoint claude <dev image>
-  setup-token`; it asks you to paste the token without echo and offers to save it to `.env.ai-dev`). For
+  `CLAUDE_CODE_OAUTH_TOKEN`, or let the setup run it in the dev image (it asks you to paste the token without echo and
+  offers to save it to `.env.ai-dev`). For
   Bedrock or Vertex set `CLAUDE_CODE_USE_BEDROCK` / `CLAUDE_CODE_USE_VERTEX` and that provider's variables in `e2e.env`.
 
 Each of the four LLM roles (agent, answerer, verifier, review) has its own harness and model, so a
