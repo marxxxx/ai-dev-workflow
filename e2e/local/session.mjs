@@ -188,10 +188,13 @@ export function startSession({ root, work, origin = null, harness, model, projec
       writeIn(f.to, readFileSync(f.from));
       if (harness === 'opencode') inAgent(['sh', '-c', 'cd /tmp && opencode auth import --standalone "$1"; rc=$?; rm -f "$1"; exit $rc', 'sh', f.to]);
     }
-    if (model && harness === 'claude-code') {
-      // Merged after startup, so whatever the image or the project put there stays.
-      const current = inAgent(['sh', '-c', 'cat "$1" 2>/dev/null || true', 'sh', CLAUDE_SETTINGS]).trim();
-      writeIn(CLAUDE_SETTINGS, `${JSON.stringify({ ...(current ? JSON.parse(current) : {}), model }, null, 2)}\n`);
+    if (harness === 'claude-code') {
+      // Merged after startup, so whatever the image or the project put there stays. claude-agent-acp starts a session
+      // without a configured mode in Auto, whose classifier denies what acpx's approve-all would allow: start in Manual.
+      const raw = inAgent(['sh', '-c', 'cat "$1" 2>/dev/null || true', 'sh', CLAUDE_SETTINGS]).trim();
+      const current = raw ? JSON.parse(raw) : {};
+      const settings = { ...current, ...(model ? { model } : {}), permissions: { defaultMode: 'default', ...current.permissions } };
+      writeIn(CLAUDE_SETTINGS, `${JSON.stringify(settings, null, 2)}\n`);
     }
     if (model && harness === 'opencode') writeIn(OPENCODE_MODEL_FILE, `${JSON.stringify({ model })}\n`);
     const cli = harness === 'opencode' ? null : inAgent(['sh', '-c', `command -v ${CLI[harness]}`]).trim();
