@@ -13,7 +13,7 @@ import { e2eSectionOf } from './contract.mjs';
 import { LANGUAGES, detectLanguage, textsFor } from './language.mjs';
 import { loadLocalConfig } from './config.mjs';
 import { devImage } from './image.mjs';
-import { OPENCODE_LOGIN, authMounts, composeEnv, composeProject, stageCredentials } from './session.mjs';
+import { AGENT_BIN, OPENCODE_LOGIN, authMounts, composeEnv, composeProject, stageCredentials } from './session.mjs';
 import { openCodeExport } from '../lib/secrets.mjs';
 import { readLocalState, readTicket, ticketDir, writeLocalState, writeTicket } from './store.mjs';
 
@@ -256,11 +256,12 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
         continue;
       }
       // A plain `docker run` of the dev image: no compose project, so the agent-home volume is neither mounted nor created.
+      // Nor is the project: the real CLI, since the image's `claude` wrapper needs /workspace/ai-project.json.
       const config = freed(prompter, () => projectComposeConfig(root, env(), d.exec));
       if (!config) { d.error('claude setup-token failed: the compose config of the dev container cannot be read'); continue; }
       prompter.suspend();
       let run;
-      try { run = d.exec('docker', ['run', '--rm', '-it', '--entrypoint', 'claude', devImage(config), 'setup-token'], { stdio: 'inherit' }); } finally { prompter.resume(); }
+      try { run = d.exec('docker', ['run', '--rm', '-it', '--entrypoint', `${AGENT_BIN}/claude`, devImage(config), 'setup-token'], { stdio: 'inherit' }); } finally { prompter.resume(); }
       throwIfInterrupted(run);
       if (run.error || run.status !== 0) { d.error(`claude setup-token failed (exit ${run.status ?? run.error?.message})`); continue; }
       const token = (await prompter.askSecret('Paste the token', 'setup.claudeTokenValue')).trim();
@@ -287,7 +288,7 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
       }
       const isOpenCode = harness === 'opencode';
       const r = freed(prompter, () => ownComposeRun({ root, env: env(), exec: d.exec,
-        ...(isOpenCode ? { entrypoint: 'sh', asHostUser: true, argv: ['-c', 'cd /tmp && /opt/agent-tools/node_modules/.bin/opencode --standalone auth export'] }
+        ...(isOpenCode ? { entrypoint: 'sh', asHostUser: true, argv: ['-c', `cd /tmp && ${AGENT_BIN}/opencode --standalone auth export`] }
           : { entrypoint: 'cat', argv: [`/home/dev/${rel}`] }) }));
       throwIfInterrupted(r);
       if (r.error || r.status !== 0) { d.log(`! reading ${isOpenCode ? 'the OpenCode login' : rel} from the agent-home volume failed`); continue; }
