@@ -21,7 +21,7 @@
     "yarn": "1.22.22"
   },
   "e2eNpmPackages": {
-    "@agentclientprotocol/claude-agent-acp": "0.99.1",
+    "@agentclientprotocol/claude-agent-acp": "0.101.0",
     "@agentclientprotocol/codex-acp": "2.5.0",
     "acpx": "0.22.0"
   },

@@ -153,20 +153,20 @@ test('startSession starts the compose run container, stages auth by stdin and en
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('claude-code: the model is merged into settings.json, the image claude is the executable', () => {
+test('claude-code: the model and the Manual default mode are merged into settings.json, the image claude is the executable', () => {
   const { dir, root, work, creds } = fixture();
   try {
     const { calls, exec } = recorder({ results: (a) => (a.includes('command -v claude') ? { status: 0, stdout: '/usr/local/bin/claude\n' }
       : a.at(-1) === '/home/dev/.claude/settings.json' && a.includes('sh') && !a.includes('-i') ? { status: 0, stdout: '{"theme":"dark","model":"old"}' } : null) });
     startSession({ root, work, harness: 'claude-code', model: 'opus', project: 'p1', creds, exec, env: {} });
     const write = calls.find((c) => c.opts.input !== undefined && c.args.at(-1) === '/home/dev/.claude/settings.json');
-    assert.deepEqual(JSON.parse(write.opts.input), { theme: 'dark', model: 'opus' });
+    assert.deepEqual(JSON.parse(write.opts.input), { theme: 'dark', model: 'opus', permissions: { defaultMode: 'default' } });
     const rc = JSON.parse(readFileSync(path.join(work, '.acpxrc.json'), 'utf8'));
     assert.deepEqual(rc.agents.target.args, ['-u', 'CLAUDECODE', 'ANTHROPIC_MODEL=opus', 'CLAUDE_CODE_EXECUTABLE=/usr/local/bin/claude', 'claude-agent-acp']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('opencode: the model goes into an OPENCODE_CONFIG file; nothing written without a model', () => {
+test('opencode: the model goes into an OPENCODE_CONFIG file', () => {
   const { dir, root, work, creds } = fixture();
   try {
     let r = recorder();
@@ -175,9 +175,22 @@ test('opencode: the model goes into an OPENCODE_CONFIG file; nothing written wit
     assert.equal(write.args.at(-1), '/home/dev/.adw-e2e/opencode.json');
     assert.deepEqual(JSON.parse(write.opts.input), { model: 'anthropic/x' });
     assert.ok(!r.calls.some((c) => c.args.some((a) => String(a).startsWith('command -v'))));
-    r = recorder();
-    startSession({ root, work, harness: 'claude-code', model: null, project: 'p1', creds, exec: r.exec, env: {} });
-    assert.ok(!r.calls.some((c) => c.opts.input !== undefined || c.args.includes('/home/dev/.claude/settings.json')));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// claude-agent-acp >= 0.101 starts a session without a configured defaultMode in Auto, where the classifier
+// denies what acpx's approve-all would have allowed. Manual plus approve-all is what every trial ran with before.
+test('claude-code: without a model only the Manual default mode is merged; a configured mode stays', () => {
+  const { dir, root, work, creds } = fixture();
+  try {
+    const settingsWrite = (stdout) => {
+      const r = recorder({ results: (a) => (a.at(-1) === '/home/dev/.claude/settings.json' && !a.includes('-i') ? { status: 0, stdout } : null) });
+      startSession({ root, work, harness: 'claude-code', model: null, project: 'p1', creds, exec: r.exec, env: {} });
+      return JSON.parse(r.calls.find((c) => c.opts.input !== undefined && c.args.at(-1) === '/home/dev/.claude/settings.json').opts.input);
+    };
+    assert.deepEqual(settingsWrite(''), { permissions: { defaultMode: 'default' } });
+    assert.deepEqual(settingsWrite('{"permissions":{"allow":["Bash"],"defaultMode":"acceptEdits"}}'),
+      { permissions: { allow: ['Bash'], defaultMode: 'acceptEdits' } });
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
