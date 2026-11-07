@@ -6,6 +6,6 @@
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "0.99.1",
     "@agentclientprotocol/codex-acp": "2.5.0",
-    "acpx": "0.21.1"
+    "acpx": "0.22.0"
   }
 }

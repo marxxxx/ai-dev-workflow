@@ -1,6 +1,6 @@
 {
   "$comment": "Derived from docker/tools/inventory.json (agentSkills): edit that, then run node docker/tools/inventory.mjs sync.",
-  "cli": "1.7.4",
+  "cli": "1.7.6",
   "skills": {
     "show-me": {
       "purpose": "compact views of a spec or plan for review",
