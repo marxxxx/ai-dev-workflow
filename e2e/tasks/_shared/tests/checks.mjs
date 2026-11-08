@@ -1,8 +1,10 @@
 // agent-dev contract checks, evaluated from the Gitea state after a trial. Never asserts on
 // superpowers internals.
 const starts = (b, t) => b.trimStart().startsWith(`## ${t}`);
-// The spec/plan files the Implementation Summary names on its `Spec: … · Plan: …` line.
-const specPlanPaths = (summary) => [...summary.matchAll(/\b(?:Spec|Plan):\s*`?([\w./-]+\.md)/g)].map((m) => m[1]);
+// The spec/plan files the Implementation Summary names: every .md path on a line mentioning Spec or Plan, in whatever
+// format the agent marks them (`Spec: path`, **Spec:** `path`, ~~path~~, [name](./path), "removed (path)").
+const specPlanPaths = (summary) => summary.split('\n').filter((l) => /\b(?:Spec|Plan)\b/.test(l))
+  .flatMap((l) => [...l.matchAll(/[\w./-]+\.md\b/g)].map((m) => m[0].replace(/^\.\//, '')));
 const inDiff = (diff, file) => diff.includes(`diff --git a/${file} `);
 
 export function evaluateContract({ issue, comments, pulls, prDiff, appListening }) {

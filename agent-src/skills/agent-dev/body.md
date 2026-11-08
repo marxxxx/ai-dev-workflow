@@ -68,7 +68,7 @@ it occurs, wherever the workflow puts it.
   `{{git.prTarget}}`. Write the implementation summary (section 3), then push the branch and open a
   **draft pull request** with the ticket include's commands, so a human can review and test before
   publishing it. PR title per **Naming** below; the summary without its Spec/Plan line, plus the ticket
-  reference, is the PR description.
+  reference, is the PR description: it never names the spec or plan files.
 - **Work handed over for review** — the draft PR is open, or the branch was pushed without one: ask
   the user whether to discard the spec and plan files: both, only the plan, or neither. Delete the
   chosen files in one commit and push it, before posting the summaries.

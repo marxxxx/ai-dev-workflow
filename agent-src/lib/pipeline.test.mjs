@@ -132,6 +132,7 @@ test('opting out of documentation-and-adrs leaves only the comment rules, with t
     const doc = renderedDocInclude(off.root);
     assert.match(doc, /## Comments/);
     assert.doesNotMatch(doc, /## Documentation|docs\/architecture|ADR|documentation-and-adrs/);
+    assert.match(doc, /update no documentation/i, "the body's documentation hook must be cancelled explicitly");
     const skills = (root) => renderAll(root).filter((o) => o.path.endsWith('SKILL.md')).map((o) => o.content);
     assert.deepEqual(skills(off.root), skills(on.root));
   } finally {

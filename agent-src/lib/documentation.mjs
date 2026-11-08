@@ -20,14 +20,15 @@ function fragment(name, globalTokens) {
 }
 
 /**
- * Render the documentation include: the comment rules always, the documentation rules (architecture
- * docs, ADRs, README/changelog) only when documentationEnabled. Returns null without an include path.
+ * Render the documentation include: the comment rules always, then the documentation rules (architecture
+ * docs, ADRs, README/changelog) when documentationEnabled, otherwise the note that this project documents
+ * elsewhere. Returns null without an include path.
  */
 export function renderDocumentationInclude(config, globalTokens) {
   const includePath = config.documentation?.includePath;
   if (!includePath) return null;
   const parts = [fragment('documentation-comments.md', globalTokens)];
-  if (documentationEnabled(config)) parts.push(fragment('documentation-docs.md', globalTokens));
+  parts.push(fragment(documentationEnabled(config) ? 'documentation-docs.md' : 'documentation-off.md', globalTokens));
   let content = '<!-- DO NOT EDIT — generated from agent-src/includes/documentation-*.md; run `node agent-src/generate.mjs` -->\n\n'
     + parts.join('');
   if (!content.endsWith('\n')) content += '\n';

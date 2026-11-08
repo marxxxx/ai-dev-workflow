@@ -56,7 +56,7 @@
         "revision": "4d69d20f6e9b57b4fcf0d501ccfb1be961f0f329"
       },
       "documentation-and-adrs": {
-        "purpose": "ADRs, architecture docs, README/changelog and comment rules",
+        "purpose": "ADRs, architecture docs and README/changelog updates in agent-dev; declining turns those off",
         "repository": "addyosmani/agent-skills",
         "path": "skills/documentation-and-adrs",
         "revision": "301b02b12bff98e4688e6984af6556802322bbde"

@@ -54,6 +54,15 @@ test('each deviation fails exactly its check', () => {
   }
 });
 
+test('spec_plan_discard finds the paths in any summary line format', () => {
+  const left = `${good.prDiff}diff --git a/docs/specs/s.md b/docs/specs/s.md\n`;
+  for (const line of ['Spec: ~~`docs/specs/s.md`~~', '**Spec:** `docs/specs/s.md`', 'Spec: removed (`docs/specs/s.md`)',
+    'Spec: [s.md](./docs/specs/s.md)']) {
+    const comments = [good.comments[0], { body: `## Implementation Summary\nEnd-to-end: tested\n${line}` }, good.comments[2]];
+    assert.equal(evaluateContract({ ...good, comments, prDiff: left }).spec_plan_discard, 0, line);
+  }
+});
+
 test('a summary naming no spec or plan has nothing to discard', () => {
   const comments = [good.comments[0], { body: '## Implementation Summary\nEnd-to-end: tested' }, good.comments[2]];
   assert.equal(evaluateContract({ ...good, comments }).spec_plan_discard, 1);

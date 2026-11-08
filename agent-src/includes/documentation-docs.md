@@ -36,5 +36,6 @@ that references it.
 run, configure or use it); follow the existing changelog format, if there is one.
 
 For the ADR template, the README and changelog structure and a verification checklist, read
-`.agents/skills/documentation-and-adrs/SKILL.md`. If it is missing, say once that adw's `upgrade`
-command installs it, then continue with this file alone.
+`.agents/skills/documentation-and-adrs/SKILL.md`. Where the skill and this file differ (location,
+which ADRs to write, what to document), this file wins. If the skill is missing, say once that adw's
+`upgrade` command installs it, then continue with this file alone.
