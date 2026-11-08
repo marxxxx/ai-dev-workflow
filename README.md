@@ -18,8 +18,9 @@ requirement is Node on the machine that runs the generator (your dev box and CI)
 | `ai-project.json` | **you** — project identity + ticketing backend choice | yes |
 | `AGENTS.md` | **you** — create with your coding agent's native `/init`; `agent-dev` reads it first (add an [End-to-end testing](#end-to-end-testing) section for agent-run e2e checks) | yes |
 | `agent-custom/` | **you** (optional) — per-project tweaks to the skill body (see [Customizing the skill](#customizing-the-skill)) | yes |
-| `docs/superpowers/{specs,plans}/` | written by superpowers when a change needs them; the agreed scope is also posted to the ticket | yes |
-| `.agents/skills/show-me/`, `.claude/skills/show-me`, `skills-lock.json` | third-party [show-me](#reviewing-specs-and-plans-with-show-me) skill, installed by `init`/`upgrade` with `npx skills` at the commit this adw version pins; never rendered or checked | yes |
+| `docs/superpowers/{specs,plans}/` | written by superpowers when a change needs them; the agreed scope is also posted to the ticket; `agent-dev` offers to discard them once the work is handed over | yes, unless discarded |
+| `docs/architecture/` | **kept current by `agent-dev`** — architecture doc and ADRs (or your existing layout; see [Documentation and comments](#documentation-and-comments)) | yes |
+| `.agents/skills/show-me/`, `.agents/skills/documentation-and-adrs/` (+ `.claude/skills/…`), `skills-lock.json` | third-party [show-me](#reviewing-specs-and-plans-with-show-me) and [documentation-and-adrs](#documentation-and-comments) skills, installed by `init`/`upgrade` with `npx skills` at the commits this adw version pins; never rendered or checked | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
 | `.mcp.json` | merged (azure-devops backend only) — the shared `ado` server entry; other servers preserved | yes |
 | `.codex/config.toml` | merged (azure-devops backend only) — the Codex project-local `ado` MCP server entry; other Codex settings preserved | yes |
@@ -67,6 +68,7 @@ stale. Follow each project's own docs.
 | [context7](https://github.com/upstash/context7) | recommended | MCP server: up-to-date library and framework documentation |
 | [ccusage](https://ccusage.com) | recommended | CLI behind the [cost summary](#cost-summary); without it the summary names the gap |
 | [show-me](https://github.com/humanlayer/skills) | installed for you | Compact views of a spec or plan for your review — see [below](#reviewing-specs-and-plans-with-show-me) |
+| [documentation-and-adrs](https://github.com/addyosmani/agent-skills/tree/main/skills/documentation-and-adrs) | installed for you | ADR template, README/changelog structure and comment rules — see [below](#documentation-and-comments) |
 
 For the `azure-devops` backend, `generate` merges the `ado` MCP server (pinned to
 `@azure-devops/mcp@2`, whose tool names the Azure DevOps ticketing include is written against) into
@@ -81,8 +83,8 @@ and logged in — see [Gitea backend setup](docs/gitea-backend-setup.md).
 |---|---|
 | `generate` (default) | Render all platform files to the project root |
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
-| `upgrade` | The command for every version bump. Deletes the files the pre-v0.23 workflow generated and strips obsolete keys from `ai-project.json`, then `generate`s, then installs or updates the pinned [show-me](#reviewing-specs-and-plans-with-show-me) skill (unless `"skills": { "show-me": false }`). Only deletes files carrying the generator's banner for a removed unit; other skills and subagents are never touched. A failed skill install is a warning with the manual command, never an error. `--dry-run` lists the changes without writing anything. See [Updating](#updating). |
-| `init` | Interactive onboarding: prompts for project name, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), asks whether to install the [show-me](#reviewing-specs-and-plans-with-show-me) skill (default yes; runs `npx skills add`), then writes `ai-project.json`. It prints the [tooling](#tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
+| `upgrade` | The command for every version bump. Deletes the files the pre-v0.23 workflow generated and strips obsolete keys from `ai-project.json`, then `generate`s, then installs or updates the pinned [show-me](#reviewing-specs-and-plans-with-show-me) and [documentation-and-adrs](#documentation-and-comments) skills (unless opted out with `"skills": { "<name>": false }`). Only deletes files carrying the generator's banner for a removed unit; other skills and subagents are never touched. A failed skill install is a warning with the manual command, never an error. `--dry-run` lists the changes without writing anything. See [Updating](#updating). |
+| `init` | Interactive onboarding: prompts for project name, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), asks whether to install the [show-me](#reviewing-specs-and-plans-with-show-me) and [documentation-and-adrs](#documentation-and-comments) skills (default yes; runs `npx skills add`), then writes `ai-project.json`. It prints the [tooling](#tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
 | `e2e` | `adw e2e <base-commit\|.> <ticket> [harness]`: replay `agent-dev` on one of your tickets in a throwaway clone and score the result. See [E2E on your project](#e2e-on-your-project). |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
@@ -137,9 +139,13 @@ about — the ticket and its comments — and otherwise follows the superpowers 
    If you chose agent testing, an [end-to-end check](#end-to-end-testing) runs before integrating.
    Instead of superpowers' merge/PR/keep menu, the run always ends with a **draft PR**
    (Gitea: a `WIP:` title), so a human reviews and tests before publishing it.
+   Before integrating it also brings the [documentation](#documentation-and-comments) up to date on
+   the branch. Once the work is handed over it asks whether to discard the spec and plan files
+   (both, only the plan, or neither); the PR description never links them.
 4. **Close-out** — with a ticket, post an **Implementation Summary** comment (approach,
-   consequences, possible side effects, what to watch when testing) and a **Cost Summary** comment,
-   then move the ticket to `review`. Without a ticket, both are printed instead.
+   consequences, possible side effects, what to watch when testing, documentation updated) and a
+   **Cost Summary** comment, then move the ticket to `review`. Without a ticket, both are printed
+   instead.
 
 Names derive from the ticket's number and a short version of its title: branch
 `<number>_<short_title_slug>` (e.g. `42_user_login_form`), PR title `<number>: <short title>` (e.g.
@@ -158,6 +164,33 @@ the record. show-me is user-invoked only (`/show-me` works any time); `agent-dev
 two moments. `init` and `upgrade` install it into the project at the commit the adw version pins;
 `generate` and `check` print a note (exit code unchanged) when it is missing or outdated. Opt out
 with `"skills": { "show-me": false }` in `ai-project.json`.
+
+### Documentation and comments
+
+Documentation is part of the change: `agent-dev` updates the project's technical documentation on the
+same branch, so it is reviewed in the same draft PR as the code.
+
+- **Architecture** — `docs/architecture/architecture.md` describes the system as it is now
+  (overview, building blocks, key flows, data, interfaces, operations, cross-cutting concerns, links
+  to the decisions). The first run creates it; later runs update what the change touches and delete
+  what is no longer true. No history.
+- **ADRs** — in `docs/architecture/decisions/`, only for fundamental technical decisions whose
+  reasoning stays relevant (a framework, a data model, an auth strategy, anything expensive to
+  reverse). Old ADRs are superseded, never deleted.
+- **README and changelog** — updated when a change is visible to users or developers.
+- **An existing convention wins**: if the project already keeps ADRs or architecture docs elsewhere
+  or in another format, `agent-dev` continues that instead of starting a second scheme.
+
+While writing code, `agent-dev` and the subagents it dispatches follow one comment rule: comment the
+why, not the what; no commented-out code; no TODOs for work that could be done now; document
+non-obvious gotchas. Comment rules in your `AGENTS.md` apply in addition and win on conflict.
+
+All of this applies in `agent-dev` runs. Using a coding agent directly, you get the installed
+[documentation-and-adrs](https://github.com/addyosmani/agent-skills/tree/main/skills/documentation-and-adrs)
+skill with its own defaults (invoke it, or the agent loads it when its description fits) and your
+`AGENTS.md`. To keep documentation elsewhere, set `"skills": { "documentation-and-adrs": false }` in
+`ai-project.json`: the skill is not installed and `agent-dev` stops updating documentation; the
+comment rule and the question about the spec and plan files stay.
 
 ### End-to-end testing
 
@@ -219,7 +252,7 @@ npx @strobl_dev/adw@<new-version> upgrade             # or bump the pinned versi
 ```
 
 `upgrade` cleans up what older versions left behind, generates, and brings the pinned third-party
-skills (show-me) to this version's commit. Review the diff in `.claude/`/`.codex/`/`.agents/` and
+skills (show-me, documentation-and-adrs) to this version's commits. Review the diff in `.claude/`/`.codex/`/`.agents/` and
 commit. `generate` never touches `ai-project.json`; `upgrade` only removes keys that are obsolete
 and records the `skills` opt-in. Run
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
@@ -227,6 +260,13 @@ and records the `skills` opt-in. Run
 
 **`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
 changes the config hash); no `upgrade` step is needed.
+
+**Upgrading to v0.31.0.** `agent-dev` now keeps the project's technical documentation current and
+applies one comment rule (see [Documentation and comments](#documentation-and-comments)). `upgrade`
+installs the documentation-and-adrs skill and regenerates `agent-dev`. Comment rules in your
+`AGENTS.md` stay valid; they are also what applies when you use a coding agent directly. To keep
+documentation elsewhere, set `"skills": { "documentation-and-adrs": false }` in `ai-project.json`
+before running `upgrade`.
 
 **Upgrading to v0.30.0.** `agent-dev` now names the superpowers skills by bare id (`brainstorming`, not
 `superpowers:brainstorming`), which OpenCode 2 needs; `upgrade` regenerates it.

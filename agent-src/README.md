@@ -30,7 +30,7 @@ agent-src/
   config/
     ai-workflow.json           # PACKAGE-owned config: ticket states/comment titles + runtime include paths
     ai-project.template.json   # scaffold template copied by `init` when non-interactive
-    skills.json                # third-party skills (show-me) init/upgrade install with `npx skills`; derived from docker/tools/inventory.json
+    skills.json                # third-party skills (show-me, documentation-and-adrs) init/upgrade install with `npx skills`; derived from docker/tools/inventory.json
   container/                   # dev-container templates `init` writes once (project-owned afterwards)
   includes/
     ticketing-github.md        # ticket read/comment/status/PR — GitHub (gh CLI)
@@ -38,6 +38,8 @@ agent-src/
     ticketing-file.md          # … — file-based (.tickets/)
     ticketing-azure-devops.md  # … — Azure DevOps (@azure-devops/mcp)
     cost.md                    # how agent-dev totals a run's ccusage sessions + posts the summary
+    documentation-comments.md  # the comment rules (always rendered)
+    documentation-docs.md      # architecture docs, ADRs, README/changelog (omitted when the project opts out)
   skills/<name>/
     body.md                    # shared SKILL body — uses {{token}}s; references the includes
     manifest.json              # name, description, platforms{}, interface{} (Codex openai.yaml)
@@ -142,8 +144,10 @@ project override) → platform overlay → project append**. These files are gen
 ## Output map
 
 The selected ticketing variant is emitted once to `ticketing.includePath`
-(`.agents/includes/ticketing.md`), and the cost include to `.agents/includes/cost.md`; all three
-harnesses read those same files at runtime.
+(`.agents/includes/ticketing.md`), the cost include to `.agents/includes/cost.md`, and the
+documentation include to `.agents/includes/documentation.md` (comment rules, plus the documentation
+rules unless `skills.documentation-and-adrs` is `false`); all three harnesses read those same files
+at runtime.
 
 | Source unit | → Claude | → Codex | → OpenCode |
 |---|---|---|---|
