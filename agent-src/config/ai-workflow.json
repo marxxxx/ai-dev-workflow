@@ -5,6 +5,9 @@
   "cost": {
     "includePath": ".agents/includes/cost.md"
   },
+  "documentation": {
+    "includePath": ".agents/includes/documentation.md"
+  },
   "workflow": {
     "states": [
       {

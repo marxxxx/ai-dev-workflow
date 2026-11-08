@@ -8,6 +8,7 @@ import { loadUnits } from './units.mjs';
 import { substituteManifestStrings, resolveBody } from './tokens.mjs';
 import { renderTicketingInclude, renderMcpJson, renderCodexAdoMcpToml } from './ticketing.mjs';
 import { renderCostInclude } from './cost.mjs';
+import { renderDocumentationInclude } from './documentation.mjs';
 import { RENDERERS, smokeCheck } from './renderers.mjs';
 
 export function renderAll(projectRoot) {
@@ -43,6 +44,16 @@ export function renderAll(projectRoot) {
     }
     seenPaths.add(cost.path);
     outputs.push(cost);
+  }
+
+  // The resolved documentation include — comment rules, plus the documentation rules unless opted out.
+  const documentation = renderDocumentationInclude(config, globalTokens);
+  if (documentation) {
+    if (/\{\{.*?\}\}/.test(documentation.content)) {
+      throw new Error(`Documentation include: unresolved placeholder in ${documentation.path}`);
+    }
+    seenPaths.add(documentation.path);
+    outputs.push(documentation);
   }
 
   // The azure-devops backend also owns the `ado` entry in .mcp.json (non-destructive merge).

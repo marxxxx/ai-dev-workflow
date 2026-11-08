@@ -38,7 +38,10 @@ if (process.env.FAKE_NPX_LOG) fs.appendFileSync(process.env.FAKE_NPX_LOG, JSON.s
 if (process.env.FAKE_NPX_FAIL) { console.error('fake npx failure'); process.exit(1); }
 const [, ref] = /\\/tree\\/([0-9a-f]+)\\//.exec(args[3]) || [];
 const name = args[3].split('/').pop();
-fs.writeFileSync('skills-lock.json', JSON.stringify({ version: 1, skills: { [name]: { ref } } }));
+let lock = { version: 1, skills: {} };
+try { lock = JSON.parse(fs.readFileSync('skills-lock.json', 'utf8')); } catch {}
+lock.skills[name] = { ref };
+fs.writeFileSync('skills-lock.json', JSON.stringify(lock));
 `, { mode: 0o755 });
   if (process.platform !== 'win32') return file;
   // Windows ignores shebangs; skills.mjs runs npx through cmd, which needs a .cmd wrapper.

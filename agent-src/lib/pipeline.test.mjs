@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { renderAll, loadConfig } from '../generate.mjs';
-import { makeTmpRoot, tmpProject } from '../test-helpers.mjs';
+import { makeTmpRoot, tmpProject, MINIMAL_PROJECT } from '../test-helpers.mjs';
 
 function writeProject(root, config) {
   fs.writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(config, null, 2) + '\n');
@@ -57,11 +57,12 @@ const AGENT_DEV_PATHS = [
   path.join('.opencode', 'skills', 'agent-dev', 'SKILL.md'),
 ];
 
-test('renderAll emits only the agent-dev skill plus the ticketing and cost includes', () => {
+test('renderAll emits only the agent-dev skill plus its includes', () => {
   const { root, cleanup } = tmpProject();
   try {
     const paths = renderAll(root).map((o) => o.path).sort();
-    assert.deepEqual(paths, [...AGENT_DEV_PATHS, '.agents/includes/cost.md', '.agents/includes/ticketing.md'].sort());
+    assert.deepEqual(paths, [...AGENT_DEV_PATHS, '.agents/includes/cost.md', '.agents/includes/documentation.md',
+      '.agents/includes/ticketing.md'].sort());
   } finally {
     cleanup();
   }
@@ -82,6 +83,12 @@ test('agent-dev enters the superpowers workflow and defers ticketing and cost to
         `${p} must name only entry skills, not restate superpowers' internal chain`);
       assert.match(body, /\.agents\/includes\/ticketing\.md/);
       assert.match(body, /\.agents\/includes\/cost\.md/);
+      assert.match(body, /\.agents\/includes\/documentation\.md/);
+      assert.match(body, /subagent/i, 'the comment rule must reach code-writing subagents');
+      assert.match(body, /both, only the plan, or neither/i, 'the discard question offers exactly three choices');
+      assert.match(body, /pushed without/i, 'the discard question also fires when no PR could be opened');
+      assert.match(body, /without (its|the) Spec\/Plan line/i, 'PR descriptions never name spec or plan');
+      assert.doesNotMatch(body, /only durable working files/);
       assert.match(body, /Implementation Summary/);
       assert.match(body, /partial/i, 'failed or interrupted runs offer a partial cost summary');
       assert.match(body, /draft pull request/i, 'a finished run hands off through a draft PR');
@@ -94,6 +101,47 @@ test('agent-dev enters the superpowers workflow and defers ticketing and cost to
     }
   } finally {
     cleanup();
+  }
+});
+
+const DOC_INCLUDE = '.agents/includes/documentation.md';
+const renderedDocInclude = (root) => renderAll(root).find((o) => o.path === DOC_INCLUDE).content;
+
+test('the documentation include carries comment and documentation rules by default', () => {
+  const { root, cleanup } = tmpProject(); // no `skills` key: not yet upgraded, counts as opted in
+  try {
+    const doc = renderedDocInclude(root);
+    for (const re of [/## Comments/, /why, not the what/i, /commented-out code/i, /AGENTS\.md/, /## Documentation/,
+      /match the existing convention first/i, /docs\/architecture\/architecture\.md/, /docs\/architecture\/decisions\//,
+      /current state/i, /\.agents\/skills\/documentation-and-adrs\/SKILL\.md/, /upgrade/, /before integrating/i,
+      /\*\*Documentation\*\*/]) {
+      assert.match(doc, re);
+    }
+    assert.ok(doc.indexOf('## Comments') < doc.indexOf('## Documentation'), 'comment rules come first');
+    assert.match(doc, /^<!-- DO NOT EDIT/);
+    assert.doesNotMatch(doc, /\{\{.*?\}\}/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('opting out of documentation-and-adrs leaves only the comment rules, with the same agent-dev body', () => {
+  const on = tmpProject();
+  const off = tmpProject({ ...MINIMAL_PROJECT, skills: { 'documentation-and-adrs': false } });
+  const skills = (root) => renderAll(root).filter((o) => o.path.endsWith('SKILL.md')).map((o) => o.content);
+  try {
+    const doc = renderedDocInclude(off.root);
+    assert.match(doc, /## Comments/);
+    assert.doesNotMatch(doc, /## Documentation|docs\/architecture|ADR|documentation-and-adrs/);
+    assert.doesNotMatch(doc, /documentation/i, 'an opt-out mentions documentation nowhere, so project rules stay in charge');
+    for (const body of skills(off.root)) {
+      assert.doesNotMatch(body.replaceAll('.agents/includes/documentation.md', ''), /documentation/i,
+        'the body leaves every documentation instruction to the include');
+    }
+    assert.deepEqual(skills(off.root), skills(on.root));
+  } finally {
+    on.cleanup();
+    off.cleanup();
   }
 });
 
@@ -291,6 +339,7 @@ test('loadConfig merges package workflow + includePath over the project file', (
     assert.ok(cfg.workflow, 'workflow states/artifacts come from the package');
     assert.equal(cfg.ticketing.includePath, '.agents/includes/ticketing.md');
     assert.equal(cfg.cost.includePath, '.agents/includes/cost.md');
+    assert.equal(cfg.documentation.includePath, '.agents/includes/documentation.md');
     assert.ok(!('app' in cfg) && !('handoff' in cfg), 'the e2e and handoff includes are retired');
     assert.deepEqual(cfg.workflow.states.map((s) => s.id), ['new', 'in-progress', 'review']);
   } finally {

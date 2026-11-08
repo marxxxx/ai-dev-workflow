@@ -2,8 +2,8 @@
 
 Take one change from request to pull request with the **superpowers** workflow, unmodified. This
 skill only adds what superpowers does not know about: the optional ticket, and two closing comments.
-Read `{{ticketing.include}}` only when you touch the ticket or open a PR, and `{{cost.include}}` only
-when you report cost.
+Read `{{ticketing.include}}` only when you touch the ticket or open a PR, `{{cost.include}}` only
+when you report cost, and `{{documentation.include}}` when you write code and before integrating.
 
 ## 1. Start
 
@@ -54,21 +54,26 @@ it occurs, wherever the workflow puts it.
   the ticket already said everything. If the scope changes later in the run, post the final version
   again at close-out.
 - **Branch or worktree created** — name it per **Naming** below.
+- **Code written** (by you or a subagent you dispatch) — follow the Comments section of
+  `{{documentation.include}}`; tell every subagent that writes code to read it.
 - **Implementation verified, before integrating** — if the work sits on `{{git.prTarget}}`, move it
   to a branch per **Naming**. Only if the agreed scope says the agent tests end to end: start the
   app as the `AGENTS.md` end-to-end section describes, exercise the changed flows in a browser
   (Playwright), capture evidence (screenshots outside the repo, or observations), and shut the app
   down. If there is no such section, no browser tooling, or startup fails, do not block: report it
-  in the summary instead.
+  in the summary instead. Then do what `{{documentation.include}}` asks for before integrating.
 - **Integration options offered** (merge, PR, keep, discard), or the workflow finishes without
   offering them — do **not** present them: the choice is already made. Base branch
   `{{git.prTarget}}`. Write the implementation summary (section 3), then push the branch and open a
   **draft pull request** with the ticket include's commands, so a human can review and test before
-  publishing it. PR title per **Naming** below; the summary plus the ticket reference is the PR
-  description.
+  publishing it. PR title per **Naming** below; the summary without its Spec/Plan line, plus the ticket
+  reference, is the PR description: it never names the spec or plan files.
+- **Work handed over for review** — the draft PR is open, or the branch was pushed without one: ask
+  the user whether to discard the spec and plan files: both, only the plan, or neither. Delete the
+  chosen files in one commit and push it, before posting the summaries.
 
-The spec and plan the workflow writes, if any, are the only durable working files. Only the agreed
-scope goes onto the ticket; the plan stays in the repo.
+The spec and plan the workflow writes, if any, are working files. Only the agreed scope goes onto
+the ticket.
 
 ### Naming
 
@@ -90,7 +95,7 @@ The `{{artifact.implementationSummary}}` — at most about 250 words:
 **Possible side effects** — what else this could affect.
 **Watch when testing** — concrete things to check. State the end-to-end status: tested by the
 agent (what, with evidence), left to manual testing at the user's request, or not tested (why).
-Spec: <path, if any> · Plan: <path, if any> · PR: <link, added once the draft PR exists>
+Spec: <path, if any> · Plan: <path, if any> (mark discarded ones removed) · PR: <link, added once the draft PR exists>
 ```
 
 Once the draft PR is open, produce the `{{artifact.costSummary}}` per `{{cost.include}}`. With a

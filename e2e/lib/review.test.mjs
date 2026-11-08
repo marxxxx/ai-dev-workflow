@@ -11,8 +11,8 @@ const criteria = [{ id: 'AC1', text: 'A todo can get a due date.' }];
 const input = { criteria, spec: 'SPEC', summary: 'SUM', diffPath: '/tmp/pv/pr.diff' };
 const good = Object.fromEntries(Object.keys(rubric).map((k, i) => [k, { score: (i % 5) + 1, reason: `r-${k}` }]));
 
-test('the review rubric has the six configured criteria', () => {
-  assert.deepEqual(Object.keys(rubric), ['requirements', 'scope', 'tests', 'conventions', 'architecture', 'codeQuality']);
+test('the review rubric has the seven configured criteria', () => {
+  assert.deepEqual(Object.keys(rubric), ['requirements', 'scope', 'tests', 'conventions', 'architecture', 'codeQuality', 'comments']);
 });
 
 test('prompt carries rubric, criteria, spec, summary and the diff path, and points to AGENTS.md', () => {

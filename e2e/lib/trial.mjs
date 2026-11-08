@@ -8,7 +8,8 @@ import { isQuota } from './claude.mjs';
 
 export const CONTRACT_CHECKS = ['ticket_open', 'ticket_review', 'spec_comment', 'spec_comment_complete',
   'summary_comment', 'cost_comment', 'only_allowed_comments', 'pr_draft', 'branch_naming', 'pr_title_naming',
-  'e2e_performed', 'show_me_read', 'app_stopped', 'no_screenshots_in_repo'];
+  'e2e_performed', 'show_me_read', 'app_stopped', 'no_screenshots_in_repo', 'docs_architecture', 'spec_plan_discard',
+  'pr_description_clean'];
 
 const DEFAULT_DEPS = { ...metrics, ccusageUsage };
 const readJson = (f) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null);

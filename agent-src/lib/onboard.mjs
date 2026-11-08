@@ -46,7 +46,13 @@ const DEPENDENCIES =
   '\n' +
   '  show-me      Skill: compact views of a spec or plan for agent-dev\'s reviews; `init` and\n' +
   '               `upgrade` install it into the project unless you opt out\n' +
-  '               https://github.com/humanlayer/skills';
+  '               https://github.com/humanlayer/skills\n' +
+  '\n' +
+  '  documentation-and-adrs\n' +
+  '               Skill: ADRs, architecture docs, README/changelog and comment rules for\n' +
+  '               agent-dev; `init` and `upgrade` install it unless you opt out (opting out\n' +
+  '               also turns off agent-dev\'s documentation updates)\n' +
+  '               https://github.com/addyosmani/agent-skills';
 
 /** Template-copy scaffold — the non-interactive fallback. Never overwrites. */
 export function cmdScaffold(projectRoot) {

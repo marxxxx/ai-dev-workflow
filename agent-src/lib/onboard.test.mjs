@@ -53,8 +53,8 @@ for (const answers of [FILE_ANSWERS, GITHUB_ANSWERS, AZURE_ANSWERS, GITEA_ANSWER
       assert.equal(code, 0);
 
       const written = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
-      // An answers file without skills.show-me declines it, like container.enabled.
-      assert.deepEqual(written, { ...buildProjectConfig(answers), skills: { 'show-me': false } });
+      // An answers file without a skills.<name> answer declines that skill, like container.enabled.
+      assert.deepEqual(written, { ...buildProjectConfig(answers), skills: { 'show-me': false, 'documentation-and-adrs': false } });
 
       assert.deepEqual(fs.readdirSync(root), ['ai-project.json'], 'init wrote files beyond ai-project.json');
     } finally {
@@ -104,7 +104,7 @@ test('cmdInit overwrites an existing ai-project.json when overwrite is accepted'
     fs.writeFileSync(dest, '{"keep":true}');
     const code = await cmdInit(root, { prompter: createScriptedPrompter({ ...FILE_ANSWERS, overwrite: 'y' }) });
     assert.equal(code, 0);
-    assert.deepEqual(JSON.parse(fs.readFileSync(dest, 'utf8')), { ...buildProjectConfig(FILE_ANSWERS), skills: { 'show-me': false } });
+    assert.deepEqual(JSON.parse(fs.readFileSync(dest, 'utf8')), { ...buildProjectConfig(FILE_ANSWERS), skills: { 'show-me': false, 'documentation-and-adrs': false } });
   } finally {
     cleanup();
   }
@@ -129,7 +129,7 @@ test('cmdInit with container.enabled y writes the container files for the chosen
   try {
     const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'dotnet' } };
     assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')), { ...buildProjectConfig(GITHUB_ANSWERS), skills: { 'show-me': false } },
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')), { ...buildProjectConfig(GITHUB_ANSWERS), skills: { 'show-me': false, 'documentation-and-adrs': false } },
       'container answers are not stored in ai-project.json');
     assert.ok(fs.readFileSync(path.join(root, 'compose.ai-dev.yml'), 'utf8').includes('marxx/ai-dev-workflow:dotnet-latest'));
     assert.ok(fs.readFileSync(path.join(root, 'AI-DEV.md'), 'utf8').includes('gh auth setup-git'));
@@ -261,7 +261,7 @@ test('cmdInit with skills.show-me y records the opt-in and installs the pinned s
     const prompter = createScriptedPrompter({ ...FILE_ANSWERS, skills: { 'show-me': 'y' } });
     assert.equal(await cmdInit(root, { prompter, runSkill: run }), 0);
     const written = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
-    assert.deepEqual(written.skills, { 'show-me': true });
+    assert.deepEqual(written.skills, { 'show-me': true, 'documentation-and-adrs': false });
     assert.equal(calls.length, 1);
     assert.equal(calls[0].cwd, root);
     assert.ok(calls[0].args.some((a) => a.includes('humanlayer/skills/tree/')), calls[0].args.join(' '));

@@ -133,7 +133,7 @@ test('verifierHash is stable and changes with criteria, models and rubric, not w
 });
 
 // Pinned before the judges moved onto llm.mjs: the Harbor self-test's claude-code judges keep today's hash.
-const PINNED_HASH = 'b4e65b6b799779720d40f8594844fb61968c28a967de2a62fd93ffca1e48f271';
+const PINNED_HASH = '587f4cb5155f1405fa44f0c0dcc684f75dc24e2516afebaafa218f46d4b18c55';
 
 test('verifierHash for claude-code judges is the pinned value; another judge harness changes it', () => {
   assert.equal(verifierHash({ config, criteria }), PINNED_HASH);

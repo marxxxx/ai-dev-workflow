@@ -1,6 +1,11 @@
 // agent-dev contract checks, evaluated from the Gitea state after a trial. Never asserts on
 // superpowers internals.
 const starts = (b, t) => b.trimStart().startsWith(`## ${t}`);
+// The spec/plan files the Implementation Summary names: every .md path on a line mentioning Spec or Plan, in whatever
+// format the agent marks them (`Spec: path`, **Spec:** `path`, ~~path~~, [name](./path), "removed (path)").
+const specPlanPaths = (summary) => summary.split('\n').filter((l) => /\b(?:Spec|Plan)\b/.test(l))
+  .flatMap((l) => [...l.matchAll(/[\w./-]+\.md\b/g)].map((m) => m[0].replace(/^\.\//, '')));
+const inDiff = (diff, file) => diff.includes(`diff --git a/${file} `);
 
 export function evaluateContract({ issue, comments, pulls, prDiff, appListening }) {
   const bodies = comments.map((c) => c.body);
@@ -22,6 +27,11 @@ export function evaluateContract({ issue, comments, pulls, prDiff, appListening 
     pr_title_naming: ok(/^WIP:\s*1: \S/.test(pr?.title ?? '')),
     app_stopped: ok(!appListening),
     no_screenshots_in_repo: ok(!/^diff --git a\/\S+\.(png|jpe?g|webp|gif) /mi.test(prDiff)),
+    docs_architecture: ok(inDiff(prDiff, 'docs/architecture/architecture.md')),
+    // The persona discards both (persona.md): no file the summary names may remain on the PR head.
+    spec_plan_discard: ok(specPlanPaths(summary).every((f) => !inDiff(prDiff, f))),
+    pr_description_clean: ok(pr && !/\b(?:Spec|Plan):\s*`?[\w./-]+\.md/.test(pr.body ?? '')
+      && specPlanPaths(summary).every((f) => !(pr.body ?? '').includes(f))),
   };
 }
 

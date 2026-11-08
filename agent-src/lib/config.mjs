@@ -35,6 +35,7 @@ export function loadConfig(projectRoot) {
     workflow: pkg.workflow,
     ticketing: { ...(project.ticketing || {}), includePath: pkg.ticketing?.includePath },
     cost: { ...(project.cost || {}), includePath: pkg.cost?.includePath },
+    documentation: { includePath: pkg.documentation?.includePath },
   };
 }
 
@@ -117,6 +118,8 @@ export function buildGlobalTokens(config) {
   // Cost accounting: the include path is package-owned (always present). The include tells agent-dev
   // how to total the run's ccusage sessions and post the cost summary.
   put('cost.include', c.cost?.includePath);
+  // The comment rules, plus the documentation rules unless the project opted out (lib/documentation.mjs).
+  put('documentation.include', c.documentation?.includePath);
 
   for (const [k, v] of Object.entries(c.workflow?.artifacts || {})) put(`artifact.${k}`, v);
   const usesTagLabels = backend === 'github' || backend === 'gitea' || backend === 'azure-devops';

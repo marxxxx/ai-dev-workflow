@@ -47,6 +47,13 @@ test('the shipped pins name show-me at a full commit and an exact skills CLI ver
   assert.match(pins.skills['show-me'].revision, /^[0-9a-f]{40}$/);
 });
 
+test('the shipped pins name documentation-and-adrs at a full commit', () => {
+  const skill = loadSkillPins().skills['documentation-and-adrs'];
+  assert.equal(skill.repository, 'addyosmani/agent-skills');
+  assert.equal(skill.path, 'skills/documentation-and-adrs');
+  assert.match(skill.revision, /^[0-9a-f]{40}$/);
+});
+
 test('installArgs pins the CLI version and the commit, for all three harnesses, without prompts', () => {
   assert.deepEqual(installArgs(PINS, 'show-me'), [
     '--yes', 'skills@1.7.4', 'add',

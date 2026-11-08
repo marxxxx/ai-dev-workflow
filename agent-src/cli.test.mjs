@@ -287,7 +287,12 @@ test('upgrade fails before deleting anything when the config cannot be rendered'
 });
 
 const SKILL_PINS = JSON.parse(fs.readFileSync(new URL('./config/skills.json', import.meta.url), 'utf8'));
-const SHOW_ME = SKILL_PINS.skills['show-me'];
+const addCall = ({ repository, revision, path: skillPath }) => [
+  '--yes', `skills@${SKILL_PINS.cli}`, 'add', `https://github.com/${repository}/tree/${revision}/${skillPath}`,
+  '-y', '-a', 'claude-code', 'codex', 'opencode',
+];
+const ALL_SKILLS_ON = Object.fromEntries(Object.keys(SKILL_PINS.skills).map((name) => [name, true]));
+const ALL_SKILLS_OFF = Object.fromEntries(Object.keys(SKILL_PINS.skills).map((name) => [name, false]));
 
 /** Run the CLI with the fake npx logging into `root`; returns the result plus each logged argv. */
 function runWithNpxLog(root, args, env = {}) {
@@ -299,21 +304,18 @@ function runWithNpxLog(root, args, env = {}) {
   return { ...result, calls };
 }
 
-test('upgrade records the show-me opt-in, installs the pinned commit, and leaves check quiet', () => {
+test('upgrade records the skill opt-ins, installs the pinned commits, and leaves check quiet', () => {
   const { root, cleanup } = tmpProject();
   try {
     const { status, stdout, stderr, calls } = runWithNpxLog(root, ['upgrade', '--root', root]);
     assert.equal(status, 0, stderr);
-    assert.deepEqual(calls, [[
-      '--yes', `skills@${SKILL_PINS.cli}`, 'add',
-      `https://github.com/${SHOW_ME.repository}/tree/${SHOW_ME.revision}/${SHOW_ME.path}`,
-      '-y', '-a', 'claude-code', 'codex', 'opencode',
-    ]]);
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')).skills, { 'show-me': true });
+    assert.deepEqual(calls, Object.values(SKILL_PINS.skills).map(addCall));
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')).skills, ALL_SKILLS_ON);
     assert.match(stdout, /Installed show-me/);
+    assert.match(stdout, /Installed documentation-and-adrs/);
     const check = runCli(['check', '--root', root]);
     assert.equal(check.status, 0);
-    assert.doesNotMatch(check.stderr, /show-me/);
+    assert.doesNotMatch(check.stderr, /show-me|documentation-and-adrs/);
     assert.deepEqual(runWithNpxLog(root, ['upgrade', '--root', root]).calls, [], 'a current install is not repeated');
   } finally {
     cleanup();
@@ -346,13 +348,13 @@ test('upgrade still succeeds when the show-me install fails, and prints the manu
   }
 });
 
-test('upgrade respects a show-me opt-out', () => {
-  const { root, cleanup } = tmpProject({ ...MINIMAL_PROJECT, skills: { 'show-me': false } });
+test('upgrade respects skill opt-outs', () => {
+  const { root, cleanup } = tmpProject({ ...MINIMAL_PROJECT, skills: ALL_SKILLS_OFF });
   try {
     const { status, calls } = runWithNpxLog(root, ['upgrade', '--root', root]);
     assert.equal(status, 0);
     assert.deepEqual(calls, []);
-    assert.doesNotMatch(runCli(['check', '--root', root]).stderr, /show-me/);
+    assert.doesNotMatch(runCli(['check', '--root', root]).stderr, /show-me|documentation-and-adrs/);
   } finally {
     cleanup();
   }

@@ -41,11 +41,12 @@
     "timeoutSec": 600,
     "criteria": {
       "requirements": "Do the posted spec and the diff capture every acceptance criterion? (measures interview quality by its outcome)",
-      "scope": "No unrequested features and no unrelated changes?",
+      "scope": "No unrequested features and no unrelated changes? Documentation updates (architecture docs, ADRs, README, changelog) and removing the spec/plan files count as in scope.",
       "tests": "Do the agent's new tests meaningfully cover the new behaviour? Were existing tests deleted or weakened?",
       "conventions": "Does the code follow AGENTS.md and the repository's idioms (naming, error handling, test style)?",
       "architecture": "Does the change fit the existing structure (where logic lives, layering, reuse instead of duplication)?",
-      "codeQuality": "Is the code readable and correct at the edges, without needless complexity?"
+      "codeQuality": "Is the code readable and correct at the edges, without needless complexity?",
+      "comments": "Do code comments explain the why rather than restate the what, with no commented-out code and no TODOs for work that could be done now?"
     }
   },
   "thresholds": { "tokensMedianRise": 0.5, "costMedianRise": 0.5, "agentTimeMedianRise": 0.5, "judgeMedianDrop": 1 },
