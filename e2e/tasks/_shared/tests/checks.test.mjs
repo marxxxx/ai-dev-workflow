@@ -5,16 +5,17 @@ import { evaluateContract, runOwnTests, testCommand } from './checks.mjs';
 const spec = `## Approved Spec\n${'x'.repeat(420)}`;
 const good = {
   issue: { state: 'open', labels: [{ name: 'status:review' }] },
-  comments: [{ body: spec }, { body: '## Implementation Summary\nEnd-to-end: tested with Playwright' }, { body: '## Cost Summary\n|a|' }],
-  pulls: [{ title: 'WIP: 1: Due dates', merged: false, base: { ref: 'main' }, head: { ref: '1_due_dates' } }],
-  prDiff: 'diff --git a/src/app.mjs b/src/app.mjs\n',
+  comments: [{ body: spec }, { body: '## Implementation Summary\nEnd-to-end: tested with Playwright\n'
+    + 'Spec: `docs/specs/s.md` (removed) · Plan: docs/plans/p.md (removed) · PR: http://pr' }, { body: '## Cost Summary\n|a|' }],
+  pulls: [{ title: 'WIP: 1: Due dates', body: 'Approach: due dates.\n\nRefs #1', merged: false, base: { ref: 'main' }, head: { ref: '1_due_dates' } }],
+  prDiff: 'diff --git a/src/app.mjs b/src/app.mjs\ndiff --git a/docs/architecture/architecture.md b/docs/architecture/architecture.md\n',
   appListening: false,
 };
 
 test('a correct run passes every verifier-side contract check', () => {
   const c = evaluateContract(good);
   assert.ok(Object.values(c).every((v) => v === 1), JSON.stringify(c));
-  assert.equal(Object.keys(c).length, 12);
+  assert.equal(Object.keys(c).length, 15);
 });
 
 test('a short in-chat agreement counts as a complete spec comment', () => {
@@ -41,12 +42,21 @@ test('each deviation fails exactly its check', () => {
     ['pr_draft', { pulls: [{ ...good.pulls[0], title: '1: Due dates' }] }],
     ['branch_naming', { pulls: [{ ...good.pulls[0], head: { ref: 'feature/due' } }] }],
     ['app_stopped', { appListening: true }],
-    ['no_screenshots_in_repo', { prDiff: 'diff --git a/shot.png b/shot.png\nnew file mode 100644\n' }],
+    ['no_screenshots_in_repo', { prDiff: `${good.prDiff}diff --git a/shot.png b/shot.png\nnew file mode 100644\n` }],
+    ['docs_architecture', { prDiff: 'diff --git a/src/app.mjs b/src/app.mjs\n' }],
+    ['spec_plan_discard', { prDiff: `${good.prDiff}diff --git a/docs/plans/p.md b/docs/plans/p.md\n` }],
+    ['pr_description_clean', { pulls: [{ ...good.pulls[0], body: 'Approach.\nSpec: docs/specs/s.md' }] }],
+    ['pr_description_clean', { pulls: [] }],
   ];
   for (const [check, patch] of cases) {
     const c = evaluateContract({ ...good, ...patch });
     assert.equal(c[check], 0, check);
   }
+});
+
+test('a summary naming no spec or plan has nothing to discard', () => {
+  const comments = [good.comments[0], { body: '## Implementation Summary\nEnd-to-end: tested' }, good.comments[2]];
+  assert.equal(evaluateContract({ ...good, comments }).spec_plan_discard, 1);
 });
 
 test('own tests run the task TEST_COMMAND in the PR checkout', () => {
