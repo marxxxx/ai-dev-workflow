@@ -25,6 +25,7 @@
     "agent-src/lib/renderers.mjs",
     "agent-src/lib/onboard.mjs",
     "agent-src/lib/cost.mjs",
+    "agent-src/lib/documentation.mjs",
     "agent-src/lib/pipeline.mjs",
     "agent-src/lib/upgrade.mjs",
     "agent-src/lib/container.mjs",
