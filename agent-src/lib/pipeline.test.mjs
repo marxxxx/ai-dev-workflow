@@ -83,6 +83,13 @@ test('agent-dev enters the superpowers workflow and defers ticketing and cost to
         `${p} must name only entry skills, not restate superpowers' internal chain`);
       assert.match(body, /\.agents\/includes\/ticketing\.md/);
       assert.match(body, /\.agents\/includes\/cost\.md/);
+      assert.match(body, /\.agents\/includes\/documentation\.md/);
+      assert.match(body, /subagent/i, 'the comment rule must reach code-writing subagents');
+      assert.match(body, /both, only the plan, or neither/i, 'the discard question offers exactly three choices');
+      assert.match(body, /pushed without/i, 'the discard question also fires when no PR could be opened');
+      assert.match(body, /\*\*Documentation\*\*/, 'the summary reports the documentation updates');
+      assert.match(body, /without (its|the) Spec\/Plan line/i, 'PR descriptions never name spec or plan');
+      assert.doesNotMatch(body, /only durable working files/);
       assert.match(body, /Implementation Summary/);
       assert.match(body, /partial/i, 'failed or interrupted runs offer a partial cost summary');
       assert.match(body, /draft pull request/i, 'a finished run hands off through a draft PR');
