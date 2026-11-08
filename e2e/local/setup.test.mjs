@@ -467,7 +467,8 @@ test('stepLogins: a pasted Claude token is saved, trimmed, and never reaches arg
   assert.deepEqual(state.creds.missing, []);
   assert.deepEqual(state.creds.secrets, ['tok-123']);
   const setup = f.calls.find(([, a]) => a.includes('setup-token'));
-  assert.deepEqual(setup[1], ['run', '--rm', '-it', '--entrypoint', 'claude', 'dev:1', 'setup-token']);
+  // The real CLI, not the image's `claude` wrapper: the wrapper needs /workspace/ai-project.json, and nothing is mounted.
+  assert.deepEqual(setup[1], ['run', '--rm', '-it', '--entrypoint', '/opt/agent-tools/node_modules/.bin/claude', 'dev:1', 'setup-token']);
   assert.equal(setup[2].stdio, 'inherit');
   assert.equal(f.calls.some(([, a]) => a.includes('compose') && a.includes('run')), false);
   assert.equal(JSON.stringify(f.calls.map(([, a]) => a)).includes('tok-123'), false);

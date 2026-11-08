@@ -11,7 +11,8 @@ import { OPENCODE_CREDENTIALS, openCodeExport, removeOpenCodeDbCredentials, scru
 
 const HOME = '/home/dev';
 const SERVICE = 'ai-dev-workflow';
-const BIN = '/opt/agent-tools/node_modules/.bin';
+// The image's real agent CLIs; `claude`, `codex` and `opencode` on PATH are wrappers that need a mounted project.
+export const AGENT_BIN = '/opt/agent-tools/node_modules/.bin';
 const CLI = { 'claude-code': 'claude', codex: 'codex', opencode: 'opencode' };
 const OPENCODE_MODEL_FILE = `${HOME}/.adw-e2e/opencode.json`;
 const CLAUDE_SETTINGS = `${HOME}/.claude/settings.json`;
@@ -246,6 +247,6 @@ export function startSession({ root, work, origin = null, harness, model, projec
       return scrubbed;
     },
     appListening: (port) => listening(inAgent(['sh', '-c', 'cat /proc/net/tcp /proc/net/tcp6 2>/dev/null; true']), port),
-    cliVersion: (h) => inAgent([`${BIN}/${CLI[h]}`, '--version']).trim(),
+    cliVersion: (h) => inAgent([`${AGENT_BIN}/${CLI[h]}`, '--version']).trim(),
   };
 }
