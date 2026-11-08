@@ -291,12 +291,13 @@ export function buildLaunchPlan(agent, forwardedArgs, {
 } = {}) {
   if (!AGENTS.has(agent)) fail(`Unsupported agent ${JSON.stringify(agent)}. Expected codex, claude, or opencode.`);
   if (!Array.isArray(forwardedArgs)) fail('Forwarded agent arguments must be an array.');
-  const project = readProjectState(workspace, { toolstackOnly });
   // The produced plan executes inside Linux even when unit tests run on Windows.
   const command = path.posix.join(toolBin, agent);
+  // Login and maintenance need no project: they must work against an image with nothing mounted.
   if (isAgentLoginOrMaintenance(agent, forwardedArgs)) {
     return { command, args: [...forwardedArgs], env: { ...environment } };
   }
+  const project = readProjectState(workspace, { toolstackOnly });
   if (project.backend === 'azure-devops' && !checkAzureAuth()) {
     fail('Azure CLI is not authenticated. Run az login --use-device-code --allow-no-subscriptions (and --tenant when required), then retry.');
   }
