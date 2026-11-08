@@ -164,8 +164,14 @@ It is short and holds what the skill does not decide or what adw decides differe
 changed body; the existing `skills.mjs` logic records the missing `skills.documentation-and-adrs`
 key as `true` and installs the pinned skill. No `upgrade.mjs` entries are needed (nothing is removed
 or renamed). README: the skills table, the tooling table, a short "using adw's documentation rules"
-section next to the show-me one, and an "Upgrading to vX" note: `upgrade` does it; comment
-sentences in `AGENTS.md` that only restate adw's rule can be deleted, project-specific ones stay.
+section next to the show-me one, and an "Upgrading to vX" note: `upgrade` does it.
+
+**Scope: `agent-dev` runs only** (user's decision). adw's documentation and comment rules reach the
+agent only through `agent-dev`, which reads the include. When a coding agent is used directly, the
+installed skill can still be invoked (by the user, or by the model when its description matches),
+with the skill's own defaults; adw adds nothing always-loaded (no generated rules file, no
+`AGENTS.md` text). So the README does **not** suggest deleting comment rules from `AGENTS.md`: they
+remain what applies outside `agent-dev`. It states that the shipped rules apply in `agent-dev` runs.
 
 ### 5. E2E coverage
 - New contract checks in `e2e/lib/trial.mjs` (`CONTRACT_CHECKS`) and wherever reward evidence is
