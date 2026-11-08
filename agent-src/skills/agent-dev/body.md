@@ -3,7 +3,7 @@
 Take one change from request to pull request with the **superpowers** workflow, unmodified. This
 skill only adds what superpowers does not know about: the optional ticket, and two closing comments.
 Read `{{ticketing.include}}` only when you touch the ticket or open a PR, `{{cost.include}}` only
-when you report cost, and `{{documentation.include}}` when you write code or update documentation.
+when you report cost, and `{{documentation.include}}` when you write code and before integrating.
 
 ## 1. Start
 
@@ -61,8 +61,7 @@ it occurs, wherever the workflow puts it.
   app as the `AGENTS.md` end-to-end section describes, exercise the changed flows in a browser
   (Playwright), capture evidence (screenshots outside the repo, or observations), and shut the app
   down. If there is no such section, no browser tooling, or startup fails, do not block: report it
-  in the summary instead. Then update the documentation as `{{documentation.include}}` says and
-  commit it on the branch, so it is reviewed with the code.
+  in the summary instead. Then do what `{{documentation.include}}` asks for before integrating.
 - **Integration options offered** (merge, PR, keep, discard), or the workflow finishes without
   offering them — do **not** present them: the choice is already made. Base branch
   `{{git.prTarget}}`. Write the implementation summary (section 3), then push the branch and open a
@@ -73,8 +72,8 @@ it occurs, wherever the workflow puts it.
   the user whether to discard the spec and plan files: both, only the plan, or neither. Delete the
   chosen files in one commit and push it, before posting the summaries.
 
-The spec and plan the workflow writes, if any, are working files, not documentation; the project's
-documentation (see the include) is the durable record. Only the agreed scope goes onto the ticket.
+The spec and plan the workflow writes, if any, are working files. Only the agreed scope goes onto
+the ticket.
 
 ### Naming
 
@@ -96,7 +95,6 @@ The `{{artifact.implementationSummary}}` — at most about 250 words:
 **Possible side effects** — what else this could affect.
 **Watch when testing** — concrete things to check. State the end-to-end status: tested by the
 agent (what, with evidence), left to manual testing at the user's request, or not tested (why).
-**Documentation** — which docs were updated (architecture, ADR, README, changelog), or why none.
 Spec: <path, if any> · Plan: <path, if any> (mark discarded ones removed) · PR: <link, added once the draft PR exists>
 ```
 

@@ -39,8 +39,7 @@ agent-src/
     ticketing-azure-devops.md  # … — Azure DevOps (@azure-devops/mcp)
     cost.md                    # how agent-dev totals a run's ccusage sessions + posts the summary
     documentation-comments.md  # the comment rules (always rendered)
-    documentation-docs.md      # architecture docs, ADRs, README/changelog (when the project has not opted out)
-    documentation-off.md       # … replaced by "update no documentation" when it has
+    documentation-docs.md      # architecture docs, ADRs, README/changelog (omitted when the project opts out)
   skills/<name>/
     body.md                    # shared SKILL body — uses {{token}}s; references the includes
     manifest.json              # name, description, platforms{}, interface{} (Codex openai.yaml)

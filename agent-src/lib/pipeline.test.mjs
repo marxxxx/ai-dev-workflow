@@ -87,7 +87,6 @@ test('agent-dev enters the superpowers workflow and defers ticketing and cost to
       assert.match(body, /subagent/i, 'the comment rule must reach code-writing subagents');
       assert.match(body, /both, only the plan, or neither/i, 'the discard question offers exactly three choices');
       assert.match(body, /pushed without/i, 'the discard question also fires when no PR could be opened');
-      assert.match(body, /\*\*Documentation\*\*/, 'the summary reports the documentation updates');
       assert.match(body, /without (its|the) Spec\/Plan line/i, 'PR descriptions never name spec or plan');
       assert.doesNotMatch(body, /only durable working files/);
       assert.match(body, /Implementation Summary/);
@@ -114,7 +113,8 @@ test('the documentation include carries comment and documentation rules by defau
     const doc = renderedDocInclude(root);
     for (const re of [/## Comments/, /why, not the what/i, /commented-out code/i, /AGENTS\.md/, /## Documentation/,
       /match the existing convention first/i, /docs\/architecture\/architecture\.md/, /docs\/architecture\/decisions\//,
-      /current state/i, /\.agents\/skills\/documentation-and-adrs\/SKILL\.md/, /upgrade/]) {
+      /current state/i, /\.agents\/skills\/documentation-and-adrs\/SKILL\.md/, /upgrade/, /before integrating/i,
+      /\*\*Documentation\*\*/]) {
       assert.match(doc, re);
     }
     assert.ok(doc.indexOf('## Comments') < doc.indexOf('## Documentation'), 'comment rules come first');
@@ -128,12 +128,16 @@ test('the documentation include carries comment and documentation rules by defau
 test('opting out of documentation-and-adrs leaves only the comment rules, with the same agent-dev body', () => {
   const on = tmpProject();
   const off = tmpProject({ ...MINIMAL_PROJECT, skills: { 'documentation-and-adrs': false } });
+  const skills = (root) => renderAll(root).filter((o) => o.path.endsWith('SKILL.md')).map((o) => o.content);
   try {
     const doc = renderedDocInclude(off.root);
     assert.match(doc, /## Comments/);
     assert.doesNotMatch(doc, /## Documentation|docs\/architecture|ADR|documentation-and-adrs/);
-    assert.match(doc, /update no documentation/i, "the body's documentation hook must be cancelled explicitly");
-    const skills = (root) => renderAll(root).filter((o) => o.path.endsWith('SKILL.md')).map((o) => o.content);
+    assert.doesNotMatch(doc, /documentation/i, 'an opt-out mentions documentation nowhere, so project rules stay in charge');
+    for (const body of skills(off.root)) {
+      assert.doesNotMatch(body.replaceAll('.agents/includes/documentation.md', ''), /documentation/i,
+        'the body leaves every documentation instruction to the include');
+    }
     assert.deepEqual(skills(off.root), skills(on.root));
   } finally {
     on.cleanup();

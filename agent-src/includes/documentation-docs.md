@@ -1,8 +1,11 @@
 
 ## Documentation
 
-Keep the project's technical documentation current as part of the change: it goes on the same
-branch and into the same pull request as the code. Business documentation is out of scope.
+Keep the project's technical documentation current as part of the change. Before integrating,
+update it as below and commit it on the branch, so it is reviewed in the same pull request as the
+code, and add this line to the implementation summary, after **Watch when testing**:
+`**Documentation** — which docs were updated (architecture, ADR, README, changelog), or why none.`
+Business documentation is out of scope.
 
 **Where.** Match the existing convention first. If the project already has architecture docs or
 ADRs (a `docs/adr/` folder, an `.adr-dir` file, arc42, a numbering scheme, its own headings),

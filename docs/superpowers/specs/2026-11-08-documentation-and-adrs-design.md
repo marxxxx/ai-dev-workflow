@@ -87,9 +87,12 @@ may keep its documentation elsewhere). `skills.documentation-and-adrs: false` in
 is the one switch (adw's call: no second key): the skill is not installed, and the rendered include
 (section 2) then contains only the comment rules — no architecture docs, ADRs, README/changelog
 updates, no pointer to the skill. Because `generate` reads `ai-project.json`, the include is
-rendered deterministically from the switch and `check` covers it; the body hooks stay identical and
-defer to the include ("update the documentation as the include says"), so the body needs no
-conditional. The comment rules and the spec/plan discard question stay on in both cases (adw's call:
+rendered deterministically from the switch and `check` covers it. **With the opt-out, documentation
+is mentioned nowhere** (user's decision): no "update no documentation" note either, since it could
+contradict documentation rules the project keeps itself. So every documentation instruction — the
+update before integrating and the summary's **Documentation** line — lives in the include's
+documentation part; the body stays identical for all projects and only points at the include
+neutrally ("before integrating, do what the include asks"). The comment rules and the spec/plan discard question stay on in both cases (adw's call:
 they are about code and working files, not about where a project documents). The `init` question
 and README say what declining means. Any place that is still show-me-specific (help texts,
 README tables, `upgrade` messages) is generalized or extended to name both skills.
@@ -138,9 +141,9 @@ It is short and holds what the skill does not decide or what adw decides differe
   when dispatching a subagent that writes code, tell it to read that section of the include.
   (Rationale: implementer subagents never see `agent-dev`, and the rule must reach them. Phrased as
   an event, not as a superpowers step.)
-- **Implementation verified, before integrating** — update the documentation per the include and
-  commit it on the branch, so it is in the draft PR and reviewed with the code. This sits next to the
-  existing end-to-end hook at the same event.
+- **Implementation verified, before integrating** — do what the include asks for before integrating
+  (opted in: update the documentation and commit it on the branch, so it is in the draft PR and
+  reviewed with the code). This sits next to the existing end-to-end hook at the same event.
 - **Work handed over for review** — the draft PR is open, or the branch was pushed without one (the
   file backend without a host CLI, or a failed PR create): ask the developer whether to discard the
   spec and plan: both, only the plan, or neither. If they discard, delete the file(s) in one commit
@@ -153,8 +156,9 @@ It is short and holds what the skill does not decide or what adw decides differe
   the PR description is the summary without that line, plus the ticket reference. So the discard
   needs no PR edit and no new "edit PR description" command in the ticketing includes. The ticket's
   implementation summary keeps the line and marks discarded files as removed.
-- **Implementation summary** template gains one line, **Documentation** — which docs were updated
-  (architecture, ADR n, README, changelog) or why none. In the ticket comment, spec/plan paths that
+- **Implementation summary** gains one line, **Documentation** — which docs were updated
+  (architecture, ADR n, README, changelog) or why none; the include's documentation part asks for it,
+  so an opted-out project's summary has no such line. In the ticket comment, spec/plan paths that
   were discarded are still listed, marked as removed (they stay reachable in git history).
 - The sentence calling spec and plan "the only durable working files" changes: they are working
   files; the durable documentation is the project's docs (per the include).
