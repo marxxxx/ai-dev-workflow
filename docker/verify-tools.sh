@@ -26,6 +26,10 @@ node --version
 "$tool_bin/claude" --version
 "$tool_bin/codex" --version
 "$tool_bin/opencode" --version
+# The wrappers on PATH pass login and maintenance commands through with no project mounted.
+for command in claude codex opencode; do
+  "$command" --version >/dev/null || fail "the $command wrapper rejects --version without a project"
+done
 playwright-mcp --help >/dev/null
 context7-mcp --help >/dev/null
 mcp-server-azuredevops --version >/dev/null

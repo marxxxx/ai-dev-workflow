@@ -149,6 +149,21 @@ test('ADO launch fails with a device-login diagnostic while agent login remains 
   assert.deepEqual(login.args, ['login', '--device-auth']);
 });
 
+test('login and maintenance commands reach the real CLI without ai-project.json', t => {
+  const { workspace, home } = bareWorkspace(t);
+  const cases = [
+    ['claude', ['setup-token']], ['claude', ['auth', 'login']], ['claude', ['--version']],
+    ['codex', ['login', '--device-auth']], ['codex', ['--help']],
+    ['opencode', ['auth', 'login']], ['opencode', ['-v']],
+  ];
+  for (const [agent, args] of cases) {
+    const plan = buildLaunchPlan(agent, args, { workspace, home, toolBin: '/real/bin', checkAzureAuth: () => false });
+    assert.equal(plan.command, `/real/bin/${agent}`);
+    assert.deepEqual(plan.args, args);
+  }
+  assert.throws(() => buildLaunchPlan('claude', ['-p', 'hi'], { workspace, home }), /ai-project\.json is required/);
+});
+
 test('missing ADO organization and unsupported agents fail clearly', t => {
   const { workspace, home } = fixture(t);
   writeFileSync(path.join(workspace, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'azure-devops' } }));
