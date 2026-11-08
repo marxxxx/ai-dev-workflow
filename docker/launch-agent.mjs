@@ -24,6 +24,12 @@ const AGENTS = new Set(['codex', 'claude', 'opencode']);
 // environment, so Serena's Roslyn server only builds and restores below the home volume, as
 // the shell does, when these are passed explicitly.
 const SERENA_FORWARDED_ENV = ['ArtifactsPath', 'NUGET_PACKAGES', 'DOTNET_ROOT', 'DOTNET_CLI_TELEMETRY_OPTOUT'];
+// Codex starts stdio MCP servers with only a few base variables (HOME, PATH, ...), while Claude
+// Code and OpenCode pass their whole environment on. Codex gets these by name (env_vars), so
+// secrets stay off the command line: the proxy and the CA bundle the entrypoint sets for a
+// TLS-inspecting proxy reach every managed server, the account key reaches Context7.
+const NETWORK_ENV = ['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy',
+  'NODE_EXTRA_CA_CERTS', 'SSL_CERT_FILE', 'SSL_CERT_DIR', 'REQUESTS_CA_BUNDLE'];
 
 function fail(message) {
   throw new Error(`agent runtime: ${message}`);
@@ -107,7 +113,7 @@ function managedServers(agent, project, home, environment) {
       args: ['--headless', '--browser', 'chromium', '--isolated', '--output-dir', '/tmp'],
       env: { PLAYWRIGHT_BROWSERS_PATH: '/opt/ms-playwright' },
     },
-    context7: { command: 'context7-mcp', args: [] },
+    context7: { command: 'context7-mcp', args: [], forward: ['CONTEXT7_API_KEY'] },
   };
   if (project.backend === 'azure-devops') {
     servers.ado = {
@@ -310,6 +316,7 @@ export function buildLaunchPlan(agent, forwardedArgs, {
       for (const [key, value] of Object.entries(definition.env ?? {})) {
         overrides.push('-c', `mcp_servers.${name}.env.${key}=${JSON.stringify(value)}`);
       }
+      overrides.push('-c', `mcp_servers.${name}.env_vars=${JSON.stringify([...(definition.forward ?? []), ...NETWORK_ENV])}`);
       for (const [key, value] of Object.entries(definition.codex ?? {})) {
         overrides.push('-c', `mcp_servers.${name}.${key}=${JSON.stringify(value)}`);
       }

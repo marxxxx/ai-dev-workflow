@@ -377,3 +377,27 @@ test('Codex allows Serena tool calls longer than its 60s default', t => {
   const plan = buildLaunchPlan('codex', [], { workspace, home, toolstackOnly: true });
   assert.ok(plan.args.includes('mcp_servers.serena.tool_timeout_sec=300'));
 });
+
+// Codex starts stdio MCP servers with only a few base variables (HOME, PATH, ...), so the
+// container's Context7 key, proxy and CA settings must be forwarded by name. Claude Code and
+// OpenCode pass their whole environment on.
+const NETWORK_ENV = ['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy',
+  'NODE_EXTRA_CA_CERTS', 'SSL_CERT_FILE', 'SSL_CERT_DIR', 'REQUESTS_CA_BUNDLE'];
+
+function codexEnvVars(args, server) {
+  const prefix = `mcp_servers.${server}.env_vars=`;
+  const matches = args.filter(arg => arg.startsWith(prefix));
+  assert.equal(matches.length, 1, `${server} env_vars override`);
+  return JSON.parse(matches[0].slice(prefix.length));
+}
+
+test('Codex forwards the Context7 key, proxy and CA variables to its MCP servers by name', t => {
+  const { workspace, home } = fixture(t);
+  const environment = { PATH: '/usr/bin', CONTEXT7_API_KEY: 'ctx7-secret-value', HTTPS_PROXY: 'http://proxy:3128' };
+  const plan = buildLaunchPlan('codex', [], { workspace, home, environment, checkAzureAuth: () => true });
+  assert.deepEqual(codexEnvVars(plan.args, 'context7'), ['CONTEXT7_API_KEY', ...NETWORK_ENV]);
+  for (const server of ['serena', 'playwright', 'ado']) {
+    assert.deepEqual(codexEnvVars(plan.args, server), NETWORK_ENV, server);
+  }
+  assert.ok(!plan.args.join(' ').includes('ctx7-secret-value'), 'the key must not appear on the command line');
+});
