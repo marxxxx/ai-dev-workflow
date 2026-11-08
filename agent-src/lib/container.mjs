@@ -156,18 +156,38 @@ export function writeContainerFiles(projectRoot, { env = {}, ...opts }) {
 }
 
 /**
- * Fixes the project-owned compose.ai-dev.yml needs and `upgrade` cannot apply. v0.29.0 and
- * earlier dropped all capabilities without keeping KILL, so the root init (tini) cannot forward
- * signals to the dev user's processes and stops the container on the first one (a resize).
+ * Fixes the project-owned container files need and `upgrade` cannot apply:
+ * - v0.29.0 and earlier dropped all capabilities without keeping KILL in compose.ai-dev.yml, so the
+ *   root init (tini) cannot forward signals to the dev user's processes and stops the container on
+ *   the first one (a resize).
+ * - v0.30.0 and earlier wrote launchers that never pull, so they keep starting an old image.
  */
 export function containerWarnings(projectRoot) {
+  return [killWarning(projectRoot), pullWarning(projectRoot)].filter(Boolean);
+}
+
+function killWarning(projectRoot) {
   const file = path.join(projectRoot, 'compose.ai-dev.yml');
-  if (!fs.existsSync(file)) return [];
+  if (!fs.existsSync(file)) return null;
   const yaml = fs.readFileSync(file, 'utf8').split(/\r?\n/).map((l) => l.replace(/(^|\s)#.*$/, '')).join('\n');
   const dropsAll = /cap_drop:\s*(?:\[[^\]]*|(?:\s*-\s*\S+)*\s*-\s*)["']?ALL\b/.test(yaml);
-  if (!dropsAll || /\b(?:CAP_)?KILL\b/.test(yaml)) return [];
-  return ['Note: compose.ai-dev.yml lacks the KILL capability, so the container stops when tini cannot '
-    + 'forward a signal ("Operation not permitted"). Add `- KILL` under cap_add of the ai-dev-workflow service.'];
+  if (!dropsAll || /\b(?:CAP_)?KILL\b/.test(yaml)) return null;
+  return 'Note: compose.ai-dev.yml lacks the KILL capability, so the container stops when tini cannot '
+    + 'forward a signal ("Operation not permitted"). Add `- KILL` under cap_add of the ai-dev-workflow service.';
+}
+
+function pullWarning(projectRoot) {
+  const stale = ['ai-dev.sh', 'ai-dev.ps1'].filter((name) => {
+    const file = path.join(projectRoot, name);
+    if (!fs.existsSync(file)) return false;
+    const code = fs.readFileSync(file, 'utf8').split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join('\n');
+    return !/\bpull\b/.test(code);
+  });
+  if (!stale.length) return null;
+  const [subject, verb] = stale.length > 1 ? [stale.join(' and '), 'do'] : [stale[0], 'does'];
+  return `Note: ${subject} ${verb} not pull the image before a run, so ${stale.length > 1 ? 'they keep' : 'it keeps'} `
+    + 'starting the one already on this machine. Delete the file(s) and run `init` again (keep ai-project.json, '
+    + 'set up the container): it writes the current launchers and leaves the other container files untouched.';
 }
 
 // One-line ticketing login per backend for the next-steps printout; `file` has none.

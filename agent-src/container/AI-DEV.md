@@ -11,6 +11,10 @@ container files are yours to edit. Requires Docker (Docker Desktop on Windows/ma
 ./ai-dev.sh <command> ...   # run one command, e.g. ./ai-dev.sh git status
 ```
 
+Each start first pulls the newest build of the image (`AGENT_IMAGE` or the default in
+`compose.ai-dev.yml`). If the pull fails, for example offline, the launcher warns and starts the
+image already on this machine.
+
 PowerShell: `.\ai-dev.ps1` instead of `./ai-dev.sh`. If scripts are blocked, run
 `powershell -ExecutionPolicy Bypass -File .\ai-dev.ps1` once, or
 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. PowerShell swallows a bare `--`
@@ -63,7 +67,7 @@ NO_PROXY=localhost,127.0.0.1,::1
 When `AGENT_CA_DIR` is set, the launchers add `compose.ai-dev.certs.yml` and the container trusts
 those certificates (`*.crt`, `*.pem`, `*.cer`, `*.cert`). Keep `localhost,127.0.0.1,::1` in
 `NO_PROXY`. `.env.ai-dev` also takes `AZURE_TENANT_ID`, `CONTEXT7_API_KEY` and `AGENT_IMAGE`
-(e.g. to pin a dated image tag).
+(e.g. to pin a dated image tag; the launchers pull that tag).
 
 ## 5. Docker inside the container (opt-in)
 

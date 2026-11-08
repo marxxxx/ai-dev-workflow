@@ -25,15 +25,21 @@ export PROJECT_ROOT="$root"
 export HOST_UID="${HOST_UID:-$(id -u)}"
 export HOST_GID="${HOST_GID:-$(id -g)}"
 
-set -- run --rm ai-dev-workflow "$@"
-# Opt-in Docker daemon (AGENT_DIND=1): root-equivalent on the host, see AI-DEV.md.
-if [ "${AGENT_DIND:-}" = 1 ]; then
-  if [ -n "${AGENT_CA_DIR:-}" ]; then
-    set -- -f "$root/compose.ai-dev.dind-certs.yml" "$@"
+# docker compose with this project's compose files.
+compose() {
+  # Opt-in Docker daemon (AGENT_DIND=1): root-equivalent on the host, see AI-DEV.md.
+  if [ "${AGENT_DIND:-}" = 1 ]; then
+    if [ -n "${AGENT_CA_DIR:-}" ]; then
+      set -- -f "$root/compose.ai-dev.dind-certs.yml" "$@"
+    fi
+    set -- -f "$root/compose.ai-dev.dind.yml" "$@"
   fi
-  set -- -f "$root/compose.ai-dev.dind.yml" "$@"
-fi
-if [ -n "${AGENT_CA_DIR:-}" ]; then
-  set -- -f "$root/compose.ai-dev.certs.yml" "$@"
-fi
-exec docker compose -f "$root/compose.ai-dev.yml" "$@"
+  if [ -n "${AGENT_CA_DIR:-}" ]; then
+    set -- -f "$root/compose.ai-dev.certs.yml" "$@"
+  fi
+  docker compose -f "$root/compose.ai-dev.yml" "$@"
+}
+
+# Newest build of the configured image (AGENT_IMAGE or the default); offline, the local one starts.
+compose pull ai-dev-workflow || echo "ai-dev.sh: could not pull the image; starting the local one." >&2
+compose run --rm ai-dev-workflow "$@"
