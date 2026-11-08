@@ -226,25 +226,44 @@ test('nextSteps prefixes every container command with the launcher', () => {
   assert.ok(text.includes('./ai-dev.sh opencode auth login'));
 });
 
-// The launcher's compose files, as passed to a fake `docker` on PATH.
-function launcherFiles(env, dotenv) {
+// Runs ai-dev.sh against a fake `docker` on PATH that logs one line per call (AGENT_IMAGE, then
+// the arguments, NUL separated) and fails `pull` when FAKE_PULL_FAILS=1. Returns each call's
+// arguments with its AGENT_IMAGE, and the stderr.
+function runLauncher(env = {}, dotenv) {
   const { root, cleanup } = makeTmpRoot();
   try {
     writeContainerFiles(root, OPTS);
     if (dotenv) fs.writeFileSync(path.join(root, '.env.ai-dev'), dotenv);
     const bin = path.join(root, 'bin');
     fs.mkdirSync(bin);
-    fs.writeFileSync(path.join(bin, 'docker'), '#!/bin/sh\nprintf "%s\\n" "$@"\n', { mode: 0o755 });
+    const log = path.join(root, 'docker.log');
+    fs.writeFileSync(path.join(bin, 'docker'), [
+      '#!/bin/sh',
+      `printf '%s\\0' "\${AGENT_IMAGE:-}" "$@" >> '${log}'`,
+      `printf '\\n' >> '${log}'`,
+      'for a; do [ "$a" = pull ] && [ "${FAKE_PULL_FAILS:-}" = 1 ] && exit 1; done',
+      'exit 0',
+      '',
+    ].join('\n'), { mode: 0o755 });
     const clean = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^AGENT_(DIND|CA_DIR)$/.test(k)));
     const result = spawnSync('sh', [path.join(root, 'ai-dev.sh'), 'true'],
       { env: { ...clean, ...env, PATH: `${bin}:${process.env.PATH}` }, encoding: 'utf8' });
-    assert.equal(result.status, 0, result.stderr);
-    const args = result.stdout.trim().split('\n');
-    assert.deepEqual(args.slice(-4), ['run', '--rm', 'ai-dev-workflow', 'true']);
-    return args.flatMap((a, i) => (args[i - 1] === '-f' ? [path.relative(root, a)] : []));
+    const calls = fs.readFileSync(log, 'utf8').split('\n').filter(Boolean)
+      .map((line) => line.split('\0').slice(0, -1).map((a) => (path.isAbsolute(a) ? path.relative(root, a) : a)))
+      .map(([image, ...args]) => Object.assign(args, { image }));
+    return { status: result.status, stderr: result.stderr, calls };
   } finally {
     cleanup();
   }
+}
+
+// The launcher's compose files for the run.
+function launcherFiles(env, dotenv) {
+  const { status, stderr, calls } = runLauncher(env, dotenv);
+  assert.equal(status, 0, stderr);
+  const args = calls.at(-1);
+  assert.deepEqual(args.slice(-4), ['run', '--rm', 'ai-dev-workflow', 'true']);
+  return args.flatMap((a, i) => (args[i - 1] === '-f' ? [a] : []));
 }
 
 test('ai-dev.sh adds the dind overlay only for AGENT_DIND=1, and its certs companion with AGENT_CA_DIR', { skip: process.platform === 'win32' }, () => {
@@ -254,6 +273,24 @@ test('ai-dev.sh adds the dind overlay only for AGENT_DIND=1, and its certs compa
   assert.deepEqual(launcherFiles({ AGENT_DIND: '1' }), ['compose.ai-dev.yml', 'compose.ai-dev.dind.yml']);
   assert.deepEqual(launcherFiles({}, 'AGENT_DIND=1\nAGENT_CA_DIR=/certs\n'),
     ['compose.ai-dev.yml', 'compose.ai-dev.certs.yml', 'compose.ai-dev.dind.yml', 'compose.ai-dev.dind-certs.yml']);
+});
+
+test('ai-dev.sh pulls the configured image with the same compose files before the run', { skip: process.platform === 'win32' }, () => {
+  const { status, stderr, calls } = runLauncher({}, 'AGENT_DIND=1\nAGENT_IMAGE=example/agent:dated\n');
+  assert.equal(status, 0, stderr);
+  assert.equal(calls.length, 2);
+  const [pull, run] = calls;
+  assert.deepEqual(pull.slice(-2), ['pull', 'ai-dev-workflow']);
+  assert.deepEqual(pull.slice(0, -2), run.slice(0, -4), 'same compose files for pull and run');
+  assert.ok(pull.includes('compose.ai-dev.dind.yml'));
+  assert.equal(pull.image, 'example/agent:dated', '.env.ai-dev reaches the pull');
+});
+
+test('ai-dev.sh starts the local image with a warning when the pull fails', { skip: process.platform === 'win32' }, () => {
+  const { status, stderr, calls } = runLauncher({ FAKE_PULL_FAILS: '1' });
+  assert.equal(status, 0, stderr);
+  assert.deepEqual(calls.map((c) => c.find((a) => a === 'pull' || a === 'run')), ['pull', 'run']);
+  assert.match(stderr, /could not pull/i);
 });
 
 test('AI-DEV.md explains the opt-in daemon and how to stop it for this project', () => {
@@ -311,6 +348,35 @@ test('containerWarnings ignores KILL that only appears in a comment', () => {
   try {
     fs.writeFileSync(path.join(root, 'compose.ai-dev.yml'), `    # KILL lets tini forward signals\n${LEGACY_CAPS}`);
     assert.equal(containerWarnings(root).length, 1);
+  } finally {
+    cleanup();
+  }
+});
+
+test('containerWarnings flags launchers written before they pulled the image', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeContainerFiles(root, OPTS);
+    fs.writeFileSync(path.join(root, 'ai-dev.sh'), '#!/bin/sh\n# docker compose pull is not run here\nexec docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow "$@"\n');
+    fs.writeFileSync(path.join(root, 'ai-dev.ps1'), "& docker compose run --rm ai-dev-workflow @args\n");
+    const [warning, ...rest] = containerWarnings(root);
+    assert.deepEqual(rest, []);
+    assert.match(warning, /ai-dev\.sh and ai-dev\.ps1/);
+    assert.match(warning, /init/);
+    fs.rmSync(path.join(root, 'ai-dev.sh'));
+    assert.match(containerWarnings(root)[0], /^Note: ai-dev\.ps1 does not/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('containerWarnings is silent for the current launchers', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeContainerFiles(root, OPTS);
+    assert.deepEqual(containerWarnings(root), []);
+    fs.rmSync(path.join(root, 'ai-dev.ps1'));
+    assert.deepEqual(containerWarnings(root), [], 'a removed launcher needs no fix');
   } finally {
     cleanup();
   }

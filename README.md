@@ -228,6 +228,12 @@ and records the `skills` opt-in. Run
 **`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
 changes the config hash); no `upgrade` step is needed.
 
+**Upgrading to v0.31.0.** `ai-dev.sh` / `ai-dev.ps1` now pull the newest build of the container
+image (`AGENT_IMAGE` from `.env.ai-dev`, or the default) before each start; offline they warn and
+start the local image. The launchers are project-owned and `upgrade` does not change them;
+`upgrade`, `generate` and `check` print a note until you delete them and run `init` again (keep
+`ai-project.json`, set up the container), which writes only the missing launchers.
+
 **Upgrading to v0.30.0.** `agent-dev` now names the superpowers skills by bare id (`brainstorming`, not
 `superpowers:brainstorming`), which OpenCode 2 needs; `upgrade` regenerates it.
 
@@ -404,7 +410,8 @@ certificate overlay, the launchers `ai-dev.sh` / `ai-dev.ps1` and `AI-DEV.md` wi
 for your coding agents and ticketing backend, then prints the exact next steps. It also asks
 whether to enable the Docker overlay (`AGENT_DIND=1`, root-equivalent) and company root
 certificates (`AGENT_CA_DIR`), and writes those to the git-ignored `.env.ai-dev`. These files are
-project-owned. Run the generator on the host; the image does not install or run it.
+project-owned. Run the generator on the host; the image does not install or run it. The launchers
+pull the newest build of the image before each start.
 
 ```bash
 ./ai-dev.sh claude --dangerously-skip-permissions   # PowerShell: .\ai-dev.ps1 …

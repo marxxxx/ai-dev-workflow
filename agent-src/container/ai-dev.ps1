@@ -41,7 +41,13 @@ if ($env:AGENT_DIND -eq '1') {
   $composeArgs += @('-f', (Join-Path $root 'compose.ai-dev.dind.yml'))
   if ($env:AGENT_CA_DIR) { $composeArgs += @('-f', (Join-Path $root 'compose.ai-dev.dind-certs.yml')) }
 }
-$composeArgs += @('run', '--rm', 'ai-dev-workflow') + $args
 
-& docker @composeArgs
+# Newest build of the configured image (AGENT_IMAGE or the default); offline, the local one starts.
+# 'Continue': Windows PowerShell 5.1 turns compose's progress on stderr into errors when redirected.
+$ErrorActionPreference = 'Continue'
+& docker @($composeArgs + @('pull', 'ai-dev-workflow'))
+if ($LASTEXITCODE -ne 0) { Write-Warning 'ai-dev.ps1: could not pull the image; starting the local one.' }
+$ErrorActionPreference = 'Stop'
+
+& docker @($composeArgs + @('run', '--rm', 'ai-dev-workflow') + $args)
 exit $LASTEXITCODE
