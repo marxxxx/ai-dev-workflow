@@ -75,7 +75,7 @@ test('the work clone has its own git identity: the container has none, and an ag
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('a base commit without ai-project.json still works', () => {
+test('a base commit without .adw/project.json still works', () => {
   const { dir, root, base } = makeRepo(null);
   try {
     const { work } = createSandbox({ root, baseCommit: base, ticket: 1, ticketText: TICKET, trialDir: path.join(dir, 'trial') });
@@ -133,7 +133,7 @@ test('e2eSection: overlaid and committed when the base commit has none, untouche
 test('snapshotWorkingTree: uncommitted and untracked files, never ignored ones or .adw/e2e, refs untouched', () => {
   const { dir, root } = makeRepo();
   try {
-    writeFileSync(path.join(root, '.gitignore'), '.env.ai-dev\n');
+    writeFileSync(path.join(root, '.gitignore'), '.adw/.env\n');
     g(['add', '-A'], root);
     g([...COMMIT, 'commit', '-qm', 'ignore'], root);
     const head = g(['rev-parse', 'HEAD'], root);
@@ -141,8 +141,8 @@ test('snapshotWorkingTree: uncommitted and untracked files, never ignored ones o
 
     writeFileSync(path.join(root, 'README.md'), 'changed\n');
     writeFileSync(path.join(root, 'AGENTS.md'), '# new\n');
-    writeFileSync(path.join(root, '.env.ai-dev'), 'SECRET=1\n');
     mkdirSync(path.join(root, '.adw/e2e/7'), { recursive: true });
+    writeFileSync(path.join(root, '.adw/.env'), 'SECRET=1\n');
     writeFileSync(path.join(root, '.adw/e2e/7/acceptance.md'), 'AC1\n');
     const status = g(['status', '--porcelain'], root);
     const snap = snapshotWorkingTree(root);

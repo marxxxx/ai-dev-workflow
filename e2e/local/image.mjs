@@ -53,7 +53,7 @@ export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, ima
     }
     return String(r.stdout ?? '');
   };
-  const compose = ['compose', ...composeFiles.flatMap((f) => ['-f', f]), '-p', 'adw-e2e-image'];
+  const compose = ['compose', '--project-directory', root, ...composeFiles.flatMap((f) => ['-f', f]), '-p', 'adw-e2e-image'];
   const config = JSON.parse(docker([...compose, 'config', '--format', 'json'], { env }));
   const services = config.services ?? {};
   const service = services[SERVICE];

@@ -105,7 +105,7 @@ test('every compose call uses the given files, so the certs overlay is honoured'
   const { calls, opts } = setup(t, [[isConfig, configJson({ image: ref })], baseInspect(ref)]);
   ensureE2eImage({ ...opts, composeFiles: ['/proj/.adw/compose.yml', '/proj/.adw/compose.certs.yml'] });
   for (const c of calls.filter((x) => x.args[0] === 'compose')) {
-    assert.deepEqual(c.args.slice(0, 5), ['compose', '-f', '/proj/.adw/compose.yml', '-f', '/proj/.adw/compose.certs.yml']);
+    assert.deepEqual(c.args.slice(0, 7), ['compose', '--project-directory', '/proj', '-f', '/proj/.adw/compose.yml', '-f', '/proj/.adw/compose.certs.yml']);
     assert.equal(c.opts.env.PROJECT_ROOT, '/proj');
   }
 });

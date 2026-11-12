@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { COMPOSE_FILES, PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
+import { COMPOSE_FILES, ENV_FILE, PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 import { createScriptedPrompter } from '../../agent-src/lib/onboard.mjs';
 import { detectTestCommand, e2eChanges, makePrompter, ownComposeRun, projectVolume, runSetup, renderE2eSection, stepContainerFiles, stepE2eSection, stepEnvValues, stepInterview, stepLogins, stepProjectConfig, stepTicket } from './setup.mjs';
 import { composeProject } from './session.mjs';
@@ -29,7 +29,7 @@ test('stepProjectConfig: runs the init interview on yes, not without an answer',
   rmSync(root, { recursive: true });
 });
 
-test('stepProjectConfig: nothing to do with an ai-project.json or without a prompter', async () => {
+test('stepProjectConfig: nothing to do with an .adw/project.json or without a prompter', async () => {
   const root = tmp();
   const d = { ...noop, cmdInit: async () => { throw new Error('no'); } };
   await stepProjectConfig({ root, opts: {}, d, prompter: null, state: {} });
@@ -99,9 +99,9 @@ test('ownComposeRun: own compose project argv, certs overlay and entrypoint', ()
   const calls = [];
   const exec = (cmd, args, o) => { calls.push([cmd, args, o]); return { status: 0, stdout: 'x' }; };
   ownComposeRun({ root, env: {}, exec, argv: ['gh', 'a'] });
-  assert.deepEqual(calls[0][1], ['compose', '-f', path.join(root, COMPOSE_FILES.base), 'run', '--rm', '--no-deps', '-T', 'ai-dev-workflow', 'gh', 'a']);
+  assert.deepEqual(calls[0][1], ['compose', '--project-directory', root, '-f', path.join(root, COMPOSE_FILES.base), 'run', '--rm', '--no-deps', '-T', 'ai-dev-workflow', 'gh', 'a']);
   ownComposeRun({ root, env: { AGENT_CA_DIR: '/c' }, exec, argv: ['sh'], entrypoint: 'sh' });
-  assert.deepEqual(calls[1][1].slice(0, 6), ['compose', '-f', path.join(root, COMPOSE_FILES.base), '-f', path.join(root, COMPOSE_FILES.certs), 'run']);
+  assert.deepEqual(calls[1][1].slice(0, 8), ['compose', '--project-directory', root, '-f', path.join(root, COMPOSE_FILES.base), '-f', path.join(root, COMPOSE_FILES.certs), 'run']);
   assert.ok(calls[1][1].join(' ').includes('--entrypoint sh ai-dev-workflow sh'));
   // As the volume owner: the uid the entrypoint maps dev to, with dev's HOME.
   ownComposeRun({ root, env: { HOST_UID: '1234', HOST_GID: '5678' }, exec, argv: ['x'], entrypoint: 'sh', asHostUser: true });
@@ -123,7 +123,7 @@ test('stepTicket: host import fails, the dev container import succeeds', async (
   assert.deepEqual(events, ['suspend', 'resume']);
   assert.equal(readFileSync(path.join(ticketDir(root, 7), 'ticket.md'), 'utf8'), '# T\n\nB\n');
   assert.deepEqual(state.ticketText, { title: 'T', body: 'B' });
-  assert.deepEqual(calls[0][1].slice(0, 9), ['compose', '-f', path.join(root, COMPOSE_FILES.base), 'run', '--rm', '--no-deps', '-T', 'ai-dev-workflow', 'gh']);
+  assert.deepEqual(calls[0][1].slice(0, 11), ['compose', '--project-directory', root, '-f', path.join(root, COMPOSE_FILES.base), 'run', '--rm', '--no-deps', '-T', 'ai-dev-workflow', 'gh']);
   assert.equal(calls[0][1].includes('-p'), false);
   rmSync(root, { recursive: true });
 });
@@ -324,7 +324,7 @@ function loginsFixture(harness, { setupExit = 0, catStatus = 0, volume = true, c
   mkdirSync(path.join(root, '.adw'), { recursive: true });
   writeFileSync(path.join(root, COMPOSE_FILES.base), 'services: {}\n');
   putProject(root, JSON.stringify({ ticketing: { backend: 'file' }, e2e: { agent: { harness }, answerer: { harness }, verifier: { harness }, review: { harness } } }));
-  if (envFile) writeFileSync(path.join(root, '.env.ai-dev'), envFile);
+  if (envFile) writeFileSync(path.join(root, ENV_FILE), envFile);
   const calls = [];
   const out = [];
   const exec = (cmd, args, o = {}) => {
@@ -467,12 +467,12 @@ test('stepLogins: Ctrl-C in claude setup-token (exit 130) is an interrupt', asyn
 test('stepLogins: a pasted Claude token is saved, trimmed, and never reaches argv or the log', async () => {
   const f = loginsFixture('claude-code');
   const state = await runLogins(f, { setup: { claudeToken: 'y', claudeTokenValue: '  tok-123 \n', saveClaudeToken: 'y' } });
-  assert.match(readFileSync(path.join(f.root, '.env.ai-dev'), 'utf8'), /^CLAUDE_CODE_OAUTH_TOKEN=tok-123$/m);
+  assert.match(readFileSync(path.join(f.root, ENV_FILE), 'utf8'), /^CLAUDE_CODE_OAUTH_TOKEN=tok-123$/m);
   assert.equal(state.envAdditions.CLAUDE_CODE_OAUTH_TOKEN, 'tok-123');
   assert.deepEqual(state.creds.missing, []);
   assert.deepEqual(state.creds.secrets, ['tok-123']);
   const setup = f.calls.find(([, a]) => a.includes('setup-token'));
-  // The real CLI, not the image's `claude` wrapper: the wrapper needs /workspace/ai-project.json, and nothing is mounted.
+  // The real CLI, not the image's `claude` wrapper: the wrapper needs /workspace/.adw/project.json, and nothing is mounted.
   assert.deepEqual(setup[1], ['run', '--rm', '-it', '--entrypoint', '/opt/agent-tools/node_modules/.bin/claude', 'dev:1', 'setup-token']);
   assert.equal(setup[2].stdio, 'inherit');
   assert.equal(f.calls.some(([, a]) => a.includes('compose') && a.includes('run')), false);
@@ -559,7 +559,7 @@ test('stepLogins: a failed volume read reports it and copies nothing', async () 
 test('stepLogins: without the save answer the token is only in envAdditions', async () => {
   const f = loginsFixture('claude-code');
   const state = await runLogins(f, { setup: { claudeToken: 'y', claudeTokenValue: 'tok-9' } });
-  assert.equal(existsSync(path.join(f.root, '.env.ai-dev')), false);
+  assert.equal(existsSync(path.join(f.root, ENV_FILE)), false);
   assert.equal(state.envAdditions.CLAUDE_CODE_OAUTH_TOKEN, 'tok-9');
   f.clean();
 });
@@ -567,16 +567,16 @@ test('stepLogins: without the save answer the token is only in envAdditions', as
 test('stepLogins: an empty paste saves nothing and the login stays missing', async () => {
   const f = loginsFixture('claude-code');
   const state = await runLogins(f, { setup: { claudeToken: 'y', claudeTokenValue: '   ', saveClaudeToken: 'y' } });
-  assert.equal(existsSync(path.join(f.root, '.env.ai-dev')), false);
+  assert.equal(existsSync(path.join(f.root, ENV_FILE)), false);
   assert.deepEqual(state.envAdditions, {});
   assert.equal(state.creds.missing.length, 1);
   f.clean();
 });
 
-test('stepLogins: a CLAUDE_CODE_OAUTH_TOKEN already assigned in .env.ai-dev is kept', async () => {
+test('stepLogins: a CLAUDE_CODE_OAUTH_TOKEN already assigned in .adw/.env is kept', async () => {
   const f = loginsFixture('claude-code', { envFile: 'CLAUDE_CODE_OAUTH_TOKEN=\n' });
   await runLogins(f, { setup: { claudeToken: 'y', claudeTokenValue: 'new', saveClaudeToken: 'y' } });
-  assert.equal(readFileSync(path.join(f.root, '.env.ai-dev'), 'utf8'), 'CLAUDE_CODE_OAUTH_TOKEN=\n');
+  assert.equal(readFileSync(path.join(f.root, ENV_FILE), 'utf8'), 'CLAUDE_CODE_OAUTH_TOKEN=\n');
   assert.ok(f.out.some((l) => /already sets CLAUDE_CODE_OAUTH_TOKEN/.test(l)));
   f.clean();
 });
@@ -612,7 +612,7 @@ test('runSetup: returns fallbackHome, config and creds', async () => {
 function envFixture(envFile = null) {
   const root = tmp();
   putProject(root, JSON.stringify({ ticketing: { backend: 'file' } }));
-  if (envFile !== null) writeFileSync(path.join(root, '.env.ai-dev'), envFile);
+  if (envFile !== null) { mkdirSync(path.join(root, '.adw'), { recursive: true }); writeFileSync(path.join(root, ENV_FILE), envFile); }
   const config = { env: ['AZ_KEY', 'AZ_NAME'], secretEnv: ['AZ_KEY'] };
   const spy = [];
   const inner = createScriptedPrompter({ setup: { env: { AZ_KEY: 'k1', AZ_NAME: 'n1' }, saveEnv: 'y' } });
@@ -620,9 +620,9 @@ function envFixture(envFile = null) {
     askSecret: async (q, k) => { spy.push(['askSecret', k]); return inner.askSecret(q, k); } };
   return { root, spy, prompter, state: { envAdditions: {}, config }, d: { env: {}, log() {} } };
 }
-const envFile = (root) => (existsSync(path.join(root, '.env.ai-dev')) ? readFileSync(path.join(root, '.env.ai-dev'), 'utf8') : null);
+const envFile = (root) => (existsSync(path.join(root, ENV_FILE)) ? readFileSync(path.join(root, ENV_FILE), 'utf8') : null);
 
-test('stepEnvValues: secrets via askSecret, others via ask, saved to .env.ai-dev on yes', async () => {
+test('stepEnvValues: secrets via askSecret, others via ask, saved to .adw/.env on yes', async () => {
   const f = envFixture();
   await stepEnvValues({ root: f.root, opts: {}, d: f.d, prompter: f.prompter, state: f.state });
   assert.deepEqual(f.spy.filter(([, k]) => k.startsWith('setup.env.')), [['askSecret', 'setup.env.AZ_KEY'], ['ask', 'setup.env.AZ_NAME']]);
@@ -631,7 +631,7 @@ test('stepEnvValues: secrets via askSecret, others via ask, saved to .env.ai-dev
   assert.deepEqual(f.state.envAdditions, { AZ_KEY: 'k1', AZ_NAME: 'n1' });
 });
 
-test('stepEnvValues: without the save answer .env.ai-dev is unchanged but envAdditions holds the values', async () => {
+test('stepEnvValues: without the save answer .adw/.env is unchanged but envAdditions holds the values', async () => {
   const f = envFixture('OTHER=1\n');
   const inner = createScriptedPrompter({ setup: { env: { AZ_KEY: 'k1', AZ_NAME: 'n1' } } });
   await stepEnvValues({ root: f.root, opts: {}, d: f.d, prompter: inner, state: f.state });
@@ -699,12 +699,12 @@ test('stepE2eSection: scripted default, a missing confirm, a present section, no
   rmSync(f.root, { recursive: true });
 });
 
-// A git repo with AGENTS.md committed and a git-ignored .env.ai-dev beside it; git runs for real, docker is recorded.
+// A git repo with AGENTS.md committed and a git-ignored .adw/.env beside it; git runs for real, docker is recorded.
 const gitE2eFixture = () => {
   const f = e2eFixture();
   const git = (...a) => spawnSync('git', ['-C', f.root, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { encoding: 'utf8' });
-  writeFileSync(path.join(f.root, '.gitignore'), '.env.ai-dev\n');
-  writeFileSync(path.join(f.root, '.env.ai-dev'), 'SECRET=s\n');
+  writeFileSync(path.join(f.root, '.gitignore'), '.adw/.env\n');
+  writeFileSync(path.join(f.root, ENV_FILE), 'SECRET=s\n');
   git('init', '-q'); git('add', '.'); git('commit', '-qm', 'init');
   f.d.exec = (c, a, o) => { f.execs.push(a); return c === 'git' ? spawnSync(c, a, { encoding: 'utf8', ...o }) : { status: 0 }; };
   return f;
@@ -720,7 +720,7 @@ test('stepE2eSection: [d]raft calls the LLM read-only in the setup compose proje
   await f.run({}, { prompter, d: { callLlm: (a) => {
     seen = a;
     events.push('llm');
-    clone = { agents: existsSync(path.join(a.checkout, 'AGENTS.md')), env: existsSync(path.join(a.checkout, '.env.ai-dev')) };
+    clone = { agents: existsSync(path.join(a.checkout, 'AGENTS.md')), env: existsSync(path.join(a.checkout, ENV_FILE)) };
     return { section };
   } } });
   assert.deepEqual(events, ['suspend', 'llm', 'resume']);
@@ -741,7 +741,7 @@ test('stepE2eSection: [d]raft calls the LLM read-only in the setup compose proje
   assert.ok(argv.includes('-p'));
   assert.ok(argv.includes(composeProject(f.root, 'setup')));
   assert.match(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), /- Start: make run/);
-  assert.deepEqual(f.execs.find((a) => a.includes('down')), ['compose', '-f', path.join(f.root, COMPOSE_FILES.base), '-p', composeProject(f.root, 'setup'), 'down', '-v']);
+  assert.deepEqual(f.execs.find((a) => a.includes('down')), ['compose', '--project-directory', f.root, '-f', path.join(f.root, COMPOSE_FILES.base), '-p', composeProject(f.root, 'setup'), 'down', '-v']);
   rmSync(f.root, { recursive: true });
 });
 

@@ -63,7 +63,7 @@ test('secretEnv: defaults to [], accepts a subset of env, rejects strays and non
   assert.throws(() => loadLocalConfig(project({ env: ['A'], secretEnv: [1] }), { harness: 'codex' }), /e2e\.secretEnv must be an array of strings/);
 });
 
-test('a project without ai-project.json uses defaults', () => {
+test('a project without .adw/project.json uses defaults', () => {
   const c = loadLocalConfig(mkdtempSync(join(tmpdir(), 'adw-cfg-')), { harness: 'claude-code' });
   assert.equal(c.testCommand, null);
   assert.deepEqual(c.env, []);

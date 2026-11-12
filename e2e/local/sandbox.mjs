@@ -32,7 +32,7 @@ function sandboxConfig(work, root) {
 }
 
 // `adw e2e .`: the working tree as an unreferenced commit on top of HEAD, built in a throwaway index, so HEAD, branch,
-// index and stash stay as they are. Untracked files count, git-ignored ones (.env.ai-dev) never; .adw/e2e stays at
+// index and stash stay as they are. Untracked files count, git-ignored ones (.adw/.env) never; .adw/e2e stays at
 // HEAD's state, so a ticket's acceptance criteria cannot reach the agent. A clean tree is HEAD itself (worktree null);
 // otherwise `worktree` is the snapshot's tree hash, the same for the same local state.
 export function snapshotWorkingTree(root, git = defaultGit) {
