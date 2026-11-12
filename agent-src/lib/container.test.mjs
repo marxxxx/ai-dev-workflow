@@ -443,4 +443,9 @@ test('adw.sh reads .adw/.env and warns about a leftover .env.ai-dev', { skip: pr
   assert.equal(legacy.status, 0, legacy.stderr);
   assert.match(legacy.stderr, /move \.env\.ai-dev to \.adw\/\.env/);
   assert.ok(!legacy.calls.at(-1).includes('.adw/compose.dind.yml'), 'the old file is not read');
+
+  const both = runLauncher({}, 'AGENT_DIND=1\n', 'AGENT_DIND=0\n');
+  assert.equal(both.status, 0, both.stderr);
+  assert.match(both.stderr, /move \.env\.ai-dev to \.adw\/\.env/);
+  assert.ok(both.calls.at(-1).includes('.adw/compose.dind.yml'), 'only .adw/.env is read');
 });

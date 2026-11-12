@@ -57,7 +57,7 @@ and ask the agent to work on a ticket with `agent-dev`.
 
 ## 4. Behind a corporate proxy?
 
-Put per-machine settings in `.adw/.env` in the project root (git-ignored, read on every start,
+Put per-machine settings in `.adw/.env` (git-ignored, read on every start,
 so you can add it any time):
 
 ```sh
@@ -92,4 +92,6 @@ The daemon keeps running after the agent exits. Stop it, once no agent session i
 `.adw/compose.yml` is yours: add a database or other services, publish ports, add
 `node_modules` volumes for nested packages. Keep the `/workspace` bind, the `agent-home` volume,
 the capability set and the `HOST_UID`/`HOST_GID` settings: the runtime depends on them.
+Relative paths in `.adw/compose.yml` resolve against the project root (the launchers pass
+`--project-directory`), so write `./db-init`, not `../db-init`.
 Details: https://github.com/marxxxx/ai-dev-workflow/blob/main/docker/README.md

@@ -507,3 +507,46 @@ test('upgrade stops with exit 1 on a conflict and does not generate', () => {
     cleanup();
   }
 });
+
+test('upgrade prints the moves that happened before reporting a conflict', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    fs.writeFileSync(path.join(root, 'ai-project.json'), '{}\n');
+    fs.writeFileSync(path.join(root, 'compose.ai-dev.yml'), 'name: x-ai\n');
+    const { status, stdout, stderr } = runCli(['upgrade', '--root', root]);
+    assert.equal(status, 1);
+    assert.match(stdout, /Moved compose\.ai-dev\.yml → \.adw\/compose\.yml/);
+    assert.match(stderr, /Conflict: ai-project\.json and \.adw\/project\.json both exist/);
+    assert.ok(!fs.existsSync(path.join(root, '.claude')));
+  } finally {
+    cleanup();
+  }
+});
+
+test('upgrade --dry-run with a conflict exits 1', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    fs.writeFileSync(path.join(root, 'ai-project.json'), '{}\n');
+    const { status, stderr } = runCli(['upgrade', '--dry-run', '--root', root]);
+    assert.equal(status, 1);
+    assert.match(stderr, /Conflict: ai-project\.json/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('upgrade fails cleanly on an invalid project file and moves nothing', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'ai-project.json'), '{ nope');
+    fs.writeFileSync(path.join(root, 'AI-DEV.md'), 'old readme\n');
+    const before = listTree(root);
+    const { status, stderr } = runCli(['upgrade', '--root', root]);
+    assert.equal(status, 1);
+    assert.match(stderr, /upgrade failed: ai-project\.json is not valid JSON/);
+    assert.doesNotMatch(stderr, /\n\s+at /);
+    assert.deepEqual(listTree(root), before);
+  } finally {
+    cleanup();
+  }
+});

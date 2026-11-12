@@ -30,7 +30,7 @@
 // re-exports the public API for back-compat with in-process tests and external importers.
 // The implementation lives in the feature modules under agent-src/lib/:
 //   constants · serialize · identity · config · tokens · units · ticketing · renderers ·
-//   onboard · pipeline · upgrade · skills
+//   onboard · pipeline · upgrade · skills · layout · container
 //
 // Zero dependencies: node builtins only. Writes LF line endings on every platform.
 
@@ -102,7 +102,16 @@ function main() {
     process.exit(1);
   }
 
-  if (command === 'upgrade') process.exit(upgrade(projectRoot, process.argv.includes('--dry-run')));
+  if (command === 'upgrade') {
+    let code;
+    try {
+      code = upgrade(projectRoot, process.argv.includes('--dry-run'));
+    } catch (err) {
+      console.error(`upgrade failed: ${err.message}`);
+      code = 1;
+    }
+    process.exit(code);
+  }
   try {
     assertCurrentLayout(projectRoot);
   } catch (err) {
@@ -132,15 +141,16 @@ function main() {
  */
 function upgrade(projectRoot, dryRun) {
   const { changes, conflicts, edits } = migrateLayout(projectRoot, { dryRun });
-  for (const { from, to } of conflicts) {
-    console.error(`Conflict: ${from} and ${to} both exist; left both in place. Merge them by hand, delete ${from}, then run upgrade again.`);
-  }
-  if (conflicts.length) return 1;
+  // Print what was done before any conflict stops the run: the moves already happened.
   for (const { from, to, kind } of changes) {
     const verb = kind === 'rewrite' ? (dryRun ? 'Would rewrite' : 'Rewrote') : (dryRun ? 'Would move' : 'Moved');
     console.log(`${verb} ${from} → ${to}`);
   }
   for (const edit of edits) console.log(dryRun ? `Would: ${edit}` : edit);
+  for (const { from, to } of conflicts) {
+    console.error(`Conflict: ${from} and ${to} both exist; left both in place. Merge them by hand, delete ${from}, then run upgrade again.`);
+  }
+  if (conflicts.length) return 1;
   if (changes.length && (fs.existsSync(path.join(projectRoot, README_FILE)) || changes.some((c) => c.to === README_FILE))) {
     console.log(`See ${README_FILE} for the container setup.`);
   }

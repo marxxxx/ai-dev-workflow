@@ -53,7 +53,25 @@ export function migrateLayout(projectRoot, { dryRun = false } = {}) {
   const changes = [];
   const conflicts = [];
   const edits = [];
-  const ensureAdw = () => { if (!dryRun) fs.mkdirSync(abs(projectRoot, ADW_DIR), { recursive: true }); };
+  const adwDir = abs(projectRoot, ADW_DIR);
+  if (fs.existsSync(adwDir) && !fs.statSync(adwDir).isDirectory()) {
+    throw new Error(`${ADW_DIR} exists but is not a directory; move it aside and run upgrade again.`);
+  }
+  const ensureAdw = () => { if (!dryRun) fs.mkdirSync(adwDir, { recursive: true }); };
+
+  // Inputs of the launcher/README rewrite, read before anything moves so a broken project file
+  // aborts with the tree untouched. Each file is read where it is now or will be after its move.
+  const willRewrite = LEGACY_REWRITES.some(([from, to]) => present(projectRoot, from) && !present(projectRoot, to));
+  const where = (to) => (present(projectRoot, to) ? to : LEGACY_MOVES.find(([, t]) => t === to)[0]);
+  let project = {};
+  let slug;
+  if (willRewrite) {
+    const projectFile = where(PROJECT_FILE);
+    project = readJson(abs(projectRoot, projectFile), projectFile, false) || {};
+    const composePath = abs(projectRoot, where(COMPOSE_FILES.base));
+    const composeText = fs.existsSync(composePath) && fs.statSync(composePath).isFile() ? fs.readFileSync(composePath, 'utf8') : '';
+    slug = /^name:\s*["']?(\S+?)-ai["']?\s*$/m.exec(composeText)?.[1];
+  }
 
   for (const [from, to] of LEGACY_MOVES) {
     if (!present(projectRoot, from)) continue;
@@ -62,14 +80,6 @@ export function migrateLayout(projectRoot, { dryRun = false } = {}) {
     if (!dryRun) fs.renameSync(abs(projectRoot, from), abs(projectRoot, to));
     changes.push({ from, to, kind: 'move' });
   }
-
-  // The files as they are now: after a real move at the new place, in a dry run (or on a
-  // conflict) wherever they still are.
-  const current = (to) => (present(projectRoot, to) ? to : LEGACY_MOVES.find(([, t]) => t === to)[0]);
-  const project = readJson(abs(projectRoot, current(PROJECT_FILE)), 'project config', false) || {};
-  const composePath = abs(projectRoot, current(COMPOSE_FILES.base));
-  const composeText = fs.existsSync(composePath) && fs.statSync(composePath).isFile() ? fs.readFileSync(composePath, 'utf8') : '';
-  const slug = /^name:\s*["']?(\S+?)-ai["']?\s*$/m.exec(composeText)?.[1];
 
   let rendered;
   for (const [from, to] of LEGACY_REWRITES) {
@@ -92,10 +102,10 @@ export function migrateLayout(projectRoot, { dryRun = false } = {}) {
     changes.push({ from, to, kind: 'rewrite' });
   }
 
-  // Ignore files: never created, only edited when they exist.
+  // .gitignore: created only when the secrets file moved; otherwise only edited when it exists.
   const gitignore = abs(projectRoot, '.gitignore');
   const movedEnv = changes.some((c) => c.from === OLD_ENV);
-  if (fs.existsSync(gitignore) && (movedEnv || hasLine(gitignore, OLD_ENV)) && !hasLine(gitignore, ENV_FILE)) {
+  if ((movedEnv || (fs.existsSync(gitignore) && hasLine(gitignore, OLD_ENV))) && !hasLine(gitignore, ENV_FILE)) {
     if (dryRun || ensureLine(gitignore, ENV_FILE)) edits.push(`Added ${ENV_FILE} to .gitignore`);
   }
   const gitattributes = abs(projectRoot, '.gitattributes');

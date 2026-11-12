@@ -175,7 +175,7 @@ export function writeContainerFiles(projectRoot, { env = {}, ...opts }) {
 }
 
 /**
- * Fix the project-owned container files need and `upgrade` cannot apply: v0.29.0 and earlier
+ * Fixes the project-owned container files need and `upgrade` cannot apply: v0.29.0 and earlier
  * dropped all capabilities without keeping KILL in .adw/compose.yml, so the root init (tini)
  * cannot forward signals to the dev user's processes and stops the container on the first one
  * (a resize).

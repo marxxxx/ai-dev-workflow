@@ -19,7 +19,8 @@ if [ -f "$root/.adw/.env" ]; then
     eval "isset=\${$key+x}"
     [ -n "$isset" ] || export "$key=$value"
   done < "$root/.adw/.env"
-elif [ -f "$root/.env.ai-dev" ]; then
+fi
+if [ -f "$root/.env.ai-dev" ]; then
   echo "adw.sh: move .env.ai-dev to .adw/.env, or run adw upgrade; it is not read anymore." >&2
 fi
 

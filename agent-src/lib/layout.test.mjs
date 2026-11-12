@@ -127,12 +127,48 @@ test('migrateLayout without container files moves only the config', () => {
   } finally { cleanup(); }
 });
 
-test('migrateLayout never creates .gitignore, even when .env.ai-dev moves', () => {
-  const { root, exists, cleanup } = fixture({ '.env.ai-dev': 'A=1\n' });
+test('migrateLayout creates .gitignore with .adw/.env when .env.ai-dev moves and none exists', () => {
+  const { root, read, exists, cleanup } = fixture({ '.env.ai-dev': 'A=1\n' });
   try {
     const r = migrateLayout(root);
-    assert.ok(exists('.adw/.env') && !exists('.gitignore'));
+    assert.ok(exists('.adw/.env'));
+    assert.equal(read('.gitignore'), '.adw/.env\n');
+    assert.deepEqual(r.edits, ['Added .adw/.env to .gitignore']);
+  } finally { cleanup(); }
+});
+
+test('migrateLayout never creates .gitignore when .env.ai-dev did not move', () => {
+  const { root, exists, cleanup } = fixture({ 'ai-project.json': gitea() });
+  try {
+    const r = migrateLayout(root);
+    assert.ok(!exists('.gitignore'));
     assert.deepEqual(r.edits, []);
+  } finally { cleanup(); }
+});
+
+test('migrateLayout dryRun reports the .gitignore it would create', () => {
+  const { root, exists, cleanup } = fixture({ '.env.ai-dev': 'A=1\n' });
+  try {
+    assert.deepEqual(migrateLayout(root, { dryRun: true }).edits, ['Added .adw/.env to .gitignore']);
+    assert.ok(!exists('.gitignore'));
+  } finally { cleanup(); }
+});
+
+test('migrateLayout throws before moving anything when the project file is not valid JSON', () => {
+  const { root, cleanup } = fixture({ 'ai-project.json': '{ nope', 'ai-dev.sh': 'old\n', 'agent-custom/a.md': 'a' });
+  try {
+    const before = snapshot(root);
+    assert.throws(() => migrateLayout(root), /ai-project\.json is not valid JSON/);
+    assert.deepEqual(snapshot(root), before);
+  } finally { cleanup(); }
+});
+
+test('migrateLayout throws before moving anything when .adw is a file', () => {
+  const { root, cleanup } = fixture({ '.adw': 'file', 'ai-project.json': gitea(), 'ai-dev.sh': 'old\n' });
+  try {
+    const before = snapshot(root);
+    assert.throws(() => migrateLayout(root), /\.adw exists but is not a directory/);
+    assert.deepEqual(snapshot(root), before);
   } finally { cleanup(); }
 });
 

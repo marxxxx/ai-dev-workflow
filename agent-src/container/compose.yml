@@ -1,6 +1,8 @@
 # Project-owned; written once by adw init. Start it with ./adw.sh or .\adw.ps1
 # (see .adw/README.md). Add services, ports and dependency volumes as your project needs; keep the
 # /workspace bind, agent-home, the capability set and the HOST_UID/HOST_GID settings.
+# Relative paths here resolve against the project root (the launchers pass --project-directory):
+# write ./db-init, not ../db-init.
 name: @@SLUG@@-ai
 services:
   ai-dev-workflow:

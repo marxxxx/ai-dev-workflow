@@ -9,7 +9,7 @@ $root = $PSScriptRoot
 # Per-machine settings (AGENT_CA_DIR, proxies, AGENT_IMAGE, ...). Never overrides a variable that
 # is already set in the environment.
 $envFile = Join-Path $root '.adw/.env'
-if (-not (Test-Path -LiteralPath $envFile) -and (Test-Path -LiteralPath (Join-Path $root '.env.ai-dev'))) {
+if ((Test-Path -LiteralPath (Join-Path $root '.env.ai-dev'))) {
   Write-Warning 'adw.ps1: move .env.ai-dev to .adw/.env, or run adw upgrade; it is not read anymore.'
 }
 if (Test-Path -LiteralPath $envFile) {
