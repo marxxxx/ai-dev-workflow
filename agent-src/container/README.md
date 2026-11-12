@@ -15,6 +15,9 @@ Each start first pulls the newest build of the image (`AGENT_IMAGE` or the defau
 `.adw/compose.yml`). If the pull fails, for example offline, the launcher warns and starts the
 image already on this machine.
 
+Without the launchers, run this from the project root (with `PROJECT_ROOT`, `HOST_UID` and `HOST_GID` set, as
+the compose file requires): `docker compose --project-directory . -f .adw/compose.yml run --rm ai-dev-workflow`.
+
 PowerShell: `.\adw.ps1` instead of `./adw.sh`. If scripts are blocked, run
 `powershell -ExecutionPolicy Bypass -File .\adw.ps1` once, or
 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. PowerShell swallows a bare `--`

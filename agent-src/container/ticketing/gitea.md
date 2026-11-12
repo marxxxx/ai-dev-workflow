@@ -1,4 +1,4 @@
-Add the `tea` login this project uses (`@@GITEA_LOGIN@@`, from `ai-project.json`), with a
+Add the `tea` login this project uses (`@@GITEA_LOGIN@@`, from `.adw/project.json`), with a
 Gitea access token:
 
 ```sh

@@ -81,7 +81,7 @@ test('renderContainerFiles returns the seven files under .adw/ and the root laun
         // Only the launchers name the old env file, to tell a leftover one to move.
         const content = [LAUNCHERS.sh, LAUNCHERS.ps1].includes(f.path)
           ? f.content.split('\n').filter((l) => !/\.env\.ai-dev/.test(l)).join('\n') : f.content;
-        assert.doesNotMatch(content, /ai-dev\.sh|ai-dev\.ps1|AI-DEV\.md|compose\.ai-dev|\.env\.ai-dev/, `${stack}/${backend}: ${f.path}`);
+        assert.doesNotMatch(content, /ai-dev\.sh|ai-dev\.ps1|AI-DEV\.md|compose\.ai-dev|\.env\.ai-dev|ai-project\.json/, `${stack}/${backend}: ${f.path}`);
       }
       assert.equal(fileOf(files, 'adw.sh').mode, 0o755);
       assert.equal(fileOf(files, 'adw.ps1').mode, undefined);
@@ -375,6 +375,11 @@ test('containerWarnings ignores KILL that only appears in a comment', () => {
   }
 });
 
+test('the README shows the manual compose command with --project-directory', () => {
+  const readme = fileOf(renderContainerFiles({ name: 'Demo', stack: 'generic', backend: 'file' }), '.adw/README.md').content;
+  assert.ok(readme.includes('--project-directory . -f .adw/compose.yml'));
+});
+
 test('renderContainerFiles uses an explicit slug', () => {
   const readme = fileOf(renderContainerFiles({ name: 'Demo', stack: 'generic', backend: 'file', slug: 'legacy' }), '.adw/README.md').content;
   assert.ok(readme.includes('legacy-ai_agent-home'));
@@ -413,7 +418,7 @@ test('adw.sh passes the project root as project directory from any cwd', { skip:
     writeContainerFiles(root, OPTS);
     const { bin, log } = fakeDocker(root);
     fs.mkdirSync(path.join(root, 'src'));
-    const result = spawnSync('sh', [path.join(root, 'adw.sh'), 'true'], {
+    const result = spawnSync('sh', ['../adw.sh', 'true'], {
       cwd: path.join(root, 'src'), encoding: 'utf8', env: { ...cleanEnv(), PATH: `${bin}:${process.env.PATH}` },
     });
     assert.equal(result.status, 0, result.stderr);
