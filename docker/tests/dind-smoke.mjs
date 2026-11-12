@@ -21,7 +21,8 @@ const [template, overlay] = [COMPOSE_FILES.base, COMPOSE_FILES.dind].map(name =>
 });
 const project = path.join(temporary, 'project with spaces');
 mkdirSync(path.join(project, 'web'), { recursive: true });
-writeFileSync(path.join(project, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' } }));
+mkdirSync(path.join(project, '.adw'), { recursive: true });
+writeFileSync(path.join(project, '.adw', 'project.json'), JSON.stringify({ ticketing: { backend: 'file' } }));
 writeFileSync(path.join(project, 'web', 'index.html'), 'served-from-project\n');
 writeFileSync(path.join(project, 'Dockerfile'), 'FROM busybox:1.37\nRUN echo built-in-dind > /built\n');
 writeFileSync(path.join(project, 'stack.yml'), [

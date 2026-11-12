@@ -11,7 +11,7 @@ import { buildLaunchPlan, configureRuntime } from './launch-agent.mjs';
 
 const scriptPath = fileURLToPath(new URL('./launch-agent.mjs', import.meta.url));
 
-// Bare workspace with NO ai-project.json / .mcp.json / .codex — proves tool-stack-only reads none of them.
+// Bare workspace with NO project file / .mcp.json / .codex — proves tool-stack-only reads none of them.
 function bareWorkspace(t) {
   const root = mkdtempSync(path.join(tmpdir(), 'agent-toolstack-'));
   const workspace = path.join(root, 'workspace');
@@ -28,7 +28,8 @@ function fixture(t, backend = 'azure-devops') {
   const home = path.join(root, 'home');
   mkdirSync(path.join(workspace, '.codex'), { recursive: true });
   mkdirSync(home);
-  writeFileSync(path.join(workspace, 'ai-project.json'), JSON.stringify({
+  mkdirSync(path.join(workspace, '.adw'));
+  writeFileSync(path.join(workspace, '.adw', 'project.json'), JSON.stringify({
     ticketing: backend === 'azure-devops'
       ? { backend, azureDevOps: { organization: 'fixture-org' } }
       : { backend },
@@ -149,7 +150,7 @@ test('ADO launch fails with a device-login diagnostic while agent login remains 
   assert.deepEqual(login.args, ['login', '--device-auth']);
 });
 
-test('login and maintenance commands reach the real CLI without ai-project.json', t => {
+test('login and maintenance commands reach the real CLI without a project file', t => {
   const { workspace, home } = bareWorkspace(t);
   const cases = [
     ['claude', ['setup-token']], ['claude', ['auth', 'login']], ['claude', ['--version']],
@@ -161,17 +162,51 @@ test('login and maintenance commands reach the real CLI without ai-project.json'
     assert.equal(plan.command, `/real/bin/${agent}`);
     assert.deepEqual(plan.args, args);
   }
-  assert.throws(() => buildLaunchPlan('claude', ['-p', 'hi'], { workspace, home }), /ai-project\.json is required/);
+  assert.throws(() => buildLaunchPlan('claude', ['-p', 'hi'], { workspace, home }), /\.adw\/project\.json is required in \/workspace/);
+});
+
+function projectFileWorkspace(t, files) {
+  const { workspace, home } = bareWorkspace(t);
+  for (const [name, content] of Object.entries(files)) {
+    mkdirSync(path.dirname(path.join(workspace, name)), { recursive: true });
+    writeFileSync(path.join(workspace, name), JSON.stringify(content));
+  }
+  return { workspace, home };
+}
+const adoProject = organization => ({ ticketing: { backend: 'azure-devops', azureDevOps: { organization } } });
+const fileProject = { ticketing: { backend: 'file' } };
+
+test('project state reads .adw/project.json', t => {
+  const { workspace, home } = projectFileWorkspace(t, { '.adw/project.json': adoProject('o') });
+  const plan = buildLaunchPlan('codex', [], { workspace, home, checkAzureAuth: () => true });
+  assert.ok(plan.args.join(' ').includes('mcp_servers.ado'));
+});
+
+test('project state falls back to ai-project.json', t => {
+  const { workspace, home } = projectFileWorkspace(t, { 'ai-project.json': adoProject('o') });
+  const plan = buildLaunchPlan('codex', [], { workspace, home, checkAzureAuth: () => true });
+  assert.ok(plan.args.join(' ').includes('mcp_servers.ado'));
+});
+
+test('project state prefers .adw/project.json when both exist', t => {
+  const { workspace, home } = projectFileWorkspace(t, { '.adw/project.json': fileProject, 'ai-project.json': adoProject('o') });
+  const plan = buildLaunchPlan('codex', [], { workspace, home, checkAzureAuth: () => true });
+  assert.ok(!plan.args.join(' ').includes('mcp_servers.ado'));
+});
+
+test('project state names .adw/project.json when neither exists', t => {
+  const { workspace, home } = bareWorkspace(t);
+  assert.throws(() => buildLaunchPlan('codex', [], { workspace, home }), /\.adw\/project\.json is required in \/workspace/);
 });
 
 test('missing ADO organization and unsupported agents fail clearly', t => {
   const { workspace, home } = fixture(t);
-  writeFileSync(path.join(workspace, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'azure-devops' } }));
+  writeFileSync(path.join(workspace, '.adw', 'project.json'), JSON.stringify({ ticketing: { backend: 'azure-devops' } }));
   assert.throws(() => buildLaunchPlan('codex', [], { workspace, home }), /organization/);
   assert.throws(() => buildLaunchPlan('unknown', [], { workspace, home }), /Unsupported agent/);
 });
 
-test('tool-stack-only configureRuntime needs no ai-project.json', t => {
+test('tool-stack-only configureRuntime needs no project file', t => {
   const { root, workspace, home } = bareWorkspace(t);
   const serenaConfigFile = path.join(root, 'serena_config.yml');
   writeFileSync(serenaConfigFile, 'projects: []\n');
@@ -212,7 +247,7 @@ test('tool-stack-only Claude config has exactly the three managed servers', t =>
   assert.deepEqual(Object.keys(effective.mcpServers).sort(), ['context7', 'playwright', 'serena']);
 });
 
-test('CLI honors AGENT_TOOLSTACK_ONLY with no ai-project.json on disk', () => {
+test('CLI honors AGENT_TOOLSTACK_ONLY with no project file on disk', () => {
   const result = spawnSync(process.execPath, [scriptPath, 'codex', '--yolo'], {
     env: { ...process.env, AGENT_TOOLSTACK_ONLY: '1', AGENT_RUNTIME_PRINT_PLAN: '1' },
     encoding: 'utf8',
