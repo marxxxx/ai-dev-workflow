@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { PROJECT_FILE } from './lib/constants.mjs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
@@ -113,6 +114,7 @@ export function makeTmpRoot() {
  */
 export function tmpProject(config = MINIMAL_PROJECT) {
   const { root, cleanup } = makeTmpRoot();
-  fs.writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(config, null, 2) + '\n');
+  fs.mkdirSync(path.join(root, '.adw'), { recursive: true });
+  fs.writeFileSync(path.join(root, PROJECT_FILE), JSON.stringify(config, null, 2) + '\n');
   return { root, cleanup };
 }

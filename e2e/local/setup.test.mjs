@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 import { createScriptedPrompter } from '../../agent-src/lib/onboard.mjs';
 import { detectTestCommand, e2eChanges, makePrompter, ownComposeRun, projectVolume, runSetup, renderE2eSection, stepContainerFiles, stepE2eSection, stepEnvValues, stepInterview, stepLogins, stepProjectConfig, stepTicket } from './setup.mjs';
 import { composeProject } from './session.mjs';
 import { readLocalState, readTicket, ticketDir, writeLocalState, writeTicket } from './store.mjs';
 import { spawnSync } from 'node:child_process';
+
+const putProject = (root, text) => { mkdirSync(path.join(root, '.adw'), { recursive: true }); writeFileSync(path.join(root, PROJECT_FILE), text); };
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'adw-setup-'));
 const noop = { log() {}, error() {} };
@@ -30,14 +33,14 @@ test('stepProjectConfig: nothing to do with an ai-project.json or without a prom
   const root = tmp();
   const d = { ...noop, cmdInit: async () => { throw new Error('no'); } };
   await stepProjectConfig({ root, opts: {}, d, prompter: null, state: {} });
-  writeFileSync(path.join(root, 'ai-project.json'), '{}');
+  putProject(root, '{}');
   await stepProjectConfig({ root, opts: {}, d, prompter: createScriptedPrompter({ setup: { init: 'y' } }), state: {} });
   rmSync(root, { recursive: true });
 });
 
 test('stepContainerFiles: writes the files on yes and git-ignores .env.ai-dev', async () => {
   const root = tmp();
-  writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' } }));
+  putProject(root, JSON.stringify({ ticketing: { backend: 'file' } }));
   const prompter = createScriptedPrompter({ setup: { container: 'y' }, container: { enabled: 'y', stack: 'node' } });
   await stepContainerFiles({ root, opts: {}, d: noop, prompter, state: {} });
   assert.ok(existsSync(path.join(root, 'compose.ai-dev.yml')));
@@ -85,7 +88,7 @@ test('runSetup: without a prompter returns the empty state; closes a real prompt
   rmSync(root, { recursive: true });
 });
 
-const ghProject = (root, backend = 'github') => writeFileSync(path.join(root, 'ai-project.json'),
+const ghProject = (root, backend = 'github') => putProject(root,
   JSON.stringify({ ticketing: { backend }, repository: { slug: 'o/r' } }));
 const hostFails = ({ exec }) => { if (!exec) throw new Error('ticket import (github) failed: gh issue view'); return JSON.parse(exec('gh', ['issue', 'view', '7'])); };
 const ticketOpts = { ticket: 7, ticketFile: null };
@@ -229,20 +232,20 @@ test('e2eChanges: keeps current keys, sets answers, drops default-valued ones', 
 
 const interviewProject = (root, extra = {}) => {
   const project = { project: { name: 'p' }, ticketing: { backend: 'file' }, ...extra };
-  writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(project, null, 2) + '\n');
+  putProject(root, JSON.stringify(project, null, 2) + '\n');
   return project;
 };
 const interviewD = { ...noop, home: '/nonexistent-home', env: {}, log() {} };
 const run = (root, opts, answers, state = { envAdditions: {}, ticketText: { title: 'The ticket', body: 'it is for the team' } }) =>
   stepInterview({ root, opts, d: interviewD, prompter: createScriptedPrompter(answers), state });
-const readProject = (root) => JSON.parse(readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+const readProject = (root) => JSON.parse(readFileSync(path.join(root, PROJECT_FILE), 'utf8'));
 
 test('stepInterview: confirmed answers are written as the e2e block, nothing else changes', async () => {
   const root = tmp();
   const project = interviewProject(root);
   await run(root, {}, { e2e: { agent: { harness: 'codex' }, testCommand: 'npm test', language: 'en' }, setup: { writeE2e: 'y' } });
   assert.deepEqual(readProject(root), { ...project, e2e: { agent: { harness: 'codex' }, testCommand: 'npm test', language: 'en' } });
-  assert.match(readFileSync(path.join(root, 'ai-project.json'), 'utf8'), /\n$/);
+  assert.match(readFileSync(path.join(root, PROJECT_FILE), 'utf8'), /\n$/);
   rmSync(root, { recursive: true });
 });
 
@@ -318,7 +321,7 @@ function loginsFixture(harness, { setupExit = 0, catStatus = 0, volume = true, c
   const root = tmp();
   const home = tmp();
   writeFileSync(path.join(root, 'compose.ai-dev.yml'), 'services: {}\n');
-  writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' }, e2e: { agent: { harness }, answerer: { harness }, verifier: { harness }, review: { harness } } }));
+  putProject(root, JSON.stringify({ ticketing: { backend: 'file' }, e2e: { agent: { harness }, answerer: { harness }, verifier: { harness }, review: { harness } } }));
   if (envFile) writeFileSync(path.join(root, '.env.ai-dev'), envFile);
   const calls = [];
   const out = [];
@@ -589,7 +592,7 @@ test('stepLogins: without a prompter nothing is asked and no docker call is made
   assert.deepEqual(f.calls, []);
   assert.equal(state.creds.missing.length, 1);
   assert.ok(state.config);
-  writeFileSync(path.join(f.root, 'ai-project.json'), '{ nope');
+  putProject(f.root, '{ nope');
   const other = { envAdditions: {}, ticketText: null };
   await stepLogins({ root: f.root, opts: {}, d: f.d, prompter: null, state: other });
   assert.equal(other.config, undefined);
@@ -606,7 +609,7 @@ test('runSetup: returns fallbackHome, config and creds', async () => {
 // stepEnvValues: a project with e2e.env AZ_KEY (secret) and AZ_NAME.
 function envFixture(envFile = null) {
   const root = tmp();
-  writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' } }));
+  putProject(root, JSON.stringify({ ticketing: { backend: 'file' } }));
   if (envFile !== null) writeFileSync(path.join(root, '.env.ai-dev'), envFile);
   const config = { env: ['AZ_KEY', 'AZ_NAME'], secretEnv: ['AZ_KEY'] };
   const spy = [];
@@ -653,7 +656,7 @@ test('renderE2eSection: the heading and four lines in order', () => {
 
 const e2eFixture = (agentsMd = '# P\n') => {
   const root = tmp();
-  writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' } }));
+  putProject(root, JSON.stringify({ ticketing: { backend: 'file' } }));
   if (agentsMd !== null) writeFileSync(path.join(root, 'AGENTS.md'), agentsMd);
   const out = []; const errors = []; const execs = [];
   const d = { log: (s) => out.push(String(s)), error: (s) => errors.push(String(s)), env: {}, exec: (c, a) => { execs.push(a); return { status: 0 }; }, callLlm: () => { throw new Error('no llm'); } };

@@ -16,6 +16,7 @@ import { devImage } from './image.mjs';
 import { AGENT_BIN, OPENCODE_LOGIN, authMounts, composeEnv, composeProject, stageCredentials } from './session.mjs';
 import { openCodeExport } from '../lib/secrets.mjs';
 import { readLocalState, readTicket, ticketDir, writeLocalState, writeTicket } from './store.mjs';
+import { PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 
 const DEFAULTS = JSON.parse(readFileSync(new URL('./defaults.json', import.meta.url), 'utf8'));
 
@@ -47,8 +48,8 @@ const readJson = (file) => {
 };
 
 export async function stepProjectConfig({ root, d, prompter }) {
-  if (!prompter || existsSync(path.join(root, 'ai-project.json'))) return;
-  const answer = await prompter.ask('No ai-project.json here. Run the adw init interview now? (Y/n)', 'setup.init', prompter.scripted ? 'n' : 'y');
+  if (!prompter || existsSync(path.join(root, PROJECT_FILE))) return;
+  const answer = await prompter.ask('No .adw/project.json here. Run the adw init interview now? (Y/n)', 'setup.init', prompter.scripted ? 'n' : 'y');
   if (yes(answer)) await d.cmdInit(root, { prompter });
 }
 
@@ -57,7 +58,7 @@ export async function stepContainerFiles({ root, prompter }) {
   const answer = await prompter.ask('No dev container files (compose.ai-dev.yml). Write them now? (Y/n)', 'setup.container', prompter.scripted ? 'n' : 'y');
   if (!yes(answer)) return;
   const container = await askContainer(prompter, root);
-  if (container.enabled) setUpContainer(root, container, readJson(path.join(root, 'ai-project.json')));
+  if (container.enabled) setUpContainer(root, container, readJson(path.join(root, PROJECT_FILE)));
 }
 
 // A one-off in the project's own compose project (no -p), with the env the containers get; the caller reads the result.
@@ -82,7 +83,7 @@ const PLACEHOLDER = '# <title>\n\n<body>\n';
 export async function stepTicket({ root, opts, d, prompter, state }) {
   const dir = ticketDir(root, opts.ticket);
   if (readTicket(dir)) return;
-  const file = path.join(root, 'ai-project.json');
+  const file = path.join(root, PROJECT_FILE);
   const project = existsSync(file) ? readJson(file) : {};
   const ticketFile = opts.ticketFile ? readFileSync(path.resolve(opts.ticketFile), 'utf8') : undefined;
   const done = (ticket) => { writeTicket(dir, ticket); state.ticketText = readTicket(dir); };
@@ -163,15 +164,15 @@ export function e2eChanges(current, answers) {
 }
 
 export function writeProjectE2e(root, e2e) {
-  const file = path.join(root, 'ai-project.json');
+  const file = path.join(root, PROJECT_FILE);
   writeFileSync(file, `${JSON.stringify({ ...readJson(file), e2e }, null, 2)}\n`);
 }
 
 const names = (text) => String(text).split(',').map((n) => n.trim()).filter(Boolean);
 
-// The first-run interview: asks for the e2e settings, shows the block, writes it to ai-project.json on confirmation.
+// The first-run interview: asks for the e2e settings, shows the block, writes it to .adw/project.json on confirmation.
 export async function stepInterview({ root, opts, d, prompter, state }) {
-  const file = path.join(root, 'ai-project.json');
+  const file = path.join(root, PROJECT_FILE);
   if (!prompter || !existsSync(file)) return;
   const project = readJson(file);
   if ('e2e' in project && !opts.reconfigure) return;
@@ -201,8 +202,8 @@ export async function stepInterview({ root, opts, d, prompter, state }) {
 
   const e2e = e2eChanges(current, { agent: { harness, model }, verifier: { model: judgeModel }, review: { model: judgeModel },
     testCommand, env: envNames, secretEnv, language });
-  d.log(`e2e in ai-project.json, now:\n${JSON.stringify(project.e2e ?? null, null, 2)}\nnew:\n${JSON.stringify(e2e, null, 2)}`);
-  const answer = await prompter.ask('Write this to ai-project.json? (Y/n)', 'setup.writeE2e', prompter.scripted ? 'n' : 'y');
+  d.log(`e2e in .adw/project.json, now:\n${JSON.stringify(project.e2e ?? null, null, 2)}\nnew:\n${JSON.stringify(e2e, null, 2)}`);
+  const answer = await prompter.ask('Write this to .adw/project.json? (Y/n)', 'setup.writeE2e', prompter.scripted ? 'n' : 'y');
   if (yes(answer)) writeProjectE2e(root, e2e);
 }
 

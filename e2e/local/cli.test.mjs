@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 import { fileURLToPath } from 'node:url';
 import * as metrics from '../lib/metrics.mjs';
 import { makeClaudeTrial } from '../lib/fixtures/make.mjs';
@@ -25,7 +26,8 @@ const TICKET_FILE = '---\nstatus: review\n---\n\nbody\n\n---\n## Approved Spec\n
 function project(e2e = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'adw-cli-'));
   writeFileSync(path.join(root, 'compose.ai-dev.yml'), 'services: {}\n');
-  writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' }, e2e }));
+  mkdirSync(path.join(root, '.adw'), { recursive: true });
+  writeFileSync(path.join(root, PROJECT_FILE), JSON.stringify({ ticketing: { backend: 'file' }, e2e }));
   writeFileSync(path.join(root, 'issue.md'), '# Fälligkeitsdatum\n\nTodos bekommen ein Datum, das nicht leer ist und mit der Liste erscheint.\n');
   mkdirSync(path.join(root, 'home'));
   return root;

@@ -1,13 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 import { loadLocalConfig, selfJudged } from './config.mjs';
 
 function project(e2e) {
   const root = mkdtempSync(join(tmpdir(), 'adw-cfg-'));
-  writeFileSync(join(root, 'ai-project.json'), JSON.stringify(e2e === undefined ? {} : { e2e }));
+  mkdirSync(join(root, '.adw'), { recursive: true });
+  writeFileSync(join(root, PROJECT_FILE), JSON.stringify(e2e === undefined ? {} : { e2e }));
   return root;
 }
 

@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 import { ISOLATE, COMMIT, bundleBranch } from '../lib/bundle.mjs';
 import { createSandbox, collectSandbox, snapshotWorkingTree } from './sandbox.mjs';
 
@@ -16,7 +17,8 @@ function makeRepo(aiProject) {
   mkdirSync(root);
   g(['init', '-q', '-b', 'main'], root);
   writeFileSync(path.join(root, 'README.md'), 'hi\n');
-  if (aiProject) writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(aiProject));
+  if (aiProject) mkdirSync(path.join(root, '.adw'));
+  if (aiProject) writeFileSync(path.join(root, PROJECT_FILE), JSON.stringify(aiProject));
   g(['add', '-A'], root);
   g([...COMMIT, 'commit', '-qm', 'base'], root);
   g(['remote', 'add', 'origin', 'https://example.invalid/real.git'], root);
@@ -33,7 +35,7 @@ test('sandbox switches to the file backend, generates, and isolates the remote',
   try {
     const trialDir = path.join(dir, 'trial');
     const { work, origin } = createSandbox({ root, baseCommit: base, ticket: 7, ticketText: TICKET, trialDir });
-    const cfg = JSON.parse(readFileSync(path.join(work, 'ai-project.json'), 'utf8'));
+    const cfg = JSON.parse(readFileSync(path.join(work, PROJECT_FILE), 'utf8'));
     assert.equal(cfg.ticketing.backend, 'file');
     assert.equal(cfg.git.prTarget, 'main');
     assert.equal(cfg.project.name, 'Proj');
@@ -77,7 +79,7 @@ test('a base commit without ai-project.json still works', () => {
   const { dir, root, base } = makeRepo(null);
   try {
     const { work } = createSandbox({ root, baseCommit: base, ticket: 1, ticketText: TICKET, trialDir: path.join(dir, 'trial') });
-    const cfg = JSON.parse(readFileSync(path.join(work, 'ai-project.json'), 'utf8'));
+    const cfg = JSON.parse(readFileSync(path.join(work, PROJECT_FILE), 'utf8'));
     assert.equal(cfg.project.name, 'proj');
     assert.equal(cfg.ticketing.backend, 'file');
     assert.ok(existsSync(path.join(work, '.agents/skills/agent-dev/SKILL.md')));

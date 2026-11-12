@@ -8,7 +8,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { CUSTOM_DIR } from './constants.mjs';
+import { CUSTOM_DIR, PROJECT_FILE } from './constants.mjs';
 import { readJson } from './config.mjs';
 
 export const OBSOLETE_UNITS = {
@@ -128,10 +128,10 @@ export function pruneProjectConfig(config) {
   return { config: copy, removed };
 }
 
-/** Strip obsolete keys from the project's ai-project.json; rewrites it only when something changed. */
+/** Strip obsolete keys from the project's .adw/project.json; rewrites it only when something changed. */
 export function cleanProjectConfig(projectRoot, { dryRun = false } = {}) {
-  const file = path.join(projectRoot, 'ai-project.json');
-  const project = readJson(file, 'ai-project.json', false);
+  const file = path.join(projectRoot, PROJECT_FILE);
+  const project = readJson(file, PROJECT_FILE, false);
   if (!project) return { removed: [] };
   const { config, removed } = pruneProjectConfig(project);
   if (removed.length > 0 && !dryRun) fs.writeFileSync(file, JSON.stringify(config, null, 2) + '\n');

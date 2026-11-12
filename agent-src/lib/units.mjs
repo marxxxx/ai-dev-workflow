@@ -1,7 +1,7 @@
 // Canonical unit loading: agent-src/{agents,skills}/<name>/ → { kind, name, body, manifest, overlays }.
 //
-// A project may customize any shipped unit from a committed, project-owned agent-custom/ dir that
-// mirrors this layout (agent-custom/{agents,skills}/<name>/). Two knobs, both generation *inputs*:
+// A project may customize any shipped unit from a committed, project-owned .adw/custom/ dir that
+// mirrors this layout (.adw/custom/{agents,skills}/<name>/). Two knobs, both generation *inputs*:
 //   - body.md   → full override; replaces the package body for that unit (escape hatch).
 //   - append.md → additive fragment appended after the package body + platform overlay (safe default).
 // Absence of the dir is a no-op, so behavior is identical to package-only when a project opts out.
@@ -36,7 +36,7 @@ export function loadUnits(projectRoot) {
         }
       }
 
-      // Overlay project customizations from agent-custom/<type>/<name>/ if present.
+      // Overlay project customizations from .adw/custom/<type>/<name>/ if present.
       let append;
       let customized = false;
       if (projectRoot) {

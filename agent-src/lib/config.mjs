@@ -2,7 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { SRC_DIR } from './constants.mjs';
+import { SRC_DIR, PROJECT_FILE } from './constants.mjs';
 
 /** Read and parse a JSON file. Returns null when absent unless `required`. */
 export function readJson(absPath, label, required) {
@@ -22,14 +22,14 @@ export function readJson(absPath, label, required) {
  *   - workflow states/artifacts and ticketing.includePath come from the package
  *     (ai-workflow.json) — they are skill-coupled and must not be reconfigured per project.
  *   - project/repository/git identity and the ticketing backend choice come from the
- *     project (ai-project.json).
+ *     project (.adw/project.json).
  * The package wins on `workflow` and on `ticketing.includePath`; the project owns the rest of
- * `ticketing` (backend, github/file sub-configs). ai-project.json may be absent on a
+ * `ticketing` (backend, github/file sub-configs). .adw/project.json may be absent on a
  * fresh/unmigrated repo, in which case only the package-owned config is returned.
  */
 export function loadConfig(projectRoot) {
   const pkg = readJson(path.join(SRC_DIR, 'config', 'ai-workflow.json'), 'agent-src/config/ai-workflow.json', true);
-  const project = readJson(path.join(projectRoot, 'ai-project.json'), 'ai-project.json', false) || {};
+  const project = readJson(path.join(projectRoot, PROJECT_FILE), PROJECT_FILE, false) || {};
   return {
     ...project,
     workflow: pkg.workflow,
@@ -62,7 +62,7 @@ export function azureMapping(template) {
   return structuredClone(m);
 }
 
-/** Assemble the project-owned ai-project.json object from flat interview answers. */
+/** Assemble the project-owned .adw/project.json object from flat interview answers. */
 export function buildProjectConfig(a) {
   const ticketing = { backend: a.backend };
   if (a.backend === 'file') {

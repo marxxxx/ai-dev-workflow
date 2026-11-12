@@ -1,10 +1,11 @@
 // In-process tests for the upgrade step: removal of pre-0.23 generated files and obsolete
-// ai-project.json keys. The CLI wiring is covered in cli.test.mjs.
+// .adw/project.json keys. The CLI wiring is covered in cli.test.mjs.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { PROJECT_FILE, CUSTOM_DIR } from './constants.mjs';
 import {
   obsoleteOutputs, removeObsoleteOutputs, pruneProjectConfig, cleanProjectConfig, findCustomLeftovers,
 } from './upgrade.mjs';
@@ -181,10 +182,10 @@ test('pruneProjectConfig keeps the adw e2e block and removes only the legacy e2e
   assert.deepEqual(mixed, { config: { e2e }, removed: ['e2e.up', 'e2e.logsDir'] });
 });
 
-test('cleanProjectConfig rewrites ai-project.json only when something was removed', () => {
+test('cleanProjectConfig rewrites .adw/project.json only when something was removed', () => {
   const { root, cleanup } = tmpProject(LEGACY_PROJECT);
   try {
-    const file = path.join(root, 'ai-project.json');
+    const file = path.join(root, PROJECT_FILE);
     const dry = cleanProjectConfig(root, { dryRun: true });
     assert.ok(dry.removed.length > 0);
     assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), LEGACY_PROJECT, 'dry run must not write');
@@ -202,11 +203,11 @@ test('cleanProjectConfig rewrites ai-project.json only when something was remove
   }
 });
 
-test('cleanProjectConfig is a no-op without ai-project.json', () => {
+test('cleanProjectConfig is a no-op without .adw/project.json', () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     assert.deepEqual(cleanProjectConfig(root).removed, []);
-    assert.ok(!exists(root, 'ai-project.json'));
+    assert.ok(!exists(root, PROJECT_FILE));
   } finally {
     cleanup();
   }
@@ -216,12 +217,12 @@ test('findCustomLeftovers names project-owned leftovers of the removed units', (
   const { root, cleanup } = tmpProject(MINIMAL_PROJECT);
   try {
     assert.deepEqual(findCustomLeftovers(root), []);
-    write(root, 'agent-custom/agents/developer/append.md', 'x');
-    write(root, 'agent-custom/skills/dev-cycle/body.md', 'x');
-    write(root, 'agent-custom/skills/agent-dev/append.md', 'x');
+    write(root, `${CUSTOM_DIR}/agents/developer/append.md`, 'x');
+    write(root, `${CUSTOM_DIR}/skills/dev-cycle/body.md`, 'x');
+    write(root, `${CUSTOM_DIR}/skills/agent-dev/append.md`, 'x');
     write(root, 'scripts/e2e-up', 'x');
     const found = findCustomLeftovers(root).map((p) => p.split(path.sep).join('/')).sort();
-    assert.deepEqual(found, ['agent-custom/agents/developer', 'agent-custom/skills/dev-cycle', 'scripts/e2e-up']);
+    assert.deepEqual(found, [`${CUSTOM_DIR}/agents/developer`, `${CUSTOM_DIR}/skills/dev-cycle`, 'scripts/e2e-up']);
   } finally {
     cleanup();
   }

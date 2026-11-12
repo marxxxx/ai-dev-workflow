@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { PROJECT_FILE } from './lib/constants.mjs';
 import { runCli, runCliViaSymlink, canSymlink, tmpProject, makeTmpRoot, MINIMAL_PROJECT } from './test-helpers.mjs';
 
 // A representative sample of the files each backend/platform emits.
@@ -70,7 +71,7 @@ test('init --answers works when invoked through a symlink, as npm-installed bins
     fs.writeFileSync(path.join(root, 'answers.json'), JSON.stringify({ name: 'Symlink Demo', backend: 'file' }));
     const { status, stdout } = runCliViaSymlink(['init', '--answers', path.join(root, 'answers.json'), '--root', root]);
     assert.equal(status, 0, stdout);
-    assert.ok(fs.existsSync(path.join(root, 'ai-project.json')), 'init produced no output/files when run through a symlink');
+    assert.ok(fs.existsSync(path.join(root, PROJECT_FILE)), 'init produced no output/files when run through a symlink');
   } finally {
     cleanup();
   }
@@ -82,7 +83,7 @@ test('init --answers scaffolds a file-backend project non-interactively', () => 
     fs.writeFileSync(path.join(root, 'answers.json'), JSON.stringify({ name: 'File Demo', backend: 'file' }));
     const { status } = runCli(['init', '--answers', path.join(root, 'answers.json'), '--root', root]);
     assert.equal(status, 0);
-    const cfg = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+    const cfg = JSON.parse(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8'));
     assert.equal(cfg.project.name, 'File Demo');
     assert.equal(cfg.ticketing.backend, 'file');
     assert.equal(cfg.ticketing.file.dir, '.tickets/issues'); // default applied
@@ -122,7 +123,7 @@ test('init --answers scaffolds a github-backend project', () => {
       JSON.stringify({ name: 'GH Demo', repoSlug: 'me/gh-demo', backend: 'github' }));
     const { status } = runCli(['init', '--answers', path.join(root, 'answers.json'), '--root', root]);
     assert.equal(status, 0);
-    const cfg = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+    const cfg = JSON.parse(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8'));
     assert.equal(cfg.ticketing.backend, 'github');
     assert.ok(!('file' in cfg.ticketing) && !('azureDevOps' in cfg.ticketing));
   } finally {
@@ -136,7 +137,7 @@ test('init writes no e2e block or scripts, and generate emits no e2e include', (
     fs.writeFileSync(path.join(root, 'answers.json'), JSON.stringify({ name: 'E2E Demo', backend: 'file' }));
     assert.equal(runCli(['init', '--answers', path.join(root, 'answers.json'), '--root', root]).status, 0);
 
-    const cfg = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+    const cfg = JSON.parse(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8'));
     assert.ok(!('e2e' in cfg), 'no e2e block is written');
     assert.equal(fs.existsSync(path.join(root, 'scripts', 'e2e-up')), false, 'no stub scripts scaffolded');
     assert.equal(fs.existsSync(path.join(root, 'scripts', 'e2e-down')), false, 'no stub scripts scaffolded');
@@ -157,7 +158,7 @@ test('init --answers scaffolds an azure-devops project, and generate emits MCP c
       azure: { organization: 'acme', project: 'widgets', processTemplate: 'basic' },
     }));
     assert.equal(runCli(['init', '--answers', path.join(root, 'answers.json'), '--root', root]).status, 0);
-    const cfg = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+    const cfg = JSON.parse(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8'));
     assert.equal(cfg.ticketing.azureDevOps.organization, 'acme');
     assert.equal(cfg.ticketing.azureDevOps.featureType, 'Issue'); // basic template
 
@@ -183,7 +184,7 @@ test('init --answers scaffolds a gitea project, and generate emits the tea-drive
       name: 'Gitea Demo', repoSlug: 'me/gitea-demo', backend: 'gitea', gitea: { login: 'myserver' },
     }));
     assert.equal(runCli(['init', '--answers', path.join(root, 'answers.json'), '--root', root]).status, 0);
-    const cfg = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+    const cfg = JSON.parse(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8'));
     assert.equal(cfg.ticketing.backend, 'gitea');
     assert.equal(cfg.ticketing.gitea.login, 'myserver');
 
@@ -191,6 +192,19 @@ test('init --answers scaffolds a gitea project, and generate emits the tea-drive
     const include = fs.readFileSync(path.join(root, '.agents', 'includes', 'ticketing.md'), 'utf8');
     assert.match(include, /tea issues --login "myserver" --repo me\/gitea-demo <number>/);
     assert.doesNotMatch(include, /\{\{.*?\}\}/, 'include fully resolves');
+  } finally {
+    cleanup();
+  }
+});
+
+test('init --answers writes .adw/project.json and nothing at the root', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'answers.json'), JSON.stringify({ name: 'Adw Dir', backend: 'file' }));
+    const { status } = runCli(['init', '--answers', path.join(root, 'answers.json'), '--root', root]);
+    assert.equal(status, 0);
+    assert.ok(fs.existsSync(path.join(root, '.adw', 'project.json')));
+    assert.ok(!fs.existsSync(path.join(root, 'ai-project.json')));
   } finally {
     cleanup();
   }
@@ -204,7 +218,7 @@ test('init --answers rejects a gitea project without a tea login', () => {
     const { status, stderr } = runCli(['init', '--answers', path.join(root, 'answers.json'), '--root', root]);
     assert.notEqual(status, 0, 'init should fail rather than write a config the generator will reject');
     assert.match(stderr, /gitea\.login/);
-    assert.equal(fs.existsSync(path.join(root, 'ai-project.json')), false);
+    assert.equal(fs.existsSync(path.join(root, PROJECT_FILE)), false);
   } finally {
     cleanup();
   }
@@ -232,7 +246,8 @@ function seedLegacyProject(root) {
     project: { ...MINIMAL_PROJECT.project, slug: 'test-project', serenaProject: 'test-project', description: 'A test' },
     git: { branchPattern: 'feat/<issue-number>_<slug>', prTarget: 'main' },
   };
-  fs.writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(config, null, 2) + '\n');
+  fs.mkdirSync(path.join(root, '.adw'), { recursive: true });
+  fs.writeFileSync(path.join(root, PROJECT_FILE), JSON.stringify(config, null, 2) + '\n');
   return Object.keys(legacy);
 }
 
@@ -244,7 +259,7 @@ test('upgrade removes the legacy files and config keys, keeps other skills, and 
     assert.equal(status, 0, stderr);
     for (const rel of legacy) assert.ok(!fs.existsSync(path.join(root, rel)), `${rel} should be deleted`);
     assert.ok(fs.existsSync(path.join(root, '.claude', 'skills', 'my-skill', 'SKILL.md')));
-    const config = JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+    const config = JSON.parse(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8'));
     assert.deepEqual(config.git, { prTarget: 'main' });
     assert.equal(config.project.slug, undefined);
     assert.match(stdout, /git\.branchPattern/);
@@ -258,11 +273,11 @@ test('upgrade --dry-run reports the changes and writes nothing', () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     const legacy = seedLegacyProject(root);
-    const before = fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8');
+    const before = fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8');
     const { status, stdout } = runCli(['upgrade', '--dry-run', '--root', root]);
     assert.equal(status, 0);
     for (const rel of legacy) assert.ok(fs.existsSync(path.join(root, rel)), `${rel} must survive`);
-    assert.equal(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'), before);
+    assert.equal(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8'), before);
     assert.ok(!fs.existsSync(path.join(root, '.claude', 'skills', 'agent-dev')), 'dry run generates nothing');
     assert.match(stdout, /developer\.md/);
   } finally {
@@ -275,12 +290,13 @@ test('upgrade fails before deleting anything when the config cannot be rendered'
   try {
     const legacy = seedLegacyProject(root);
     const broken = { ...MINIMAL_PROJECT, ticketing: { backend: 'gitea', gitea: {} }, git: { branchPattern: 'x', prTarget: 'main' } };
-    fs.writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(broken, null, 2) + '\n');
+    fs.mkdirSync(path.join(root, '.adw'), { recursive: true });
+    fs.writeFileSync(path.join(root, PROJECT_FILE), JSON.stringify(broken, null, 2) + '\n');
     const { status, stderr } = runCli(['upgrade', '--root', root]);
     assert.equal(status, 1);
     assert.match(stderr, /gitea\.login/);
     for (const rel of legacy) assert.ok(fs.existsSync(path.join(root, rel)), `${rel} must survive`);
-    assert.match(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'), /branchPattern/);
+    assert.match(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8'), /branchPattern/);
   } finally {
     cleanup();
   }
@@ -309,7 +325,7 @@ test('upgrade records the show-me opt-in, installs the pinned commit, and leaves
       `https://github.com/${SHOW_ME.repository}/tree/${SHOW_ME.revision}/${SHOW_ME.path}`,
       '-y', '-a', 'claude-code', 'codex', 'opencode',
     ]]);
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')).skills, { 'show-me': true });
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8')).skills, { 'show-me': true });
     assert.match(stdout, /Installed show-me/);
     const check = runCli(['check', '--root', root]);
     assert.equal(check.status, 0);
@@ -327,7 +343,7 @@ test('upgrade --dry-run names the show-me install without running it', () => {
     assert.equal(status, 0);
     assert.deepEqual(calls, []);
     assert.match(stdout, /Would install show-me/);
-    assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8')).skills, undefined);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8')).skills, undefined);
   } finally {
     cleanup();
   }

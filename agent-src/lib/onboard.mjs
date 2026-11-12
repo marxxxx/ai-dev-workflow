@@ -1,10 +1,10 @@
 // Onboarding: prompters (readline / scripted), the single reusable interview, the scaffold
-// fallback, and cmdInit — which resolves a prompter and writes ai-project.json.
+// fallback, and cmdInit — which resolves a prompter and writes .adw/project.json.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
-import { SRC_DIR, argValue } from './constants.mjs';
+import { SRC_DIR, PROJECT_FILE, ADW_DIR, argValue } from './constants.mjs';
 import { detectRepoSlug } from './identity.mjs';
 import { readJson, buildProjectConfig } from './config.mjs';
 import { STACKS, DIND_WARNING, detectStack, writeContainerFiles, nextSteps } from './container.mjs';
@@ -52,13 +52,14 @@ const DEPENDENCIES =
 export function cmdScaffold(projectRoot) {
   const template = path.join(SRC_DIR, 'config', 'ai-project.template.json');
   if (!fs.existsSync(template)) throw new Error(`scaffold template missing at ${template}`);
-  const dest = path.join(projectRoot, 'ai-project.json');
+  const dest = path.join(projectRoot, PROJECT_FILE);
   if (fs.existsSync(dest)) {
-    console.log(`ai-project.json already exists at ${dest} — left untouched.`);
+    console.log(`.adw/project.json already exists at ${dest} — left untouched.`);
     return 0;
   }
+  fs.mkdirSync(path.join(projectRoot, ADW_DIR), { recursive: true });
   fs.copyFileSync(template, dest);
-  console.log(`Created ${dest}.\nEdit project identity + ticketing.backend, then run \`ai-dev-workflow generate\`.`);
+  console.log(`Created ${dest}.\nEdit project identity + ticketing.backend, then run \`adw generate\`.`);
   console.log(`\n${DEPENDENCIES}`);
   console.log(`\n${AGENTS_MD_GUIDANCE}`);
   return 0;
@@ -182,7 +183,7 @@ export async function runInterview(prompter, { detectRepoSlug, projectRoot }) {
 
 /**
  * The dev-container questions. Interactive runs default to yes; an answers file without
- * `container.enabled` means no, so existing automation keeps getting only ai-project.json.
+ * `container.enabled` means no, so existing automation keeps getting only .adw/project.json.
  */
 export async function askContainer(prompter, projectRoot) {
   const enabled = await prompter.ask('Set up the dev container? (Y/n)', 'container.enabled', prompter.scripted ? 'n' : 'y');
@@ -258,14 +259,14 @@ export function setUpContainer(projectRoot, { stack, env }, config) {
  * exactly one interview code path.
  */
 export async function cmdInit(projectRoot, { prompter, runSkill } = {}) {
-  const dest = path.join(projectRoot, 'ai-project.json');
+  const dest = path.join(projectRoot, PROJECT_FILE);
   let active = prompter;
   if (!active) {
     const answersPath = argValue(process.argv, '--answers');
     if (answersPath) {
       active = createScriptedPrompter(readJson(path.resolve(answersPath), '--answers file', true));
     } else if (!process.stdin.isTTY) {
-      console.log('Non-interactive stdin — scaffolding ai-project.json from template instead.');
+      console.log('Non-interactive stdin — scaffolding .adw/project.json from template instead.');
       return cmdScaffold(projectRoot);
     } else {
       active = createReadlinePrompter();
@@ -274,9 +275,9 @@ export async function cmdInit(projectRoot, { prompter, runSkill } = {}) {
 
   try {
     if (fs.existsSync(dest)) {
-      const ow = await active.ask('ai-project.json exists — overwrite? (y/N)', 'overwrite', 'N');
+      const ow = await active.ask('.adw/project.json exists — overwrite? (y/N)', 'overwrite', 'N');
       if (!/^y(es)?$/i.test(ow)) {
-        console.log('ai-project.json left untouched.');
+        console.log('.adw/project.json left untouched.');
         const container = await askContainer(active, projectRoot);
         if (container.enabled) setUpContainer(projectRoot, container, readExistingConfig(dest));
         return 0;
@@ -286,6 +287,7 @@ export async function cmdInit(projectRoot, { prompter, runSkill } = {}) {
     const answers = await runInterview(active, { detectRepoSlug, projectRoot });
     const config = { ...buildProjectConfig(answers), skills: await askSkills(active) };
     const container = await askContainer(active, projectRoot);
+    fs.mkdirSync(path.join(projectRoot, ADW_DIR), { recursive: true });
     fs.writeFileSync(dest, JSON.stringify(config, null, 2) + '\n');
 
     console.log(`\nCreated ${dest}`);
@@ -298,14 +300,14 @@ export async function cmdInit(projectRoot, { prompter, runSkill } = {}) {
 
     console.log(`\n${DEPENDENCIES}`);
     console.log(`\n${AGENTS_MD_GUIDANCE}`);
-    console.log('Next: run `ai-dev-workflow generate`, then commit ai-project.json and the generated dirs.');
+    console.log('Next: run `adw generate`, then commit .adw/project.json and the generated dirs.');
     return 0;
   } finally {
     active.close();
   }
 }
 
-/** An existing ai-project.json, read leniently: anything unreadable counts as empty. */
+/** An existing .adw/project.json, read leniently: anything unreadable counts as empty. */
 function readExistingConfig(file) {
   try {
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));

@@ -9,9 +9,22 @@ import { fileURLToPath } from 'node:url';
 export const SRC_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export const KNOWN_PLATFORMS = ['claude', 'codex', 'opencode'];
 
-// Project-owned, committed dir (at the project root) that mirrors the agent-src/{agents,skills}/<name>/
-// layout and lets a project override or extend the body of any shipped unit. See lib/units.mjs.
-export const CUSTOM_DIR = 'agent-custom';
+// Project-owned, committed files and dirs under the project root. All forward-slash relative paths,
+// used as path.join(root, X). Everything adw keeps in a consuming project lives in ADW_DIR.
+export const ADW_DIR = '.adw';
+export const PROJECT_FILE = '.adw/project.json';
+// Mirrors the agent-src/{agents,skills}/<name>/ layout and lets a project override or extend the body
+// of any shipped unit. See lib/units.mjs.
+export const CUSTOM_DIR = '.adw/custom';
+export const ENV_FILE = '.adw/.env';
+export const README_FILE = '.adw/README.md';
+export const COMPOSE_FILES = {
+  base: '.adw/compose.yml',
+  certs: '.adw/compose.certs.yml',
+  dind: '.adw/compose.dind.yml',
+  dindCerts: '.adw/compose.dind-certs.yml',
+};
+export const LAUNCHERS = { sh: 'adw.sh', ps1: 'adw.ps1' };
 
 // The npx spec for the azure-devops MCP server, used by both the .mcp.json and the Codex
 // config.toml renderers. Pinned to a major: v2 renamed every v1 tool (wit_get_work_item →
