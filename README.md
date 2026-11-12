@@ -15,9 +15,11 @@ requirement is Node on the machine that runs the generator (your dev box and CI)
 
 | File / dir | Owner | Committed? |
 |---|---|---|
-| `ai-project.json` | **you** — project identity + ticketing backend choice | yes |
+| `.adw/project.json` | **you** — project identity + ticketing backend choice | yes |
 | `AGENTS.md` | **you** — create with your coding agent's native `/init`; `agent-dev` reads it first (add an [End-to-end testing](#end-to-end-testing) section for agent-run e2e checks) | yes |
-| `agent-custom/` | **you** (optional) — per-project tweaks to the skill body (see [Customizing the skill](#customizing-the-skill)) | yes |
+| `.adw/custom/` | **you** (optional) — per-project tweaks to the skill body (see [Customizing the skill](#customizing-the-skill)) | yes |
+| `.adw/compose*.yml`, `.adw/README.md`, `adw.sh`, `adw.ps1` | dev-container files, written once by `init` when you set up the container; yours afterwards (see [Run in a container](#run-in-a-container)) | yes |
+| `.adw/.env` | per-machine container settings | no (git-ignored) |
 | `docs/superpowers/{specs,plans}/` | written by superpowers when a change needs them; the agreed scope is also posted to the ticket | yes |
 | `.agents/skills/show-me/`, `.claude/skills/show-me`, `skills-lock.json` | third-party [show-me](#reviewing-specs-and-plans-with-show-me) skill, installed by `init`/`upgrade` with `npx skills` at the commit this adw version pins; never rendered or checked | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
@@ -32,7 +34,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 `npx` runs the bin straight from npm — nothing is installed into the repo:
 
 ```bash
-# 1. run the guided onboarding — writes ai-project.json, prints the recommended tooling
+# 1. run the guided onboarding — writes .adw/project.json, prints the recommended tooling
 npx @strobl_dev/adw@0.31.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
@@ -45,7 +47,7 @@ npx @strobl_dev/adw@0.31.0 init
 # 3. generate the platform files
 npx @strobl_dev/adw@0.31.0 generate
 
-# 4. commit ai-project.json and the generated dirs
+# 4. commit .adw/project.json and the generated dirs
 ```
 
 Pin the version (`@0.31.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
@@ -81,33 +83,33 @@ and logged in — see [Gitea backend setup](docs/gitea-backend-setup.md).
 |---|---|
 | `generate` (default) | Render all platform files to the project root |
 | `check` | Render in memory and diff against disk; exit 1 on drift (CI / pre-commit gate) |
-| `upgrade` | The command for every version bump. Deletes the files the pre-v0.23 workflow generated and strips obsolete keys from `ai-project.json`, then `generate`s, then installs or updates the pinned [show-me](#reviewing-specs-and-plans-with-show-me) skill (unless `"skills": { "show-me": false }`). Only deletes files carrying the generator's banner for a removed unit; other skills and subagents are never touched. A failed skill install is a warning with the manual command, never an error. `--dry-run` lists the changes without writing anything. See [Updating](#updating). |
-| `init` | Interactive onboarding: prompts for project name, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), asks whether to install the [show-me](#reviewing-specs-and-plans-with-show-me) skill (default yes; runs `npx skills add`), then writes `ai-project.json`. It prints the [tooling](#tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
+| `upgrade` | The command for every version bump. Deletes the files the pre-v0.23 workflow generated and strips obsolete keys from `.adw/project.json`, then `generate`s, then installs or updates the pinned [show-me](#reviewing-specs-and-plans-with-show-me) skill (unless `"skills": { "show-me": false }`). Only deletes files carrying the generator's banner for a removed unit; other skills and subagents are never touched. A failed skill install is a warning with the manual command, never an error. `--dry-run` lists the changes without writing anything. See [Updating](#updating). |
+| `init` | Interactive onboarding: prompts for project name, repository, ticketing backend (for azure-devops, the org/project and process template, pre-filling the state mapping; for gitea, the `tea` login profile), asks whether to install the [show-me](#reviewing-specs-and-plans-with-show-me) skill (default yes; runs `npx skills add`), then writes `.adw/project.json`. It prints the [tooling](#tooling) for you to install, and points you to create `AGENTS.md` with your coding agent's native `/init`. Falls back to a template scaffold when stdin is not a TTY. Never overwrites without confirmation. |
 | `e2e` | `adw e2e <base-commit\|.> <ticket> [harness]`: replay `agent-dev` on one of your tickets in a throwaway clone and score the result. See [E2E on your project](#e2e-on-your-project). |
 
 All commands accept `--root <dir>` to target a project root other than the current directory.
 
 ## Customizing the skill
 
-`ai-project.json` and per-unit `tokens` cover most tuning. To change the instructions of the shipped
-skill, add a committed **`agent-custom/`** directory that mirrors the source layout
-(`agent-custom/skills/<name>/`). Two knobs:
+`.adw/project.json` and per-unit `tokens` cover most tuning. To change the instructions of the shipped
+skill, add a committed **`.adw/custom/`** directory that mirrors the source layout
+(`.adw/custom/skills/<name>/`). Two knobs:
 
 | File | Effect |
 |---|---|
-| `agent-custom/skills/agent-dev/append.md` | **Appended** to the package body. The safe default — upstream improvements keep flowing on update. |
-| `agent-custom/skills/agent-dev/body.md` | **Full override** — replaces the package body. You then own that body (it no longer tracks upstream). |
+| `.adw/custom/skills/agent-dev/append.md` | **Appended** to the package body. The safe default — upstream improvements keep flowing on update. |
+| `.adw/custom/skills/agent-dev/body.md` | **Full override** — replaces the package body. You then own that body (it no longer tracks upstream). |
 
 Both files support the same `{{tokens}}` as package bodies (`{{project.name}}`, `{{repo.slug}}`, …);
 an unresolved token fails the generator with a clear error. Example:
 
 ```md
-<!-- agent-custom/skills/agent-dev/append.md -->
+<!-- .adw/custom/skills/agent-dev/append.md -->
 ## House rules
 Always run `npm run lint` before finishing the branch.
 ```
 
-Then `generate` and commit. `agent-custom/` files are **inputs** to generation, so `check` still
+Then `generate` and commit. `.adw/custom/` files are **inputs** to generation, so `check` still
 passes and still catches hand-edits to the generated files.
 
 ## The `agent-dev` workflow
@@ -157,7 +159,7 @@ changes, Mermaid diagrams — so you can judge the approach before reading the f
 the record. show-me is user-invoked only (`/show-me` works any time); `agent-dev` reads it at those
 two moments. `init` and `upgrade` install it into the project at the commit the adw version pins;
 `generate` and `check` print a note (exit code unchanged) when it is missing or outdated. Opt out
-with `"skills": { "show-me": false }` in `ai-project.json`.
+with `"skills": { "show-me": false }` in `.adw/project.json`.
 
 ### End-to-end testing
 
@@ -220,13 +222,15 @@ npx @strobl_dev/adw@<new-version> upgrade             # or bump the pinned versi
 
 `upgrade` cleans up what older versions left behind, generates, and brings the pinned third-party
 skills (show-me) to this version's commit. Review the diff in `.claude/`/`.codex/`/`.agents/` and
-commit. `generate` never touches `ai-project.json`; `upgrade` only removes keys that are obsolete
+commit. `generate` never touches `.adw/project.json`; `upgrade` only removes keys that are obsolete
 and records the `skills` opt-in. Run
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
 
 **`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
 changes the config hash); no `upgrade` step is needed.
+
+**Upgrading to v0.32.0.** adw's files move into `.adw/` (`ai-project.json` → `.adw/project.json`, `compose.ai-dev*.yml` → `.adw/compose*.yml`, `AI-DEV.md` → `.adw/README.md`, `.env.ai-dev` → `.adw/.env`, `agent-custom/` → `.adw/custom/`), and the launchers are now `adw.sh` / `adw.ps1`. `upgrade` does the move and lists every file. Teammates move their own `.env.ai-dev` to `.adw/.env` or run `upgrade`.
 
 **Upgrading to v0.31.0.** `ai-dev.sh` / `ai-dev.ps1` now pull the newest build of the container
 image (`AGENT_IMAGE` from `.env.ai-dev`, or the default) before each start; offline they warn and
@@ -305,7 +309,7 @@ an engine warning, not a clear error.
 ## E2E on your project
 
 `adw e2e` replays the `agent-dev` workflow on one of your real tickets, at a fixed commit, and scores
-the outcome. Compare runs after you change `agent-custom/`, `AGENTS.md`, the model or the adw version.
+the outcome. Compare runs after you change `.adw/custom/`, `AGENTS.md`, the model or the adw version.
 
 ```bash
 npx @strobl_dev/adw e2e <base-commit|.> <ticket> [claude-code|codex|opencode] [--repetitions n] [--model m] \
@@ -321,19 +325,19 @@ with that run (`.adw/e2e/<ticket>/runs/<ts>/<harness>`) instead of the newest ea
 Every run happens in a throwaway clone at `<base-commit>` on the `file` ticketing backend, with its
 remote pointing at a local bare repo, so nothing reaches your tracker or your real remote. Opening the draft PR
 (`gh`, `tea` or `az`) is recorded and answered with a placeholder link, never sent to your git host. Its containers publish no host
-ports, so a run does not clash with your own `./ai-dev.sh`. The first run asks you the spec questions and
+ports, so a run does not clash with your own `./adw.sh`. The first run asks you the spec questions and
 confirms drafted acceptance criteria; later runs replay your stored answers. When the agent only reports progress
 and asks nothing, the run tells it to carry on (counted as `nudged`) instead of asking you.
 
 Prerequisites: Docker and a git repo. On the first run `adw e2e` asks for the rest and writes it:
 
-- `ai-project.json`, if there is none: it offers the `init` interview first;
-- the container files (`compose.ai-dev.yml`), if `init` did not write them. The run builds a thin layer with
+- `.adw/project.json`, if there is none: it offers the `init` interview first;
+- the container files (`.adw/compose.yml`), if `init` did not write them. The run builds a thin layer with
   `acpx` and the ACP adapters on your dev image (about 480 MB, cached until the image or the pins change; older
   layers are removed; the build uses your proxy variables and `AGENT_CA_DIR`);
-- the `e2e` block of `ai-project.json`: the agent's harness and model, the judge model, `testCommand`, provider
+- the `e2e` block of `.adw/project.json`: the agent's harness and model, the judge model, `testCommand`, provider
   variables and the language, shown before it is written;
-- values that `e2e.env` names but nothing sets (secrets are read without echo). They can be saved to `.env.ai-dev`
+- values that `e2e.env` names but nothing sets (secrets are read without echo). They can be saved to `.adw/.env`
   next to the project, which the containers read;
 - the ticket, when your backend cannot be read from the host: it is fetched in your dev container, then by opening
   `$EDITOR` (both interactive only). `--ticket-file` skips this;
@@ -352,23 +356,23 @@ a skipped `AGENTS.md` section are not asked again; delete it to be asked again.
 When the base commit predates the `AGENTS.md` section, the run overlays the current one onto the clone.
 
 `.` as the base commit runs on your working tree: uncommitted changes and untracked files on top of `HEAD`, without
-committing anything (git-ignored files such as `.env.ai-dev` stay out; `.adw/e2e/` stays as committed). Use it to try a
+committing anything (git-ignored files such as `.adw/.env` stay out; `.adw/e2e/` stays as committed). Use it to try a
 change, e.g. to `AGENTS.md`, before you commit it: `adw e2e . 1 codex`. The run is compared with the newest run on
 the committed `HEAD`, and is itself never picked as a baseline; its report says `+ working tree`.
 
 Logins: the containers never share the project's agent-home volume, they get a login staged from the host.
-- Codex: `~/.codex/auth.json` on the host, or `OPENAI_API_KEY`. If you only logged in through `./ai-dev.sh`, the
+- Codex: `~/.codex/auth.json` on the host, or `OPENAI_API_KEY`. If you only logged in through `./adw.sh`, the
   setup offers to copy the login from the project's volume.
 - OpenCode: `~/.config/adw/opencode-credentials.json`, an `opencode auth export` file, or provider variables in `e2e.env`.
   The containers import it with `opencode auth import`. If the file is missing, the setup offers to export the login of
-  the project's volume (after `./ai-dev.sh opencode auth login`) and prints the host command.
+  the project's volume (after `./adw.sh opencode auth login`) and prints the host command.
 - Claude Code: a long-lived token, never taken from the volume. Run `claude setup-token` on the host and export
   `CLAUDE_CODE_OAUTH_TOKEN`, or let the setup run it in the dev image (it asks you to paste the token without echo and
-  offers to save it to `.env.ai-dev`). For
+  offers to save it to `.adw/.env`). For
   Bedrock or Vertex set `CLAUDE_CODE_USE_BEDROCK` / `CLAUDE_CODE_USE_VERTEX` and that provider's variables in `e2e.env`.
 
 Each of the four LLM roles (agent, answerer, verifier, review) has its own harness and model, so a
-project can stay inside the providers it may use. In `ai-project.json`:
+project can stay inside the providers it may use. In `.adw/project.json`:
 
 ```json
 "e2e": {
@@ -404,17 +408,17 @@ the report warns that it is self-judging.
 The workflow ships a **container runtime** with Claude Code, Codex, OpenCode, Serena,
 Playwright/Chromium, Context7, Azure DevOps MCP, Azure CLI (with the `azure-devops` extension),
 Superpowers and ccusage.
-Answer **yes** to *Set up the dev container?* during `init`: it writes `compose.ai-dev.yml`
+Answer **yes** to *Set up the dev container?* during `init`: it writes `.adw/compose.yml`
 (preset with the published image for the detected stack: Node, .NET or generic), a
-certificate overlay, the launchers `ai-dev.sh` / `ai-dev.ps1` and `AI-DEV.md` with the logins
+certificate overlay, the launchers `adw.sh` / `adw.ps1` and `.adw/README.md` with the logins
 for your coding agents and ticketing backend, then prints the exact next steps. It also asks
 whether to enable the Docker overlay (`AGENT_DIND=1`, root-equivalent) and company root
-certificates (`AGENT_CA_DIR`), and writes those to the git-ignored `.env.ai-dev`. These files are
+certificates (`AGENT_CA_DIR`), and writes those to the git-ignored `.adw/.env`. These files are
 project-owned. Run the generator on the host; the image does not install or run it. The launchers
 pull the newest build of the image before each start.
 
 ```bash
-./ai-dev.sh claude --dangerously-skip-permissions   # PowerShell: .\ai-dev.ps1 …
+./adw.sh claude --dangerously-skip-permissions   # PowerShell: .\adw.ps1 …
 ```
 
 Two derived images add app-facing runtimes (`ai-dev-workflow-node`, `ai-dev-workflow-dotnet`). The
@@ -434,7 +438,7 @@ docker compose -f compose.ai-dev.yml run --rm ai-dev-workflow bash
 See [`docker/README.md`](docker/README.md) → *Working on this repo in a container*.
 
 Behind a TLS-inspecting corporate proxy, set `AGENT_CA_DIR` and the proxy variables in the
-project's git-ignored `.env.ai-dev`; the launchers add the certificate overlay and the published
+project's git-ignored `.adw/.env`; the launchers add the certificate overlay and the published
 images install the certificates at startup, so no per-company image build is needed. See
 [`docker/README.md`](docker/README.md) → *Corporate TLS inspection*.
 

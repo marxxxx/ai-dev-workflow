@@ -4,7 +4,7 @@
 //   exercise the real CLI surface (arg parsing, exit codes, stdout/stderr) and stay valid
 //   across the commit-2 refactor.
 // - tmpProject / makeTmpRoot: throwaway project roots under os.tmpdir() (reusing the existing
-//   `adw-` mkdtemp prefix) with an optional minimal ai-project.json, plus a cleanup helper.
+//   `adw-` mkdtemp prefix) with an optional minimal .adw/project.json, plus a cleanup helper.
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -16,7 +16,7 @@ import { spawnSync } from 'node:child_process';
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
 const GENERATE = path.join(SRC_DIR, 'generate.mjs');
 
-/** A minimal, valid file-backend ai-project.json used by most CLI/e2e tests. */
+/** A minimal, valid file-backend .adw/project.json used by most CLI/e2e tests. */
 export const MINIMAL_PROJECT = {
   project: { name: 'Test Project' },
   repository: { slug: 'me/test-project' },
@@ -109,7 +109,7 @@ export function makeTmpRoot() {
 }
 
 /**
- * Create a throwaway project root seeded with an ai-project.json.
+ * Create a throwaway project root seeded with an .adw/project.json.
  * `config` overrides MINIMAL_PROJECT (pass a full object). Returns { root, cleanup }.
  */
 export function tmpProject(config = MINIMAL_PROJECT) {

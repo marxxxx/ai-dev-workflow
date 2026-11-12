@@ -22,9 +22,9 @@ tea login add       # once per machine — asks for the instance URL and an acce
 tea logins list     # the name in the first column is what `init` asks for
 ```
 
-That profile name goes into `ticketing.gitea.login` in `ai-project.json`, and every generated command
+That profile name goes into `ticketing.gitea.login` in `.adw/project.json`, and every generated command
 passes it as `--login "<name>"`. Because the instance URL and token live in the profile, no server URL
-or credential ever reaches `ai-project.json` or the generated files — the profile name is the only
+or credential ever reaches `.adw/project.json` or the generated files — the profile name is the only
 Gitea-specific value the generator stores.
 
 `tea login add` accepts spaces in a profile name (`gitea ki` is a perfectly ordinary result of
