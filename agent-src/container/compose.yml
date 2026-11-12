@@ -1,5 +1,5 @@
-# Project-owned; written once by ai-dev-workflow init. Start it with ./ai-dev.sh or .\ai-dev.ps1
-# (see AI-DEV.md). Add services, ports and dependency volumes as your project needs; keep the
+# Project-owned; written once by adw init. Start it with ./adw.sh or .\adw.ps1
+# (see .adw/README.md). Add services, ports and dependency volumes as your project needs; keep the
 # /workspace bind, agent-home, the capability set and the HOST_UID/HOST_GID settings.
 name: @@SLUG@@-ai
 services:

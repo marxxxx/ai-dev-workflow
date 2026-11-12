@@ -40,7 +40,7 @@ function workspaceMountPoints(service, isFile) {
   });
 }
 
-// `composeFiles` and `env` are a trial's (compose.ai-dev.yml, the certs overlay when set; composeEnv).
+// `composeFiles` and `env` are a trial's (.adw/compose.yml, the certs overlay when set; composeEnv).
 export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, imageDir = IMAGE_DIR, isFile = isHostFile }) {
   // Streamed steps (stdio inherit) have no stderr to quote: their output is already on the terminal.
   const docker = (args, opts = {}) => {

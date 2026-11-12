@@ -91,7 +91,7 @@ export function findHostArtifacts({ root, mounts = [], artifactsPath = '' }) {
     warnings.push([
       `agent runtime: warning: ${slashes(relative)} holds host-platform files (${slashes(trace)})`,
       '  and no container volume masks it, so host and container installs overwrite each other.',
-      '  Add to your compose.ai-dev.yml, under services.ai-dev-workflow.volumes:',
+      '  Add to your .adw/compose.yml, under services.ai-dev-workflow.volumes:',
       '      - type: volume',
       `        source: ${volume}`,
       `        target: "/workspace/${slashes(relative)}"`,
@@ -108,7 +108,7 @@ export function findHostArtifacts({ root, mounts = [], artifactsPath = '' }) {
       `agent runtime: warning: in-tree .NET build output (${listed}${output.length > 3 ? ', …' : ''}) is shared with the host`,
       '  and ArtifactsPath is not set, so host and container builds overwrite each other, including',
       '  obj/project.assets.json and its package paths. Use the .NET image, or set ArtifactsPath in',
-      '  the service environment of your compose.ai-dev.yml.',
+      '  the service environment of your .adw/compose.yml.',
     ].join('\n'));
   }
   return warnings;

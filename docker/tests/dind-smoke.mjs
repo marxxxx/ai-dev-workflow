@@ -8,13 +8,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderContainerFiles } from '../../agent-src/lib/container.mjs';
+import { COMPOSE_FILES } from '../../agent-src/lib/constants.mjs';
 
 const inventory = JSON.parse(readFileSync(fileURLToPath(new URL('../tools/inventory.json', import.meta.url)), 'utf8'));
 const temporary = mkdtempSync(path.join(tmpdir(), 'agent-dind-smoke-'));
 // The compose file and dind overlay consuming projects get from `init`, rendered the same way.
 const rendered = renderContainerFiles({ name: 'smoke', stack: 'generic', backend: 'file' });
-const [template, overlay] = ['compose.ai-dev.yml', 'compose.ai-dev.dind.yml'].map(name => {
-  const file = path.join(temporary, name);
+const [template, overlay] = [COMPOSE_FILES.base, COMPOSE_FILES.dind].map(name => {
+  const file = path.join(temporary, path.basename(name));
   writeFileSync(file, rendered.find(candidate => candidate.path === name).content);
   return file;
 });

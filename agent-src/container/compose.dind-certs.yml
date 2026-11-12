@@ -1,4 +1,4 @@
-# Project-owned; written once by ai-dev-workflow init. Companion of the dind and certs overlays:
+# Project-owned; written once by adw init. Companion of the dind and certs overlays:
 # the Docker daemon trusts the company root certificates too, so image pulls work behind a
 # TLS-inspecting proxy. The launchers add it when AGENT_DIND=1 and AGENT_CA_DIR are both set.
 # The daemon reads PEM files only (no DER) from AGENT_CA_DIR, next to the system store. Trust

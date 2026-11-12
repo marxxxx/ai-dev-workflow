@@ -1,7 +1,8 @@
 # Opt-in overlay: trust company root certificates behind a TLS-inspecting proxy.
-# ./ai-dev.sh and .\ai-dev.ps1 add it automatically whenever AGENT_CA_DIR is set, for example in
-# the git-ignored .env.ai-dev. Without the launchers, pass it as a second -f:
-#   docker compose -f compose.ai-dev.yml -f compose.ai-dev.certs.yml run --rm ai-dev-workflow
+# ./adw.sh and .\adw.ps1 add it automatically whenever AGENT_CA_DIR is set, for example in
+# the git-ignored .adw/.env. Without the launchers, pass it as a second -f:
+#   docker compose --project-directory <project root> -f .adw/compose.yml -f .adw/compose.certs.yml \
+#     run --rm ai-dev-workflow
 # AGENT_CA_DIR holds PEM or DER certificates (*.crt, *.pem, *.cer, *.cert); PEM bundles
 # with several certificates are fine. The entrypoint installs them on every start; nothing
 # is baked into the image. The target is read-only and outside /workspace and /home/dev,

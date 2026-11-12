@@ -388,15 +388,16 @@ test('generate and check point at upgrade when show-me is missing, without faili
   }
 });
 
-test('upgrade, generate and check name a compose.ai-dev.yml without KILL, without failing', () => {
+test('upgrade, generate and check name a .adw/compose.yml without KILL, without failing', () => {
   const { root, cleanup } = tmpProject();
   try {
-    fs.writeFileSync(path.join(root, 'compose.ai-dev.yml'),
+    fs.mkdirSync(path.join(root, '.adw'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.adw/compose.yml'),
       'services:\n  ai-dev-workflow:\n    cap_drop:\n      - ALL\n    cap_add:\n      - SETUID\n      - SETGID\n');
     for (const args of [['upgrade', '--dry-run'], ['generate'], ['check']]) {
       const { status, stderr } = runCli([...args, '--root', root]);
       assert.equal(status, 0, `${args[0]}: ${stderr}`);
-      assert.match(stderr, /compose\.ai-dev\.yml lacks the KILL capability/, args[0]);
+      assert.match(stderr, /\.adw\/compose\.yml lacks the KILL capability/, args[0]);
     }
   } finally {
     cleanup();

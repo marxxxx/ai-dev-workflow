@@ -16,7 +16,7 @@ import { devImage } from './image.mjs';
 import { AGENT_BIN, OPENCODE_LOGIN, authMounts, composeEnv, composeProject, stageCredentials } from './session.mjs';
 import { openCodeExport } from '../lib/secrets.mjs';
 import { readLocalState, readTicket, ticketDir, writeLocalState, writeTicket } from './store.mjs';
-import { PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
+import { COMPOSE_FILES, PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 
 const DEFAULTS = JSON.parse(readFileSync(new URL('./defaults.json', import.meta.url), 'utf8'));
 
@@ -54,16 +54,16 @@ export async function stepProjectConfig({ root, d, prompter }) {
 }
 
 export async function stepContainerFiles({ root, prompter }) {
-  if (!prompter || existsSync(path.join(root, 'compose.ai-dev.yml'))) return;
-  const answer = await prompter.ask('No dev container files (compose.ai-dev.yml). Write them now? (Y/n)', 'setup.container', prompter.scripted ? 'n' : 'y');
+  if (!prompter || existsSync(path.join(root, COMPOSE_FILES.base))) return;
+  const answer = await prompter.ask('No dev container files (.adw/compose.yml). Write them now? (Y/n)', 'setup.container', prompter.scripted ? 'n' : 'y');
   if (!yes(answer)) return;
   const container = await askContainer(prompter, root);
   if (container.enabled) setUpContainer(root, container, readJson(path.join(root, PROJECT_FILE)));
 }
 
 // A one-off in the project's own compose project (no -p), with the env the containers get; the caller reads the result.
-const ownComposeFiles = (root, cenv) => ['compose', '-f', path.join(root, 'compose.ai-dev.yml'),
-  ...(cenv.AGENT_CA_DIR ? ['-f', path.join(root, 'compose.ai-dev.certs.yml')] : [])];
+const ownComposeFiles = (root, cenv) => ['compose', '-f', path.join(root, COMPOSE_FILES.base),
+  ...(cenv.AGENT_CA_DIR ? ['-f', path.join(root, COMPOSE_FILES.certs)] : [])];
 
 // `asHostUser` runs as the uid the entrypoint maps dev to (the agent-home volume's owner) with dev's HOME, for an
 // `entrypoint` that bypasses that mapping: root would read /root and leave root-owned files in the volume.
@@ -333,8 +333,8 @@ export const renderE2eSection = ({ start, ready, url, stop }) =>
 
 // Tears down the setup compose project the AGENTS.md draft started (network, agent-home volume).
 function downSetupProject({ root, d, env, project }) {
-  const certsFile = path.join(root, 'compose.ai-dev.certs.yml');
-  d.exec('docker', ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), ...(env.AGENT_CA_DIR ? ['-f', certsFile] : []), '-p', project, 'down', '-v'], { env, encoding: 'utf8' });
+  const certsFile = path.join(root, COMPOSE_FILES.certs);
+  d.exec('docker', ['compose', '-f', path.join(root, COMPOSE_FILES.base), ...(env.AGENT_CA_DIR ? ['-f', certsFile] : []), '-p', project, 'down', '-v'], { env, encoding: 'utf8' });
 }
 
 export const DRAFT_SECTION_FILE = (root) => path.join(root, '.adw', 'e2e', 'agents-e2e-section.md');
@@ -356,8 +356,8 @@ function draftE2eSection({ root, state, d, language, prompter }) {
   const { answerer } = state.config;
   const creds = state.creds;
   const env = composeEnv({ root, work: root, env: { ...d.env, ...state.envAdditions } });
-  const certsFile = path.join(root, 'compose.ai-dev.certs.yml');
-  const buildArgs = composeRunArgs({ composeFile: path.join(root, 'compose.ai-dev.yml'), certsFile: env.AGENT_CA_DIR ? certsFile : null,
+  const certsFile = path.join(root, COMPOSE_FILES.certs);
+  const buildArgs = composeRunArgs({ composeFile: path.join(root, COMPOSE_FILES.base), certsFile: env.AGENT_CA_DIR ? certsFile : null,
     project: composeProject(root, 'setup'), uid: d.uid, gid: d.gid, envNames: [...state.config.env, ...(creds?.envNames ?? [])],
     authMounts: authMounts(creds ?? { authFiles: [] }, [answerer.harness]) });
   const input = `Draft the "End-to-end testing" section of this repository's AGENTS.md. An independent verifier will use it to start the app, wait until it is ready, open it in a browser and stop it again.

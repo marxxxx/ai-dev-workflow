@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
+import { COMPOSE_FILES, PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 import { createScriptedPrompter } from '../../agent-src/lib/onboard.mjs';
 import { detectTestCommand, e2eChanges, makePrompter, ownComposeRun, projectVolume, runSetup, renderE2eSection, stepContainerFiles, stepE2eSection, stepEnvValues, stepInterview, stepLogins, stepProjectConfig, stepTicket } from './setup.mjs';
 import { composeProject } from './session.mjs';
@@ -38,26 +38,27 @@ test('stepProjectConfig: nothing to do with an ai-project.json or without a prom
   rmSync(root, { recursive: true });
 });
 
-test('stepContainerFiles: writes the files on yes and git-ignores .env.ai-dev', async () => {
+test('stepContainerFiles: writes the files on yes and git-ignores .adw/.env', async () => {
   const root = tmp();
   putProject(root, JSON.stringify({ ticketing: { backend: 'file' } }));
   const prompter = createScriptedPrompter({ setup: { container: 'y' }, container: { enabled: 'y', stack: 'node' } });
   await stepContainerFiles({ root, opts: {}, d: noop, prompter, state: {} });
-  assert.ok(existsSync(path.join(root, 'compose.ai-dev.yml')));
-  assert.match(readFileSync(path.join(root, '.gitignore'), 'utf8'), /\.env\.ai-dev/);
+  assert.ok(existsSync(path.join(root, COMPOSE_FILES.base)));
+  assert.match(readFileSync(path.join(root, '.gitignore'), 'utf8'), /\.adw\/\.env/);
   rmSync(root, { recursive: true });
 });
 
-test('stepContainerFiles: no question when compose.ai-dev.yml exists; no write without an answer', async () => {
+test('stepContainerFiles: no question when .adw/compose.yml exists; no write without an answer', async () => {
   const root = tmp();
   const asked = [];
   const prompter = { ...createScriptedPrompter({}), ask: async (q) => { asked.push(q); return 'y'; } };
-  writeFileSync(path.join(root, 'compose.ai-dev.yml'), 'services: {}\n');
+  mkdirSync(path.join(root, '.adw'), { recursive: true });
+  writeFileSync(path.join(root, COMPOSE_FILES.base), 'services: {}\n');
   await stepContainerFiles({ root, opts: {}, d: noop, prompter, state: {} });
   assert.deepEqual(asked, []);
-  rmSync(path.join(root, 'compose.ai-dev.yml'));
+  rmSync(path.join(root, COMPOSE_FILES.base));
   await stepContainerFiles({ root, opts: {}, d: noop, prompter: createScriptedPrompter({}), state: {} });
-  assert.equal(existsSync(path.join(root, 'compose.ai-dev.yml')), false);
+  assert.equal(existsSync(path.join(root, COMPOSE_FILES.base)), false);
   rmSync(root, { recursive: true });
 });
 
@@ -98,9 +99,9 @@ test('ownComposeRun: own compose project argv, certs overlay and entrypoint', ()
   const calls = [];
   const exec = (cmd, args, o) => { calls.push([cmd, args, o]); return { status: 0, stdout: 'x' }; };
   ownComposeRun({ root, env: {}, exec, argv: ['gh', 'a'] });
-  assert.deepEqual(calls[0][1], ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), 'run', '--rm', '--no-deps', '-T', 'ai-dev-workflow', 'gh', 'a']);
+  assert.deepEqual(calls[0][1], ['compose', '-f', path.join(root, COMPOSE_FILES.base), 'run', '--rm', '--no-deps', '-T', 'ai-dev-workflow', 'gh', 'a']);
   ownComposeRun({ root, env: { AGENT_CA_DIR: '/c' }, exec, argv: ['sh'], entrypoint: 'sh' });
-  assert.deepEqual(calls[1][1].slice(0, 6), ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), '-f', path.join(root, 'compose.ai-dev.certs.yml'), 'run']);
+  assert.deepEqual(calls[1][1].slice(0, 6), ['compose', '-f', path.join(root, COMPOSE_FILES.base), '-f', path.join(root, COMPOSE_FILES.certs), 'run']);
   assert.ok(calls[1][1].join(' ').includes('--entrypoint sh ai-dev-workflow sh'));
   // As the volume owner: the uid the entrypoint maps dev to, with dev's HOME.
   ownComposeRun({ root, env: { HOST_UID: '1234', HOST_GID: '5678' }, exec, argv: ['x'], entrypoint: 'sh', asHostUser: true });
@@ -122,7 +123,7 @@ test('stepTicket: host import fails, the dev container import succeeds', async (
   assert.deepEqual(events, ['suspend', 'resume']);
   assert.equal(readFileSync(path.join(ticketDir(root, 7), 'ticket.md'), 'utf8'), '# T\n\nB\n');
   assert.deepEqual(state.ticketText, { title: 'T', body: 'B' });
-  assert.deepEqual(calls[0][1].slice(0, 9), ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), 'run', '--rm', '--no-deps', '-T', 'ai-dev-workflow', 'gh']);
+  assert.deepEqual(calls[0][1].slice(0, 9), ['compose', '-f', path.join(root, COMPOSE_FILES.base), 'run', '--rm', '--no-deps', '-T', 'ai-dev-workflow', 'gh']);
   assert.equal(calls[0][1].includes('-p'), false);
   rmSync(root, { recursive: true });
 });
@@ -320,7 +321,8 @@ const EXPORT = '[{"id":"c","integrationID":"x","label":"API key","active":true,"
 function loginsFixture(harness, { setupExit = 0, catStatus = 0, volume = true, cat = '{"tokens":{"refresh_token":"r"}}', envFile = null, exportOut = EXPORT, exportStatus = 0 } = {}) {
   const root = tmp();
   const home = tmp();
-  writeFileSync(path.join(root, 'compose.ai-dev.yml'), 'services: {}\n');
+  mkdirSync(path.join(root, '.adw'), { recursive: true });
+  writeFileSync(path.join(root, COMPOSE_FILES.base), 'services: {}\n');
   putProject(root, JSON.stringify({ ticketing: { backend: 'file' }, e2e: { agent: { harness }, answerer: { harness }, verifier: { harness }, review: { harness } } }));
   if (envFile) writeFileSync(path.join(root, '.env.ai-dev'), envFile);
   const calls = [];
@@ -739,7 +741,7 @@ test('stepE2eSection: [d]raft calls the LLM read-only in the setup compose proje
   assert.ok(argv.includes('-p'));
   assert.ok(argv.includes(composeProject(f.root, 'setup')));
   assert.match(readFileSync(path.join(f.root, 'AGENTS.md'), 'utf8'), /- Start: make run/);
-  assert.deepEqual(f.execs.find((a) => a.includes('down')), ['compose', '-f', path.join(f.root, 'compose.ai-dev.yml'), '-p', composeProject(f.root, 'setup'), 'down', '-v']);
+  assert.deepEqual(f.execs.find((a) => a.includes('down')), ['compose', '-f', path.join(f.root, COMPOSE_FILES.base), '-p', composeProject(f.root, 'setup'), 'down', '-v']);
   rmSync(f.root, { recursive: true });
 });
 

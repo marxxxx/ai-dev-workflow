@@ -14,6 +14,7 @@ import { redactSecrets } from '../lib/secrets.mjs';
 import { applyPostVerification, emptyOutcome } from '../lib/trial.mjs';
 import { createMountPoints, postVerify, verifierHash } from '../lib/postverify.mjs';
 import { cmdInit } from '../../agent-src/lib/onboard.mjs';
+import { COMPOSE_FILES } from '../../agent-src/lib/constants.mjs';
 import { cleanupSetup, makePrompter, newSetupState, runSetup } from './setup.mjs';
 import { detectLanguage, textsFor } from './language.mjs';
 import { loadLocalConfig, selfJudged } from './config.mjs';
@@ -87,7 +88,7 @@ function preflight({ root, config, baseCommit, d, env, fallbackHome = null }) {
   const problems = [];
   const docker = d.exec('docker', ['version', '--format', '{{.Server.Version}}']);
   if (docker.error || docker.status !== 0) problems.push('docker not found or not running');
-  if (!existsSync(path.join(root, 'compose.ai-dev.yml'))) problems.push(`${path.join(root, 'compose.ai-dev.yml')} not found: run adw init and write the container files`);
+  if (!existsSync(path.join(root, COMPOSE_FILES.base))) problems.push(`${path.join(root, COMPOSE_FILES.base)} not found: run adw init and write the container files`);
   const creds = stageCredentials({ harnesses: ROLES.map((r) => config[r].harness), env, home: d.home, fallbackHome });
   // Optional, so no problem: providers may come from e2e.env alone.
   if (ROLES.some((r) => config[r].harness === 'opencode') && !creds.authFiles.some((f) => f.harness === 'opencode')) d.log(OPENCODE_LOGIN_HELP);
@@ -166,8 +167,8 @@ async function runPrepared({ opts, d, root, setup }) {
   const harness = config.agent.harness;
   const runDir = newRunDir(dir, harness, ts);
   const store = { list: () => readAnswers(dir, texts.defaultAnswers), append: (a) => appendAnswer(dir, a, texts.defaultAnswers) };
-  const composeFile = path.join(root, 'compose.ai-dev.yml');
-  const certsFile = path.join(root, 'compose.ai-dev.certs.yml');
+  const composeFile = path.join(root, COMPOSE_FILES.base);
+  const certsFile = path.join(root, COMPOSE_FILES.certs);
   // The e2e layer's override (ensured below): every compose project of a trial runs on it, without published ports.
   let overrideFile = null;
   const composeArgs = (env, project) => ['compose', '-f', composeFile, ...(env.AGENT_CA_DIR ? ['-f', certsFile] : []),

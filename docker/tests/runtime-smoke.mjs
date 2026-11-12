@@ -5,12 +5,13 @@ import { mkdtempSync, mkdirSync, chmodSync, readFileSync, readdirSync, writeFile
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { renderContainerFiles } from '../../agent-src/lib/container.mjs';
+import { COMPOSE_FILES } from '../../agent-src/lib/constants.mjs';
 
 const temporary = mkdtempSync(path.join(tmpdir(), 'agent-runtime-smoke-'));
 // The compose file consuming projects get from `init`, rendered the same way.
-const template = path.join(temporary, 'compose.ai-dev.yml');
+const template = path.join(temporary, path.basename(COMPOSE_FILES.base));
 const rendered = renderContainerFiles({ name: 'smoke', stack: 'generic', backend: 'azure-devops' });
-writeFileSync(template, rendered.find(file => file.path === 'compose.ai-dev.yml').content);
+writeFileSync(template, rendered.find(file => file.path === COMPOSE_FILES.base).content);
 const project = path.join(temporary, 'project with spaces');
 mkdirSync(project);
 // Linux bind mounts keep host ownership; let the foreign fixture UID (12345) write here.
@@ -86,7 +87,7 @@ try {
   // Compose v2 omits false; v5 emits it. Either way the host path must not be auto-created.
   assert.notEqual(bind.bind?.create_host_path, true);
   assert.equal(service.volumes.find(mount => mount.type === 'volume').target, '/home/dev');
-  const copied = path.join(project, 'compose.ai-dev.yml'); copyFileSync(template, copied);
+  const copied = path.join(project, path.basename(COMPOSE_FILES.base)); copyFileSync(template, copied);
   const copiedConfig = JSON.parse(ok(compose(['config', '--format', 'json'], { file: copied })));
   assert.deepEqual(copiedConfig.services['ai-dev-workflow'].volumes, service.volumes);
   const second = JSON.parse(ok(compose(['config', '--format', 'json'], { name: projects[1] })));

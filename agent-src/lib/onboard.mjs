@@ -190,7 +190,7 @@ export async function askContainer(prompter, projectRoot) {
   if (!yes(enabled)) return { enabled: false };
   const stack = await prompter.askChoice('Container stack', 'container.stack', STACKS, detectStack(projectRoot));
 
-  // Settings for the git-ignored .env.ai-dev; both opt-ins default to no.
+  // Settings for the git-ignored .adw/.env; both opt-ins default to no.
   const env = {};
   const dind = await prompter.ask('Give the agent a Docker daemon (Docker overlay)? (y/N)', 'container.dind', 'n');
   if (yes(dind)) {
@@ -236,15 +236,15 @@ export function setUpContainer(projectRoot, { stack, env }, config) {
   });
   for (const f of written) console.log(`Wrote ${f}`);
   for (const f of skipped) console.log(`${f} exists — left untouched.`);
-  for (const k of kept) console.log(`${k} is already set in .env.ai-dev — left untouched.`);
+  for (const k of kept) console.log(`${k} is already set in .adw/.env — left untouched.`);
   if (env.AGENT_CA_DIR === '' && !kept.includes('AGENT_CA_DIR')) {
     console.log(
-      '\nAGENT_CA_DIR is empty in .env.ai-dev, so the certificates overlay stays off. To enable it,\n' +
+      '\nAGENT_CA_DIR is empty in .adw/.env, so the certificates overlay stays off. To enable it,\n' +
       'set it to the absolute directory holding the company root certificates (*.crt, *.pem, *.cer,\n' +
-      '*.cert), e.g. AGENT_CA_DIR=/etc/company-certs. See AI-DEV.md, section 4.');
+      '*.cert), e.g. AGENT_CA_DIR=/etc/company-certs. See .adw/README.md, section 4.');
   } else if (env.AGENT_CA_DIR && !kept.includes('AGENT_CA_DIR') &&
              !(path.isAbsolute(env.AGENT_CA_DIR) && fs.statSync(env.AGENT_CA_DIR, { throwIfNoEntry: false })?.isDirectory())) {
-    console.log(`\nWarning: AGENT_CA_DIR=${env.AGENT_CA_DIR} is not an existing absolute directory; the container will not start until it is. Fix it in .env.ai-dev.`);
+    console.log(`\nWarning: AGENT_CA_DIR=${env.AGENT_CA_DIR} is not an existing absolute directory; the container will not start until it is. Fix it in .adw/.env.`);
   }
   console.log(`\n${nextSteps({ backend, version: packageVersion() })}`);
 }

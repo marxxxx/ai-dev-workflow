@@ -135,9 +135,9 @@ test('cmdInit with container.enabled y writes the container files for the chosen
     assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8')), { ...buildProjectConfig(GITHUB_ANSWERS), skills: { 'show-me': false } },
       'container answers are not stored in .adw/project.json');
-    assert.ok(fs.readFileSync(path.join(root, 'compose.ai-dev.yml'), 'utf8').includes('marxx/ai-dev-workflow:dotnet-latest'));
-    assert.ok(fs.readFileSync(path.join(root, 'AI-DEV.md'), 'utf8').includes('gh auth setup-git'));
-    for (const f of ['compose.ai-dev.certs.yml', 'ai-dev.sh', 'ai-dev.ps1', '.gitignore', '.gitattributes']) {
+    assert.ok(fs.readFileSync(path.join(root, '.adw/compose.yml'), 'utf8').includes('marxx/ai-dev-workflow:dotnet-latest'));
+    assert.ok(fs.readFileSync(path.join(root, '.adw/README.md'), 'utf8').includes('gh auth setup-git'));
+    for (const f of ['.adw/compose.certs.yml', 'adw.sh', 'adw.ps1', '.gitignore', '.gitattributes']) {
       assert.ok(fs.existsSync(path.join(root, f)), f);
     }
   } finally {
@@ -145,12 +145,12 @@ test('cmdInit with container.enabled y writes the container files for the chosen
   }
 });
 
-test('cmdInit container without dind or certs answers writes no .env.ai-dev', async () => {
+test('cmdInit container without dind or certs answers writes no .adw/.env', async () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'generic' } };
     assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
-    assert.ok(!fs.existsSync(path.join(root, '.env.ai-dev')));
+    assert.ok(!fs.existsSync(path.join(root, '.adw/.env')));
   } finally {
     cleanup();
   }
@@ -162,7 +162,7 @@ test('cmdInit with container.dind y sets AGENT_DIND=1 and prints the isolation w
   try {
     const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'generic', dind: 'y' } };
     assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
-    assert.equal(fs.readFileSync(path.join(root, '.env.ai-dev'), 'utf8'), 'AGENT_DIND=1\n');
+    assert.equal(fs.readFileSync(path.join(root, '.adw/.env'), 'utf8'), 'AGENT_DIND=1\n');
     assert.match(out.text(), /root-equivalent/);
   } finally {
     out.restore();
@@ -177,7 +177,7 @@ test('cmdInit with container.certs y and a directory sets AGENT_CA_DIR to it', a
     fs.mkdirSync(caDir);
     const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'generic', certs: 'y', caDir } };
     assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
-    assert.equal(fs.readFileSync(path.join(root, '.env.ai-dev'), 'utf8'), `AGENT_CA_DIR=${caDir}\n`);
+    assert.equal(fs.readFileSync(path.join(root, '.adw/.env'), 'utf8'), `AGENT_CA_DIR=${caDir}\n`);
   } finally {
     cleanup();
   }
@@ -189,7 +189,7 @@ test('cmdInit with container.certs y and no directory writes an empty AGENT_CA_D
   try {
     const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'generic', dind: 'y', certs: 'y' } };
     assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
-    assert.equal(fs.readFileSync(path.join(root, '.env.ai-dev'), 'utf8'), 'AGENT_DIND=1\nAGENT_CA_DIR=\n');
+    assert.equal(fs.readFileSync(path.join(root, '.adw/.env'), 'utf8'), 'AGENT_DIND=1\nAGENT_CA_DIR=\n');
     assert.match(out.text(), /AGENT_CA_DIR is empty/);
   } finally {
     out.restore();
@@ -203,7 +203,7 @@ test('cmdInit container stack defaults to the detected one', async () => {
     fs.writeFileSync(path.join(root, 'package.json'), '{}');
     const answers = { ...FILE_ANSWERS, container: { enabled: 'y' } };
     assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
-    assert.ok(fs.readFileSync(path.join(root, 'compose.ai-dev.yml'), 'utf8').includes('marxx/ai-dev-workflow:node-latest'));
+    assert.ok(fs.readFileSync(path.join(root, '.adw/compose.yml'), 'utf8').includes('marxx/ai-dev-workflow:node-latest'));
   } finally {
     cleanup();
   }
@@ -219,8 +219,8 @@ test('cmdInit with declined overwrite still writes container files from the exis
     const answers = { container: { enabled: 'y', stack: 'generic' } };
     assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
     assert.equal(fs.readFileSync(dest, 'utf8'), existing);
-    assert.match(fs.readFileSync(path.join(root, 'compose.ai-dev.yml'), 'utf8'), /^name: gitea-demo-ai$/m);
-    assert.ok(fs.readFileSync(path.join(root, 'AI-DEV.md'), 'utf8').includes('myserver'));
+    assert.match(fs.readFileSync(path.join(root, '.adw/compose.yml'), 'utf8'), /^name: gitea-demo-ai$/m);
+    assert.ok(fs.readFileSync(path.join(root, '.adw/README.md'), 'utf8').includes('myserver'));
   } finally {
     cleanup();
   }
@@ -234,8 +234,8 @@ test('cmdInit with declined overwrite and an incomplete .adw/project.json falls 
     const answers = { container: { enabled: 'y', stack: 'generic' } };
     assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
     const slug = path.basename(root).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
-    assert.ok(fs.readFileSync(path.join(root, 'compose.ai-dev.yml'), 'utf8').includes(`name: ${slug}-ai`));
-    assert.ok(!fs.readFileSync(path.join(root, 'AI-DEV.md'), 'utf8').includes('gh auth'));
+    assert.ok(fs.readFileSync(path.join(root, '.adw/compose.yml'), 'utf8').includes(`name: ${slug}-ai`));
+    assert.ok(!fs.readFileSync(path.join(root, '.adw/README.md'), 'utf8').includes('gh auth'));
   } finally {
     cleanup();
   }

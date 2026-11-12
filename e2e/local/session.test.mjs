@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { COMPOSE_FILES } from '../../agent-src/lib/constants.mjs';
 import { OPENCODE_CREDENTIALS, scanForSecrets } from '../lib/secrets.mjs';
 import { OPENCODE_LOGIN, OPENCODE_LOGIN_HELP, acpCommand, acpxConfig, authMounts, composeEnv, composeProject, listening, parseEnvFile, stageCredentials, startSession } from './session.mjs';
 
@@ -131,7 +132,7 @@ test('startSession starts the compose run container, stages auth by stdin and en
   try {
     const { calls, exec } = recorder({ results: (a) => (a.includes('command -v codex') ? { status: 0, stdout: '/usr/local/bin/codex\n' } : null) });
     startSession({ root, work, harness: 'codex', model: 'gpt-5', project: 'p1', creds, envNames: ['AZURE_X'], exec, env: { AGENT_CA_DIR: '/ca' }, turnTimeoutSec: 60 });
-    const compose = ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), '-f', path.join(root, 'compose.ai-dev.certs.yml'), '-p', 'p1'];
+    const compose = ['compose', '-f', path.join(root, COMPOSE_FILES.base), '-f', path.join(root, COMPOSE_FILES.certs), '-p', 'p1'];
     // The entrypoint's CA exports are lost on docker exec: the run sets them (paths only) so every exec inherits them.
     assert.deepEqual(calls[0].args, [...compose, 'run', '-d', '--name', 'p1-agent', '-e', 'OPENAI_API_KEY', '-e', 'AZURE_X',
       '-e', 'NODE_EXTRA_CA_CERTS=/etc/ssl/agent-extra-ca.pem', '-e', 'SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt',
@@ -247,8 +248,8 @@ test('startSession adds the e2e override as the last compose file', () => {
     const { calls, exec } = recorder();
     startSession({ root, work, harness: 'opencode', model: null, project: 'p1', creds, exec, env: { AGENT_CA_DIR: '/ca' },
       overrideFile: '/run/compose.adw-e2e.yml' });
-    assert.deepEqual(calls[0].args.slice(0, 9), ['compose', '-f', path.join(root, 'compose.ai-dev.yml'),
-      '-f', path.join(root, 'compose.ai-dev.certs.yml'), '-f', '/run/compose.adw-e2e.yml', '-p', 'p1']);
+    assert.deepEqual(calls[0].args.slice(0, 9), ['compose', '-f', path.join(root, COMPOSE_FILES.base),
+      '-f', path.join(root, COMPOSE_FILES.certs), '-f', '/run/compose.adw-e2e.yml', '-p', 'p1']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

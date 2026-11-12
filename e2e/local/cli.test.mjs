@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
+import { COMPOSE_FILES, PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 import { fileURLToPath } from 'node:url';
 import * as metrics from '../lib/metrics.mjs';
 import { makeClaudeTrial } from '../lib/fixtures/make.mjs';
@@ -25,7 +25,8 @@ const TICKET_FILE = '---\nstatus: review\n---\n\nbody\n\n---\n## Approved Spec\n
 // A consumer project root with compose file and ai-project.json; `e2e` is its e2e block.
 function project(e2e = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'adw-cli-'));
-  writeFileSync(path.join(root, 'compose.ai-dev.yml'), 'services: {}\n');
+  mkdirSync(path.join(root, '.adw'), { recursive: true });
+  writeFileSync(path.join(root, COMPOSE_FILES.base), 'services: {}\n');
   mkdirSync(path.join(root, '.adw'), { recursive: true });
   writeFileSync(path.join(root, PROJECT_FILE), JSON.stringify({ ticketing: { backend: 'file' }, e2e }));
   writeFileSync(path.join(root, 'issue.md'), '# Fälligkeitsdatum\n\nTodos bekommen ein Datum, das nicht leer ist und mit der Liste erscheint.\n');
@@ -120,13 +121,13 @@ test('main: a usage error exits 2 with the usage line first; --help exits 0', as
 
 test('non-TTY run without compose file asks nothing and fails as today', async () => {
   const root = project();
-  rmSync(path.join(root, 'compose.ai-dev.yml'));
+  rmSync(path.join(root, COMPOSE_FILES.base));
   const s = stubs(root);
   let asked = 0;
   s.deps.cmdInit = async () => { asked++; return 0; };
   const code = await runE2e(opts(root), s.deps);
   assert.equal(code, 1);
-  assert.ok(s.out.some((l) => /^✗ preflight: .*compose\.ai-dev\.yml not found/.test(l)), s.out.join('\n'));
+  assert.ok(s.out.some((l) => /^✗ preflight: .*\.adw[\\/]compose\.yml not found/.test(l)), s.out.join('\n'));
   assert.equal(asked, 0);
   rmSync(root, { recursive: true });
 });
@@ -250,13 +251,13 @@ test('preflight: a judge harness without login fails before any compose call, na
 test('preflight: an unset e2e.env name, a missing compose file and an unresolvable base commit fail before any compose call', async () => {
   const root = project({ env: ['AZURE_API_KEY'] });
   try {
-    rmSync(path.join(root, 'compose.ai-dev.yml'));
+    rmSync(path.join(root, COMPOSE_FILES.base));
     const s = stubs(root);
     s.deps.exec = (cmd, args) => { s.exec.push({ argv: [cmd, ...args] }); return cmd === 'git' ? { status: 128, stdout: '', stderr: 'bad' } : { status: 0, stdout: '' }; };
     assert.equal(await runE2e(opts(root), s.deps), 1);
     const text = s.out.join('\n');
     assert.match(text, /e2e\.env: AZURE_API_KEY is not set/);
-    assert.match(text, /compose\.ai-dev\.yml not found/);
+    assert.match(text, /\.adw[\\/]compose\.yml not found/);
     assert.match(text, /base commit HEAD does not resolve/);
     assert.deepEqual(s.calls, []);
     assert.equal(s.exec.some((c) => c.argv.includes('compose')), false);
@@ -587,7 +588,7 @@ test('the e2e layer is ensured once, before the first sandbox, and the session g
   assert.ok(calls.indexOf('image') < calls.indexOf('sandbox'));
   assert.equal(seen.session.overrideFile, '/run/o.yml');
   assert.match(seen.session.origin, /origin\.git$/);
-  assert.deepEqual(seen.image.composeFiles, [path.join(root, 'compose.ai-dev.yml')]);
+  assert.deepEqual(seen.image.composeFiles, [path.join(root, COMPOSE_FILES.base)]);
   assert.equal(seen.image.root, root);
 });
 

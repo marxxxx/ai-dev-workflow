@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { COMPOSE_FILES } from '../../agent-src/lib/constants.mjs';
 import { walk } from '../lib/fsutil.mjs';
 import { isCliQuota } from '../lib/llm.mjs';
 import { OPENCODE_CREDENTIALS, openCodeExport, removeOpenCodeDbCredentials, scrubSecretsInTree, secretLeaves } from '../lib/secrets.mjs';
@@ -150,8 +151,8 @@ export function startSession({ root, work, origin = null, harness, model, projec
   turnTimeoutSec = 1800, readyTimeoutSec = 300, overrideFile = null, warn = (m) => console.warn(m) }) {
   const name = `${project}-agent`;
   const cenv = composeEnv({ root, work, env });
-  const compose = ['compose', '-f', path.join(root, 'compose.ai-dev.yml'),
-    ...(cenv.AGENT_CA_DIR ? ['-f', path.join(root, 'compose.ai-dev.certs.yml')] : []),
+  const compose = ['compose', '-f', path.join(root, COMPOSE_FILES.base),
+    ...(cenv.AGENT_CA_DIR ? ['-f', path.join(root, COMPOSE_FILES.certs)] : []),
     ...(overrideFile ? ['-f', overrideFile] : []), '-p', project];
   const label = `agent (${harness})`;
   const run = (args, opts = {}) => {

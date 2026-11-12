@@ -11,7 +11,7 @@
 //   ai-dev-workflow init --answers <file.json>    non-interactive onboarding from a JSON answers file
 //   ai-dev-workflow upgrade [--dry-run]           delete ≤0.22 generated files + obsolete config keys, generate,
 //                                                 then install/update the pinned third-party skills (show-me)
-//                                                 and name fixes the project-owned compose.ai-dev.yml needs
+//                                                 and name fixes the project-owned .adw/compose.yml needs
 //   ai-dev-workflow e2e <base-commit|.> <ticket> [harness] [--repetitions n] [--model m] [--ticket-file f] [--baseline runDir]
 //                                                 [--no-input] [--answers file] [--reconfigure]
 //                                                 replayable E2E run of agent-dev on a ticket (e2e/local/cli.mjs)
