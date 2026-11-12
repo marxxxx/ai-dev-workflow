@@ -1,9 +1,9 @@
 // Upgrade from the ≤0.22 multi-agent workflow: delete the generated files of the units and includes
-// 0.23 removed, and strip ai-project.json keys nothing reads anymore. `generate` only ever writes,
+// 0.23 removed, and strip .adw/project.json keys nothing reads anymore. `generate` only ever writes,
 // so without this the old subagents and skills keep loading next to agent-dev.
 //
 // Only files carrying the generator's banner for that exact unit are deleted — a hand-written file
-// that happens to share a name is kept. Project-owned leftovers (agent-custom/, scaffolded e2e
+// that happens to share a name is kept. Project-owned leftovers (.adw/custom/, scaffolded e2e
 // scripts) are only reported.
 
 import fs from 'node:fs';
@@ -17,7 +17,7 @@ export const OBSOLETE_UNITS = {
 };
 export const OBSOLETE_INCLUDES = ['e2e-runtime', 'handoff'];
 
-// Dotted ai-project.json paths: dropped by 0.23 (branchPattern, the review/QA states), older
+// Dotted .adw/project.json paths: dropped by 0.23 (branchPattern, the review/QA states), older
 // leftovers (itemNoun, the e2e script keys, app, handoff) and identity fields no rendered output uses anymore.
 // `e2e` itself is adw e2e's settings now: only the leaves of the old e2e-up/e2e-down block go.
 export const OBSOLETE_PROJECT_KEYS = [
@@ -77,7 +77,7 @@ function obsoleteUnitDirs() {
   ]);
 }
 
-/** Whether `content` carries the generator banner for exactly `source` (plain or agent-custom). */
+/** Whether `content` carries the generator banner for exactly `source` (plain or .adw/custom). */
 function hasBanner(content, source) {
   const escaped = source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`DO NOT EDIT — generated from ${escaped}(;| \\+)`).test(content);
@@ -138,7 +138,7 @@ export function cleanProjectConfig(projectRoot, { dryRun = false } = {}) {
   return { removed };
 }
 
-/** Project-owned leftovers of the removed workflow: agent-custom/ dirs and scaffolded e2e scripts. */
+/** Project-owned leftovers of the removed workflow: .adw/custom/ dirs and scaffolded e2e scripts. */
 export function findCustomLeftovers(projectRoot) {
   const candidates = [
     ...OBSOLETE_UNITS.agents.map((n) => path.join(CUSTOM_DIR, 'agents', n)),

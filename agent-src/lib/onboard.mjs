@@ -8,6 +8,7 @@ import { SRC_DIR, PROJECT_FILE, ADW_DIR, argValue } from './constants.mjs';
 import { detectRepoSlug } from './identity.mjs';
 import { readJson, buildProjectConfig } from './config.mjs';
 import { STACKS, DIND_WARNING, detectStack, writeContainerFiles, nextSteps } from './container.mjs';
+import { assertCurrentLayout } from './layout.mjs';
 import { loadSkillPins, installSkills, reportSkills } from './skills.mjs';
 
 /**
@@ -259,6 +260,7 @@ export function setUpContainer(projectRoot, { stack, env }, config) {
  * exactly one interview code path.
  */
 export async function cmdInit(projectRoot, { prompter, runSkill } = {}) {
+  assertCurrentLayout(projectRoot);
   const dest = path.join(projectRoot, PROJECT_FILE);
   let active = prompter;
   if (!active) {

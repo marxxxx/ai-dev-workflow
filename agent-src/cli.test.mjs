@@ -403,3 +403,107 @@ test('upgrade, generate and check name a .adw/compose.yml without KILL, without 
     cleanup();
   }
 });
+
+// The pre-.adw layout: config and container files at the project root.
+function seedOldLayout(root, { launcher = true } = {}) {
+  fs.writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(MINIMAL_PROJECT, null, 2) + '\n');
+  if (launcher) fs.writeFileSync(path.join(root, 'ai-dev.sh'), '#!/bin/sh\n');
+  fs.writeFileSync(path.join(root, 'AI-DEV.md'), 'old readme\n');
+  fs.writeFileSync(path.join(root, '.env.ai-dev'), 'X=1\n');
+  fs.writeFileSync(path.join(root, '.gitignore'), '.env.ai-dev\n');
+  fs.writeFileSync(path.join(root, '.gitattributes'), 'ai-dev.sh text eol=lf\n');
+}
+
+function listTree(dir, base = dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = path.join(dir, e.name);
+    return e.isDirectory() ? listTree(p, base) : [`${path.relative(base, p)}:${fs.readFileSync(p, 'utf8')}`];
+  }).sort();
+}
+
+test('generate and check refuse the old layout and name upgrade', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    seedOldLayout(root);
+    for (const command of ['generate', 'check']) {
+      const { status, stderr } = runCli([command, '--root', root]);
+      assert.equal(status, 1);
+      assert.match(stderr, /Old adw layout found: ai-project\.json.*upgrade/s);
+    }
+    assert.ok(!fs.existsSync(path.join(root, '.claude')), 'nothing is written');
+  } finally {
+    cleanup();
+  }
+});
+
+test('a leftover .env.ai-dev alone does not block generate', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    fs.writeFileSync(path.join(root, '.env.ai-dev'), 'X=1\n');
+    assert.equal(runCli(['generate', '--root', root]).status, 0);
+  } finally {
+    cleanup();
+  }
+});
+
+test('init refuses the old layout', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    seedOldLayout(root);
+    fs.writeFileSync(path.join(root, 'answers.json'), JSON.stringify({ name: 'X', backend: 'file' }));
+    const { status, stderr } = runCli(['init', '--answers', path.join(root, 'answers.json'), '--root', root]);
+    assert.equal(status, 1);
+    assert.match(stderr, /init failed: Old adw layout found/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('upgrade moves the old layout, prints each change, then generates', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    seedOldLayout(root);
+    const { status, stdout, stderr } = runCli(['upgrade', '--root', root]);
+    assert.equal(status, 0, stderr);
+    assert.match(stdout, /Moved ai-project\.json → \.adw\/project\.json/);
+    assert.match(stdout, /Rewrote ai-dev\.sh → adw\.sh/);
+    assert.match(stdout, /Added \.adw\/\.env to \.gitignore/);
+    assert.match(stdout, /Replaced ai-dev\.sh with adw\.sh in \.gitattributes/);
+    assert.match(stdout, /See \.adw\/README\.md for the container setup\./);
+    assert.ok(fs.existsSync(path.join(root, '.claude', 'skills', 'agent-dev', 'SKILL.md')));
+    assert.ok(!fs.existsSync(path.join(root, 'ai-project.json')));
+    assert.equal(runCli(['check', '--root', root]).status, 0);
+  } finally {
+    cleanup();
+  }
+});
+
+test('upgrade --dry-run lists the moves and changes nothing', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    seedOldLayout(root);
+    const before = listTree(root);
+    const { status, stdout } = runCli(['upgrade', '--dry-run', '--root', root]);
+    assert.equal(status, 0);
+    assert.match(stdout, /Would move ai-project\.json → \.adw\/project\.json/);
+    assert.match(stdout, /Would rewrite AI-DEV\.md → \.adw\/README\.md/);
+    assert.match(stdout, /Would: Added \.adw\/\.env to \.gitignore/);
+    assert.match(stdout, /Dry run: the remaining upgrade steps are listed once the files are in \.adw\//);
+    assert.deepEqual(listTree(root), before);
+  } finally {
+    cleanup();
+  }
+});
+
+test('upgrade stops with exit 1 on a conflict and does not generate', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    fs.writeFileSync(path.join(root, 'ai-project.json'), '{}\n');
+    const { status, stderr } = runCli(['upgrade', '--root', root]);
+    assert.equal(status, 1);
+    assert.match(stderr, /Conflict: ai-project\.json and \.adw\/project\.json both exist/);
+    assert.ok(!fs.existsSync(path.join(root, '.claude')));
+  } finally {
+    cleanup();
+  }
+});
