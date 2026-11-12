@@ -171,7 +171,7 @@ const INTERRUPT_STATUS = { 130: 'SIGINT', 143: 'SIGTERM' };
 const AUTH_ENV = ['CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_FORCE_OAUTH'];
 
 // E2E_VERIFY=1 skips the task image's Gitea seed hook (environment/seed/seed.sh). AGENT_TOOLSTACK_ONLY=1
-// configures only the tool stack: a calibration checkout has no ai-project.json, and a judge needs no ticketing.
+// configures only the tool stack: a calibration checkout has no .adw/project.json, and a judge needs no ticketing.
 // `env` is the command's own non-secret settings (ADW_OPENCODE_CONFIG); `authMounts` are `host:container` login files.
 // `readOnly` mounts the checkout read-only (the review judge).
 function containerFlags({ uid, gid, envNames, authMounts, name, checkout, readOnly, mounts, env }) {
@@ -185,9 +185,10 @@ export const dockerRunArgs = ({ image, uid, gid, envNames = [], authMounts = [] 
   ['run', '--rm', '-i', ...containerFlags({ uid, gid, envNames, authMounts, name, checkout, readOnly, mounts, env }), image, ...argv];
 
 // `docker compose run` of the project's own dev-container service; -T keeps stdin a pipe for the prompt.
-// `overrideFile` (adw e2e's compose.adw-e2e.yml) goes last.
-export const composeRunArgs = ({ composeFile, certsFile = null, overrideFile = null, project, service = 'ai-dev-workflow', uid, gid, envNames = [],
-  authMounts = [] }) => ({ name, checkout, readOnly = false, mounts = [], argv, env = {} }) => ['compose', '-f', composeFile,
+// `overrideFile` (adw e2e's compose.adw-e2e.yml) goes last; `projectDirectory`, when set, is compose's --project-directory.
+export const composeRunArgs = ({ composeFile, certsFile = null, overrideFile = null, projectDirectory = null, project, service = 'ai-dev-workflow', uid, gid, envNames = [],
+  authMounts = [] }) => ({ name, checkout, readOnly = false, mounts = [], argv, env = {} }) => ['compose',
+  ...(projectDirectory ? ['--project-directory', projectDirectory] : []), '-f', composeFile,
   ...(certsFile ? ['-f', certsFile] : []), ...(overrideFile ? ['-f', overrideFile] : []), '-p', project,
     'run', '--rm', '-T', ...containerFlags({ uid, gid, envNames, authMounts, name, checkout, readOnly, mounts, env }), service, ...argv];
 

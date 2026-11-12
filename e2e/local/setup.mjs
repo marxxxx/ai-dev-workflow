@@ -13,7 +13,7 @@ import { e2eSectionOf } from './contract.mjs';
 import { LANGUAGES, detectLanguage, textsFor } from './language.mjs';
 import { loadLocalConfig } from './config.mjs';
 import { devImage } from './image.mjs';
-import { AGENT_BIN, OPENCODE_LOGIN, authMounts, composeBaseArgs, composeEnv, composeProject, inProjectDirectory, stageCredentials } from './session.mjs';
+import { AGENT_BIN, OPENCODE_LOGIN, authMounts, composeBaseArgs, composeEnv, composeProject, stageCredentials } from './session.mjs';
 import { openCodeExport } from '../lib/secrets.mjs';
 import { readLocalState, readTicket, ticketDir, writeLocalState, writeTicket } from './store.mjs';
 import { COMPOSE_FILES, ENV_FILE, PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
@@ -353,9 +353,9 @@ function draftE2eSection({ root, state, d, language, prompter }) {
   const creds = state.creds;
   const env = composeEnv({ root, work: root, env: { ...d.env, ...state.envAdditions } });
   const certsFile = path.join(root, COMPOSE_FILES.certs);
-  const buildArgs = inProjectDirectory(root, composeRunArgs({ composeFile: path.join(root, COMPOSE_FILES.base), certsFile: env.AGENT_CA_DIR ? certsFile : null,
+  const buildArgs = composeRunArgs({ composeFile: path.join(root, COMPOSE_FILES.base), projectDirectory: root, certsFile: env.AGENT_CA_DIR ? certsFile : null,
     project: composeProject(root, 'setup'), uid: d.uid, gid: d.gid, envNames: [...state.config.env, ...(creds?.envNames ?? [])],
-    authMounts: authMounts(creds ?? { authFiles: [] }, [answerer.harness]) }));
+    authMounts: authMounts(creds ?? { authFiles: [] }, [answerer.harness]) });
   const input = `Draft the "End-to-end testing" section of this repository's AGENTS.md. An independent verifier will use it to start the app, wait until it is ready, open it in a browser and stop it again.
 
 Rules:

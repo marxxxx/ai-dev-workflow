@@ -24,7 +24,7 @@ import { importTicket } from './ticket-import.mjs';
 import { ensureE2eImage } from './image.mjs';
 import { collectSandbox, createSandbox, snapshotWorkingTree } from './sandbox.mjs';
 import { appPortFromAgentsMd, e2eSectionOf, evaluateLocalContract, hasE2eSection } from './contract.mjs';
-import { OPENCODE_LOGIN_HELP, authMounts, composeBaseArgs, composeEnv, composeProject, inProjectDirectory, stageCredentials, startSession } from './session.mjs';
+import { OPENCODE_LOGIN_HELP, authMounts, composeBaseArgs, composeEnv, composeProject, stageCredentials, startSession } from './session.mjs';
 import { askHumanTty, makeDecide, runConversation } from './answerer.mjs';
 import { confirmAcceptance, draftAcceptance, renderAcceptance, spawnEditor } from './acceptance.mjs';
 import { buildLocalTrialRecord, compareWithBaseline, localFingerprint, localReward, writeRun } from './record.mjs';
@@ -188,9 +188,9 @@ async function runPrepared({ opts, d, root, setup }) {
   };
   const teardownAll = () => { for (const project of [...active.keys()]) down(project); };
   // The argv builder of a judge-side container in compose project `project`, with the logins `harnesses` need.
-  const judgeArgs = (project, env) => (harnesses) => inProjectDirectory(root, composeRunArgs({ composeFile, certsFile: env.AGENT_CA_DIR ? certsFile : null, overrideFile, project,
+  const judgeArgs = (project, env) => (harnesses) => composeRunArgs({ composeFile, projectDirectory: root, certsFile: env.AGENT_CA_DIR ? certsFile : null, overrideFile, project,
     uid: d.uid, gid: d.gid, envNames: [...config.env, ...creds.envNames],
-    authMounts: authMounts(creds, harnesses) }));
+    authMounts: authMounts(creds, harnesses) });
   // Probes every distinct answerer/judge harness and model in its own compose project; returns the first failure, or null.
   const probeModels = (mountPoints) => {
     const pairs = new Map();

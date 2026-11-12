@@ -92,12 +92,6 @@ export function parseEnvFile(text) {
 export const composeBaseArgs = ({ root, env }) => ['compose', '--project-directory', root, '-f', path.join(root, COMPOSE_FILES.base),
   ...(env.AGENT_CA_DIR ? ['-f', path.join(root, COMPOSE_FILES.certs)] : [])];
 
-// `build` (llm.mjs composeRunArgs) with the project directory in front of its compose files.
-export const inProjectDirectory = (root, build) => (a) => {
-  const [compose, ...rest] = build(a);
-  return [compose, '--project-directory', root, ...rest];
-};
-
 // The compose env as adw.sh builds it: .adw/.env never overrides a set variable, PROJECT_ROOT is the work tree.
 export function composeEnv({ root, work, env = process.env, uid = process.getuid?.() ?? 1000, gid = process.getgid?.() ?? 1000 }) {
   const file = path.join(root, ENV_FILE);

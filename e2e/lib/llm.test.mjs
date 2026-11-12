@@ -202,10 +202,10 @@ test('dockerRunArgs: a fresh task container, provider env and auth by name, auth
 });
 
 test('composeRunArgs: the project\'s compose service, last before the argv; env by name only; auth files read-only', () => {
-  const build = composeRunArgs({ composeFile: '/p/compose.ai-dev.yml', certsFile: '/p/compose.ai-dev.certs.yml', project: 'adw-e2e-1', uid: 1, gid: 2,
+  const build = composeRunArgs({ composeFile: '/p/.adw/compose.yml', certsFile: '/p/.adw/compose.certs.yml', project: 'adw-e2e-1', uid: 1, gid: 2,
     envNames: ['OPENAI_API_KEY'], authMounts: ['/h/auth.json:/home/dev/.adw-e2e/opencode-credentials.json'] });
   const args = build({ name: 'n', checkout: '/c', mounts: [], argv: ARGV, env: {} });
-  assert.deepEqual(args.slice(0, 7), ['compose', '-f', '/p/compose.ai-dev.yml', '-f', '/p/compose.ai-dev.certs.yml', '-p', 'adw-e2e-1']);
+  assert.deepEqual(args.slice(0, 7), ['compose', '-f', '/p/.adw/compose.yml', '-f', '/p/.adw/compose.certs.yml', '-p', 'adw-e2e-1']);
   assert.deepEqual(args.slice(7, 12), ['run', '--rm', '-T', '--name', 'n']);
   assert.deepEqual(args.slice(-4), ['ai-dev-workflow', ...ARGV]);
   assert.equal(args[args.indexOf('OPENAI_API_KEY') - 1], '-e');
@@ -218,6 +218,12 @@ test('composeRunArgs: the project\'s compose service, last before the argv; env 
   assert.equal(plain.at(-ARGV.length - 1), 'app');
   const ro = build({ name: 'n', checkout: '/c', readOnly: true, argv: ARGV });
   assert.equal(ro[ro.indexOf('/c:/workspace:ro') - 1], '-v', 'a read-only checkout');
+});
+
+test('composeRunArgs: a project directory goes right after compose, before the compose files', () => {
+  const args = composeRunArgs({ composeFile: '/p/.adw/compose.yml', projectDirectory: '/p', project: 'p', uid: 1, gid: 1 })(
+    { name: 'n', checkout: '/c', argv: ARGV });
+  assert.deepEqual(args.slice(0, 6), ['compose', '--project-directory', '/p', '-f', '/p/.adw/compose.yml', '-p']);
 });
 
 test('composeRunArgs: an override file comes last among the compose files', () => {
