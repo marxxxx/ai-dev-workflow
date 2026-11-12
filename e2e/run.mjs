@@ -162,7 +162,9 @@ async function run() {
   const selected = tasks.map(loadTask);
   if (!preflight()) process.exit(1);
   for (const t of selected) {
-    rmSync(path.join(t.seed, 'ai-project.json'), { force: true }); // init --answers needs a fresh tree
+    // init --answers needs a fresh tree: no project config, neither the current one nor a stale one of the old layout.
+    rmSync(path.join(t.seed, '.adw/project.json'), { force: true });
+    rmSync(path.join(t.seed, 'ai-project.json'), { force: true });
     execFileSync('node', ['agent-src/generate.mjs', 'init', '--answers', path.join(t.dir, 'environment/seed/answers.json'), '--root', t.seed],
       { cwd: config.root, stdio: 'inherit', input: '' });
     execFileSync('node', ['agent-src/generate.mjs', 'generate', '--root', t.seed], { cwd: config.root, stdio: 'inherit' });

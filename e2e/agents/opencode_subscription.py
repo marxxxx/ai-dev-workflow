@@ -48,7 +48,7 @@ class OpenCodeSubscription(OpenCode):
 
     @override
     async def install(self, environment: BaseEnvironment) -> None:
-        # The image binary is called directly: the wrapper needs /workspace/ai-project.json.
+        # The image binary is called directly: the wrapper needs /workspace/.adw/project.json.
         version = await environment.exec(command=f"{IMAGE_BINARY} --version")
         if version.return_code == 0 and await self._wrapper_target(environment) == WRAPPER:
             found = self.parse_version(version.stdout or "")
