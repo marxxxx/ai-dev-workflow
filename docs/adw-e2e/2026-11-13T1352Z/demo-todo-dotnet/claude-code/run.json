@@ -1,0 +1,465 @@
+{
+  "schema": 2,
+  "task": "demo-todo-dotnet",
+  "harness": "claude-code",
+  "fingerprint": {
+    "adw": {
+      "version": "0.31.0",
+      "sha": "e3196af9515e82022066c159723fa196b20a46de",
+      "dirty": true
+    },
+    "skill": {
+      "claude": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "codex": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "opencode": "48d019a0096fa1f224f4a6d60422882148dfbf6a9680aca05cd948531f281e0e",
+      "includes": "460615f461c8f598aa54476bf12030d302e9573c9d6b9d821e8f7b19b1b0d2a8:9905aed6ff6a01bbb005f626e5bf6af85f9bde49ed2b27cee46a1f2302aecce8"
+    },
+    "image": {
+      "ref": "ai-dev-workflow-dotnet:latest",
+      "id": "sha256:2e9e6b12042037ea3f4327766f0ce5b228a3571149e105b8dee692e80fb7b224",
+      "inventory": "06d2eff6f5803d13f194d0d44678eb7dc851467ee76a86c1a5ab71f4191a716a",
+      "harnessVersion": "2.1.322",
+      "superpowers": "22f0b463e7a5e579904dd6211a520321035526f7"
+    },
+    "harbor": {
+      "version": "0.24.0",
+      "acpx": "0.11.2",
+      "claudeCodeAcp": "0.16.2",
+      "codexAcp": "1.12.0"
+    },
+    "ccusage": "20.0.32",
+    "code": {
+      "agents": "46dfe21209c52305d6bee9dd9a17f9e84e1b42d20d70d8b012d8948cb49abaa7",
+      "lib": "af5a9613b1e2c83cda32e00b4d03a00bad8b63da0e6689cdf0b51ab73e0ce93f"
+    },
+    "config": "a4909ab6baa953566d2d849ffba7effc04b089e43d535064fa94c5784cab9db1",
+    "verifierHash": "cf3025227114dde055f314cbef6378f4707483843b0e353bf61b3dbde93c1948",
+    "models": {
+      "target": "claude-opus-5-5",
+      "subagents": "claude-sonnet-5-5",
+      "simulatedUser": "claude-sonnet-5-5",
+      "verifier": "claude-sonnet-5-5",
+      "review": "claude-sonnet-5-5"
+    },
+    "task": "015ef37ea6ede8bb9b12355120fa96354b212b858310b6c52c03816166a3284f"
+  },
+  "calibration": "2026-10-13T1704Z",
+  "config": {
+    "model": "claude-opus-5-5",
+    "subagentModel": "claude-sonnet-5-5",
+    "agentKwargs": {
+      "max_budget_usd": "20"
+    },
+    "repetitions": 3
+  },
+  "trials": [
+    {
+      "id": "claude-code-1",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "show_me_read": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 5,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 5,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover AC1–AC7 with the date-only format, PATCH set/clear/keep, 400 on invalid dates, the UTC overdue rule, and the list page's date, marker and filter labelled as required.",
+        "scope": "Only the requested behaviour is added. The plan and spec documents are expected process artifacts, and the extras (a TimeProvider fake, an Optional type) were both approved in the spec.",
+        "tests": "The store, API and page tests cover the overdue boundary (due today, done, undated), the PATCH variants, invalid input and the filter, and the one changed existing assertion was legitimately updated. The checkbox toggle has no automated test (it was only checked end-to-end by hand), and the impossible-date case such as 30 February is only represented by 2026-13-40.",
+        "conventions": "The change follows TDD, uses ValidationException for validation, adds data-testids and introduces no new packages, but AGENTS.md was not updated with the new data-testids or files.",
+        "architecture": "The overdue rule lives in TodoStore and is shared by the API and the page, the clock is injected as a TimeProvider, the response DTO is separate, and Home.razor calls the store directly as AGENTS.md requires.",
+        "codeQuality": "The code is clean and handles the edges (null comparison, absent vs. null). The Optional<T> struct is slightly subtle, since a default-constructed value has HasValue false while an explicit construction sets it to true. Read also uses the null-forgiving operator on Deserialize<T>."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 14,
+        "agent": 532,
+        "verifier": 6,
+        "total": 594
+      },
+      "tokens": {
+        "input": 154,
+        "output": 49676,
+        "cacheRead": 4283857,
+        "cacheWrite": 145937,
+        "total": 4479624
+      },
+      "cost": 2.888332,
+      "ccusage": {
+        "ccusageTotal": 4479624,
+        "deviation": 0,
+        "warning": null,
+        "cost": 2.888332,
+        "models": {
+          "claude-opus-5-5": {
+            "input": 154,
+            "output": 49676,
+            "cacheRead": 4283857,
+            "cacheWrite": 145937,
+            "total": 4479624,
+            "cost": 2.888332
+          }
+        }
+      },
+      "userTokens": {
+        "total": 218106
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 3,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "ToolSearch": 3,
+          "Read": 7,
+          "Bash": 42,
+          "Skill": 5,
+          "Write": 7,
+          "Edit": 10,
+          "Agent": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 2,
+            "browser_wait_for": 2,
+            "browser_snapshot": 4,
+            "browser_take_screenshot": 3,
+            "browser_click": 3,
+            "browser_console_messages": 1,
+            "browser_close": 1
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "claude-code-2",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "show_me_read": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 5,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 4,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover all seven acceptance criteria: create, change and clear a date, 400 on invalid dates, the overdue API filter, and the list page's date, \"überfällig\" marker and \"nur überfällige\" control. The edge cases are explicit: due today, done todos, UTC date, and PATCH missing versus null.",
+        "scope": "The change stays within the ticket. The only extras are the spec and plan docs, which the workflow produces, and the small test helper.",
+        "tests": "Store and API tests are thorough and TDD-style, covering the UTC boundary, done todos, PATCH keep/clear and invalid inputs. Gaps: the page test never checks that non-overdue todos lack the marker, never tests the checkbox filter, and the existing test was only updated for the new JSON shape.",
+        "conventions": "The change follows the AGENTS.md rules: no new packages, a TimeProvider, data-testid on new elements, and the existing 400 mapping. It does not add the new testids to AGENTS.md's locator list. The PATCH 400 comes from a BadHttpRequestException with a generic message, which is not the ValidationException route the convention names.",
+        "architecture": "Logic stays in TodoStore, the page calls the store directly, and the clock is injected. Optional<T> with a converter factory is a reasonable way to tell a missing field from null. The overdue filter runs after mapping every todo, which is acceptable at this size.",
+        "codeQuality": "The code is compact and readable, and the edges are handled: overdue is computed on read, and a null value is wrapped via HandleNull. Weak spots: the `!` on the deserialized value, the generic error message that does not name dueDate, and a stale overdue marker on a page that stays open past midnight, which the agent flagged."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 14,
+        "agent": 517,
+        "verifier": 6,
+        "total": 578
+      },
+      "tokens": {
+        "input": 152,
+        "output": 49784,
+        "cacheRead": 4328475,
+        "cacheWrite": 142742,
+        "total": 4521153
+      },
+      "cost": 2.876719,
+      "ccusage": {
+        "ccusageTotal": 4521153,
+        "deviation": 0,
+        "warning": null,
+        "cost": 2.876719,
+        "models": {
+          "claude-opus-5-5": {
+            "input": 152,
+            "output": 49784,
+            "cacheRead": 4328475,
+            "cacheWrite": 142742,
+            "total": 4521153,
+            "cost": 2.876719
+          }
+        }
+      },
+      "userTokens": {
+        "total": 162019
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 4,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "ToolSearch": 3,
+          "Read": 8,
+          "Bash": 40,
+          "Skill": 5,
+          "Write": 7,
+          "Edit": 7,
+          "Agent": 1,
+          "KillShell": 1
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 1,
+            "browser_wait_for": 1,
+            "browser_snapshot": 2,
+            "browser_take_screenshot": 2,
+            "browser_click": 2,
+            "browser_close": 1
+          },
+          "context7": {}
+        }
+      }
+    },
+    {
+      "id": "claude-code-3",
+      "reward": 1,
+      "contract": 1,
+      "checks": {
+        "ticket_open": 1,
+        "ticket_review": 1,
+        "spec_comment": 1,
+        "spec_comment_complete": 1,
+        "summary_comment": 1,
+        "cost_comment": 1,
+        "only_allowed_comments": 1,
+        "pr_draft": 1,
+        "branch_naming": 1,
+        "pr_title_naming": 1,
+        "e2e_performed": 1,
+        "show_me_read": 1,
+        "app_stopped": 1,
+        "no_screenshots_in_repo": 1
+      },
+      "ownTests": 1,
+      "acceptanceCriteria": {
+        "AC1": "pass",
+        "AC2": "pass",
+        "AC3": "pass",
+        "AC4": "pass",
+        "AC5": "pass",
+        "AC6": "pass",
+        "AC7": "pass"
+      },
+      "acceptance": 1,
+      "verifierError": null,
+      "review": {
+        "requirements": 5,
+        "scope": 4,
+        "tests": 4,
+        "conventions": 4,
+        "architecture": 5,
+        "codeQuality": 4
+      },
+      "reviewReasons": {
+        "requirements": "The spec and diff cover all seven acceptance criteria, including PATCH absent-versus-null, the UTC boundary and the 400 cases, and mark the agent's own decisions as such.",
+        "scope": "The change stays on the ticket. The extra whitespace test and the plan and spec docs are small additions that follow from the work.",
+        "tests": "Store and API tests are thorough (boundaries, UTC offset, keep/clear patch, invalid dates with an unchanged store, filter), and the one existing assertion was updated rather than weakened; the toggle's actual filtering is not covered by an automated test, only by manual E2E.",
+        "conventions": "It follows TDD, uses data-testid on new elements, adds no packages, and relies on the existing 400 middleware; AGENTS.md's locator list was not updated.",
+        "architecture": "The overdue rule lives once in TodoStore and is reused by the API, the filter and the page, with TimeProvider injected and a TodoView mapping in the API layer.",
+        "codeQuality": "The code is clean and correct at the edges (null < today is false, the filter reads today once before taking the lock). The setter-flag TodoPatch is slightly clever, and the generic 400 message does not name dueDate."
+      },
+      "reviewError": null,
+      "durations": {
+        "setup": 14,
+        "agent": 634,
+        "verifier": 6,
+        "total": 696
+      },
+      "tokens": {
+        "input": 188,
+        "output": 60079,
+        "cacheRead": 6124754,
+        "cacheWrite": 168202,
+        "total": 6353223
+      },
+      "cost": 3.628458,
+      "ccusage": {
+        "ccusageTotal": 6353223,
+        "deviation": 0,
+        "warning": null,
+        "cost": 3.628458,
+        "models": {
+          "claude-opus-5-5": {
+            "input": 188,
+            "output": 60079,
+            "cacheRead": 6124754,
+            "cacheWrite": 168202,
+            "total": 6353223,
+            "cost": 3.628458
+          }
+        }
+      },
+      "userTokens": {
+        "total": 209781
+      },
+      "errors": {
+        "harbor": null,
+        "bridge": null,
+        "tool": 3,
+        "timeout": false,
+        "quota": false
+      },
+      "soft": {
+        "superpowersActive": true
+      },
+      "tools": {
+        "builtin": {
+          "ToolSearch": 5,
+          "Read": 8,
+          "Bash": 48,
+          "Skill": 5,
+          "Write": 7,
+          "Edit": 11,
+          "Agent": 1,
+          "KillShell": 2
+        },
+        "mcp": {
+          "serena": {},
+          "playwright": {
+            "browser_navigate": 2,
+            "browser_wait_for": 4,
+            "browser_snapshot": 1,
+            "browser_take_screenshot": 4,
+            "browser_evaluate": 4,
+            "browser_click": 2,
+            "browser_close": 1
+          },
+          "context7": {}
+        }
+      }
+    }
+  ],
+  "summary": {
+    "rewardRate": 1,
+    "checkRates": {
+      "ticket_open": 1,
+      "ticket_review": 1,
+      "spec_comment": 1,
+      "spec_comment_complete": 1,
+      "summary_comment": 1,
+      "cost_comment": 1,
+      "only_allowed_comments": 1,
+      "pr_draft": 1,
+      "branch_naming": 1,
+      "pr_title_naming": 1,
+      "e2e_performed": 1,
+      "show_me_read": 1,
+      "app_stopped": 1,
+      "no_screenshots_in_repo": 1,
+      "acceptance": 1,
+      "ownTests": 1,
+      "ac:AC1": 1,
+      "ac:AC2": 1,
+      "ac:AC3": 1,
+      "ac:AC4": 1,
+      "ac:AC5": 1,
+      "ac:AC6": 1,
+      "ac:AC7": 1
+    },
+    "median": {
+      "tokens": 4521153,
+      "cost": 2.888332,
+      "agent": 532
+    },
+    "mcp": {
+      "serena": {
+        "calls": 0,
+        "trials": 0
+      },
+      "playwright": {
+        "calls": 43,
+        "trials": 3
+      },
+      "context7": {
+        "calls": 0,
+        "trials": 0
+      }
+    },
+    "reviewMedian": {
+      "requirements": 5,
+      "scope": 5,
+      "tests": 4,
+      "conventions": 4,
+      "architecture": 5,
+      "codeQuality": 4
+    },
+    "errorClasses": []
+  }
+}

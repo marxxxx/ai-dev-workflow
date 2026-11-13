@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 5,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria, including the UTC rule, the 400 cases, null to clear the date, and the exact UI strings.",
+    "scope": "The change is limited to the due-date feature plus its spec and plan docs; the only extras are small hardening such as atomic updates and ignoring a client-sent overdue.",
+    "tests": "The store and HTTP tests are thorough, covering the boundary day, UTC across midnight, invalid dates, and the 400 cases, and no existing tests were weakened. The UI behaviour (rendering, checkbox) is only checked by a static HTML regex in the unit tests, with browser checks done manually.",
+    "conventions": "It follows AGENTS.md: zero dependencies, ValidationError mapped to 400, tests written first, and data-testid attributes on the new elements.",
+    "architecture": "The overdue rule lives only in the store with an injectable clock, the app layer just parses the query, and the page reuses the API filter instead of duplicating the rule.",
+    "codeQuality": "The code is clean and update() now validates before mutating; the Date.parse NaN check in parseDueDate is redundant next to the round-trip check, and the page has no error handling for fetch failures."
+  },
+  "error": null
+}

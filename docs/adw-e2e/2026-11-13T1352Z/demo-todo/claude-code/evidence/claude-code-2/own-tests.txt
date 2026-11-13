@@ -1,0 +1,35 @@
+
+> demo-todo@1.0.0 test
+> node --test
+
+✔ creates and lists todos (16.354918ms)
+✔ creates a todo with dueDate (4.830036ms)
+✔ patch sets and clears dueDate (6.05141ms)
+✔ rejects invalid dueDate (5.466268ms)
+✔ filters by overdue (4.745102ms)
+✔ rejects invalid overdue filter (2.09801ms)
+✔ rejects an empty title (1.430388ms)
+✔ marks a todo done (2.130062ms)
+✔ serves the list page (2.700355ms)
+✔ add without dueDate yields null and not overdue (4.460952ms)
+✔ add with past dueDate is overdue (0.123779ms)
+✔ dueDate today or later is not overdue (0.11882ms)
+✔ today is computed in UTC (0.161542ms)
+✔ done todos are never overdue, recomputed on read (0.110594ms)
+✔ overdue is recomputed as time passes (0.12426ms)
+✔ update sets and clears dueDate (0.107107ms)
+✔ rejects invalid dueDate on add and update (0.471553ms)
+✔ invalid dueDate does not partially apply an update (0.202912ms)
+✔ rejected add does not consume an id (0.185659ms)
+✔ accepts leap day (0.125863ms)
+✔ ignores overdue in input (0.091036ms)
+✔ list filters by overdue (0.164899ms)
+✔ returned views do not mutate the store (0.067421ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 101.687815

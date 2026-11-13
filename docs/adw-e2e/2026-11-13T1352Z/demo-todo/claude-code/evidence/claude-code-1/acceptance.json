@@ -1,0 +1,21 @@
+{
+  "criteria": {
+    "AC1": "pass",
+    "AC2": "pass",
+    "AC3": "pass",
+    "AC4": "pass",
+    "AC5": "pass",
+    "AC6": "pass",
+    "AC7": "pass"
+  },
+  "evidence": {
+    "AC1": "POST /todos with {\"title\":\"past\",\"dueDate\":\"2026-11-01\"} returned 201 with dueDate \"2026-11-01\". POST without dueDate returned 201 with dueDate null. The value is a plain YYYY-MM-DD date. A datetime string (\"2026-11-13T10:00:00Z\") was rejected with 400.",
+    "AC2": "PATCH /todos/2 {\"dueDate\":\"2026-11-02\"} returned 200 and the dueDate changed from 2026-12-25 to 2026-11-02. PATCH /todos/1 {\"dueDate\":null} returned 200 with dueDate null, so the date was removed. I then set it again to 2026-11-01.",
+    "AC3": "POST with dueDate \"2026-02-30\" returned 400. POST with \"13/11/2026\" returned 400. POST with an ISO datetime returned 400. PATCH with \"2026-02-30\" returned 400. Each response was {\"error\":\"dueDate must be a date (YYYY-MM-DD) or null\"}.",
+    "AC4": "Today is 2026-11-13 (UTC). Test data: a todo due 11-01 (not done), one due 11-02 (not done), one due today (11-13), one with no due date, and one due 10-01 that I marked done. GET /todos?overdue=true returned only the 11-02 todo, when todo 1 had its dueDate removed at that moment. That means the done todo, the no-date todo and the due-today todo were all excluded. After I restored todo 1's dueDate to 2026-11-01, the list page showed it as overdue as well, which confirms the past-due, not-done case.",
+    "AC5": "The page at / listed each todo with its due date in DD.MM.YYYY format: \"past 01.11.2026\", \"future 02.11.2026\", \"today 13.11.2026\", \"pastdone ✓ 01.10.2026\". The todo with no due date showed none.",
+    "AC6": "In the page snapshot, \"past 01.11.2026 überfällig\" and \"future 02.11.2026 überfällig\" carried the word. The \"today 13.11.2026\" item, the \"none\" item and the done \"pastdone ✓ 01.10.2026\" item did not.",
+    "AC7": "The page has a checkbox labelled \"nur überfällige\". Clicking it reduced the list from 5 items to the 2 overdue ones, \"past\" and \"future\" (the latter's due date was changed to 11-02)."
+  },
+  "error": null
+}

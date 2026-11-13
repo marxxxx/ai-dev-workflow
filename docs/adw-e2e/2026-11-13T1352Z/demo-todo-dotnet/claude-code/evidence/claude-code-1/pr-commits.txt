@@ -1,0 +1,5 @@
+06535be feat(ui): due date, overdue marker and filter on list page (#1)
+467f615 feat(api): dueDate, overdue and ?overdue filter (#1)
+60fbe99 feat(store): due date and overdue rule (#1)
+f01e9b0 Plan: Fälligkeitsdatum für Todos (#1)
+284cb54 Spec: Fälligkeitsdatum für Todos (#1)

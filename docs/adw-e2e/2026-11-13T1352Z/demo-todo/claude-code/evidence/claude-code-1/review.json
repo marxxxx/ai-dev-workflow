@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 5,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, and the spec adds the edge cases: due today, done todos, and invalid overdue values.",
+    "scope": "The change stays on the ticket. The one extra is that a PATCH now validates every field before changing anything, which is a small, related behaviour change that the summary discloses.",
+    "tests": "Store and API tests cover validation, PATCH, null, the filter edge cases and the 400 on bad filter values. There is no PATCH-via-API 400 test, and the list-page test only checks the static HTML, but the existing test was only extended, not weakened.",
+    "conventions": "The change uses ValidationError mapped to 400, has no dependencies, follows TDD, and adds data-testids to the new elements, as AGENTS.md requires.",
+    "architecture": "Validation and the overdue rule live in the store with an injectable clock. app.mjs only parses the parameter, and the page reuses the server's verdict instead of duplicating the rule.",
+    "codeQuality": "The code is clear and handles the edges well. The Date.parse NaN check is redundant given the regex and round-trip comparison, and the page makes two requests, which the spec accepted."
+  },
+  "error": null
+}

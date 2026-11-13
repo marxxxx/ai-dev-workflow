@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria, including PATCH absent-versus-null, the UTC boundary and the 400 cases, and mark the agent's own decisions as such.",
+    "scope": "The change stays on the ticket. The extra whitespace test and the plan and spec docs are small additions that follow from the work.",
+    "tests": "Store and API tests are thorough (boundaries, UTC offset, keep/clear patch, invalid dates with an unchanged store, filter), and the one existing assertion was updated rather than weakened; the toggle's actual filtering is not covered by an automated test, only by manual E2E.",
+    "conventions": "It follows TDD, uses data-testid on new elements, adds no packages, and relies on the existing 400 middleware; AGENTS.md's locator list was not updated.",
+    "architecture": "The overdue rule lives once in TodoStore and is reused by the API, the filter and the page, with TimeProvider injected and a TodoView mapping in the API layer.",
+    "codeQuality": "The code is clean and correct at the edges (null < today is false, the filter reads today once before taking the lock). The setter-flag TodoPatch is slightly clever, and the generic 400 message does not name dueDate."
+  },
+  "error": null
+}

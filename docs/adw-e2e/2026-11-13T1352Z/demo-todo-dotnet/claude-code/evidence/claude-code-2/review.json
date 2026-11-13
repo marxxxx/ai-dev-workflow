@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 5,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 4,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover all seven acceptance criteria: create, change and clear a date, 400 on invalid dates, the overdue API filter, and the list page's date, \"überfällig\" marker and \"nur überfällige\" control. The edge cases are explicit: due today, done todos, UTC date, and PATCH missing versus null.",
+    "scope": "The change stays within the ticket. The only extras are the spec and plan docs, which the workflow produces, and the small test helper.",
+    "tests": "Store and API tests are thorough and TDD-style, covering the UTC boundary, done todos, PATCH keep/clear and invalid inputs. Gaps: the page test never checks that non-overdue todos lack the marker, never tests the checkbox filter, and the existing test was only updated for the new JSON shape.",
+    "conventions": "The change follows the AGENTS.md rules: no new packages, a TimeProvider, data-testid on new elements, and the existing 400 mapping. It does not add the new testids to AGENTS.md's locator list. The PATCH 400 comes from a BadHttpRequestException with a generic message, which is not the ValidationException route the convention names.",
+    "architecture": "Logic stays in TodoStore, the page calls the store directly, and the clock is injected. Optional<T> with a converter factory is a reasonable way to tell a missing field from null. The overdue filter runs after mapping every todo, which is acceptable at this size.",
+    "codeQuality": "The code is compact and readable, and the edges are handled: overdue is computed on read, and a null value is wrapped via HandleNull. Weak spots: the `!` on the deserialized value, the generic error message that does not name dueDate, and a stale overdue marker on a page that stays open past midnight, which the agent flagged."
+  },
+  "error": null
+}
