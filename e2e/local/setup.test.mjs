@@ -383,7 +383,7 @@ test('stepLogins: the codex login of the volume lands under fallbackHome with mo
   const state = await runLogins(f, { setup: { volumeLogin: { codex: 'y' } } });
   const file = path.join(state.fallbackHome, '.codex/auth.json');
   assert.equal(readFileSync(file, 'utf8'), '{"tokens":{"refresh_token":"r"}}');
-  assert.equal(statSync(file).mode & 0o777, 0o600);
+  if (process.platform !== 'win32') assert.equal(statSync(file).mode & 0o777, 0o600); // no POSIX modes on Windows
   assert.deepEqual(state.creds.missing, []);
   assert.equal(state.creds.authFiles[0].from, file);
   const read = f.calls.find(([, a]) => a.includes('cat'));
@@ -502,12 +502,12 @@ test('stepLogins: opencode without a login file is offered an export of the volu
   const state = await runLogins(f, { setup: { volumeLogin: { opencode: 'y' } } });
   const file = path.join(state.fallbackHome, '.config/adw/opencode-credentials.json');
   assert.equal(readFileSync(file, 'utf8'), EXPORT);
-  assert.equal(statSync(file).mode & 0o777, 0o600);
+  if (process.platform !== 'win32') assert.equal(statSync(file).mode & 0o777, 0o600); // no POSIX modes on Windows
   assert.equal(state.creds.authFiles[0].from, file);
   const run = f.calls.find(([, a]) => a.includes('run'))[1];
   assert.equal(run[run.indexOf('--entrypoint') + 1], 'sh');
   // Not as root (HOME=/root holds no login, and root-owned files would be left in the volume): as the volume owner.
-  assert.equal(run[run.indexOf('-u') + 1], `${process.getuid()}:${process.getgid()}`);
+  assert.equal(run[run.indexOf('-u') + 1], `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`);
   assert.equal(run[run.indexOf('-e') + 1], 'HOME=/home/dev');
   assert.deepEqual(run.slice(-3), ['ai-dev-workflow', '-c', 'cd /tmp && /opt/agent-tools/node_modules/.bin/opencode --standalone auth export']);
   assert.ok(run.includes('-T') && !run.includes('-t') && !run.includes('-it'));

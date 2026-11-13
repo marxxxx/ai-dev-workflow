@@ -42,7 +42,7 @@ export function validateVerifierAnswer(answer, ids) {
 }
 
 export function runVerifier({ config, checkout, criteria, env = {}, image, name = `adw-verify-${process.pid}-${Date.now()}`,
-  run = spawnSync, uid = process.getuid(), gid = process.getgid(), onTranscript, buildArgs = dockerRunArgs({ image, uid, gid }) }) {
+  run = spawnSync, uid = process.getuid?.() ?? 1000, gid = process.getgid?.() ?? 1000, onTranscript, buildArgs = dockerRunArgs({ image, uid, gid }) }) {
   const { harness = 'claude-code', model = null, timeoutSec } = config.verifier;
   try {
     const answer = callLlm({ role: 'verifier', harness, model, tools: 'verify', playwright: true, input: buildVerifierPrompt({ criteria }),
