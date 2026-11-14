@@ -2,13 +2,13 @@
 // `npx skills add`, pinned by config/skills.json (derived from docker/tools/inventory.json).
 //
 // The installed files (.agents/skills/<name>/, .claude/skills/<name>, skills-lock.json) are
-// project-owned: never rendered, checked or deleted by the pipeline. ai-project.json records the
+// project-owned: never rendered, checked or deleted by the pipeline. .adw/project.json records the
 // opt-in as `skills.<name>`: a missing key means yes, `false` is an opt-out that is respected.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { SRC_DIR } from './constants.mjs';
+import { SRC_DIR, PROJECT_FILE } from './constants.mjs';
 import { readJson } from './config.mjs';
 
 const AGENTS = ['claude-code', 'codex', 'opencode'];
@@ -78,11 +78,11 @@ export function installSkills(projectRoot, names, { pins = loadSkillPins(), run 
 
 /**
  * Bring the project's pinned skills up to date: record a missing opt-in as `true` in
- * ai-project.json, then install each wanted skill that is missing or at another commit.
+ * .adw/project.json, then install each wanted skill that is missing or at another commit.
  */
 export function syncSkills(projectRoot, { pins = loadSkillPins(), run = runNpx, dryRun = false } = {}) {
-  const file = path.join(projectRoot, 'ai-project.json');
-  const project = readJson(file, 'ai-project.json', true);
+  const file = path.join(projectRoot, PROJECT_FILE);
+  const project = readJson(file, PROJECT_FILE, true);
   const recorded = Object.keys(pins.skills).filter((name) => project.skills?.[name] === undefined);
   if (recorded.length > 0 && !dryRun) {
     project.skills = { ...project.skills, ...Object.fromEntries(recorded.map((name) => [name, true])) };
@@ -109,7 +109,7 @@ export function skillWarnings(projectRoot, project, pins = loadSkillPins()) {
     const state = installed
       ? `${name} is installed at ${installed.slice(0, 7)}, this adw version pins ${revision.slice(0, 7)}`
       : `${name} is not installed`;
-    warnings.push(`Note: ${state}. Run adw's \`upgrade\` command (or set "skills": { "${name}": false } in ai-project.json to opt out).`);
+    warnings.push(`Note: ${state}. Run adw's \`upgrade\` command (or set "skills": { "${name}": false } in .adw/project.json to opt out).`);
   }
   return warnings;
 }
@@ -117,7 +117,7 @@ export function skillWarnings(projectRoot, project, pins = loadSkillPins()) {
 /** Print what syncSkills did; a failed install is a warning with the manual command, never an error. */
 export function reportSkills({ recorded = [], installed, failed }, { dryRun = false } = {}) {
   for (const name of recorded) {
-    console.log(`${dryRun ? 'Would record' : 'Recorded'} "skills": { "${name}": true } in ai-project.json (set it to false to opt out).`);
+    console.log(`${dryRun ? 'Would record' : 'Recorded'} "skills": { "${name}": true } in .adw/project.json (set it to false to opt out).`);
   }
   for (const name of installed) console.log(`${dryRun ? 'Would install' : 'Installed'} ${name} (pinned) into .agents/skills/ and .claude/skills/.`);
   for (const { name, message, command } of failed) {

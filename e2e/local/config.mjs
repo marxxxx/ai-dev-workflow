@@ -1,9 +1,10 @@
-// Local E2E config: package defaults deep-merged with the project's ai-project.json `.e2e`, then the CLI harness/model.
+// Local E2E config: package defaults deep-merged with the project's .adw/project.json `.e2e`, then the CLI harness/model.
 import { readFileSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HARNESSES } from '../lib/llm.mjs';
 import { LANGUAGES } from './language.mjs';
+import { PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 
 const DEFAULTS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'defaults.json'), 'utf8'));
 const ROLES = ['answerer', 'verifier', 'review'];
@@ -24,7 +25,7 @@ function checkHarness(name, harness) {
 
 export function loadLocalConfig(projectRoot, { harness, model } = {}) {
   const root = resolve(projectRoot);
-  const file = join(root, 'ai-project.json');
+  const file = join(root, PROJECT_FILE);
   const project = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')).e2e ?? {}) : {};
   for (const key of Object.keys(project)) if (!(key in DEFAULTS)) throw new Error(`unknown e2e setting: ${key}`);
   const merged = merge(DEFAULTS, project);

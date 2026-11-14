@@ -2,13 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { DEFAULT_ANSWERS, ticketDir, readTicket, writeTicket, readAnswers, appendAnswer, newRunDir, ensureGitignore, findLocalBaseline, readLocalState, writeLocalState } from './store.mjs';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'adw-store-'));
 
 test('ticketDir is absolute under .adw/e2e', () => {
-  assert.equal(ticketDir('/p', 7), '/p/.adw/e2e/7');
+  assert.equal(ticketDir('/p', 7), join(resolve('/p'), '.adw', 'e2e', '7'));
 });
 
 test('ticket round trip', () => {
@@ -39,7 +39,7 @@ test('appendAnswer starts at A6, increments and leaves no temp file', () => {
 });
 
 test('newRunDir', () => {
-  assert.equal(newRunDir('/d', 'codex', '2026-01-01T00Z'), '/d/runs/2026-01-01T00Z/codex');
+  assert.equal(newRunDir('/d', 'codex', '2026-01-01T00Z'), join('/d', 'runs', '2026-01-01T00Z', 'codex'));
 });
 
 test('ensureGitignore is idempotent', () => {

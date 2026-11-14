@@ -1,5 +1,5 @@
-# Project-owned; written once by ai-dev-workflow init. Runs a command in this project's agent
-# container: .\ai-dev.ps1 [command [args...]] (no command opens bash). See AI-DEV.md.
+# Project-owned; written once by adw init. Runs a command in this project's agent
+# container: .\adw.ps1 [command [args...]] (no command opens bash). See .adw/README.md.
 # Works in Windows PowerShell 5.1 and PowerShell 7. No param() block, so every argument
 # (including ones starting with '-') is passed through verbatim via $args.
 $ErrorActionPreference = 'Stop'
@@ -8,7 +8,10 @@ $root = $PSScriptRoot
 
 # Per-machine settings (AGENT_CA_DIR, proxies, AGENT_IMAGE, ...). Never overrides a variable that
 # is already set in the environment.
-$envFile = Join-Path $root '.env.ai-dev'
+$envFile = Join-Path $root '.adw/.env'
+if ((Test-Path -LiteralPath (Join-Path $root '.env.ai-dev'))) {
+  Write-Warning 'adw.ps1: move .env.ai-dev to .adw/.env, or run adw upgrade; it is not read anymore.'
+}
 if (Test-Path -LiteralPath $envFile) {
   foreach ($raw in Get-Content -LiteralPath $envFile -Encoding UTF8) {
     $line = $raw.TrimEnd("`r")
@@ -28,25 +31,25 @@ if (Test-Path -LiteralPath $envFile) {
 
 $env:PROJECT_ROOT = $root
 # Docker Desktop on Windows maps ownership itself (default 1000:1000); PowerShell 7 on
-# Linux/macOS needs the host IDs like ai-dev.sh.
+# Linux/macOS needs the host IDs like adw.sh.
 if ((Test-Path Variable:IsWindows) -and -not $IsWindows) {
   if (-not $env:HOST_UID) { $env:HOST_UID = (& id -u) }
   if (-not $env:HOST_GID) { $env:HOST_GID = (& id -g) }
 }
 
-$composeArgs = @('compose', '-f', (Join-Path $root 'compose.ai-dev.yml'))
-if ($env:AGENT_CA_DIR) { $composeArgs += @('-f', (Join-Path $root 'compose.ai-dev.certs.yml')) }
-# Opt-in Docker daemon (AGENT_DIND=1): root-equivalent on the host, see AI-DEV.md.
+$composeArgs = @('compose', '--project-directory', $root, '-f', (Join-Path $root '.adw/compose.yml'))
+if ($env:AGENT_CA_DIR) { $composeArgs += @('-f', (Join-Path $root '.adw/compose.certs.yml')) }
+# Opt-in Docker daemon (AGENT_DIND=1): root-equivalent on the host, see .adw/README.md.
 if ($env:AGENT_DIND -eq '1') {
-  $composeArgs += @('-f', (Join-Path $root 'compose.ai-dev.dind.yml'))
-  if ($env:AGENT_CA_DIR) { $composeArgs += @('-f', (Join-Path $root 'compose.ai-dev.dind-certs.yml')) }
+  $composeArgs += @('-f', (Join-Path $root '.adw/compose.dind.yml'))
+  if ($env:AGENT_CA_DIR) { $composeArgs += @('-f', (Join-Path $root '.adw/compose.dind-certs.yml')) }
 }
 
 # Newest build of the configured image (AGENT_IMAGE or the default); offline, the local one starts.
 # 'Continue': Windows PowerShell 5.1 turns compose's progress on stderr into errors when redirected.
 $ErrorActionPreference = 'Continue'
 & docker @($composeArgs + @('pull', 'ai-dev-workflow'))
-if ($LASTEXITCODE -ne 0) { Write-Warning 'ai-dev.ps1: could not pull the image; starting the local one.' }
+if ($LASTEXITCODE -ne 0) { Write-Warning 'adw.ps1: could not pull the image; starting the local one.' }
 $ErrorActionPreference = 'Stop'
 
 & docker @($composeArgs + @('run', '--rm', 'ai-dev-workflow') + $args)

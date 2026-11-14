@@ -37,7 +37,7 @@ export function createCalibrationBundle({ root, seedRepo, patch, out, name, git 
   const bundleOut = path.resolve(out);
   const dir = mkdtempSync(path.join(tmpdir(), 'adw-calibration-'));
   try {
-    // Only tracked seed files: generated skill files and ai-project.json are not part of the variant.
+    // Only tracked seed files: generated skill files and .adw/project.json are not part of the variant.
     for (const file of git(['-C', repo, 'ls-files', '-z', '--', seed]).split('\0').filter(Boolean)) {
       const target = path.join(dir, path.relative(seed, path.join(repo, file)));
       mkdirSync(path.dirname(target), { recursive: true });

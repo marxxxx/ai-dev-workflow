@@ -9,6 +9,7 @@ import { ISOLATE, COMMIT } from '../lib/bundle.mjs';
 import { renderAll, writeAll } from '../../agent-src/lib/pipeline.mjs';
 import { removeObsoleteOutputs } from '../../agent-src/lib/upgrade.mjs';
 import { e2eSectionOf } from './contract.mjs';
+import { PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 
 const TEMPLATE = path.join(fileURLToPath(new URL('../../agent-src/config/', import.meta.url)), 'ai-project.template.json');
 const defaultGit = (args, env = {}) => execFileSync('git', [...ISOLATE, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
@@ -18,7 +19,7 @@ const slugify = (title) => title.toLowerCase().normalize('NFKD').replace(/[^a-z0
 
 // Identity from the project's config; a base commit without one gets it from the template and the dir name.
 function sandboxConfig(work, root) {
-  const file = path.join(work, 'ai-project.json');
+  const file = path.join(work, PROJECT_FILE);
   const template = JSON.parse(readFileSync(TEMPLATE, 'utf8'));
   const base = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
   const name = path.basename(path.resolve(root));
@@ -31,7 +32,7 @@ function sandboxConfig(work, root) {
 }
 
 // `adw e2e .`: the working tree as an unreferenced commit on top of HEAD, built in a throwaway index, so HEAD, branch,
-// index and stash stay as they are. Untracked files count, git-ignored ones (.env.ai-dev) never; .adw/e2e stays at
+// index and stash stay as they are. Untracked files count, git-ignored ones (.adw/.env) never; .adw/e2e stays at
 // HEAD's state, so a ticket's acceptance criteria cannot reach the agent. A clean tree is HEAD itself (worktree null);
 // otherwise `worktree` is the snapshot's tree hash, the same for the same local state.
 export function snapshotWorkingTree(root, git = defaultGit) {
@@ -69,7 +70,8 @@ export function createSandbox({ root, baseCommit, ticket, ticketText, trialDir, 
   }
   git(['-C', work, 'push', '-q', 'origin', 'main']);
 
-  writeFileSync(path.join(work, 'ai-project.json'), `${JSON.stringify(sandboxConfig(work, root), null, 2)}\n`);
+  mkdirSync(path.join(work, '.adw'), { recursive: true });
+  writeFileSync(path.join(work, PROJECT_FILE), `${JSON.stringify(sandboxConfig(work, root), null, 2)}\n`);
   const issues = path.join(work, '.tickets', 'issues');
   mkdirSync(issues, { recursive: true });
   const title = JSON.stringify(ticketText.title);

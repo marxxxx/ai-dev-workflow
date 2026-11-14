@@ -14,6 +14,8 @@ import { redactSecrets } from '../lib/secrets.mjs';
 import { applyPostVerification, emptyOutcome } from '../lib/trial.mjs';
 import { createMountPoints, postVerify, verifierHash } from '../lib/postverify.mjs';
 import { cmdInit } from '../../agent-src/lib/onboard.mjs';
+import { COMPOSE_FILES } from '../../agent-src/lib/constants.mjs';
+import { assertCurrentLayout } from '../../agent-src/lib/layout.mjs';
 import { cleanupSetup, makePrompter, newSetupState, runSetup } from './setup.mjs';
 import { detectLanguage, textsFor } from './language.mjs';
 import { loadLocalConfig, selfJudged } from './config.mjs';
@@ -22,7 +24,7 @@ import { importTicket } from './ticket-import.mjs';
 import { ensureE2eImage } from './image.mjs';
 import { collectSandbox, createSandbox, snapshotWorkingTree } from './sandbox.mjs';
 import { appPortFromAgentsMd, e2eSectionOf, evaluateLocalContract, hasE2eSection } from './contract.mjs';
-import { OPENCODE_LOGIN_HELP, authMounts, composeEnv, composeProject, stageCredentials, startSession } from './session.mjs';
+import { OPENCODE_LOGIN_HELP, authMounts, composeBaseArgs, composeEnv, composeProject, stageCredentials, startSession } from './session.mjs';
 import { askHumanTty, makeDecide, runConversation } from './answerer.mjs';
 import { confirmAcceptance, draftAcceptance, renderAcceptance, spawnEditor } from './acceptance.mjs';
 import { buildLocalTrialRecord, compareWithBaseline, localFingerprint, localReward, writeRun } from './record.mjs';
@@ -87,7 +89,7 @@ function preflight({ root, config, baseCommit, d, env, fallbackHome = null }) {
   const problems = [];
   const docker = d.exec('docker', ['version', '--format', '{{.Server.Version}}']);
   if (docker.error || docker.status !== 0) problems.push('docker not found or not running');
-  if (!existsSync(path.join(root, 'compose.ai-dev.yml'))) problems.push(`${path.join(root, 'compose.ai-dev.yml')} not found: run adw init and write the container files`);
+  if (!existsSync(path.join(root, COMPOSE_FILES.base))) problems.push(`${path.join(root, COMPOSE_FILES.base)} not found: run adw init and write the container files`);
   const creds = stageCredentials({ harnesses: ROLES.map((r) => config[r].harness), env, home: d.home, fallbackHome });
   // Optional, so no problem: providers may come from e2e.env alone.
   if (ROLES.some((r) => config[r].harness === 'opencode') && !creds.authFiles.some((f) => f.harness === 'opencode')) d.log(OPENCODE_LOGIN_HELP);
@@ -120,6 +122,8 @@ export async function runE2e(opts, deps = {}) {
   // Without --root the project is the git toplevel of the working directory, so adw e2e works from any subdirectory.
   const top = opts.root ? null : d.exec('git', ['-C', d.cwd, 'rev-parse', '--show-toplevel']);
   const root = path.resolve(opts.root ?? (top.status === 0 ? String(top.stdout).trim() : d.cwd));
+  // The old root layout is never read: nothing runs before `upgrade` has moved it.
+  try { assertCurrentLayout(root); } catch (err) { d.error(`✗ ${err.message}`); return 1; }
   // First-run setup (init interview, container files, …) before the config is read; its env values join the run's env.
   // Ctrl-C at a question (an interrupted rejection) or a signal during a docker call leaves nothing behind: exit 130.
   const state = newSetupState();
@@ -140,7 +144,7 @@ export async function runE2e(opts, deps = {}) {
 
 async function runPrepared({ opts, d, root, setup }) {
   const config = loadLocalConfig(root, { harness: opts.harness ?? undefined, model: opts.model ?? undefined });
-  // Same sources as the containers: `.env.ai-dev` under the process env.
+  // Same sources as the containers: `.adw/.env` under the process env.
   const env = composeEnv({ root, work: root, env: d.env, uid: d.uid, gid: d.gid });
   const { problems, creds, sha, head, worktree } = preflight({ root, config, baseCommit: opts.baseCommit, d, env, fallbackHome: setup.fallbackHome ?? null });
   if (problems.length) {
@@ -166,11 +170,11 @@ async function runPrepared({ opts, d, root, setup }) {
   const harness = config.agent.harness;
   const runDir = newRunDir(dir, harness, ts);
   const store = { list: () => readAnswers(dir, texts.defaultAnswers), append: (a) => appendAnswer(dir, a, texts.defaultAnswers) };
-  const composeFile = path.join(root, 'compose.ai-dev.yml');
-  const certsFile = path.join(root, 'compose.ai-dev.certs.yml');
+  const composeFile = path.join(root, COMPOSE_FILES.base);
+  const certsFile = path.join(root, COMPOSE_FILES.certs);
   // The e2e layer's override (ensured below): every compose project of a trial runs on it, without published ports.
   let overrideFile = null;
-  const composeArgs = (env, project) => ['compose', '-f', composeFile, ...(env.AGENT_CA_DIR ? ['-f', certsFile] : []),
+  const composeArgs = (env, project) => [...composeBaseArgs({ root, env }),
     ...(overrideFile ? ['-f', overrideFile] : []), '-p', project];
 
   // Compose projects started and not yet torn down: project → { work, agent }.
@@ -184,7 +188,7 @@ async function runPrepared({ opts, d, root, setup }) {
   };
   const teardownAll = () => { for (const project of [...active.keys()]) down(project); };
   // The argv builder of a judge-side container in compose project `project`, with the logins `harnesses` need.
-  const judgeArgs = (project, env) => (harnesses) => composeRunArgs({ composeFile, certsFile: env.AGENT_CA_DIR ? certsFile : null, overrideFile, project,
+  const judgeArgs = (project, env) => (harnesses) => composeRunArgs({ composeFile, projectDirectory: root, certsFile: env.AGENT_CA_DIR ? certsFile : null, overrideFile, project,
     uid: d.uid, gid: d.gid, envNames: [...config.env, ...creds.envNames],
     authMounts: authMounts(creds, harnesses) });
   // Probes every distinct answerer/judge harness and model in its own compose project; returns the first failure, or null.

@@ -60,17 +60,17 @@ stack (`node`, `dotnet` or `generic`) and writes, each only when missing:
 
 | File | Purpose |
 |---|---|
-| `compose.ai-dev.yml` | The service, preset with the matching published image and a stable Compose project name (`name: <project>-ai`) |
-| `compose.ai-dev.certs.yml` | Company root-certificate overlay, added automatically when `AGENT_CA_DIR` is set |
-| `ai-dev.sh`, `ai-dev.ps1` | The single launch command for POSIX shells and PowerShell |
-| `AI-DEV.md` | Start, agent logins, the login for the project's ticketing backend, proxy setup |
+| `.adw/compose.yml` | The service, preset with the matching published image and a stable Compose project name (`name: <project>-ai`) |
+| `.adw/compose.certs.yml` | Company root-certificate overlay, added automatically when `AGENT_CA_DIR` is set |
+| `adw.sh`, `adw.ps1` | The single launch command for POSIX shells and PowerShell |
+| `.adw/README.md` | Start, agent logins, the login for the project's ticketing backend, proxy setup |
 
-It also git-ignores `.env.ai-dev` and pins `ai-dev.sh` to LF in `.gitattributes`, then prints the
-exact next steps. Two opt-in questions (both default to no) write settings into `.env.ai-dev`,
+It also git-ignores `.adw/.env` and pins `adw.sh` to LF in `.gitattributes`, then prints the
+exact next steps. Two opt-in questions (both default to no) write settings into `.adw/.env`,
 never overriding a key already set there: the Docker overlay sets `AGENT_DIND=1` after printing
 its isolation warning, and company certificates set `AGENT_CA_DIR` to the directory you name — or
 leave it empty, with a hint, when you answer blank. The files belong to the project from then on;
-`generate` never touches them. A project that already has `ai-project.json` gets them by running
+`generate` never touches them. A project that already has `.adw/project.json` gets them by running
 `init` again and declining the overwrite. Non-interactively: `init --answers <file>` with
 `"container": { "enabled": "y", "stack": "node", "dind": "y", "certs": "y", "caDir": "/abs/certs" }`
 (`dind`, `certs` and `caDir` optional).
@@ -78,14 +78,14 @@ leave it empty, with a hint, when you answer blank. The files belong to the proj
 Run the project's host-side generation first, then from the project root:
 
 ```text
-./ai-dev.sh                                         # bash in the container
-./ai-dev.sh codex login --device-auth               # one-time logins …
-./ai-dev.sh claude --dangerously-skip-permissions   # … then work
+./adw.sh                                         # bash in the container
+./adw.sh codex login --device-auth               # one-time logins …
+./adw.sh claude --dangerously-skip-permissions   # … then work
 ```
 
-PowerShell uses `.\ai-dev.ps1` with the same arguments. The launchers resolve the project root
+PowerShell uses `.\adw.ps1` with the same arguments. The launchers resolve the project root
 from their own location, export it as `PROJECT_ROOT`, set `HOST_UID`/`HOST_GID` from `id` on
-POSIX hosts, load the optional git-ignored `.env.ai-dev` (per-machine settings such as
+POSIX hosts, load the optional git-ignored `.adw/.env` (per-machine settings such as
 `AGENT_IMAGE`, `AGENT_CA_DIR`, proxy variables; never overriding the environment) and run
 `docker compose … run --rm ai-dev-workflow <args>`. Arguments pass through unchanged and no
 flags are added; in PowerShell quote a bare `--` as `'--'`, which PowerShell otherwise consumes.
@@ -96,18 +96,18 @@ with spaces work. External linked-worktree Git directories are unsupported: use 
 standalone clone or a layout whose Git directory is entirely inside the mounted
 project. No unrelated host path is mounted automatically.
 
-Without the launchers, Compose needs an absolute, existing `PROJECT_ROOT` (relative
+Without the launchers, run Compose with `--project-directory <project root>` (so relative paths in the file resolve at the root, as they do with the launchers) and an absolute, existing `PROJECT_ROOT` (relative
 workspace paths are rejected at startup); the `name:` in the file keeps the Compose
 project, and with it the `agent-home` volume, stable.
 
 ## Working on this repo in a container
 
-This repository is the **generator**, not a consuming project — it has no `ai-project.json`
+This repository is the **generator**, not a consuming project — it has no `.adw/project.json`
 and no generated `.claude/.codex/.opencode` definitions. To work on it inside the agent image,
 use the repo-root `compose.ai-dev.yml`, which sets `AGENT_TOOLSTACK_ONLY=1`. That mode wires
 **only the tool stack** — the Claude Code / Codex / OpenCode harnesses, the managed Serena,
 Playwright and Context7 MCP servers, Superpowers, and the GitHub CLI — and skips all
-project-specific state (no `ai-project.json` read, no `ado` server, no generated `agent-dev`
+project-specific state (no `.adw/project.json` read, no `ado` server, no generated `agent-dev`
 skill).
 
 The default image is the published base `marxx/ai-dev-workflow:latest`; no local build is
@@ -156,7 +156,7 @@ Project Serena metadata remains under `/workspace/.serena`.
 ### Azure DevOps
 
 For `ticketing.backend: azure-devops`, the launcher reads
-`ticketing.azureDevOps.organization` from `ai-project.json`. It starts the installed
+`ticketing.azureDevOps.organization` from `.adw/project.json`. It starts the installed
 v2 MCP binary with:
 
 ```text
@@ -165,11 +165,11 @@ mcp-server-azuredevops <organization> -d core work work-items --authentication a
 
 ADO's browser-based interactive MCP login does not support this headless runtime.
 Instead, authenticate Azure CLI interactively with device code. From either host
-shell (`.\ai-dev.ps1` in PowerShell; append `--tenant <tenant-id>` when needed):
+shell (`.\adw.ps1` in PowerShell; append `--tenant <tenant-id>` when needed):
 
 ```text
-./ai-dev.sh az login --use-device-code --allow-no-subscriptions --output none
-./ai-dev.sh az account show --query tenantId --output tsv
+./adw.sh az login --use-device-code --allow-no-subscriptions --output none
+./adw.sh az account show --query tenantId --output tsv
 ```
 
 `AZURE_TENANT_ID` is an optional runtime input for tenant selection. No PAT or
@@ -194,10 +194,10 @@ host-wide credential store. Azure CLI authentication alone does not configure Gi
 ### Gitea
 
 For `ticketing.backend: gitea`, `agent-dev` uses the pinned `tea` CLI. Log in once with
-the login name from `ai-project.json` (`ticketing.gitea.login`) and an access token:
+the login name from `.adw/project.json` (`ticketing.gitea.login`) and an access token:
 
 ```text
-./ai-dev.sh tea login add --name <login> --url https://<gitea-host> --token <token>
+./adw.sh tea login add --name <login> --url https://<gitea-host> --token <token>
 ```
 
 The login lives in the `agent-home` volume (`~/.config/tea`) and survives `run --rm`.
@@ -214,9 +214,9 @@ receives inline runtime overrides in OpenCode 2's native shape (`mcp.servers`, `
 portable and unchanged. Custom servers such as `dxdocs` remain available.
 
 ```text
-./ai-dev.sh verify-agent-config.sh
-./ai-dev.sh codex mcp list
-./ai-dev.sh opencode debug config
+./adw.sh verify-agent-config.sh
+./adw.sh codex mcp list
+./adw.sh opencode debug config
 ```
 
 Configuration parse errors abort startup with a diagnostic. Shell and login commands
@@ -258,21 +258,21 @@ read-only mount at startup.
 1. Put the company root certificates in one host directory. Accepted files (top level
    only) are `*.crt`, `*.pem`, `*.cer` and `*.cert`, as PEM or DER; a PEM bundle with
    several certificates is fine. Other files are skipped with a warning.
-2. Set `AGENT_CA_DIR` to that directory's absolute path in the project's `.env.ai-dev`.
+2. Set `AGENT_CA_DIR` to that directory's absolute path in the project's `.adw/.env`.
 3. Set the proxy variables there too (`HTTPS_PROXY`, `HTTP_PROXY`, `NO_PROXY`; both upper- and
    lowercase are passed through because Go, Node, curl/git and Python read different ones).
    Keep `localhost,127.0.0.1,::1` in `NO_PROXY`, or the agent's own E2E traffic to the app
    under test is routed through the corporate proxy.
-4. Start as usual. `ai-dev.sh`/`ai-dev.ps1` add `compose.ai-dev.certs.yml` as a second `-f`
+4. Start as usual. `adw.sh`/`adw.ps1` add `compose.certs.yml` as a second `-f`
    whenever `AGENT_CA_DIR` is set.
 
 Without the launchers, pass the overlay yourself:
 
 ```text
-docker compose -f compose.ai-dev.yml -f compose.ai-dev.certs.yml run --rm ai-dev-workflow claude
+docker compose --project-directory . -f .adw/compose.yml -f .adw/compose.certs.yml run --rm ai-dev-workflow claude
 ```
 
-The overlay ([`agent-src/container/compose.ai-dev.certs.yml`](../agent-src/container/compose.ai-dev.certs.yml))
+The overlay ([`agent-src/container/compose.certs.yml`](../agent-src/container/compose.certs.yml))
 applies unchanged to the repo-root self-dev `compose.ai-dev.yml`. With `AGENT_DIND=1` the launchers
 also add the Docker daemon's [certs companion](#docker-inside-the-container-opt-in).
 
@@ -368,7 +368,7 @@ start it also checks the project for artifacts that *no* volume masks — an unm
 and prints what to add: the missing volume entry for the first case, the missing
 `ArtifactsPath` redirect for the second. That check is advisory and never fails the start.
 
-The generated `compose.ai-dev.yml` is yours to edit: add the database or other services your
+The generated `.adw/compose.yml` is yours to edit: add the database or other services your
 development setup needs, publish ports, pass credentials through `environment`. The
 `PROJECT_ROOT` bind on `/workspace` and the `agent-home` volume are what the workflow
 itself depends on; the capability, `security_opt` and `HOST_UID`/`HOST_GID` settings the
@@ -404,14 +404,14 @@ and Testcontainers, add the opt-in daemon described next.
 ## Docker inside the container (opt-in)
 
 The images ship the Docker CLI with the `buildx` and `compose` plugins, but no daemon.
-`init` writes [`compose.ai-dev.dind.yml`](../agent-src/container/compose.ai-dev.dind.yml) next
-to `compose.ai-dev.yml`. It adds one: a `docker` sidecar running the pinned
-`docker:<version>-dind`. Set `AGENT_DIND=1` in `.env.ai-dev` and `ai-dev.sh`/`ai-dev.ps1`
+`init` writes [`compose.dind.yml`](../agent-src/container/compose.dind.yml) next
+to `.adw/compose.yml`. It adds one: a `docker` sidecar running the pinned
+`docker:<version>-dind`. Set `AGENT_DIND=1` in `.adw/.env` and `adw.sh`/`adw.ps1`
 pass it as an extra `-f`. Without the launchers:
 
 ```text
-docker compose -f compose.ai-dev.yml -f compose.ai-dev.dind.yml run --rm ai-dev-workflow claude
-docker compose -p <name>-ai down   # stops the daemon (the name: in compose.ai-dev.yml)
+docker compose --project-directory . -f .adw/compose.yml -f .adw/compose.dind.yml run --rm ai-dev-workflow claude
+docker compose -p <name>-ai down   # stops the daemon (the name: in .adw/compose.yml)
 ```
 
 `run` starts the daemon and waits until it is healthy. `run --rm` leaves it running, so stop
@@ -421,7 +421,7 @@ delete `agent-home`). The overlay works with Docker Desktop on Windows and with 
 Linux, and also applies to the repo-root self-dev `compose.ai-dev.yml`.
 
 Projects set up with an earlier `init` get the two dind files by running `init` again
-(keep `ai-project.json`, accept the container step). Existing files are left untouched, so the
+(keep `.adw/project.json`, accept the container step). Existing files are left untouched, so the
 older launchers do not read `AGENT_DIND`: pass the `-f` yourself or take the new launchers from
 [`agent-src/container/`](../agent-src/container/).
 
@@ -463,7 +463,7 @@ Limits:
   which the Docker CLI injects into builds and containers. Service names that nested
   containers call over HTTP must then be in `NO_PROXY`.
 - Behind TLS inspection, the launchers also add
-  [`compose.ai-dev.dind-certs.yml`](../agent-src/container/compose.ai-dev.dind-certs.yml)
+  [`compose.dind-certs.yml`](../agent-src/container/compose.dind-certs.yml)
   when `AGENT_CA_DIR` is set, so that the daemon trusts it. It accepts PEM files only. Trust inside the `RUN` steps of the project's own Dockerfiles stays the
   project's responsibility.
 
@@ -475,7 +475,7 @@ extension, the Docker CLI packages and the dind image of the opt-in overlay, Ser
 revisions, the .NET SDK and `dotnet-ef`, and — outside the image — the `skills` CLI version and the
 commit of each third-party skill (`agentSkills`, today `show-me`) that `adw init`/`upgrade` install
 into consuming projects. `tools/package.json`, `tools/package-lock.json`, the Dockerfile
-`FROM`/`ARG` pins, the `image:` line of `agent-src/container/compose.ai-dev.dind.yml` and
+`FROM`/`ARG` pins, the `image:` line of `agent-src/container/compose.dind.yml` and
 `agent-src/config/skills.json` are derived from it; do not edit them by hand. The inventory is copied
 to `/opt/agent-tools/inventory.json` and every build verifies the installed versions
 against it (`tools/verify-versions.mjs`). OS packages still use apt repositories, so

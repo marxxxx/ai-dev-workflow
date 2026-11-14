@@ -1,0 +1,10 @@
+  Determining projects to restore...
+  Restored /tmp/pr-sX6U8I/src/DemoTodo/DemoTodo.csproj (in 400 ms).
+  Restored /tmp/pr-sX6U8I/tests/DemoTodo.Tests/DemoTodo.Tests.csproj (in 410 ms).
+  DemoTodo -> /tmp/pr-sX6U8I/src/DemoTodo/bin/Debug/net10.0/DemoTodo.dll
+  DemoTodo.Tests -> /tmp/pr-sX6U8I/tests/DemoTodo.Tests/bin/Debug/net10.0/DemoTodo.Tests.dll
+Test run for /tmp/pr-sX6U8I/tests/DemoTodo.Tests/bin/Debug/net10.0/DemoTodo.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    25, Skipped:     0, Total:    25, Duration: 1 s - DemoTodo.Tests.dll (net10.0)
+VSTEST_ARTIFACTS_DIRECTORY environment variable was not found, falling back to a user-private temporary directory. This is most likely caused by an outdated Microsoft.NET.Test.Sdk package reference in the test project.

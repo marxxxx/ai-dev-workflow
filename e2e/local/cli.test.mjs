@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { COMPOSE_FILES, ENV_FILE, PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 import { fileURLToPath } from 'node:url';
 import * as metrics from '../lib/metrics.mjs';
 import { makeClaudeTrial } from '../lib/fixtures/make.mjs';
@@ -21,11 +22,12 @@ const E2E_SECTION = '# Agents\n\n## End-to-end testing\n\nStart with `npm start`
 const DEPS = { ...metrics, ccusageUsage: () => ({ ccusageTotal: null, deviation: null, warning: null, cost: 0.5, models: null }) };
 const TICKET_FILE = '---\nstatus: review\n---\n\nbody\n\n---\n## Approved Spec\n\nthe spec\n\n---\n## Implementation Summary\n\nTested end to end.\n\n---\n## Cost Summary\n\n$1\n';
 
-// A consumer project root with compose file and ai-project.json; `e2e` is its e2e block.
+// A consumer project root with compose file and .adw/project.json; `e2e` is its e2e block.
 function project(e2e = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'adw-cli-'));
-  writeFileSync(path.join(root, 'compose.ai-dev.yml'), 'services: {}\n');
-  writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' }, e2e }));
+  mkdirSync(path.join(root, '.adw'), { recursive: true });
+  writeFileSync(path.join(root, COMPOSE_FILES.base), 'services: {}\n');
+  writeFileSync(path.join(root, PROJECT_FILE), JSON.stringify({ ticketing: { backend: 'file' }, e2e }));
   writeFileSync(path.join(root, 'issue.md'), '# Fälligkeitsdatum\n\nTodos bekommen ein Datum, das nicht leer ist und mit der Liste erscheint.\n');
   mkdirSync(path.join(root, 'home'));
   return root;
@@ -118,14 +120,27 @@ test('main: a usage error exits 2 with the usage line first; --help exits 0', as
 
 test('non-TTY run without compose file asks nothing and fails as today', async () => {
   const root = project();
-  rmSync(path.join(root, 'compose.ai-dev.yml'));
+  rmSync(path.join(root, COMPOSE_FILES.base));
   const s = stubs(root);
   let asked = 0;
   s.deps.cmdInit = async () => { asked++; return 0; };
   const code = await runE2e(opts(root), s.deps);
   assert.equal(code, 1);
-  assert.ok(s.out.some((l) => /^✗ preflight: .*compose\.ai-dev\.yml not found/.test(l)), s.out.join('\n'));
+  assert.ok(s.out.some((l) => /^✗ preflight: .*\.adw[\\/]compose\.yml not found/.test(l)), s.out.join('\n'));
   assert.equal(asked, 0);
+  rmSync(root, { recursive: true });
+});
+
+test('adw e2e refuses the old layout before any setup step', async () => {
+  const root = project();
+  writeFileSync(path.join(root, 'compose.ai-dev.yml'), 'services: {}\n');
+  const s = stubs(root);
+  let setups = 0;
+  s.deps.runSetup = async () => { setups++; return { envAdditions: {} }; };
+  assert.equal(await runE2e(opts(root), s.deps), 1);
+  assert.ok(s.out.some((l) => l.startsWith('✗ Old adw layout found: ') && l.includes('compose.ai-dev.yml') && l.includes('upgrade')), s.out.join('\n'));
+  assert.equal(setups, 0);
+  assert.equal(s.exec.length, 0);
   rmSync(root, { recursive: true });
 });
 
@@ -248,13 +263,13 @@ test('preflight: a judge harness without login fails before any compose call, na
 test('preflight: an unset e2e.env name, a missing compose file and an unresolvable base commit fail before any compose call', async () => {
   const root = project({ env: ['AZURE_API_KEY'] });
   try {
-    rmSync(path.join(root, 'compose.ai-dev.yml'));
+    rmSync(path.join(root, COMPOSE_FILES.base));
     const s = stubs(root);
     s.deps.exec = (cmd, args) => { s.exec.push({ argv: [cmd, ...args] }); return cmd === 'git' ? { status: 128, stdout: '', stderr: 'bad' } : { status: 0, stdout: '' }; };
     assert.equal(await runE2e(opts(root), s.deps), 1);
     const text = s.out.join('\n');
     assert.match(text, /e2e\.env: AZURE_API_KEY is not set/);
-    assert.match(text, /compose\.ai-dev\.yml not found/);
+    assert.match(text, /\.adw[\\/]compose\.yml not found/);
     assert.match(text, /base commit HEAD does not resolve/);
     assert.deepEqual(s.calls, []);
     assert.equal(s.exec.some((c) => c.argv.includes('compose')), false);
@@ -585,7 +600,7 @@ test('the e2e layer is ensured once, before the first sandbox, and the session g
   assert.ok(calls.indexOf('image') < calls.indexOf('sandbox'));
   assert.equal(seen.session.overrideFile, '/run/o.yml');
   assert.match(seen.session.origin, /origin\.git$/);
-  assert.deepEqual(seen.image.composeFiles, [path.join(root, 'compose.ai-dev.yml')]);
+  assert.deepEqual(seen.image.composeFiles, [path.join(root, COMPOSE_FILES.base)]);
   assert.equal(seen.image.root, root);
 });
 
@@ -646,6 +661,8 @@ test('judge-side compose calls (answerer, judges, own tests, teardown) use the e
     const compose = s.exec.filter((c) => c.argv[1] === 'compose');
     assert.ok(compose.some((c) => c.argv.includes('bash')) && compose.some((c) => c.argv.includes('down')));
     for (const c of compose) assert.equal(c.argv[c.argv.indexOf('-p') - 1], '/run/o.yml', c.argv.join(' '));
+    assert.deepEqual(judge.slice(0, 3), ['compose', '--project-directory', root]);
+    for (const c of compose) assert.deepEqual(c.argv.slice(1, 4), ['compose', '--project-directory', root], c.argv.join(' '));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -668,9 +685,9 @@ test('runE2e falls back to cwd when git finds no toplevel', async () => {
   assert.ok(calls.includes('sandbox'));
 });
 
-test('preflight reads .env.ai-dev', async () => {
+test('preflight reads .adw/.env', async () => {
   const root = project();
-  writeFileSync(path.join(root, '.env.ai-dev'), 'CLAUDE_CODE_OAUTH_TOKEN=file-tok\n');
+  writeFileSync(path.join(root, ENV_FILE), 'CLAUDE_CODE_OAUTH_TOKEN=file-tok\n');
   const { deps, out, seen } = stubs(root, { env: { PATH: process.env.PATH } });
   assert.equal(await runE2e(opts(root), deps), 0, out.join('\n'));
   assert.ok(!out.some((l) => l.includes('✗ preflight')), out.join('\n'));
@@ -678,9 +695,9 @@ test('preflight reads .env.ai-dev', async () => {
   assert.ok(!readFileSync(path.join(root, '.adw/e2e/7/runs/2026-10-19T1000Z/claude-code/claude-code-1/answerer.jsonl'), 'utf8').includes('file-tok'));
 });
 
-test('e2e.env value from .env.ai-dev passes preflight', async () => {
+test('e2e.env value from .adw/.env passes preflight', async () => {
   const root = project({ env: ['AZ_KEY'] });
-  writeFileSync(path.join(root, '.env.ai-dev'), 'AZ_KEY=x\n');
+  writeFileSync(path.join(root, ENV_FILE), 'AZ_KEY=x\n');
   const { deps, out } = stubs(root);
   await runE2e(opts(root), deps);
   assert.ok(!out.some((l) => l.includes('e2e.env: AZ_KEY is not set')), out.join('\n'));

@@ -23,7 +23,7 @@ function setup(t, answers = []) {
     return hit ? hit[1] : { status: 0, stdout: '', stderr: '' };
   };
   const tag = layerTag(BASE_ID, 'FROM x\n', '{}\n', 'FAKE\n');
-  const opts = { root: '/proj', runDir: path.join(dir, 'run'), composeFiles: ['/proj/compose.ai-dev.yml'], env: { PROJECT_ROOT: '/proj' },
+  const opts = { root: '/proj', runDir: path.join(dir, 'run'), composeFiles: ['/proj/.adw/compose.yml'], env: { PROJECT_ROOT: '/proj' },
     exec, log: (s) => logs.push(s), imageDir };
   return { calls, logs, opts, tag };
 }
@@ -103,9 +103,9 @@ test('pulls the base image only when it is missing', (t) => {
 test('every compose call uses the given files, so the certs overlay is honoured', (t) => {
   const ref = 'img:3';
   const { calls, opts } = setup(t, [[isConfig, configJson({ image: ref })], baseInspect(ref)]);
-  ensureE2eImage({ ...opts, composeFiles: ['/proj/compose.ai-dev.yml', '/proj/compose.ai-dev.certs.yml'] });
+  ensureE2eImage({ ...opts, composeFiles: ['/proj/.adw/compose.yml', '/proj/.adw/compose.certs.yml'] });
   for (const c of calls.filter((x) => x.args[0] === 'compose')) {
-    assert.deepEqual(c.args.slice(0, 5), ['compose', '-f', '/proj/compose.ai-dev.yml', '-f', '/proj/compose.ai-dev.certs.yml']);
+    assert.deepEqual(c.args.slice(0, 7), ['compose', '--project-directory', '/proj', '-f', '/proj/.adw/compose.yml', '-f', '/proj/.adw/compose.certs.yml']);
     assert.equal(c.opts.env.PROJECT_ROOT, '/proj');
   }
 });

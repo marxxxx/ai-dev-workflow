@@ -4,7 +4,7 @@
 // that the restore assets persist.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,7 +26,8 @@ function docker(args) {
 const hostIds = process.getuid?.() > 0 ? ['-e', `HOST_UID=${process.getuid()}`, '-e', `HOST_GID=${process.getgid()}`] : [];
 
 cpSync(fixture, project, { recursive: true });
-writeFileSync(path.join(project, 'ai-project.json'), `${JSON.stringify({ ticketing: { backend: 'github' } })}\n`);
+mkdirSync(path.join(project, '.adw'), { recursive: true });
+writeFileSync(path.join(project, '.adw', 'project.json'), `${JSON.stringify({ ticketing: { backend: 'github' } })}\n`);
 try {
   assert.equal(docker(['volume', 'create', volume]).status, 0);
   for (const options of [['--restore'], []]) {

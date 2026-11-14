@@ -5,19 +5,21 @@ import { mkdtempSync, mkdirSync, chmodSync, readFileSync, readdirSync, writeFile
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { renderContainerFiles } from '../../agent-src/lib/container.mjs';
+import { COMPOSE_FILES } from '../../agent-src/lib/constants.mjs';
 
 const temporary = mkdtempSync(path.join(tmpdir(), 'agent-runtime-smoke-'));
 // The compose file consuming projects get from `init`, rendered the same way.
-const template = path.join(temporary, 'compose.ai-dev.yml');
+const template = path.join(temporary, path.basename(COMPOSE_FILES.base));
 const rendered = renderContainerFiles({ name: 'smoke', stack: 'generic', backend: 'azure-devops' });
-writeFileSync(template, rendered.find(file => file.path === 'compose.ai-dev.yml').content);
+writeFileSync(template, rendered.find(file => file.path === COMPOSE_FILES.base).content);
 const project = path.join(temporary, 'project with spaces');
 mkdirSync(project);
 // Linux bind mounts keep host ownership; let the foreign fixture UID (12345) write here.
 chmodSync(project, 0o777);
 mkdirSync(path.join(project, '.codex'));
 mkdirSync(path.join(project, '.agents/skills/example'), { recursive: true });
-writeFileSync(path.join(project, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'azure-devops', azureDevOps: { organization: 'fixture-org' } } }));
+mkdirSync(path.join(project, '.adw'));
+writeFileSync(path.join(project, '.adw', 'project.json'), JSON.stringify({ ticketing: { backend: 'azure-devops', azureDevOps: { organization: 'fixture-org' } } }));
 writeFileSync(path.join(project, '.mcp.json'), JSON.stringify({ mcpServers: {
   ado: { command: 'npx', args: ['-y', '@azure-devops/mcp@2', 'fixture-org'] },
   dxdocs: { type: 'http', url: 'https://example.invalid/mcp' },
@@ -45,11 +47,11 @@ writeFileSync(override, [
 ].join('\n'));
 // Unmasked and full of host binaries: the preflight must say so without failing.
 mkdirSync(path.join(project, 'pkg', 'node_modules', '@rollup', 'rollup-win32-x64-msvc'), { recursive: true });
-const preserved = ['ai-project.json', '.mcp.json', '.codex/config.toml', '.agents/skills/example/SKILL.md'];
+const preserved = ['.adw/project.json', '.mcp.json', '.codex/config.toml', '.agents/skills/example/SKILL.md'];
 const before = preserved.map(file => readFileSync(path.join(project, file)));
 // Meaningful only on Linux, where a bind mount keeps real host uids (see the HOST_UID
 // remapping check below for the same platform guard).
-const projectFileUid = process.platform === 'linux' ? statSync(path.join(project, 'ai-project.json')).uid : null;
+const projectFileUid = process.platform === 'linux' ? statSync(path.join(project, '.adw', 'project.json')).uid : null;
 const id = `agent-smoke-${process.pid}-${Date.now()}`;
 const projects = [id, `${id}-other`, `${id}-deps`];
 const env = { ...process.env, PROJECT_ROOT: project, AGENT_IMAGE: process.env.AGENT_IMAGE || 'ai-dev-workflow', HOST_UID: '12345', HOST_GID: '12345' };
@@ -86,7 +88,7 @@ try {
   // Compose v2 omits false; v5 emits it. Either way the host path must not be auto-created.
   assert.notEqual(bind.bind?.create_host_path, true);
   assert.equal(service.volumes.find(mount => mount.type === 'volume').target, '/home/dev');
-  const copied = path.join(project, 'compose.ai-dev.yml'); copyFileSync(template, copied);
+  const copied = path.join(project, path.basename(COMPOSE_FILES.base)); copyFileSync(template, copied);
   const copiedConfig = JSON.parse(ok(compose(['config', '--format', 'json'], { file: copied })));
   assert.deepEqual(copiedConfig.services['ai-dev-workflow'].volumes, service.volumes);
   const second = JSON.parse(ok(compose(['config', '--format', 'json'], { name: projects[1] })));
@@ -157,7 +159,7 @@ try {
     // The chown that gives a nested volume to the runtime user must stay scoped to that
     // mount: a regression that walked the chown up into /workspace would flip ownership of
     // the host project tree itself, which this unchanged host file's uid rules out.
-    assert.equal(statSync(path.join(project, 'ai-project.json')).uid, projectFileUid);
+    assert.equal(statSync(path.join(project, '.adw', 'project.json')).uid, projectFileUid);
   }
   const preflight = run(['true']);
   assert.equal(preflight.status, 0, preflight.stderr);

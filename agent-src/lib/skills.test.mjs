@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { PROJECT_FILE } from './constants.mjs';
 import {
   loadSkillPins, installArgs, manualCommand, skillWarnings, syncSkills, installSkills, npxEnv,
 } from './skills.mjs';
@@ -35,10 +36,11 @@ function writeLock(root, refs) {
 }
 
 function writeProject(root, extra = {}) {
-  fs.writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify({ ...MINIMAL_PROJECT, ...extra }, null, 2) + '\n');
+  fs.mkdirSync(path.join(root, '.adw'), { recursive: true });
+  fs.writeFileSync(path.join(root, PROJECT_FILE), JSON.stringify({ ...MINIMAL_PROJECT, ...extra }, null, 2) + '\n');
 }
 
-const readProject = (root) => JSON.parse(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'));
+const readProject = (root) => JSON.parse(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8'));
 
 test('the shipped pins name show-me at a full commit and an exact skills CLI version', () => {
   const pins = loadSkillPins();
@@ -108,13 +110,13 @@ test('syncSkills --dry-run reports what it would do and writes nothing', () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     writeProject(root);
-    const before = fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8');
+    const before = fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8');
     const { run, calls } = fakeRun();
     const result = syncSkills(root, { pins: PINS, run, dryRun: true });
     assert.deepEqual(result.recorded, ['show-me']);
     assert.deepEqual(result.installed, ['show-me']);
     assert.equal(calls.length, 0);
-    assert.equal(fs.readFileSync(path.join(root, 'ai-project.json'), 'utf8'), before);
+    assert.equal(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8'), before);
   } finally {
     cleanup();
   }

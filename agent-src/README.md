@@ -10,7 +10,7 @@ generate the per-platform files.
 
 1. Edit a unit's `body.md` (shared, platform-neutral prose) or `manifest.json` (per-platform config).
 2. Run `npm test`, then render into a consuming project to inspect the output (this repo has no
-   `ai-project.json` and no generated files of its own):
+   `.adw/project.json` and no generated files of its own):
 
    ```bash
    node agent-src/generate.mjs generate --root <project>
@@ -26,12 +26,13 @@ agent-src/
   generate.mjs                 # entrypoint: zero-dependency Node CLI (parse argv + dispatch)
   lib/                         # feature modules the entrypoint composes:
     constants.mjs serialize.mjs identity.mjs config.mjs tokens.mjs units.mjs
-    ticketing.mjs cost.mjs renderers.mjs onboard.mjs pipeline.mjs upgrade.mjs container.mjs skills.mjs
+    ticketing.mjs cost.mjs renderers.mjs onboard.mjs pipeline.mjs upgrade.mjs layout.mjs container.mjs skills.mjs
   config/
     ai-workflow.json           # PACKAGE-owned config: ticket states/comment titles + runtime include paths
     ai-project.template.json   # scaffold template copied by `init` when non-interactive
     skills.json                # third-party skills (show-me) init/upgrade install with `npx skills`; derived from docker/tools/inventory.json
   container/                   # dev-container templates `init` writes once (project-owned afterwards)
+                               # (container/README.md is the template for a project's .adw/README.md; it has @@...@@ placeholders)
   includes/
     ticketing-github.md        # ticket read/comment/status/PR — GitHub (gh CLI)
     ticketing-gitea.md         # … — Gitea (tea CLI, verified vs. 0.16.0)
@@ -45,8 +46,8 @@ agent-src/
     body.md, manifest.json
 
 <project-root>/
-  ai-project.json              # PROJECT-owned config: project/repository/git identity + ticketing backend choice
-  agent-custom/<agents|skills>/<name>/   # PROJECT-owned, optional: body.md (override) / append.md (extend)
+  .adw/project.json            # PROJECT-owned config: project/repository/git identity + ticketing backend choice
+  .adw/custom/<agents|skills>/<name>/   # PROJECT-owned, optional: body.md (override) / append.md (extend)
   .agents/skills/show-me/, .claude/skills/show-me, skills-lock.json   # PROJECT-owned, written by `npx skills`
 ```
 
@@ -55,7 +56,7 @@ agent-src/
 Config is split by ownership so the package can be updated without clobbering project settings, and
 the project can't accidentally desync skill-coupled values:
 
-- **`ai-project.json`** lives at the **project root** and is project-owned: `project` identity,
+- **`.adw/project.json`** is project-owned: `project` identity,
   `repository`, `git`, and the `ticketing` **backend choice** (`"github"` | `"file"` | `"gitea"` |
   `"azure-devops"`) plus the github/file/gitea/azureDevOps sub-configs. This file stays in the project across updates.
 - **`agent-src/config/ai-workflow.json`** ships **with the package** and is package-owned: the
@@ -65,10 +66,10 @@ the project can't accidentally desync skill-coupled values:
 
 Bodies and manifest descriptions reference both through `{{token}}`s, so the same agent/skill sources
 work for any project. The generator merges the two files (package wins on `workflow` and
-`ticketing.includePath`; project owns the rest of `ticketing`) and reads `ai-project.json` from the
+`ticketing.includePath`; project owns the rest of `ticketing`) and reads `.adw/project.json` from the
 project root (`cwd`, overridable with `--root <dir>`).
 
-To take this setup to another project: edit `ai-project.json` (project identity, `repository.slug`,
+To take this setup to another project: edit `.adw/project.json` (project identity, `repository.slug`,
 `ticketing.backend`) and run the generator. To switch ticketing backends (e.g. GitHub ⇄ local files),
 change one line — `ticketing.backend` — and regenerate; the matching `includes/ticketing-<backend>.md`
 is copied to `ticketing.includePath`.
@@ -116,8 +117,8 @@ rendered body. This is the structural guarantee that platform-specific guidance 
 between tools. None exist today: superpowers ships its own per-harness tool mappings, so `agent-dev`
 needs no platform-specific guidance. Anything not genuinely platform-specific belongs in `body.md`.
 
-**Project overrides (`agent-custom/`).** A consuming project can tailor any shipped unit without
-forking the package by adding a committed `agent-custom/{agents,skills}/<name>/` dir at its root
+**Project overrides (`.adw/custom/`).** A consuming project can tailor any shipped unit without
+forking the package by adding a committed `.adw/custom/{agents,skills}/<name>/` dir
 (read via `--root`). Per unit: `body.md` **replaces** the package body (escape hatch), and
 `append.md` is **appended** after the platform overlay (safe, upstream-tracking default). Both get
 the same `{{token}}` treatment; an unresolved token throws. Resolution order is **package body (or the

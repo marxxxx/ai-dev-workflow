@@ -173,7 +173,7 @@ test('mount points of the judges\' compose service are created in both checkouts
   assert.deepEqual(seen, { verify: { dir: true, file: true }, review: { dir: true, file: true } });
 });
 
-test('mount points never leave the checkout: no .. path, no committed symlink is followed', () => {
+test('mount points never leave the checkout: no .. path, no committed symlink is followed', { skip: process.platform === 'win32' && 'symlinks need Developer Mode on Windows' }, () => {
   const outside = mkdtempSync(path.join(tmpdir(), 'adw-pv-outside-'));
   try {
     const seen = {};

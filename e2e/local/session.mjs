@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { COMPOSE_FILES, ENV_FILE } from '../../agent-src/lib/constants.mjs';
 import { walk } from '../lib/fsutil.mjs';
 import { isCliQuota } from '../lib/llm.mjs';
 import { OPENCODE_CREDENTIALS, openCodeExport, removeOpenCodeDbCredentials, scrubSecretsInTree, secretLeaves } from '../lib/secrets.mjs';
@@ -59,7 +60,7 @@ export const acpxConfig = ([command, ...args], timeoutSec = 1800) => ({
 
 // The OpenCode 2 login: an `opencode auth export` file, relative to the home directory.
 export const OPENCODE_LOGIN = '.config/adw/opencode-credentials.json';
-export const OPENCODE_LOGIN_HELP = 'No OpenCode login file (~/.config/adw/opencode-credentials.json); providers then come from e2e.env only. To use an OpenCode login: ./ai-dev.sh opencode auth login, then rerun adw e2e and let it copy the login from the dev container, or with OpenCode 2 on the host: (umask 077; mkdir -p ~/.config/adw && opencode auth export > ~/.config/adw/opencode-credentials.json)';
+export const OPENCODE_LOGIN_HELP = 'No OpenCode login file (~/.config/adw/opencode-credentials.json); providers then come from e2e.env only. To use an OpenCode login: ./adw.sh opencode auth login, then rerun adw e2e and let it copy the login from the dev container, or with OpenCode 2 on the host: (umask 077; mkdir -p ~/.config/adw && opencode auth export > ~/.config/adw/opencode-credentials.json)';
 
 const kebab = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
@@ -70,7 +71,7 @@ export function composeProject(root, trialId) {
   return `adw-e2e-${name}-${id}`;
 }
 
-// Same rules as ai-dev.sh: comments, `export `, a valid key, one pair of surrounding quotes stripped.
+// Same rules as adw.sh: comments, `export `, a valid key, one pair of surrounding quotes stripped.
 export function parseEnvFile(text) {
   const out = {};
   for (let line of text.split('\n')) {
@@ -86,9 +87,14 @@ export function parseEnvFile(text) {
   return out;
 }
 
-// The compose env as ai-dev.sh builds it: .env.ai-dev never overrides a set variable, PROJECT_ROOT is the work tree.
+// The start of every docker compose call: the project root is the project directory (relative paths and the
+// project name resolve there, not in .adw/), also when the trial's work tree is what the container mounts.
+export const composeBaseArgs = ({ root, env }) => ['compose', '--project-directory', root, '-f', path.join(root, COMPOSE_FILES.base),
+  ...(env.AGENT_CA_DIR ? ['-f', path.join(root, COMPOSE_FILES.certs)] : [])];
+
+// The compose env as adw.sh builds it: .adw/.env never overrides a set variable, PROJECT_ROOT is the work tree.
 export function composeEnv({ root, work, env = process.env, uid = process.getuid?.() ?? 1000, gid = process.getgid?.() ?? 1000 }) {
-  const file = path.join(root, '.env.ai-dev');
+  const file = path.join(root, ENV_FILE);
   const fromFile = existsSync(file) ? parseEnvFile(readFileSync(file, 'utf8')) : {};
   const out = { ...fromFile, ...env, PROJECT_ROOT: work };
   out.HOST_UID = String(out.HOST_UID ?? uid);
@@ -150,8 +156,7 @@ export function startSession({ root, work, origin = null, harness, model, projec
   turnTimeoutSec = 1800, readyTimeoutSec = 300, overrideFile = null, warn = (m) => console.warn(m) }) {
   const name = `${project}-agent`;
   const cenv = composeEnv({ root, work, env });
-  const compose = ['compose', '-f', path.join(root, 'compose.ai-dev.yml'),
-    ...(cenv.AGENT_CA_DIR ? ['-f', path.join(root, 'compose.ai-dev.certs.yml')] : []),
+  const compose = [...composeBaseArgs({ root, env: cenv }),
     ...(overrideFile ? ['-f', overrideFile] : []), '-p', project];
   const label = `agent (${harness})`;
   const run = (args, opts = {}) => {

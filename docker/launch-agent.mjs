@@ -75,8 +75,10 @@ function deepSort(value) {
 
 function readProjectState(workspace, { toolstackOnly = false } = {}) {
   if (toolstackOnly) return { backend: undefined, organization: undefined, projectServers: {} };
-  const identity = readJson(path.join(workspace, 'ai-project.json'), 'ai-project.json');
-  if (!identity || typeof identity !== 'object') fail('ai-project.json is required in /workspace. Run the generator preparation on the host.');
+  // Images and npm versions ship independently: read the .adw layout first, fall back to the old root file.
+  const identity = readJson(path.join(workspace, '.adw', 'project.json'), '.adw/project.json')
+    ?? readJson(path.join(workspace, 'ai-project.json'), 'ai-project.json');
+  if (!identity || typeof identity !== 'object') fail('.adw/project.json is required in /workspace. Run adw init on the host.');
   const backend = identity.ticketing?.backend;
   const organization = identity.ticketing?.azureDevOps?.organization;
   if (backend === 'azure-devops' && (typeof organization !== 'string' || !organization.trim())) {

@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { COMPOSE_FILES, ENV_FILE } from '../../agent-src/lib/constants.mjs';
 import { OPENCODE_CREDENTIALS, scanForSecrets } from '../lib/secrets.mjs';
-import { OPENCODE_LOGIN, OPENCODE_LOGIN_HELP, acpCommand, acpxConfig, authMounts, composeEnv, composeProject, listening, parseEnvFile, stageCredentials, startSession } from './session.mjs';
+import { OPENCODE_LOGIN, OPENCODE_LOGIN_HELP, acpCommand, acpxConfig, authMounts, composeBaseArgs, composeEnv, composeProject, listening, parseEnvFile, stageCredentials, startSession } from './session.mjs';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'adw-session-'));
 
@@ -36,15 +37,16 @@ test('composeProject sanitizes and stays within 63 chars', () => {
   assert.match(long, /^adw-e2e-a+-abc$/);
 });
 
-test('parseEnvFile mirrors ai-dev.sh', () => {
+test('parseEnvFile mirrors adw.sh', () => {
   const text = '# c\r\n\nexport A=1\nB="two"\nC=\'3\'\n9X=no\nbad line\nD-E=no\nE=a=b\r\n';
   assert.deepEqual(parseEnvFile(text), { A: '1', B: 'two', C: '3', E: 'a=b' });
 });
 
-test('composeEnv reads .env.ai-dev without overriding set vars, then sets PROJECT_ROOT and ids', () => {
+test('composeEnv reads .adw/.env without overriding set vars, then sets PROJECT_ROOT and ids', () => {
   const root = tmp();
   try {
-    writeFileSync(path.join(root, '.env.ai-dev'), 'AGENT_CA_DIR=/ca\nHTTP_PROXY=file\nPROJECT_ROOT=/nope\n');
+    mkdirSync(path.join(root, '.adw'));
+    writeFileSync(path.join(root, ENV_FILE), 'AGENT_CA_DIR=/ca\nHTTP_PROXY=file\nPROJECT_ROOT=/nope\n');
     const env = composeEnv({ root, work: '/w', env: { HTTP_PROXY: '' }, uid: 11, gid: 12 });
     assert.equal(env.AGENT_CA_DIR, '/ca');
     assert.equal(env.HTTP_PROXY, '');
@@ -53,6 +55,20 @@ test('composeEnv reads .env.ai-dev without overriding set vars, then sets PROJEC
     assert.equal(env.HOST_GID, '12');
     assert.equal(composeEnv({ root, work: '/w', env: { HOST_UID: '5' }, uid: 11, gid: 12 }).HOST_UID, '5');
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('composeEnv never reads .env.ai-dev', () => {
+  const root = tmp();
+  try {
+    writeFileSync(path.join(root, '.env.ai-dev'), 'OLD_ONLY=1\n');
+    assert.equal(composeEnv({ root, work: '/w', env: {}, uid: 1, gid: 1 }).OLD_ONLY, undefined);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('composeBaseArgs puts the root as project directory before the .adw compose files', () => {
+  assert.deepEqual(composeBaseArgs({ root: '/p', env: { AGENT_CA_DIR: '/c' } }),
+    ['compose', '--project-directory', '/p', '-f', path.join('/p', '.adw/compose.yml'), '-f', path.join('/p', '.adw/compose.certs.yml')]);
+  assert.deepEqual(composeBaseArgs({ root: '/p', env: {} }), ['compose', '--project-directory', '/p', '-f', path.join('/p', '.adw/compose.yml')]);
 });
 
 test('stageCredentials is a pure lookup per harness', () => {
@@ -131,7 +147,7 @@ test('startSession starts the compose run container, stages auth by stdin and en
   try {
     const { calls, exec } = recorder({ results: (a) => (a.includes('command -v codex') ? { status: 0, stdout: '/usr/local/bin/codex\n' } : null) });
     startSession({ root, work, harness: 'codex', model: 'gpt-5', project: 'p1', creds, envNames: ['AZURE_X'], exec, env: { AGENT_CA_DIR: '/ca' }, turnTimeoutSec: 60 });
-    const compose = ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), '-f', path.join(root, 'compose.ai-dev.certs.yml'), '-p', 'p1'];
+    const compose = ['compose', '--project-directory', root, '-f', path.join(root, COMPOSE_FILES.base), '-f', path.join(root, COMPOSE_FILES.certs), '-p', 'p1'];
     // The entrypoint's CA exports are lost on docker exec: the run sets them (paths only) so every exec inherits them.
     assert.deepEqual(calls[0].args, [...compose, 'run', '-d', '--name', 'p1-agent', '-e', 'OPENAI_API_KEY', '-e', 'AZURE_X',
       '-e', 'NODE_EXTRA_CA_CERTS=/etc/ssl/agent-extra-ca.pem', '-e', 'SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt',
@@ -227,7 +243,7 @@ test('stageCredentials rejects an OpenCode 1 auth.json as the login file', () =>
 
 test('OPENCODE_LOGIN_HELP names the file and both ways to create it', () => {
   assert.equal(OPENCODE_LOGIN, '.config/adw/opencode-credentials.json');
-  assert.equal(OPENCODE_LOGIN_HELP, 'No OpenCode login file (~/.config/adw/opencode-credentials.json); providers then come from e2e.env only. To use an OpenCode login: ./ai-dev.sh opencode auth login, then rerun adw e2e and let it copy the login from the dev container, or with OpenCode 2 on the host: (umask 077; mkdir -p ~/.config/adw && opencode auth export > ~/.config/adw/opencode-credentials.json)');
+  assert.equal(OPENCODE_LOGIN_HELP, 'No OpenCode login file (~/.config/adw/opencode-credentials.json); providers then come from e2e.env only. To use an OpenCode login: ./adw.sh opencode auth login, then rerun adw e2e and let it copy the login from the dev container, or with OpenCode 2 on the host: (umask 077; mkdir -p ~/.config/adw && opencode auth export > ~/.config/adw/opencode-credentials.json)');
 });
 
 test('authMounts mounts every login file as-is', () => {
@@ -247,8 +263,8 @@ test('startSession adds the e2e override as the last compose file', () => {
     const { calls, exec } = recorder();
     startSession({ root, work, harness: 'opencode', model: null, project: 'p1', creds, exec, env: { AGENT_CA_DIR: '/ca' },
       overrideFile: '/run/compose.adw-e2e.yml' });
-    assert.deepEqual(calls[0].args.slice(0, 9), ['compose', '-f', path.join(root, 'compose.ai-dev.yml'),
-      '-f', path.join(root, 'compose.ai-dev.certs.yml'), '-f', '/run/compose.adw-e2e.yml', '-p', 'p1']);
+    assert.deepEqual(calls[0].args.slice(0, 11), ['compose', '--project-directory', root, '-f', path.join(root, COMPOSE_FILES.base),
+      '-f', path.join(root, COMPOSE_FILES.certs), '-f', '/run/compose.adw-e2e.yml', '-p', 'p1']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

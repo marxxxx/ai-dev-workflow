@@ -7,11 +7,11 @@ Guidance for coding agents working in this repository.
 A **generator**, not an application. It renders a lean `agent-dev` skill (a thin wrapper around the
 [superpowers](https://github.com/obra/superpowers) workflow) for **Claude Code**, **Codex**, and
 **OpenCode** from one canonical source (`agent-src/`) plus a small per-project config
-(`ai-project.json` in the consuming project). Zero-dependency Node (builtins only, `>=24`),
+(`.adw/project.json` in the consuming project). Zero-dependency Node (builtins only, `>=24`),
 published to npm as `@strobl_dev/adw` (`npx @strobl_dev/adw@X.Y.Z`), and
 language-agnostic — consuming projects need not be Node projects.
 
-This repo has no `ai-project.json` and no generated output of its own; run the generator against a
+This repo has no `.adw/project.json` and no generated output of its own; run the generator against a
 consuming project with `--root`.
 
 ## Commands
@@ -24,7 +24,7 @@ node --test --test-name-pattern "azure" agent-src/lib/*.test.mjs          # sing
 node agent-src/generate.mjs init     --root <project>  # interactive; --answers <file.json> for non-interactive
 node agent-src/generate.mjs generate --root <project>  # render all platform files into the project
 node agent-src/generate.mjs check    --root <project>  # render in memory, diff against disk, exit 1 on drift
-node agent-src/generate.mjs upgrade  --root <project>  # delete pre-0.23 generated files + obsolete ai-project.json keys, generate, install/update pinned skills (--dry-run)
+node agent-src/generate.mjs upgrade  --root <project>  # move the old root layout into .adw/, delete pre-0.23 generated files + obsolete .adw/project.json keys, generate, install/update pinned skills (--dry-run)
 ```
 
 ## Rule 1: never hand-edit generated files
@@ -48,13 +48,13 @@ commit.** Verify with `npm pack --dry-run`.
 pipeline: **config → tokens → units → renderers → outputs**.
 
 - **`config.mjs`** — merges package-owned `agent-src/config/ai-workflow.json` (workflow states,
-  artifacts, include paths — coupled to the skills) with project-owned `ai-project.json` (identity,
+  artifacts, include paths — coupled to the skills) with project-owned `.adw/project.json` (identity,
   repository, git, `ticketing.backend`). Package wins on `workflow` and include paths. Flattens the
   result into dotted `{{tokens}}`.
 - **`tokens.mjs`** — `{{token}}` substitution. **Unresolved tokens throw** (fail-closed), re-checked
   over every output in the pipeline.
 - **`units.mjs`** — loads units from `agent-src/{agents,skills}/<name>/`, layering a consuming
-  project's optional `agent-custom/` (`body.md` overrides, `append.md` appends). Body order: package
+  project's optional `.adw/custom/` (`body.md` overrides, `append.md` appends). Body order: package
   body (or override) → platform overlay → project append.
 - **`renderers.mjs`** — `RENDERERS[kind][platform]`; emits Markdown+frontmatter (Claude/OpenCode),
   `.toml` (Codex agents) or `.agents/skills/…` + `openai.yaml` (Codex skills). `smokeCheck` validates
@@ -63,18 +63,24 @@ pipeline: **config → tokens → units → renderers → outputs**.
   once to `.agents/includes/*.md` and read at runtime, never inlined** into bodies.
   `includes/ticketing-<backend>.md` (github | gitea | file | azure-devops) is where a new backend
   goes. azure-devops also merges an `ado` MCP server into `.mcp.json` / `.codex/config.toml`.
-- **`upgrade.mjs`** — the `upgrade` command's explicit list of generated files and `ai-project.json`
+- **`upgrade.mjs`** — the `upgrade` command's explicit list of generated files and `.adw/project.json`
   keys that earlier versions wrote and the current one no longer does. It deletes a file only if the
   file carries the banner of that exact unit. When you remove or rename a unit, include, or project
   key, add the old one there. `upgrade` is the documented command for every version bump.
+- **`layout.mjs`** — everything adw owns in a project lives in `.adw/` (paths in `constants.mjs`); the launchers
+  `adw.sh` / `adw.ps1` stay at the root. It migrates the old root layout (`ai-project.json`, `compose.ai-dev*.yml`,
+  `ai-dev.sh`/`.ps1`, `AI-DEV.md`, `.env.ai-dev`, `agent-custom/`) for `upgrade`, which runs it first; `generate`,
+  `check`, `init` and `adw e2e` refuse a project that still has the old layout. Every `docker compose` call passes
+  `--project-directory <project root>`. When you rename or move a project file, add the old path to `LEGACY_MOVES` /
+  `LEGACY_REWRITES`.
 - **`skills.mjs`** — third-party skills (today `show-me`) that `init` and `upgrade` install into the
   project with `npx skills add`, pinned by `config/skills.json` (CLI version + commit; derived from
-  `docker/tools/inventory.json`). `ai-project.json` `skills.<name>` records the opt-in (missing =
+  `docker/tools/inventory.json`). `.adw/project.json` `skills.<name>` records the opt-in (missing =
   yes, `false` = opt-out); `skills-lock.json` tells which commit is installed. The installed files
   are project-owned: never rendered, checked or deleted. `generate`/`check` only warn. A failed
   install is a warning, never an error. Tests run `npx` as `ADW_NPX` (a fake in `test-helpers.mjs`).
 - **`container.mjs`** + `container/` — the dev-container files `init` offers to write
-  (`compose.ai-dev.yml`, certs and opt-in dind overlays, `ai-dev.sh`/`.ps1`, `AI-DEV.md`) from `@@KEY@@` templates.
+  (`.adw/compose.yml`, certs and opt-in dind overlays, `adw.sh`/`adw.ps1`, `.adw/README.md`) from `@@KEY@@` templates.
   Written once when missing, then **project-owned**: never rendered, checked or upgraded by the pipeline;
   `upgrade`/`generate`/`check` only print the known fixes an older template needs (`containerWarnings`).
 - **`e2e/local/`** — the `adw e2e` command (`cli.mjs`, dispatched from `generate.mjs`): replays
@@ -86,7 +92,7 @@ pipeline: **config → tokens → units → renderers → outputs**.
   fake there too**; `e2e/local/pr-fake.test.mjs` fails for any PR command an `includes/ticketing-*.md` documents unfaked. It ships
   in the package together with the `e2e/lib` modules it imports, each listed in `files`
   (`e2e/local/package.test.mjs` fails if the import closure of `cli.mjs` is not).
-- **`onboard.mjs`** — the `init` interview. Writes `ai-project.json` (and, on request, the container files); recommended tooling is
+- **`onboard.mjs`** — the `init` interview. Writes `.adw/project.json` (and, on request, the container files); recommended tooling is
   *printed*, never installed or documented with install steps — except the pinned skills of
   `skills.mjs`, which it offers to install.
 
@@ -116,7 +122,7 @@ publishes to npm via trusted publishing (it skips versions already on npm).
 
 Hand-maintained, not generated. `docker/tools/inventory.json` is the single source for tool pins;
 `docker/tools/package.json`, its lockfile, `e2e/local/image/package.json` and its lockfile, Dockerfile `FROM`/`ARG` pins, the `image:` line of
-`agent-src/container/compose.ai-dev.dind.yml` and `agent-src/config/skills.json` (`agentSkills`) are derived — never
+`agent-src/container/compose.dind.yml` and `agent-src/config/skills.json` (`agentSkills`) are derived — never
 hand-edit them (`node docker/tools/inventory.mjs update | sync | check`). See `docker/README.md`.
 
 ## E2E self-test (`e2e/`)

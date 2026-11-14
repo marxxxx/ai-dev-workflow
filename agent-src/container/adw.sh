@@ -1,13 +1,13 @@
 #!/bin/sh
-# Project-owned; written once by ai-dev-workflow init. Runs a command in this project's agent
-# container: ./ai-dev.sh [command [args...]] (no command opens bash). See AI-DEV.md.
+# Project-owned; written once by adw init. Runs a command in this project's agent
+# container: ./adw.sh [command [args...]] (no command opens bash). See .adw/README.md.
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 
 # Per-machine settings (AGENT_CA_DIR, proxies, AGENT_IMAGE, …). Never overrides a variable that is
 # already set in the environment, even to an empty value.
-if [ -f "$root/.env.ai-dev" ]; then
+if [ -f "$root/.adw/.env" ]; then
   while IFS= read -r line || [ -n "$line" ]; do
     line=$(printf '%s' "$line" | tr -d '\r')
     case $line in ''|'#'*) continue ;; 'export '*) line=${line#export } ;; esac
@@ -18,7 +18,10 @@ if [ -f "$root/.env.ai-dev" ]; then
     case $value in \"*\") value=${value#\"}; value=${value%\"} ;; \'*\') value=${value#\'}; value=${value%\'} ;; esac
     eval "isset=\${$key+x}"
     [ -n "$isset" ] || export "$key=$value"
-  done < "$root/.env.ai-dev"
+  done < "$root/.adw/.env"
+fi
+if [ -f "$root/.env.ai-dev" ]; then
+  echo "adw.sh: move .env.ai-dev to .adw/.env, or run adw upgrade; it is not read anymore." >&2
 fi
 
 export PROJECT_ROOT="$root"
@@ -27,19 +30,19 @@ export HOST_GID="${HOST_GID:-$(id -g)}"
 
 # docker compose with this project's compose files.
 compose() {
-  # Opt-in Docker daemon (AGENT_DIND=1): root-equivalent on the host, see AI-DEV.md.
+  # Opt-in Docker daemon (AGENT_DIND=1): root-equivalent on the host, see .adw/README.md.
   if [ "${AGENT_DIND:-}" = 1 ]; then
     if [ -n "${AGENT_CA_DIR:-}" ]; then
-      set -- -f "$root/compose.ai-dev.dind-certs.yml" "$@"
+      set -- -f "$root/.adw/compose.dind-certs.yml" "$@"
     fi
-    set -- -f "$root/compose.ai-dev.dind.yml" "$@"
+    set -- -f "$root/.adw/compose.dind.yml" "$@"
   fi
   if [ -n "${AGENT_CA_DIR:-}" ]; then
-    set -- -f "$root/compose.ai-dev.certs.yml" "$@"
+    set -- -f "$root/.adw/compose.certs.yml" "$@"
   fi
-  docker compose -f "$root/compose.ai-dev.yml" "$@"
+  docker compose --project-directory "$root" -f "$root/.adw/compose.yml" "$@"
 }
 
 # Newest build of the configured image (AGENT_IMAGE or the default); offline, the local one starts.
-compose pull ai-dev-workflow || echo "ai-dev.sh: could not pull the image; starting the local one." >&2
+compose pull ai-dev-workflow || echo "adw.sh: could not pull the image; starting the local one." >&2
 compose run --rm ai-dev-workflow "$@"

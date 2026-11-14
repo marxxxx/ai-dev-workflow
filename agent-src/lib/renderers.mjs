@@ -2,14 +2,15 @@
 // dispatch table and the deterministic smokeCheck over the field sets we emit.
 
 import path from 'node:path';
+import { CUSTOM_DIR } from './constants.mjs';
 import { dq, yamlScalar } from './serialize.mjs';
 
 function banner(unit, commentStyle) {
   const type = unit.kind === 'agent' ? 'agents' : 'skills';
-  // A customized unit is generated from the package source *and* the project's agent-custom/ files,
+  // A customized unit is generated from the package source *and* the project's custom files,
   // so point editors at both — hand-edits to the generated file are still caught by `check`.
   const source = unit.customized
-    ? `agent-src/${type}/${unit.name} + agent-custom/${type}/${unit.name}`
+    ? `agent-src/${type}/${unit.name} + ${CUSTOM_DIR}/${type}/${unit.name}`
     : `agent-src/${type}/${unit.name}`;
   const text = `DO NOT EDIT — generated from ${source}; run \`node agent-src/generate.mjs\``;
   if (commentStyle === 'toml' || commentStyle === 'yaml') return `# ${text}`;

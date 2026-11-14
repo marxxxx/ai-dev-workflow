@@ -19,7 +19,7 @@ classes into one PR.**
 
 **The iron rule:** never hand-edit derived files (`docker/tools/package.json`,
 `package-lock.json`, `e2e/local/image/package.json` and its lockfile, `Dockerfile*` `ARG`/`FROM` lines, the `image:` line of
-`agent-src/container/compose.ai-dev.dind.yml`, `agent-src/config/skills.json`). Always go through `inventory.json` +
+`agent-src/container/compose.dind.yml`, `agent-src/config/skills.json`). Always go through `inventory.json` +
 `node docker/tools/inventory.mjs sync` (or `update`; both generate lockfiles with the base image's npm, so they need Docker), per `docker/README.md` and `AGENTS.md`.
 
 ## Workflow

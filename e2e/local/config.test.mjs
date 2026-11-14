@@ -1,13 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 import { loadLocalConfig, selfJudged } from './config.mjs';
 
 function project(e2e) {
   const root = mkdtempSync(join(tmpdir(), 'adw-cfg-'));
-  writeFileSync(join(root, 'ai-project.json'), JSON.stringify(e2e === undefined ? {} : { e2e }));
+  mkdirSync(join(root, '.adw'), { recursive: true });
+  writeFileSync(join(root, PROJECT_FILE), JSON.stringify(e2e === undefined ? {} : { e2e }));
   return root;
 }
 
@@ -61,7 +63,7 @@ test('secretEnv: defaults to [], accepts a subset of env, rejects strays and non
   assert.throws(() => loadLocalConfig(project({ env: ['A'], secretEnv: [1] }), { harness: 'codex' }), /e2e\.secretEnv must be an array of strings/);
 });
 
-test('a project without ai-project.json uses defaults', () => {
+test('a project without .adw/project.json uses defaults', () => {
   const c = loadLocalConfig(mkdtempSync(join(tmpdir(), 'adw-cfg-')), { harness: 'claude-code' });
   assert.equal(c.testCommand, null);
   assert.deepEqual(c.env, []);

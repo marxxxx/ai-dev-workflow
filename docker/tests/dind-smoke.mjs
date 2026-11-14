@@ -8,19 +8,21 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderContainerFiles } from '../../agent-src/lib/container.mjs';
+import { COMPOSE_FILES } from '../../agent-src/lib/constants.mjs';
 
 const inventory = JSON.parse(readFileSync(fileURLToPath(new URL('../tools/inventory.json', import.meta.url)), 'utf8'));
 const temporary = mkdtempSync(path.join(tmpdir(), 'agent-dind-smoke-'));
 // The compose file and dind overlay consuming projects get from `init`, rendered the same way.
 const rendered = renderContainerFiles({ name: 'smoke', stack: 'generic', backend: 'file' });
-const [template, overlay] = ['compose.ai-dev.yml', 'compose.ai-dev.dind.yml'].map(name => {
-  const file = path.join(temporary, name);
+const [template, overlay] = [COMPOSE_FILES.base, COMPOSE_FILES.dind].map(name => {
+  const file = path.join(temporary, path.basename(name));
   writeFileSync(file, rendered.find(candidate => candidate.path === name).content);
   return file;
 });
 const project = path.join(temporary, 'project with spaces');
 mkdirSync(path.join(project, 'web'), { recursive: true });
-writeFileSync(path.join(project, 'ai-project.json'), JSON.stringify({ ticketing: { backend: 'file' } }));
+mkdirSync(path.join(project, '.adw'), { recursive: true });
+writeFileSync(path.join(project, '.adw', 'project.json'), JSON.stringify({ ticketing: { backend: 'file' } }));
 writeFileSync(path.join(project, 'web', 'index.html'), 'served-from-project\n');
 writeFileSync(path.join(project, 'Dockerfile'), 'FROM busybox:1.37\nRUN echo built-in-dind > /built\n');
 writeFileSync(path.join(project, 'stack.yml'), [

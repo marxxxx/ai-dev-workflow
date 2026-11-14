@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 4,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "All seven acceptance criteria are covered by the spec and the diff, with UTC and today-is-not-overdue edge cases made explicit.",
+    "scope": "The change stays within the ticket; the spec and plan docs are process artifacts, and the strict ?overdue= validation and the atomic PATCH validation are small additions beyond the ACs.",
+    "tests": "Store and API tests cover overdue edge cases, filtering, invalid dates and atomic PATCH, and the one existing assertion was extended rather than weakened; the UI behaviour is only checked by an HTML string match, and 2026-13-01 and the PATCH-400 path have no test.",
+    "conventions": "Follows the zero-dependency rule, uses ValidationError mapped to 400, adds data-testids and writes tests first; the small gap is that the page and API-400 for PATCH are lightly tested.",
+    "architecture": "Rules live in the store with an injectable clock, app.mjs only parses the query parameter, and the page reuses the API filter.",
+    "codeQuality": "The code is clean and the validation is correct at the edges; the Date.parse check is redundant and the page has no error handling and a double-toggle race, as the agent itself noted."
+  },
+  "error": null
+}

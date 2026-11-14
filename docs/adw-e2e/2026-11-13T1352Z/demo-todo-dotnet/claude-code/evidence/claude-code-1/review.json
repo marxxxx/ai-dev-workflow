@@ -1,0 +1,19 @@
+{
+  "scores": {
+    "requirements": 5,
+    "scope": 5,
+    "tests": 4,
+    "conventions": 4,
+    "architecture": 5,
+    "codeQuality": 4
+  },
+  "reasons": {
+    "requirements": "The spec and diff cover AC1–AC7 with the date-only format, PATCH set/clear/keep, 400 on invalid dates, the UTC overdue rule, and the list page's date, marker and filter labelled as required.",
+    "scope": "Only the requested behaviour is added. The plan and spec documents are expected process artifacts, and the extras (a TimeProvider fake, an Optional type) were both approved in the spec.",
+    "tests": "The store, API and page tests cover the overdue boundary (due today, done, undated), the PATCH variants, invalid input and the filter, and the one changed existing assertion was legitimately updated. The checkbox toggle has no automated test (it was only checked end-to-end by hand), and the impossible-date case such as 30 February is only represented by 2026-13-40.",
+    "conventions": "The change follows TDD, uses ValidationException for validation, adds data-testids and introduces no new packages, but AGENTS.md was not updated with the new data-testids or files.",
+    "architecture": "The overdue rule lives in TodoStore and is shared by the API and the page, the clock is injected as a TimeProvider, the response DTO is separate, and Home.razor calls the store directly as AGENTS.md requires.",
+    "codeQuality": "The code is clean and handles the edges (null comparison, absent vs. null). The Optional<T> struct is slightly subtle, since a default-constructed value has HasValue false while an explicit construction sets it to true. Read also uses the null-forgiving operator on Deserialize<T>."
+  },
+  "error": null
+}

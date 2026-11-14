@@ -44,7 +44,7 @@ export function validateReviewAnswer(answer, rubric) {
 }
 
 export function runReview({ config, checkout, diffPath, criteria, spec, summary, env = {}, image, name = `adw-review-${process.pid}-${Date.now()}`,
-  run = spawnSync, uid = process.getuid(), gid = process.getgid(), onTranscript, buildArgs = dockerRunArgs({ image, uid, gid }) }) {
+  run = spawnSync, uid = process.getuid?.() ?? 1000, gid = process.getgid?.() ?? 1000, onTranscript, buildArgs = dockerRunArgs({ image, uid, gid }) }) {
   const { harness = 'claude-code', model = null, criteria: rubric, timeoutSec } = config.review;
   try {
     const answer = callLlm({ role: 'review', harness, model, tools: 'read', addDirs: ['/diff'], buildArgs, name, checkout, readOnly: true,

@@ -5,11 +5,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { PROJECT_FILE, CUSTOM_DIR } from './constants.mjs';
 import { renderAll, loadConfig } from '../generate.mjs';
 import { makeTmpRoot, tmpProject } from '../test-helpers.mjs';
 
 function writeProject(root, config) {
-  fs.writeFileSync(path.join(root, 'ai-project.json'), JSON.stringify(config, null, 2) + '\n');
+  fs.mkdirSync(path.join(root, '.adw'), { recursive: true });
+  fs.writeFileSync(path.join(root, PROJECT_FILE), JSON.stringify(config, null, 2) + '\n');
 }
 
 test('renderAll produces a set of unique output paths (file backend)', () => {
@@ -298,32 +300,32 @@ test('loadConfig merges package workflow + includePath over the project file', (
   }
 });
 
-test('loadConfig returns package-only config when ai-project.json is absent', () => {
+test('loadConfig returns package-only config when .adw/project.json is absent', () => {
   const { root, cleanup } = makeTmpRoot();
   try {
     const cfg = loadConfig(root);
     assert.ok(cfg.workflow);
     assert.equal(cfg.ticketing.includePath, '.agents/includes/ticketing.md');
-    assert.ok(!cfg.project, 'no project identity without ai-project.json');
+    assert.ok(!cfg.project, 'no project identity without .adw/project.json');
   } finally {
     cleanup();
   }
 });
 
 // ---------------------------------------------------------------------------
-// Project-level customization via agent-custom/{agents,skills}/<name>/.
+// Project-level customization via .adw/custom/{agents,skills}/<name>/.
 // ---------------------------------------------------------------------------
 
-/** Write a file under agent-custom/<rel>, creating parent dirs. */
+/** Write a file under .adw/custom/<rel>, creating parent dirs. */
 function writeCustom(root, rel, content) {
-  const abs = path.join(root, 'agent-custom', rel);
+  const abs = path.join(root, CUSTOM_DIR, rel);
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, content);
 }
 
 const AGENT_DEV = path.join('.claude', 'skills', 'agent-dev', 'SKILL.md');
 
-test('agent-custom append.md is appended after the package body with tokens resolved', () => {
+test('.adw/custom append.md is appended after the package body with tokens resolved', () => {
   const { root, cleanup } = tmpProject();
   try {
     writeCustom(root, 'skills/agent-dev/append.md', '## House rules\nAlways lint for {{project.name}}.\n');
@@ -334,13 +336,13 @@ test('agent-custom append.md is appended after the package body with tokens reso
     assert.match(dev.content, /## House rules\nAlways lint for Test Project\./);
     assert.doesNotMatch(dev.content, /\{\{.*?\}\}/);
     // Banner now points at both sources.
-    assert.match(dev.content, /agent-src\/skills\/agent-dev \+ agent-custom\/skills\/agent-dev/);
+    assert.match(dev.content, /DO NOT EDIT — generated from agent-src\/skills\/agent-dev \+ \.adw\/custom\/skills\/agent-dev;/);
   } finally {
     cleanup();
   }
 });
 
-test('agent-custom body.md fully overrides the package body', () => {
+test('.adw/custom body.md fully overrides the package body', () => {
   const { root, cleanup } = tmpProject();
   try {
     writeCustom(root, 'skills/agent-dev/body.md', 'Custom agent-dev for {{project.name}} only.\n');
@@ -353,7 +355,7 @@ test('agent-custom body.md fully overrides the package body', () => {
   }
 });
 
-test('agent-custom override and append combine (override is the base, append follows)', () => {
+test('.adw/custom override and append combine (override is the base, append follows)', () => {
   const { root, cleanup } = tmpProject();
   try {
     writeCustom(root, 'skills/agent-dev/body.md', 'BASE override.\n');
@@ -367,7 +369,7 @@ test('agent-custom override and append combine (override is the base, append fol
   }
 });
 
-test('an unresolved token in an agent-custom file throws through the pipeline guard', () => {
+test('an unresolved token in an .adw/custom file throws through the pipeline guard', () => {
   const { root, cleanup } = tmpProject();
   try {
     writeCustom(root, 'skills/agent-dev/append.md', 'Uses {{nope}}.\n');
@@ -377,16 +379,16 @@ test('an unresolved token in an agent-custom file throws through the pipeline gu
   }
 });
 
-test('no agent-custom dir is a no-op: output identical to package-only render', () => {
+test('no .adw/custom dir is a no-op: output identical to package-only render', () => {
   const a = tmpProject();
   const b = tmpProject();
   try {
     const bare = renderAll(a.root).find((o) => o.path === AGENT_DEV).content;
     writeCustom(b.root, 'skills/agent-dev/append.md', 'x\n');
-    fs.rmSync(path.join(b.root, 'agent-custom'), { recursive: true, force: true });
+    fs.rmSync(path.join(b.root, CUSTOM_DIR), { recursive: true, force: true });
     const removed = renderAll(b.root).find((o) => o.path === AGENT_DEV).content;
-    assert.equal(removed, bare, 'removing agent-custom returns to package defaults');
-    assert.doesNotMatch(bare, /agent-custom/);
+    assert.equal(removed, bare, 'removing .adw/custom returns to package defaults');
+    assert.doesNotMatch(bare, /\.adw\/custom/);
   } finally {
     a.cleanup();
     b.cleanup();

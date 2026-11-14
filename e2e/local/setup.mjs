@@ -13,9 +13,10 @@ import { e2eSectionOf } from './contract.mjs';
 import { LANGUAGES, detectLanguage, textsFor } from './language.mjs';
 import { loadLocalConfig } from './config.mjs';
 import { devImage } from './image.mjs';
-import { AGENT_BIN, OPENCODE_LOGIN, authMounts, composeEnv, composeProject, stageCredentials } from './session.mjs';
+import { AGENT_BIN, OPENCODE_LOGIN, authMounts, composeBaseArgs, composeEnv, composeProject, stageCredentials } from './session.mjs';
 import { openCodeExport } from '../lib/secrets.mjs';
 import { readLocalState, readTicket, ticketDir, writeLocalState, writeTicket } from './store.mjs';
+import { COMPOSE_FILES, ENV_FILE, PROJECT_FILE } from '../../agent-src/lib/constants.mjs';
 
 const DEFAULTS = JSON.parse(readFileSync(new URL('./defaults.json', import.meta.url), 'utf8'));
 
@@ -47,28 +48,25 @@ const readJson = (file) => {
 };
 
 export async function stepProjectConfig({ root, d, prompter }) {
-  if (!prompter || existsSync(path.join(root, 'ai-project.json'))) return;
-  const answer = await prompter.ask('No ai-project.json here. Run the adw init interview now? (Y/n)', 'setup.init', prompter.scripted ? 'n' : 'y');
+  if (!prompter || existsSync(path.join(root, PROJECT_FILE))) return;
+  const answer = await prompter.ask('No .adw/project.json here. Run the adw init interview now? (Y/n)', 'setup.init', prompter.scripted ? 'n' : 'y');
   if (yes(answer)) await d.cmdInit(root, { prompter });
 }
 
 export async function stepContainerFiles({ root, prompter }) {
-  if (!prompter || existsSync(path.join(root, 'compose.ai-dev.yml'))) return;
-  const answer = await prompter.ask('No dev container files (compose.ai-dev.yml). Write them now? (Y/n)', 'setup.container', prompter.scripted ? 'n' : 'y');
+  if (!prompter || existsSync(path.join(root, COMPOSE_FILES.base))) return;
+  const answer = await prompter.ask('No dev container files (.adw/compose.yml). Write them now? (Y/n)', 'setup.container', prompter.scripted ? 'n' : 'y');
   if (!yes(answer)) return;
   const container = await askContainer(prompter, root);
-  if (container.enabled) setUpContainer(root, container, readJson(path.join(root, 'ai-project.json')));
+  if (container.enabled) setUpContainer(root, container, readJson(path.join(root, PROJECT_FILE)));
 }
 
 // A one-off in the project's own compose project (no -p), with the env the containers get; the caller reads the result.
-const ownComposeFiles = (root, cenv) => ['compose', '-f', path.join(root, 'compose.ai-dev.yml'),
-  ...(cenv.AGENT_CA_DIR ? ['-f', path.join(root, 'compose.ai-dev.certs.yml')] : [])];
-
 // `asHostUser` runs as the uid the entrypoint maps dev to (the agent-home volume's owner) with dev's HOME, for an
 // `entrypoint` that bypasses that mapping: root would read /root and leave root-owned files in the volume.
 export function ownComposeRun({ root, env, exec, argv, entrypoint = null, asHostUser = false, stdio = 'pipe' }) {
   const cenv = composeEnv({ root, work: root, env });
-  const args = [...ownComposeFiles(root, cenv),
+  const args = [...composeBaseArgs({ root, env: cenv }),
     'run', '--rm', '--no-deps', '-T',
     ...(asHostUser ? ['-u', `${cenv.HOST_UID}:${cenv.HOST_GID}`, '-e', 'HOME=/home/dev'] : []),
     ...(entrypoint ? ['--entrypoint', entrypoint] : []), 'ai-dev-workflow', ...argv];
@@ -82,7 +80,7 @@ const PLACEHOLDER = '# <title>\n\n<body>\n';
 export async function stepTicket({ root, opts, d, prompter, state }) {
   const dir = ticketDir(root, opts.ticket);
   if (readTicket(dir)) return;
-  const file = path.join(root, 'ai-project.json');
+  const file = path.join(root, PROJECT_FILE);
   const project = existsSync(file) ? readJson(file) : {};
   const ticketFile = opts.ticketFile ? readFileSync(path.resolve(opts.ticketFile), 'utf8') : undefined;
   const done = (ticket) => { writeTicket(dir, ticket); state.ticketText = readTicket(dir); };
@@ -163,15 +161,15 @@ export function e2eChanges(current, answers) {
 }
 
 export function writeProjectE2e(root, e2e) {
-  const file = path.join(root, 'ai-project.json');
+  const file = path.join(root, PROJECT_FILE);
   writeFileSync(file, `${JSON.stringify({ ...readJson(file), e2e }, null, 2)}\n`);
 }
 
 const names = (text) => String(text).split(',').map((n) => n.trim()).filter(Boolean);
 
-// The first-run interview: asks for the e2e settings, shows the block, writes it to ai-project.json on confirmation.
+// The first-run interview: asks for the e2e settings, shows the block, writes it to .adw/project.json on confirmation.
 export async function stepInterview({ root, opts, d, prompter, state }) {
-  const file = path.join(root, 'ai-project.json');
+  const file = path.join(root, PROJECT_FILE);
   if (!prompter || !existsSync(file)) return;
   const project = readJson(file);
   if ('e2e' in project && !opts.reconfigure) return;
@@ -201,20 +199,20 @@ export async function stepInterview({ root, opts, d, prompter, state }) {
 
   const e2e = e2eChanges(current, { agent: { harness, model }, verifier: { model: judgeModel }, review: { model: judgeModel },
     testCommand, env: envNames, secretEnv, language });
-  d.log(`e2e in ai-project.json, now:\n${JSON.stringify(project.e2e ?? null, null, 2)}\nnew:\n${JSON.stringify(e2e, null, 2)}`);
-  const answer = await prompter.ask('Write this to ai-project.json? (Y/n)', 'setup.writeE2e', prompter.scripted ? 'n' : 'y');
+  d.log(`e2e in .adw/project.json, now:\n${JSON.stringify(project.e2e ?? null, null, 2)}\nnew:\n${JSON.stringify(e2e, null, 2)}`);
+  const answer = await prompter.ask('Write this to .adw/project.json? (Y/n)', 'setup.writeE2e', prompter.scripted ? 'n' : 'y');
   if (yes(answer)) writeProjectE2e(root, e2e);
 }
 
 // The project's own compose config as JSON, or null when docker cannot render it.
 function projectComposeConfig(root, env, exec) {
   const cenv = composeEnv({ root, work: root, env });
-  const r = exec('docker', [...ownComposeFiles(root, cenv), 'config', '--format', 'json'], { env: cenv, encoding: 'utf8' });
+  const r = exec('docker', [...composeBaseArgs({ root, env: cenv }), 'config', '--format', 'json'], { env: cenv, encoding: 'utf8' });
   if (r.error || r.status !== 0) return null;
   try { return JSON.parse(r.stdout); } catch { return null; }
 }
 
-// The project's agent-home volume (what ./ai-dev.sh logs into), or null when it does not exist: a `compose run` would create it.
+// The project's agent-home volume (what ./adw.sh logs into), or null when it does not exist: a `compose run` would create it.
 export function projectVolume(root, env, exec) {
   const config = projectComposeConfig(root, env, exec);
   // An explicit `name:` of the volume wins over compose's <project>_<volume>.
@@ -229,7 +227,7 @@ const VOLUME_LOGIN = { codex: '.codex/auth.json', opencode: OPENCODE_LOGIN };
 
 // Missing logins, offered in priority order after env and host files: the project's agent-home volume (codex, opencode),
 // a guided `claude setup-token` (claude-code). Leaves `state.config`, `state.creds` and `state.fallbackHome` for the later steps.
-// Secrets read here go to files (mode 600) and `.env.ai-dev`, never into argv or the log.
+// Secrets read here go to files (mode 600) and `.adw/.env`, never into argv or the log.
 export async function stepLogins({ root, opts, d, prompter, state }) {
   try {
     state.config = loadLocalConfig(root, { harness: opts.harness ?? undefined, model: opts.model ?? undefined });
@@ -256,7 +254,7 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
         continue;
       }
       // A plain `docker run` of the dev image: no compose project, so the agent-home volume is neither mounted nor created.
-      // Nor is the project: the real CLI, since the image's `claude` wrapper needs /workspace/ai-project.json.
+      // Nor is the project: the real CLI, since the image's `claude` wrapper needs /workspace/.adw/project.json.
       const config = freed(prompter, () => projectComposeConfig(root, env(), d.exec));
       if (!config) { d.error('claude setup-token failed: the compose config of the dev container cannot be read'); continue; }
       prompter.suspend();
@@ -266,8 +264,8 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
       if (run.error || run.status !== 0) { d.error(`claude setup-token failed (exit ${run.status ?? run.error?.message})`); continue; }
       const token = (await prompter.askSecret('Paste the token', 'setup.claudeTokenValue')).trim();
       if (!token) continue;
-      if (yes(await ask('Save it to .env.ai-dev? (Y/n)', 'setup.saveClaudeToken'))) {
-        if (!setEnvVar(path.join(root, '.env.ai-dev'), 'CLAUDE_CODE_OAUTH_TOKEN', token)) d.log('.env.ai-dev already sets CLAUDE_CODE_OAUTH_TOKEN: left as is');
+      if (yes(await ask('Save it to .adw/.env? (Y/n)', 'setup.saveClaudeToken'))) {
+        if (!setEnvVar(path.join(root, ENV_FILE), 'CLAUDE_CODE_OAUTH_TOKEN', token)) d.log('.adw/.env already sets CLAUDE_CODE_OAUTH_TOKEN: left as is');
       }
       state.envAdditions.CLAUDE_CODE_OAUTH_TOKEN = token;
     } else if (VOLUME_LOGIN[harness]) {
@@ -278,8 +276,8 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
       const rel = VOLUME_LOGIN[harness];
       if (stored !== true) {
         const question = harness === 'opencode'
-          ? "Export the OpenCode login of this project's dev container (agent-home volume)? A trial may refresh it; then log in again with ./ai-dev.sh. (Y/n)"
-          : `Use the ${harness} login of this project's dev container (agent-home volume)? A trial may refresh it; then log in again with ./ai-dev.sh. (Y/n)`;
+          ? "Export the OpenCode login of this project's dev container (agent-home volume)? A trial may refresh it; then log in again with ./adw.sh. (Y/n)"
+          : `Use the ${harness} login of this project's dev container (agent-home volume)? A trial may refresh it; then log in again with ./adw.sh. (Y/n)`;
         const answer = yes(await ask(question,
           `setup.volumeLogin.${harness}`));
         // Only a typed answer is remembered: a scripted run's default "no" must not stick on this machine.
@@ -306,7 +304,7 @@ export async function stepLogins({ root, opts, d, prompter, state }) {
   state.creds = stage();
 }
 
-// Names in e2e.env that nothing sets: asked for (secretEnv names without echo), then optionally saved to `.env.ai-dev`.
+// Names in e2e.env that nothing sets: asked for (secretEnv names without echo), then optionally saved to `.adw/.env`.
 // The values are scrubbed by runE2e, which reads secretEnv from the env merged with envAdditions; never logged here.
 export async function stepEnvValues({ root, d, prompter, state }) {
   if (!prompter || !state.config) return;
@@ -319,9 +317,9 @@ export async function stepEnvValues({ root, d, prompter, state }) {
     if (value) given[name] = value;
   }
   if (!Object.keys(given).length) return;
-  if (yes(await prompter.ask('Save these values to .env.ai-dev? (Y/n)', 'setup.saveEnv', prompter.scripted ? 'n' : 'y'))) {
+  if (yes(await prompter.ask('Save these values to .adw/.env? (Y/n)', 'setup.saveEnv', prompter.scripted ? 'n' : 'y'))) {
     for (const [name, value] of Object.entries(given)) {
-      if (!setEnvVar(path.join(root, '.env.ai-dev'), name, value)) d.log(`.env.ai-dev already sets ${name}: left as is`);
+      if (!setEnvVar(path.join(root, ENV_FILE), name, value)) d.log(`.adw/.env already sets ${name}: left as is`);
     }
   }
   Object.assign(state.envAdditions, given);
@@ -332,8 +330,7 @@ export const renderE2eSection = ({ start, ready, url, stop }) =>
 
 // Tears down the setup compose project the AGENTS.md draft started (network, agent-home volume).
 function downSetupProject({ root, d, env, project }) {
-  const certsFile = path.join(root, 'compose.ai-dev.certs.yml');
-  d.exec('docker', ['compose', '-f', path.join(root, 'compose.ai-dev.yml'), ...(env.AGENT_CA_DIR ? ['-f', certsFile] : []), '-p', project, 'down', '-v'], { env, encoding: 'utf8' });
+  d.exec('docker', [...composeBaseArgs({ root, env }), '-p', project, 'down', '-v'], { env, encoding: 'utf8' });
 }
 
 export const DRAFT_SECTION_FILE = (root) => path.join(root, '.adw', 'e2e', 'agents-e2e-section.md');
@@ -350,13 +347,13 @@ export function cleanupSetup({ root, d, state }) {
 }
 
 // What `agent-dev`'s verifier needs from AGENTS.md: a model drafts the four parts from the repo, never trusting its files.
-// It reads a clone of the committed HEAD, so git-ignored files of the live root (.env.ai-dev) never reach it.
+// It reads a clone of the committed HEAD, so git-ignored files of the live root (.adw/.env) never reach it.
 function draftE2eSection({ root, state, d, language, prompter }) {
   const { answerer } = state.config;
   const creds = state.creds;
   const env = composeEnv({ root, work: root, env: { ...d.env, ...state.envAdditions } });
-  const certsFile = path.join(root, 'compose.ai-dev.certs.yml');
-  const buildArgs = composeRunArgs({ composeFile: path.join(root, 'compose.ai-dev.yml'), certsFile: env.AGENT_CA_DIR ? certsFile : null,
+  const certsFile = path.join(root, COMPOSE_FILES.certs);
+  const buildArgs = composeRunArgs({ composeFile: path.join(root, COMPOSE_FILES.base), projectDirectory: root, certsFile: env.AGENT_CA_DIR ? certsFile : null,
     project: composeProject(root, 'setup'), uid: d.uid, gid: d.gid, envNames: [...state.config.env, ...(creds?.envNames ?? [])],
     authMounts: authMounts(creds ?? { authFiles: [] }, [answerer.harness]) });
   const input = `Draft the "End-to-end testing" section of this repository's AGENTS.md. An independent verifier will use it to start the app, wait until it is ready, open it in a browser and stop it again.
