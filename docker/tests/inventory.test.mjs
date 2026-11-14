@@ -96,7 +96,7 @@ test('reports a dind overlay image that disagrees with the inventory', t => {
   editJson(path.join(root, 'tools/inventory.json'), inventory => {
     inventory.dindImage.reference = 'docker:99-dind@sha256:def';
   });
-  assert.match(findDrift(root).join('\n'), /compose\.ai-dev\.dind\.yml.*docker:99-dind/);
+  assert.match(findDrift(root).join('\n'), /compose\.dind\.yml.*docker:99-dind/);
 });
 
 test('reports a skills config that disagrees with the inventory', t => {
