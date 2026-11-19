@@ -13,7 +13,9 @@ container files are yours to edit. Requires Docker (Docker Desktop on Windows/ma
 
 Each start first pulls the newest build of the image (`AGENT_IMAGE` or the default in
 `.adw/compose.yml`). If the pull fails, for example offline, the launcher warns and starts the
-image already on this machine.
+image already on this machine. A project image that `.adw/compose.yml` builds (`build:`, e.g.
+`FROM ${BASE_IMAGE}` with extra tools) is rebuilt on the newest base image instead, from the cache
+when the base is unchanged; a base image that exists only on this machine is used as it is.
 
 Without the launchers, run this from the project root (with `PROJECT_ROOT`, `HOST_UID` and `HOST_GID` set, as
 the compose file requires): `docker compose --project-directory . -f .adw/compose.yml run --rm ai-dev-workflow`.

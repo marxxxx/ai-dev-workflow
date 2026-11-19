@@ -87,6 +87,21 @@ test('a compose build: section is built first and its image is the base', (t) =>
   assert.ok(i < calls.findIndex((c) => c.args[0] === 'build'), 'before the layer build');
 });
 
+test('a compose build: section is built on the newest base image, or on the local one when that pull fails', (t) => {
+  const ref = 'adw-e2e-image-ai-dev-workflow';
+  const composeBuild = (c) => c.args[0] === 'compose' && c.args.includes('build');
+  const pulled = setup(t, [[isConfig, configJson({ build: { context: '/proj' } })], baseInspect(ref), layerMissing]);
+  ensureE2eImage(pulled.opts);
+  assert.deepEqual(pulled.calls.filter(composeBuild).map((c) => c.args.slice(-3)), [['build', '--pull', 'ai-dev-workflow']]);
+  const local = setup(t, [
+    [(a) => a[0] === 'compose' && a.includes('--pull'), { status: 1, stdout: null, stderr: null }],
+    [isConfig, configJson({ build: { context: '/proj' } })], baseInspect(ref), layerMissing,
+  ]);
+  ensureE2eImage(local.opts);
+  assert.deepEqual(local.calls.filter(composeBuild).map((c) => c.args.slice(-2)), [['--pull', 'ai-dev-workflow'], ['build', 'ai-dev-workflow']]);
+  assert.ok(local.logs.some((l) => /local base image/.test(l)));
+});
+
 test('pulls the base image only when it is missing', (t) => {
   const ref = 'img:2';
   let pulled = false;

@@ -43,6 +43,14 @@ compose() {
   docker compose --project-directory "$root" -f "$root/.adw/compose.yml" "$@"
 }
 
-# Newest build of the configured image (AGENT_IMAGE or the default); offline, the local one starts.
-compose pull ai-dev-workflow || echo "adw.sh: could not pull the image; starting the local one." >&2
+# Newest build of the configured image (AGENT_IMAGE or the default). A project image built from
+# .adw/compose.yml (build:) is rebuilt on the newest base image instead, from the cache when the
+# base is unchanged, and without pulling when the base image exists only locally. Offline, the
+# local image starts.
+if compose config ai-dev-workflow 2>/dev/null | grep -q '^    build:'; then
+  compose build --pull ai-dev-workflow || compose build ai-dev-workflow \
+    || echo "adw.sh: could not build the image; starting the local one." >&2
+else
+  compose pull ai-dev-workflow || echo "adw.sh: could not pull the image; starting the local one." >&2
+fi
 compose run --rm ai-dev-workflow "$@"

@@ -58,7 +58,14 @@ export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, ima
   const services = config.services ?? {};
   const service = services[SERVICE];
   if (!service) throw new Error(`${composeFiles[0]} has no ${SERVICE} service`);
-  if (service.build) docker([...compose, 'build', SERVICE], { env, stdio: 'inherit' });
+  // A project image on the newest base image, like the launchers; on a local-only base image without pulling.
+  if (service.build) {
+    const pulled = exec('docker', [...compose, 'build', '--pull', SERVICE], { env, stdio: 'inherit' });
+    if (pulled.error || pulled.status !== 0) {
+      log(`could not pull the base image of ${SERVICE}; building on the local base image`);
+      docker([...compose, 'build', SERVICE], { env, stdio: 'inherit' });
+    }
+  }
   const image = devImage(config);
   // Config as JSON: an image without USER has no User key, which a {{.Config.User}} template rejects.
   const inspect = () => exec('docker', ['image', 'inspect', '--format', '{{.Id}} {{json .Config}}', image]);

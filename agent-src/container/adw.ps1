@@ -45,11 +45,21 @@ if ($env:AGENT_DIND -eq '1') {
   if ($env:AGENT_CA_DIR) { $composeArgs += @('-f', (Join-Path $root '.adw/compose.dind-certs.yml')) }
 }
 
-# Newest build of the configured image (AGENT_IMAGE or the default); offline, the local one starts.
+# Newest build of the configured image (AGENT_IMAGE or the default). A project image built from
+# .adw/compose.yml (build:) is rebuilt on the newest base image instead, from the cache when the
+# base is unchanged, and without pulling when the base image exists only locally. Offline, the
+# local image starts.
 # 'Continue': Windows PowerShell 5.1 turns compose's progress on stderr into errors when redirected.
 $ErrorActionPreference = 'Continue'
-& docker @($composeArgs + @('pull', 'ai-dev-workflow'))
-if ($LASTEXITCODE -ne 0) { Write-Warning 'adw.ps1: could not pull the image; starting the local one.' }
+$config = & docker @($composeArgs + @('config', 'ai-dev-workflow')) 2>$null
+if (@($config) -match '^    build:') {
+  & docker @($composeArgs + @('build', '--pull', 'ai-dev-workflow'))
+  if ($LASTEXITCODE -ne 0) { & docker @($composeArgs + @('build', 'ai-dev-workflow')) }
+  if ($LASTEXITCODE -ne 0) { Write-Warning 'adw.ps1: could not build the image; starting the local one.' }
+} else {
+  & docker @($composeArgs + @('pull', 'ai-dev-workflow'))
+  if ($LASTEXITCODE -ne 0) { Write-Warning 'adw.ps1: could not pull the image; starting the local one.' }
+}
 $ErrorActionPreference = 'Stop'
 
 & docker @($composeArgs + @('run', '--rm', 'ai-dev-workflow') + $args)
