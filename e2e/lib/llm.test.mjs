@@ -38,7 +38,8 @@ test('claude-code one-shot argv per profile', () => {
 test('codex one-shot argv per profile: the prompt is stdin', () => {
   const cmd = (tools, o = {}) => oneShotCommand({ harness: 'codex', model: 'm', tools, ...o });
   assert.deepEqual(cmd('none'), { argv: [...CODEX, '-m', 'm', '-s', 'read-only', '-'], env: {} });
-  assert.deepEqual(cmd('read').argv, [...CODEX, '-m', 'm', '-s', 'read-only', '-']);
+  // bwrap (codex's read-only sandbox) needs user namespaces a container rarely has: the read-only mounts are the boundary.
+  assert.deepEqual(cmd('read').argv, [...CODEX, '-m', 'm', '-s', 'danger-full-access', '-']);
   assert.deepEqual(cmd('verify', { playwright: true }).argv, [...CODEX, '-m', 'm', '-s', 'danger-full-access', ...CODEX_PW, '-']);
   assert.deepEqual(oneShotCommand({ harness: 'codex', tools: 'verify' }).argv, [...CODEX, '-s', 'danger-full-access', '-']);
 });

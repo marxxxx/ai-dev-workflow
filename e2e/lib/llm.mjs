@@ -24,11 +24,13 @@ function claudeCommand({ model, tools, playwright, addDirs }) {
     '--strict-mcp-config', ...addDirs.flatMap((d) => ['--add-dir', d]), ...browser, ...profile], env: {} };
 }
 
-// The sandbox reads everywhere; verify needs a shell that may start the app, and the container is the boundary.
+// The container is the boundary: verify needs a shell that may start the app, and read (the review judge) runs on a read-only
+// checkout. Codex's read-only sandbox (bwrap) needs user namespaces that a container rarely has, so every shell command of a
+// sandboxed reader would fail. `none` keeps the sandbox: it needs no shell.
 function codexCommand({ model, tools, playwright }) {
   const browser = playwright ? ['-c', `mcp_servers.playwright.command="${PLAYWRIGHT[0]}"`, '-c', `mcp_servers.playwright.args=${JSON.stringify(PLAYWRIGHT.slice(1))}`] : [];
   return { argv: ['codex', 'exec', '--json', '--skip-git-repo-check', '--ephemeral', '-o', '/tmp/adw-last.txt', ...(model ? ['-m', model] : []),
-    '-s', tools === 'verify' ? 'danger-full-access' : 'read-only', ...browser, '-'], env: {} };
+    '-s', tools === 'none' ? 'read-only' : 'danger-full-access', ...browser, '-'], env: {} };
 }
 
 // OpenCode 2 config: `permissions` rules (last match wins) on top of its allow-everything base policy, MCP under mcp.servers.

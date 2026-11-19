@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { targetTokens, userTokens, durations, errors, e2ePerformed, showMeRead, softSignals, toolUsage } from './metrics.mjs';
@@ -136,6 +136,38 @@ test('e2ePerformed ignores navigation to another host on the same port', () => {
     assert.equal(e2ePerformed('claude-code', dir, 3000), 0);
     writeFileSync(path.join(dir, 'agent/sessions/projects/-workspace/abc.jsonl'), nav('http://0.0.0.0:3000/'));
     assert.equal(e2ePerformed('claude-code', dir, 3000), 1);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('e2ePerformed counts page.goto in a browser_run_code call', () => {
+  const claude = makeClaudeTrial(tmp());
+  try {
+    const run = (code) => `${JSON.stringify({ type: 'assistant', message: { id: 'r', content: [{ type: 'tool_use', name: 'mcp__playwright__browser_run_code_unsafe', input: { code } }] } })}\n`;
+    writeFileSync(path.join(claude, 'agent/sessions/projects/-workspace/abc.jsonl'), run("async (page) => { await page.goto('http://localhost:5000/users'); }"));
+    assert.equal(e2ePerformed('claude-code', claude, 5000), 1);
+    assert.equal(e2ePerformed('claude-code', claude, 3000), 0);
+  } finally { rmSync(claude, { recursive: true, force: true }); }
+});
+
+test('e2ePerformed reads codex Playwright MCP calls from the completed items: code loaded from a file, URL in the result', () => {
+  const dir = tmp();
+  try {
+    const s = path.join(dir, 'agent/sessions/2026/11/19');
+    mkdirSync(s, { recursive: true });
+    const mcp = (args, result) => `${JSON.stringify({ type: 'event_msg', payload: { type: 'item_completed', item: { type: 'McpToolCall',
+      server: 'playwright', tool: 'browser_run_code_unsafe', arguments: args, status: 'completed', result } } })}\n`;
+    // The exec text only reads the code from a file; the URL shows up in the MCP call's arguments.
+    writeFileSync(path.join(s, 'rollout-1.jsonl'),
+      `${JSON.stringify({ type: 'response_item', payload: { type: 'custom_tool_call', name: 'exec',
+        input: 'const c=await tools.exec_command({cmd:"cat /tmp/t.js"});await tools.mcp__playwright__browser_run_code_unsafe({code:c.output})' } })}\n`
+      + mcp({ code: "async (page) => { await page.goto(origin + '/users'); }" }, { content: [{ type: 'text', text: '### Page\n- Page URL: http://localhost:5000/users' }] }));
+    assert.equal(e2ePerformed('codex', dir, 5000), 1, 'URL in the result');
+    writeFileSync(path.join(s, 'rollout-1.jsonl'), mcp({ code: "async (page) => page.goto('http://127.0.0.1:5000')" }, null));
+    assert.equal(e2ePerformed('codex', dir, 5000), 1, 'URL in the arguments');
+    assert.equal(e2ePerformed('codex', dir, 3000), 0, 'another port');
+    writeFileSync(path.join(s, 'rollout-1.jsonl'), `${JSON.stringify({ type: 'event_msg', payload: { type: 'item_completed', item: { type: 'McpToolCall',
+      server: 'serena', tool: 'search_for_pattern', arguments: { pattern: 'localhost:5000' } } } })}\n`);
+    assert.equal(e2ePerformed('codex', dir, 5000), 0, 'only Playwright calls count');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
