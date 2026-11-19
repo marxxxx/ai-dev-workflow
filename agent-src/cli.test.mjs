@@ -323,7 +323,7 @@ test('upgrade records the show-me opt-in, installs the pinned commit, and leaves
     assert.deepEqual(calls, [[
       '--yes', `skills@${SKILL_PINS.cli}`, 'add',
       `https://github.com/${SHOW_ME.repository}/tree/${SHOW_ME.revision}/${SHOW_ME.path}`,
-      '-y', '-a', 'claude-code', 'codex', 'opencode',
+      '-y', '--copy', '-a', 'claude-code', 'codex', 'opencode',
     ]]);
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, PROJECT_FILE), 'utf8')).skills, { 'show-me': true });
     assert.match(stdout, /Installed show-me/);

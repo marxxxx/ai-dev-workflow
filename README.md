@@ -21,7 +21,7 @@ requirement is Node on the machine that runs the generator (your dev box and CI)
 | `.adw/compose*.yml`, `.adw/README.md`, `adw.sh`, `adw.ps1` | dev-container files, written once by `init` when you set up the container; yours afterwards (see [Run in a container](#run-in-a-container)) | yes |
 | `.adw/.env` | per-machine container settings | no (git-ignored) |
 | `docs/superpowers/{specs,plans}/` | written by superpowers when a change needs them; the agreed scope is also posted to the ticket | yes |
-| `.agents/skills/show-me/`, `.claude/skills/show-me`, `skills-lock.json` | third-party [show-me](#reviewing-specs-and-plans-with-show-me) skill, installed by `init`/`upgrade` with `npx skills` at the commit this adw version pins; never rendered or checked | yes |
+| `.agents/skills/show-me/`, `.claude/skills/show-me/`, `skills-lock.json` | third-party [show-me](#reviewing-specs-and-plans-with-show-me) skill, installed by `init`/`upgrade` with `npx skills` at the commit this adw version pins; never rendered or checked | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
 | `.mcp.json` | merged (azure-devops backend only) — the shared `ado` server entry; other servers preserved | yes |
 | `.codex/config.toml` | merged (azure-devops backend only) — the Codex project-local `ado` MCP server entry; other Codex settings preserved | yes |

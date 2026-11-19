@@ -23,15 +23,18 @@ function fakeRun({ fail = false } = {}) {
   const run = (args, cwd) => {
     calls.push({ args, cwd });
     if (fail) return { ok: false, message: 'network down' };
-    const [, , revision] = /\/tree\/([0-9a-f]+)\//.exec(args[3]) ?? [];
-    writeLock(cwd, { 'show-me': revision });
+    const [, revision] = /\/tree\/([0-9a-f]+)\//.exec(args[3]) ?? [];
+    writeLock(cwd, { 'show-me': revision }, { copy: args.includes('--copy') });
     return { ok: true };
   };
   return { run, calls };
 }
 
-function writeLock(root, refs) {
-  const skills = Object.fromEntries(Object.entries(refs).map(([name, ref]) => [name, { source: 'humanlayer/skills', ref }]));
+/** Like the real CLI: a `--copy` install records installMode "copy", a linked one records none. */
+function writeLock(root, refs, { copy = true } = {}) {
+  const skills = Object.fromEntries(Object.entries(refs).map(([name, ref]) => [
+    name, { source: 'humanlayer/skills', ref, ...(copy ? { installMode: 'copy' } : {}) },
+  ]));
   fs.writeFileSync(path.join(root, 'skills-lock.json'), JSON.stringify({ version: 1, skills }, null, 2));
 }
 
@@ -49,11 +52,11 @@ test('the shipped pins name show-me at a full commit and an exact skills CLI ver
   assert.match(pins.skills['show-me'].revision, /^[0-9a-f]{40}$/);
 });
 
-test('installArgs pins the CLI version and the commit, for all three harnesses, without prompts', () => {
+test('installArgs pins the CLI version and the commit, for all three harnesses, as copies, without prompts', () => {
   assert.deepEqual(installArgs(PINS, 'show-me'), [
     '--yes', 'skills@1.7.4', 'add',
     `https://github.com/humanlayer/skills/tree/${'a'.repeat(40)}/plugins/show-me/skills/show-me`,
-    '-y', '-a', 'claude-code', 'codex', 'opencode',
+    '-y', '--copy', '-a', 'claude-code', 'codex', 'opencode',
   ]);
   assert.match(manualCommand(PINS, 'show-me'), /^npx --yes skills@1\.7\.4 add https:\/\/github\.com\/humanlayer\/skills\/tree\//);
 });
@@ -87,6 +90,23 @@ test('syncSkills leaves a current install alone and updates a stale one', () => 
     const stale = fakeRun();
     assert.deepEqual(syncSkills(root, { pins: PINS, run: stale.run }).installed, ['show-me']);
     assert.equal(stale.calls.length, 1);
+  } finally {
+    cleanup();
+  }
+});
+
+test('syncSkills reinstalls a linked install as copies, so a Windows junction cannot break the container', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeProject(root, { skills: { 'show-me': true } });
+    writeLock(root, { 'show-me': 'a'.repeat(40) }, { copy: false });
+    const linked = fakeRun();
+    assert.deepEqual(syncSkills(root, { pins: PINS, run: linked.run }).installed, ['show-me']);
+    assert.ok(linked.calls[0].args.includes('--copy'));
+
+    const again = fakeRun();
+    assert.deepEqual(syncSkills(root, { pins: PINS, run: again.run }).current, ['show-me']);
+    assert.equal(again.calls.length, 0);
   } finally {
     cleanup();
   }
@@ -159,6 +179,8 @@ test('skillWarnings flags a missing or stale wanted skill and stays quiet otherw
     assert.match(skillWarnings(root, project, PINS).join('\n'), /show-me is not installed.*upgrade/);
     writeLock(root, { 'show-me': 'b'.repeat(40) });
     assert.match(skillWarnings(root, project, PINS).join('\n'), /show-me is installed at b{7}.*pins a{7}.*upgrade/);
+    writeLock(root, { 'show-me': 'a'.repeat(40) }, { copy: false });
+    assert.match(skillWarnings(root, project, PINS).join('\n'), /show-me is installed as a link.*upgrade/);
     writeLock(root, { 'show-me': 'a'.repeat(40) });
     assert.deepEqual(skillWarnings(root, project, PINS), []);
     fs.rmSync(path.join(root, 'skills-lock.json'));
