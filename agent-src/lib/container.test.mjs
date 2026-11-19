@@ -237,7 +237,8 @@ test('nextSteps prefixes every container command with the launcher', () => {
 });
 
 // Runs adw.sh against a fake `docker` on PATH that logs one line per call (AGENT_IMAGE, then
-// the arguments, NUL separated) and fails `pull` when FAKE_PULL_FAILS=1. Returns each call's
+// the arguments, NUL separated) and fails `pull` when FAKE_PULL_FAILS=1. `config` prints a build:
+// section with FAKE_BUILDABLE=1; FAKE_BUILD_PULL_FAILS / FAKE_BUILD_FAILS fail `build --pull` / every build. Returns each call's
 // arguments with its AGENT_IMAGE, and the stderr.
 const cleanEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^AGENT_(DIND|CA_DIR)$/.test(k)));
 
@@ -250,6 +251,9 @@ function fakeDocker(root) {
     `printf '%s\\0' "\${AGENT_IMAGE:-}" "$@" >> '${log}'`,
     `printf '\\n' >> '${log}'`,
     'for a; do [ "$a" = pull ] && [ "${FAKE_PULL_FAILS:-}" = 1 ] && exit 1; done',
+    'for a; do [ "$a" = config ] && [ "${FAKE_BUILDABLE:-}" = 1 ] && printf \'services:\\n  ai-dev-workflow:\\n    build:\\n      context: /p/ai-dev\\n\'; done',
+    'for a; do [ "$a" = --pull ] && [ "${FAKE_BUILD_PULL_FAILS:-}" = 1 ] && exit 1; done',
+    'for a; do [ "$a" = build ] && [ "${FAKE_BUILD_FAILS:-}" = 1 ] && exit 1; done',
     'exit 0',
     '',
   ].join('\n'), { mode: 0o755 });
@@ -292,13 +296,21 @@ test('adw.sh adds the dind overlay only for AGENT_DIND=1, and its certs companio
     ['.adw/compose.yml', '.adw/compose.certs.yml', '.adw/compose.dind.yml', '.adw/compose.dind-certs.yml']);
 });
 
+// The launcher's step before the run: pull, build --pull, build, by their verb.
+const steps = (calls) => calls.map((c) => {
+  const verb = c.find((a) => ['config', 'pull', 'build', 'run'].includes(a));
+  return verb === 'build' && c.includes('--pull') ? 'build --pull' : verb;
+});
+
 test('adw.sh pulls the configured image with the same compose files before the run', { skip: process.platform === 'win32' }, () => {
   const { status, stderr, calls } = runLauncher({}, 'AGENT_DIND=1\nAGENT_IMAGE=example/agent:dated\n');
   assert.equal(status, 0, stderr);
-  assert.equal(calls.length, 2);
-  const [pull, run] = calls;
+  assert.deepEqual(steps(calls), ['config', 'pull', 'run']);
+  const [config, pull, run] = calls;
+  assert.deepEqual(config.slice(-2), ['config', 'ai-dev-workflow']);
   assert.deepEqual(pull.slice(-2), ['pull', 'ai-dev-workflow']);
   assert.deepEqual(pull.slice(0, -2), run.slice(0, -4), 'same compose files for pull and run');
+  assert.deepEqual(config.slice(0, -2), run.slice(0, -4), 'same compose files for config and run');
   assert.ok(pull.includes('.adw/compose.dind.yml'));
   assert.equal(pull.image, 'example/agent:dated', '.adw/.env reaches the pull');
 });
@@ -306,8 +318,36 @@ test('adw.sh pulls the configured image with the same compose files before the r
 test('adw.sh starts the local image with a warning when the pull fails', { skip: process.platform === 'win32' }, () => {
   const { status, stderr, calls } = runLauncher({ FAKE_PULL_FAILS: '1' });
   assert.equal(status, 0, stderr);
-  assert.deepEqual(calls.map((c) => c.find((a) => a === 'pull' || a === 'run')), ['pull', 'run']);
+  assert.deepEqual(steps(calls), ['config', 'pull', 'run']);
   assert.match(stderr, /could not pull/i);
+});
+
+test('adw.sh rebuilds a project image (build:) on the newest base image instead of pulling it', { skip: process.platform === 'win32' }, () => {
+  const { status, stderr, calls } = runLauncher({ FAKE_BUILDABLE: '1' }, 'AGENT_IMAGE=example/agent:dated\n');
+  assert.equal(status, 0, stderr);
+  assert.deepEqual(steps(calls), ['config', 'build --pull', 'run']);
+  assert.deepEqual(calls[1].slice(-3), ['build', '--pull', 'ai-dev-workflow']);
+  assert.equal(calls[1].image, 'example/agent:dated', 'AGENT_IMAGE reaches the build (BASE_IMAGE)');
+  assert.equal(stderr, '');
+});
+
+test('adw.sh builds without pulling on a local-only base image, and starts the local image when the build fails', { skip: process.platform === 'win32' }, () => {
+  const local = runLauncher({ FAKE_BUILDABLE: '1', FAKE_BUILD_PULL_FAILS: '1' });
+  assert.equal(local.status, 0, local.stderr);
+  assert.deepEqual(steps(local.calls), ['config', 'build --pull', 'build', 'run']);
+  assert.equal(local.stderr, '');
+  const offline = runLauncher({ FAKE_BUILDABLE: '1', FAKE_BUILD_FAILS: '1' });
+  assert.equal(offline.status, 0, offline.stderr);
+  assert.deepEqual(steps(offline.calls), ['config', 'build --pull', 'build', 'run']);
+  assert.match(offline.stderr, /could not build/i);
+});
+
+test('adw.ps1 mirrors the build-or-pull step of adw.sh', () => {
+  const ps1 = fileOf(renderContainerFiles({ name: 'Demo', stack: 'generic', backend: 'file' }), 'adw.ps1').content;
+  assert.match(ps1, /'config', 'ai-dev-workflow'/);
+  assert.match(ps1, /'build', '--pull', 'ai-dev-workflow'/);
+  assert.match(ps1, /'build', 'ai-dev-workflow'/);
+  assert.match(ps1, /'pull', 'ai-dev-workflow'/);
 });
 
 test('.adw/README.md explains the opt-in daemon and how to stop it for this project', () => {
@@ -375,6 +415,44 @@ test('containerWarnings ignores KILL that only appears in a comment', () => {
   }
 });
 
+// v0.40.1 and earlier launchers only pulled: a project image with build: fails the pull and never
+// gets a newer base image.
+const OLD_SH_PULL = 'compose pull ai-dev-workflow || echo "adw.sh: could not pull the image; starting the local one." >&2\n';
+const OLD_PS1_PULL = "& docker @($composeArgs + @('pull', 'ai-dev-workflow'))\n";
+const BUILT = 'services:\n  ai-dev-workflow:\n    image: demo-ai-dev:local\n    build:\n      context: ./ai-dev\n    cap_drop:\n      - ALL\n    cap_add:\n      - KILL\n';
+
+test('containerWarnings flags launchers that only pull a project image built from .adw/compose.yml', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeCompose(root, BUILT);
+    fs.writeFileSync(path.join(root, 'adw.sh'), OLD_SH_PULL);
+    fs.writeFileSync(path.join(root, 'adw.ps1'), OLD_PS1_PULL);
+    const [warning, ...rest] = containerWarnings(root);
+    assert.deepEqual(rest, []);
+    assert.match(warning, /adw\.sh, adw\.ps1/);
+    assert.match(warning, /build --pull/);
+    fs.rmSync(path.join(root, 'adw.ps1'));
+    assert.match(containerWarnings(root)[0], /Note: adw\.sh /, 'only the old launcher is named');
+  } finally {
+    cleanup();
+  }
+});
+
+test('containerWarnings is silent about launchers for current templates and for a pulled image', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeContainerFiles(root, OPTS);
+    writeCompose(root, BUILT);
+    assert.deepEqual(containerWarnings(root), [], 'current launchers with a build: section');
+    fs.writeFileSync(path.join(root, 'adw.sh'), OLD_SH_PULL);
+    fs.writeFileSync(path.join(root, 'adw.ps1'), OLD_PS1_PULL);
+    writeCompose(root, BUILT.replace('    build:\n      context: ./ai-dev\n', '    # build:\n'));
+    assert.deepEqual(containerWarnings(root), [], 'no build: section (only a comment): the pull is right');
+  } finally {
+    cleanup();
+  }
+});
+
 test('the README shows the manual compose command with --project-directory', () => {
   const readme = fileOf(renderContainerFiles({ name: 'Demo', stack: 'generic', backend: 'file' }), '.adw/README.md').content;
   assert.ok(readme.includes('--project-directory . -f .adw/compose.yml'));
@@ -424,7 +502,7 @@ test('adw.sh passes the project root as project directory from any cwd', { skip:
     assert.equal(result.status, 0, result.stderr);
     const real = fs.realpathSync(root);
     const calls = fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => l.split('\0').slice(1, -1));
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 3, "config, pull, run");
     for (const args of calls) {
       assert.deepEqual(args.slice(0, 5), ['compose', '--project-directory', real, '-f', `${real}/.adw/compose.yml`]);
     }

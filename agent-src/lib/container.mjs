@@ -181,13 +181,38 @@ export function writeContainerFiles(projectRoot, { env = {}, ...opts }) {
  * (a resize).
  */
 export function containerWarnings(projectRoot) {
-  return [killWarning(projectRoot)].filter(Boolean);
+  return [killWarning(projectRoot), pullWarning(projectRoot)].filter(Boolean);
+}
+
+// .adw/compose.yml without comments, or null when there is none.
+function composeYaml(projectRoot) {
+  const file = path.join(projectRoot, COMPOSE_FILES.base);
+  if (!fs.existsSync(file)) return null;
+  return fs.readFileSync(file, 'utf8').split(/\r?\n/).map((l) => l.replace(/(^|\s)#.*$/, '')).join('\n');
+}
+
+// v0.40.1 and earlier launchers only pulled ai-dev-workflow. A project image that .adw/compose.yml builds (build:)
+// is in no registry: the pull fails on every start and the image never gets a newer base image.
+const OLD_PULL = { [LAUNCHERS.sh]: /compose pull ai-dev-workflow/, [LAUNCHERS.ps1]: /'pull', 'ai-dev-workflow'/ };
+function pullWarning(projectRoot) {
+  const yaml = composeYaml(projectRoot);
+  if (!yaml || !/^\s+build:/m.test(yaml)) return null;
+  const old = Object.entries(OLD_PULL).filter(([name, pull]) => {
+    const file = path.join(projectRoot, name);
+    if (!fs.existsSync(file)) return false;
+    const text = fs.readFileSync(file, 'utf8');
+    return pull.test(text) && !/build.{0,6}--pull/.test(text);
+  }).map(([name]) => name);
+  if (!old.length) return null;
+  return `Note: ${old.join(', ')} only pull${old.length === 1 ? 's' : ''} the ai-dev-workflow image, which ${COMPOSE_FILES.base} builds `
+    + '(build:): the pull fails on every start and the image keeps its old base image. Rebuild it with `build --pull` '
+    + `instead: delete ${old.join(' and ')} and run \`adw init\` (keep .adw/project.json, set up the dev container); it writes `
+    + `the current launcher${old.length === 1 ? '' : 's'} and leaves every existing file untouched.`;
 }
 
 function killWarning(projectRoot) {
-  const file = path.join(projectRoot, COMPOSE_FILES.base);
-  if (!fs.existsSync(file)) return null;
-  const yaml = fs.readFileSync(file, 'utf8').split(/\r?\n/).map((l) => l.replace(/(^|\s)#.*$/, '')).join('\n');
+  const yaml = composeYaml(projectRoot);
+  if (!yaml) return null;
   const dropsAll = /cap_drop:\s*(?:\[[^\]]*|(?:\s*-\s*\S+)*\s*-\s*)["']?ALL\b/.test(yaml);
   if (!dropsAll || /\b(?:CAP_)?KILL\b/.test(yaml)) return null;
   return `Note: ${COMPOSE_FILES.base} lacks the KILL capability, so the container stops when tini cannot `
