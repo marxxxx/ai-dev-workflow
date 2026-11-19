@@ -167,9 +167,16 @@ export function errors(harness, trialDir, result) {
   return { harbor: type, bridge, tool: toolErrorCount(harness, trialDir), timeout: /Timeout/i.test(type ?? ''), quota };
 }
 
+// A Playwright navigation (browser_navigate, or page.goto in browser_run_code[_unsafe]) to the app port. Codex runs MCP tools
+// from its code-mode exec, whose text may only load the code from a file: its completed Playwright items count with their
+// arguments and result (which names the page URL).
+const PLAYWRIGHT_NAV = /browser_(navigate|run_code)/;
 export function e2ePerformed(harness, trialDir, port) {
-  return toolCalls(harness, trialDir)
-    .some((c) => /browser_navigate/.test(c.name + c.text) && new RegExp(`(localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0):${port}(?!\\d)`).test(c.text)) ? 1 : 0;
+  const url = new RegExp(`(localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0):${port}(?!\\d)`);
+  const codexMcp = harness === 'codex' ? codexEvents(trialDir).map((e) => (e.payload?.type === 'item_completed' ? e.payload.item : null))
+    .filter((i) => i?.type === 'McpToolCall' && i.server === 'playwright')
+    .map((i) => ({ name: i.tool ?? '', text: JSON.stringify([i.arguments ?? null, i.result ?? null]) })) : [];
+  return [...toolCalls(harness, trialDir), ...codexMcp].some((c) => PLAYWRIGHT_NAV.test(c.name + c.text) && url.test(c.text)) ? 1 : 0;
 }
 
 // agent-dev's spec/plan review hook: the agent read show-me's SKILL.md (user-invoked only, so read as a file).
