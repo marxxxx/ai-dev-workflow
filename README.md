@@ -9,7 +9,7 @@ The generator is a zero-dependency Node script, published to npm as
 [`@strobl_dev/adw`](https://www.npmjs.com/package/@strobl_dev/adw). The consuming project does
 **not** need to be a Node project. It works in any repo (C#/.NET, Go, Rust, …) — the only
 requirement is Node on the machine that runs the generator (your dev box and CI). Pin a version
-(e.g. `@0.40.2`) so devs and CI stay in sync.
+(e.g. `@0.40.3`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -21,7 +21,7 @@ requirement is Node on the machine that runs the generator (your dev box and CI)
 | `.adw/compose*.yml`, `.adw/README.md`, `adw.sh`, `adw.ps1` | dev-container files, written once by `init` when you set up the container; yours afterwards (see [Run in a container](#run-in-a-container)) | yes |
 | `.adw/.env` | per-machine container settings | no (git-ignored) |
 | `docs/superpowers/{specs,plans}/` | written by superpowers when a change needs them; the agreed scope is also posted to the ticket | yes |
-| `.agents/skills/show-me/`, `.claude/skills/show-me`, `skills-lock.json` | third-party [show-me](#reviewing-specs-and-plans-with-show-me) skill, installed by `init`/`upgrade` with `npx skills` at the commit this adw version pins; never rendered or checked | yes |
+| `.agents/skills/show-me/`, `.claude/skills/show-me/`, `skills-lock.json` | third-party [show-me](#reviewing-specs-and-plans-with-show-me) skill, installed by `init`/`upgrade` with `npx skills` at the commit this adw version pins; never rendered or checked | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
 | `.mcp.json` | merged (azure-devops backend only) — the shared `ado` server entry; other servers preserved | yes |
 | `.codex/config.toml` | merged (azure-devops backend only) — the Codex project-local `ado` MCP server entry; other Codex settings preserved | yes |
@@ -35,7 +35,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes .adw/project.json, prints the recommended tooling
-npx @strobl_dev/adw@0.40.2 init
+npx @strobl_dev/adw@0.40.3 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -45,12 +45,12 @@ npx @strobl_dev/adw@0.40.2 init
 #    with your coding agent's native /init.)
 
 # 3. generate the platform files
-npx @strobl_dev/adw@0.40.2 generate
+npx @strobl_dev/adw@0.40.3 generate
 
 # 4. commit .adw/project.json and the generated dirs
 ```
 
-Pin the version (`@0.40.2`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the version (`@0.40.3`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 Versions up to v0.23.0 were only distributed from Git (`npx github:marxxxx/ai-dev-workflow#v0.23.0`).
 npm 12 refuses git specs by default (`EALLOWGIT`); add `--allow-git=all` if you still need one.
@@ -230,6 +230,10 @@ and records the `skills` opt-in. Run
 **`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
 changes the config hash); no `upgrade` step is needed.
 
+**Upgrading to v0.40.3.** The show-me skill is now installed as a copy in `.claude/skills/show-me/`
+instead of a link. A link created on Windows pointed to a host path, so Claude Code in the dev
+container could not load the skill. `upgrade` replaces an existing link.
+
 **Upgrading to v0.40.2.** Projects whose `.adw/compose.yml` builds its own image (`build:`) no
 longer get a failing pull on every start: `adw.sh` / `adw.ps1` rebuild that image on the newest base
 image. The launchers are project-owned, so `upgrade` does not change them; `upgrade`, `generate` and
@@ -278,8 +282,8 @@ the developer journal/handoff, and the e2e include are gone; ticket states shrin
 longer produces; run `upgrade` instead, which removes them and then generates:
 
 ```bash
-npx @strobl_dev/adw@0.40.2 upgrade --dry-run   # list what would change
-npx @strobl_dev/adw@0.40.2 upgrade
+npx @strobl_dev/adw@0.40.3 upgrade --dry-run   # list what would change
+npx @strobl_dev/adw@0.40.3 upgrade
 ```
 
 It deletes these files, but only where they still carry the generator's `DO NOT EDIT` banner (a

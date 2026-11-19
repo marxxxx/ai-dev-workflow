@@ -1,7 +1,7 @@
 // Third-party agent skills (show-me) that `init` and `upgrade` install into the project with
 // `npx skills add`, pinned by config/skills.json (derived from docker/tools/inventory.json).
 //
-// The installed files (.agents/skills/<name>/, .claude/skills/<name>, skills-lock.json) are
+// The installed files (.agents/skills/<name>/, .claude/skills/<name>/, skills-lock.json) are
 // project-owned: never rendered, checked or deleted by the pipeline. .adw/project.json records the
 // opt-in as `skills.<name>`: a missing key means yes, `false` is an opt-out that is respected.
 
@@ -18,13 +18,17 @@ export function loadSkillPins() {
   return readJson(path.join(SRC_DIR, 'config', 'skills.json'), 'config/skills.json', true);
 }
 
-/** `npx` arguments that install `name` at its pinned commit for all three harnesses. */
+/**
+ * `npx` arguments that install `name` at its pinned commit for all three harnesses. `--copy`: on
+ * Windows the CLI links .claude/skills/<name> with a junction to an absolute host path, which is
+ * broken inside the dev container (and anywhere else the project is mounted or cloned).
+ */
 export function installArgs(pins, name) {
   const { repository, path: skillPath, revision } = pins.skills[name];
   return [
     '--yes', `skills@${pins.cli}`, 'add',
     `https://github.com/${repository}/tree/${revision}/${skillPath}`,
-    '-y', '-a', ...AGENTS,
+    '-y', '--copy', '-a', ...AGENTS,
   ];
 }
 
@@ -55,14 +59,20 @@ function runNpx(args, cwd) {
 
 const wanted = (project, name) => project?.skills?.[name] !== false;
 
-/** The commit the project's skills-lock.json records for `name`, or null. */
-function installedRevision(projectRoot, name) {
+/** The project's skills-lock.json entry for `name` ({ ref, installMode, ... }), or null. */
+function installedEntry(projectRoot, name) {
   try {
-    return JSON.parse(fs.readFileSync(path.join(projectRoot, LOCK_FILE), 'utf8')).skills?.[name]?.ref ?? null;
+    return JSON.parse(fs.readFileSync(path.join(projectRoot, LOCK_FILE), 'utf8')).skills?.[name] ?? null;
   } catch {
     return null;
   }
 }
+
+/**
+ * Current = at the pinned commit and installed as copies. Earlier adw versions installed links
+ * (the lock records no installMode), which on Windows are junctions the container cannot follow.
+ */
+const isCurrent = (entry, revision) => entry?.ref === revision && entry.installMode === 'copy';
 
 /** Install `names` at their pins. Returns { installed, failed: [{ name, message, command }] }. */
 export function installSkills(projectRoot, names, { pins = loadSkillPins(), run = runNpx, dryRun = false } = {}) {
@@ -93,7 +103,7 @@ export function syncSkills(projectRoot, { pins = loadSkillPins(), run = runNpx, 
   const due = [];
   for (const [name, { revision }] of Object.entries(pins.skills)) {
     if (!wanted(project, name)) skipped.push(name);
-    else if (installedRevision(projectRoot, name) === revision) current.push(name);
+    else if (isCurrent(installedEntry(projectRoot, name), revision)) current.push(name);
     else due.push(name);
   }
   return { recorded, skipped, current, ...installSkills(projectRoot, due, { pins, run, dryRun }) };
@@ -104,11 +114,13 @@ export function skillWarnings(projectRoot, project, pins = loadSkillPins()) {
   const warnings = [];
   for (const [name, { revision }] of Object.entries(pins.skills)) {
     if (!wanted(project, name)) continue;
-    const installed = installedRevision(projectRoot, name);
-    if (installed === revision) continue;
-    const state = installed
-      ? `${name} is installed at ${installed.slice(0, 7)}, this adw version pins ${revision.slice(0, 7)}`
-      : `${name} is not installed`;
+    const entry = installedEntry(projectRoot, name);
+    if (isCurrent(entry, revision)) continue;
+    const state = !entry?.ref
+      ? `${name} is not installed`
+      : entry.ref !== revision
+        ? `${name} is installed at ${entry.ref.slice(0, 7)}, this adw version pins ${revision.slice(0, 7)}`
+        : `${name} is installed as a link, which the dev container cannot follow on Windows`;
     warnings.push(`Note: ${state}. Run adw's \`upgrade\` command (or set "skills": { "${name}": false } in .adw/project.json to opt out).`);
   }
   return warnings;

@@ -48,7 +48,7 @@ agent-src/
 <project-root>/
   .adw/project.json            # PROJECT-owned config: project/repository/git identity + ticketing backend choice
   .adw/custom/<agents|skills>/<name>/   # PROJECT-owned, optional: body.md (override) / append.md (extend)
-  .agents/skills/show-me/, .claude/skills/show-me, skills-lock.json   # PROJECT-owned, written by `npx skills`
+  .agents/skills/show-me/, .claude/skills/show-me/, skills-lock.json   # PROJECT-owned, written by `npx skills`
 ```
 
 ## Portability: two config files + the ticketing include
