@@ -9,7 +9,7 @@ The generator is a zero-dependency Node script, published to npm as
 [`@strobl_dev/adw`](https://www.npmjs.com/package/@strobl_dev/adw). The consuming project does
 **not** need to be a Node project. It works in any repo (C#/.NET, Go, Rust, …) — the only
 requirement is Node on the machine that runs the generator (your dev box and CI). Pin a version
-(e.g. `@0.40.1`) so devs and CI stay in sync.
+(e.g. `@0.40.2`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -35,7 +35,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes .adw/project.json, prints the recommended tooling
-npx @strobl_dev/adw@0.40.1 init
+npx @strobl_dev/adw@0.40.2 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -45,12 +45,12 @@ npx @strobl_dev/adw@0.40.1 init
 #    with your coding agent's native /init.)
 
 # 3. generate the platform files
-npx @strobl_dev/adw@0.40.1 generate
+npx @strobl_dev/adw@0.40.2 generate
 
 # 4. commit .adw/project.json and the generated dirs
 ```
 
-Pin the version (`@0.40.1`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the version (`@0.40.2`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 Versions up to v0.23.0 were only distributed from Git (`npx github:marxxxx/ai-dev-workflow#v0.23.0`).
 npm 12 refuses git specs by default (`EALLOWGIT`); add `--allow-git=all` if you still need one.
@@ -230,6 +230,12 @@ and records the `skills` opt-in. Run
 **`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
 changes the config hash); no `upgrade` step is needed.
 
+**Upgrading to v0.40.2.** Projects whose `.adw/compose.yml` builds its own image (`build:`) no
+longer get a failing pull on every start: `adw.sh` / `adw.ps1` rebuild that image on the newest base
+image. The launchers are project-owned, so `upgrade` does not change them; `upgrade`, `generate` and
+`check` print a note until you replace them: delete `adw.sh` and `adw.ps1`, run `init`, keep
+`.adw/project.json` and set up the dev container. `init` writes only the missing launchers.
+
 **Upgrading to v0.40.0.** adw's files move into `.adw/` (`ai-project.json` → `.adw/project.json`, `compose.ai-dev*.yml` → `.adw/compose*.yml`, `AI-DEV.md` → `.adw/README.md`, `.env.ai-dev` → `.adw/.env`, `agent-custom/` → `.adw/custom/`), and the launchers are now `adw.sh` / `adw.ps1`. `upgrade` does the move and lists every file. Teammates move their own `.env.ai-dev` to `.adw/.env` or run `upgrade`. The container needs an image built for v0.40.0 or later: `./adw.sh` pulls the newest one, and a pinned `AGENT_IMAGE` in `.adw/.env` must be moved to such a tag.
 
 **Upgrading to v0.31.0.** `ai-dev.sh` / `ai-dev.ps1` now pull the newest build of the container
@@ -272,8 +278,8 @@ the developer journal/handoff, and the e2e include are gone; ticket states shrin
 longer produces; run `upgrade` instead, which removes them and then generates:
 
 ```bash
-npx @strobl_dev/adw@0.40.1 upgrade --dry-run   # list what would change
-npx @strobl_dev/adw@0.40.1 upgrade
+npx @strobl_dev/adw@0.40.2 upgrade --dry-run   # list what would change
+npx @strobl_dev/adw@0.40.2 upgrade
 ```
 
 It deletes these files, but only where they still carry the generator's `DO NOT EDIT` banner (a
@@ -415,7 +421,8 @@ for your coding agents and ticketing backend, then prints the exact next steps. 
 whether to enable the Docker overlay (`AGENT_DIND=1`, root-equivalent) and company root
 certificates (`AGENT_CA_DIR`), and writes those to the git-ignored `.adw/.env`. These files are
 project-owned. Run the generator on the host; the image does not install or run it. The launchers
-pull the newest build of the image before each start.
+pull the newest build of the image before each start, or rebuild a project image that
+`.adw/compose.yml` builds (`build:`) on the newest base image.
 
 ```bash
 ./adw.sh claude --dangerously-skip-permissions   # PowerShell: .\adw.ps1 …
