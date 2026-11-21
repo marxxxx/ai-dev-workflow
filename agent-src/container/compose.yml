@@ -29,6 +29,13 @@ services:
       PROJECT_ROOT: ${PROJECT_ROOT:?Set PROJECT_ROOT to an existing absolute project directory}
       HOST_UID: ${HOST_UID:-1000}
       HOST_GID: ${HOST_GID:-1000}
+      # The host terminal's capabilities: without them Docker sets TERM=xterm only, and the
+      # coding agents fall back to 16 colours and generic key handling. Keys without a value
+      # take the host's value and stay unset when the host has none.
+      TERM: ${TERM:-xterm-256color}
+      COLORTERM:
+      TERM_PROGRAM:
+      TERM_PROGRAM_VERSION:
       AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
       CONTEXT7_API_KEY: ${CONTEXT7_API_KEY:-}
       HTTP_PROXY: ${HTTP_PROXY:-}

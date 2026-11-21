@@ -248,6 +248,11 @@ for remapping and privilege drop, plus `KILL` so the root init process can forwa
 `dev`'s processes; commands run non-root. Exit codes and signals
 propagate through the entrypoint and Compose init process.
 
+The compose file passes the host's `TERM`, `COLORTERM`, `TERM_PROGRAM` and
+`TERM_PROGRAM_VERSION` through, so the coding agents see the real terminal's colours and key
+handling instead of Docker's bare `TERM=xterm`. A `TERM` the image has no terminfo entry for
+(`xterm-kitty`, `xterm-ghostty`, …) becomes `xterm-256color`. The image sets `LANG=C.UTF-8`.
+
 ## Corporate TLS inspection
 
 Behind a TLS-inspecting proxy every outbound call (harness logins, `npx`, `gh`, `az`,

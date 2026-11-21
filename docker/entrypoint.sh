@@ -115,6 +115,11 @@ if [[ -s "$AGENT_CA_BUNDLE" ]]; then
   export NODE_EXTRA_CA_CERTS="$AGENT_CA_BUNDLE"
   export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 fi
+# Compose passes the host's TERM through. One the image has no terminfo entry for (xterm-kitty,
+# xterm-ghostty, alacritty, ...) leaves bash, less and tput without terminal capabilities.
+if [[ -n "${TERM:-}" ]] && ! tput -T "$TERM" longname >/dev/null 2>&1; then
+  export TERM=xterm-256color
+fi
 cd /workspace
 git config --global --replace-all safe.directory /workspace
 node /usr/local/lib/agent-runtime/docker-proxy-config.mjs
