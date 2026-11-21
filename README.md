@@ -230,6 +230,13 @@ and records the `skills` opt-in. Run
 **`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
 changes the config hash); no `upgrade` step is needed.
 
+**Terminal in the dev container.** The container now gets the host terminal's `TERM`,
+`COLORTERM` and `TERM_PROGRAM`, so the coding agents show full colours (for example the highlighted
+option in a question) instead of 16. `.adw/compose.yml` is project-owned and `upgrade` does not
+change it; `upgrade`, `generate` and `check` print the lines to add under `environment:` until they
+are there. `./adw.sh` pulls the image with the UTF-8 locale. To use Ctrl+P in the agents, see
+`.adw/README.md`, section 1.
+
 **Upgrading to v0.40.3.** The show-me skill is now installed as a copy in `.claude/skills/show-me/`
 instead of a link. A link created on Windows pointed to a host path, so Claude Code in the dev
 container could not load the skill. `upgrade` replaces an existing link.

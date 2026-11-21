@@ -28,6 +28,10 @@ or open a shell with `.\adw.ps1` and type the command there. If `./adw.sh` repor
 *permission denied* (for example after a commit from Windows), run `chmod +x adw.sh` or
 `sh adw.sh`.
 
+Docker holds back Ctrl+P until the next key, because Ctrl+P, Ctrl+Q detaches from the container.
+To give the key to the coding agents, pick other detach keys in `~/.docker/config.json` on your
+machine, for example `"detachKeys": "ctrl-^,ctrl-@"`.
+
 Logins and caches live in this project's `agent-home` Docker volume and survive restarts and
 image updates. `docker volume rm @@SLUG@@-ai_agent-home` deletes them.
 

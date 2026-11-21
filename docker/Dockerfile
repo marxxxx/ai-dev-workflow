@@ -12,7 +12,9 @@ ARG DOCKER_CLI_VERSION=5:29.10.0-1~debian.12~bookworm
 ARG DOCKER_BUILDX_VERSION=0.39.1-1~debian.12~bookworm
 ARG DOCKER_COMPOSE_VERSION=5.8.0-1~debian.12~bookworm
 
+# C.UTF-8 is the only UTF-8 locale the slim base ships; without LANG, shells run in POSIX.
 ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
     APP_USER=dev \
     APP_HOME=/home/dev \
     AGENT_TOOLS_PACKAGE=/opt/agent-tools/package.json \

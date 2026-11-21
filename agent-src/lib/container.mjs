@@ -178,10 +178,10 @@ export function writeContainerFiles(projectRoot, { env = {}, ...opts }) {
  * Fixes the project-owned container files need and `upgrade` cannot apply: v0.29.0 and earlier
  * dropped all capabilities without keeping KILL in .adw/compose.yml, so the root init (tini)
  * cannot forward signals to the dev user's processes and stops the container on the first one
- * (a resize).
+ * (a resize). v0.40.3 and earlier did not pass the host terminal's variables through.
  */
 export function containerWarnings(projectRoot) {
-  return [killWarning(projectRoot), pullWarning(projectRoot)].filter(Boolean);
+  return [killWarning(projectRoot), pullWarning(projectRoot), terminalWarning(projectRoot)].filter(Boolean);
 }
 
 // .adw/compose.yml without comments, or null when there is none.
@@ -217,6 +217,17 @@ function killWarning(projectRoot) {
   if (!dropsAll || /\b(?:CAP_)?KILL\b/.test(yaml)) return null;
   return `Note: ${COMPOSE_FILES.base} lacks the KILL capability, so the container stops when tini cannot `
     + 'forward a signal ("Operation not permitted"). Add `- KILL` under cap_add of the ai-dev-workflow service.';
+}
+
+// v0.40.3 and earlier did not pass the host terminal's variables into the container: Docker sets TERM=xterm and
+// nothing else, so the coding agents render with 16 colours and generic key handling.
+function terminalWarning(projectRoot) {
+  const yaml = composeYaml(projectRoot);
+  if (!yaml || !/^\s+tty:\s*true\b/m.test(yaml) || /\bCOLORTERM\b/.test(yaml)) return null;
+  return `Note: ${COMPOSE_FILES.base} does not pass the host terminal through, so the coding agents in the container `
+    + 'show only 16 colours. Add under environment: of the ai-dev-workflow service the line '
+    + '`TERM: ${TERM:-xterm-256color}` and the keys `COLORTERM:`, `TERM_PROGRAM:` and `TERM_PROGRAM_VERSION:` '
+    + 'without a value (Compose then takes them from the host).';
 }
 
 // One-line ticketing login per backend for the next-steps printout; `file` has none.

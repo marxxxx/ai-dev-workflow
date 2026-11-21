@@ -417,6 +417,38 @@ test('containerWarnings ignores KILL that only appears in a comment', () => {
 
 // v0.40.1 and earlier launchers only pulled: a project image with build: fails the pull and never
 // gets a newer base image.
+// v0.40.3 and earlier wrote .adw/compose.yml without the host's terminal variables: Docker sets
+// TERM=xterm and nothing else, so the coding agents render with 16 colours.
+const TTY_SERVICE = 'services:\n  ai-dev-workflow:\n    tty: true\n    environment:\n      HOST_UID: ${HOST_UID:-1000}\n';
+
+test('containerWarnings flags an interactive service that does not pass the terminal variables through', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeCompose(root, TTY_SERVICE);
+    const [warning, ...rest] = containerWarnings(root);
+    assert.deepEqual(rest, []);
+    assert.match(warning, /\.adw\/compose\.yml/);
+    for (const line of ['`TERM: ${TERM:-xterm-256color}`', '`COLORTERM:`', '`TERM_PROGRAM:`', '`TERM_PROGRAM_VERSION:`']) {
+      assert.ok(warning.includes(line), line);
+    }
+    writeCompose(root, `${TTY_SERVICE}      # COLORTERM:\n`);
+    assert.equal(containerWarnings(root).length, 1, 'COLORTERM only in a comment');
+    writeCompose(root, `${TTY_SERVICE}      COLORTERM:\n`);
+    assert.deepEqual(containerWarnings(root), [], 'passed through');
+    writeCompose(root, TTY_SERVICE.replace('tty: true', 'tty: false'));
+    assert.deepEqual(containerWarnings(root), [], 'no terminal');
+  } finally {
+    cleanup();
+  }
+});
+
+test('the compose template passes the host terminal variables through', () => {
+  const compose = fileOf(renderContainerFiles({ name: 'Demo', stack: 'generic', backend: 'file' }), '.adw/compose.yml').content;
+  for (const line of ['TERM: ${TERM:-xterm-256color}', 'COLORTERM:', 'TERM_PROGRAM:', 'TERM_PROGRAM_VERSION:']) {
+    assert.ok(compose.includes(`      ${line}\n`), line);
+  }
+});
+
 const OLD_SH_PULL = 'compose pull ai-dev-workflow || echo "adw.sh: could not pull the image; starting the local one." >&2\n';
 const OLD_PS1_PULL = "& docker @($composeArgs + @('pull', 'ai-dev-workflow'))\n";
 const BUILT = 'services:\n  ai-dev-workflow:\n    image: demo-ai-dev:local\n    build:\n      context: ./ai-dev\n    cap_drop:\n      - ALL\n    cap_add:\n      - KILL\n';
