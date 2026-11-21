@@ -1,0 +1,106 @@
+# Agent dev container
+
+Coding agents (Claude Code, Codex, OpenCode) with the ai-dev-workflow tool stack, running in a
+container that sees only this project. Written once by `adw init`; this file and the
+container files are yours to edit. Requires Docker (Docker Desktop on Windows/macOS).
+
+## 1. Start
+
+```sh
+./adw.sh                 # shell in the container
+./adw.sh <command> ...   # run one command, e.g. ./adw.sh git status
+```
+
+Each start first pulls the newest build of the image (`AGENT_IMAGE` or the default in
+`.adw/compose.yml`). If the pull fails, for example offline, the launcher warns and starts the
+image already on this machine. A project image that `.adw/compose.yml` builds (`build:`, e.g.
+`FROM ${BASE_IMAGE}` with extra tools) is rebuilt on the newest base image instead, from the cache
+when the base is unchanged; a base image that exists only on this machine is used as it is.
+
+Without the launchers, run this from the project root (with `PROJECT_ROOT`, `HOST_UID` and `HOST_GID` set, as
+the compose file requires): `docker compose --project-directory . -f .adw/compose.yml run --rm ai-dev-workflow`.
+
+PowerShell: `.\adw.ps1` instead of `./adw.sh`. If scripts are blocked, run
+`powershell -ExecutionPolicy Bypass -File .\adw.ps1` once, or
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. PowerShell swallows a bare `--`
+and empty arguments before the script sees them: write `'--'` (e.g. `.\adw.ps1 npm test '--' --watch`),
+or open a shell with `.\adw.ps1` and type the command there. If `./adw.sh` reports
+*permission denied* (for example after a commit from Windows), run `chmod +x adw.sh` or
+`sh adw.sh`.
+
+Logins and caches live in this project's `agent-home` Docker volume and survive restarts and
+image updates. `docker volume rm ai-dev-workflow-ai_agent-home` deletes them.
+
+## 2. Log in your coding agent
+
+Once per agent you use:
+
+```sh
+./adw.sh claude                       # follow the login prompts, then /exit
+./adw.sh codex login --device-auth    # opens a device code for your host browser
+./adw.sh opencode auth login
+```
+
+Then work with:
+
+```sh
+./adw.sh claude --dangerously-skip-permissions
+./adw.sh codex --yolo
+./adw.sh opencode
+```
+
+and ask the agent to work on a ticket with `agent-dev`.
+
+`adw e2e` replays `agent-dev` on one of your tickets using this compose file (see the ai-dev-workflow README, "E2E on your project").
+
+## 3. Ticketing and Git
+
+Log in to GitHub once; this also lets `git push` use the same credentials:
+
+```sh
+./adw.sh gh auth login
+./adw.sh gh auth setup-git
+```
+
+Check that Git can reach the remote: `./adw.sh git ls-remote origin`
+
+## 4. Behind a corporate proxy?
+
+Put per-machine settings in `.adw/.env` (git-ignored, read on every start,
+so you can add it any time):
+
+```sh
+AGENT_CA_DIR=/absolute/path/to/company-root-certificates
+HTTPS_PROXY=http://proxy.example:8080
+HTTP_PROXY=http://proxy.example:8080
+NO_PROXY=localhost,127.0.0.1,::1
+```
+
+When `AGENT_CA_DIR` is set, the launchers add `.adw/compose.certs.yml` and the container trusts
+those certificates (`*.crt`, `*.pem`, `*.cer`, `*.cert`). Keep `localhost,127.0.0.1,::1` in
+`NO_PROXY`. `.adw/.env` also takes `AZURE_TENANT_ID`, `CONTEXT7_API_KEY` and `AGENT_IMAGE`
+(e.g. to pin a dated image tag; the launchers pull that tag).
+
+## 5. Docker inside the container (opt-in)
+
+The container has the Docker CLI but no daemon. With `AGENT_DIND=1` in `.adw/.env`, the launchers
+add `.adw/compose.dind.yml`: a privileged Docker daemon next to the agent, so it can build images
+and run `docker compose` workloads and Testcontainers. Ports published by nested containers answer
+on `localhost`. With `AGENT_CA_DIR` set too, `.adw/compose.dind-certs.yml` makes the daemon trust
+those certificates (PEM only) for image pulls.
+
+**This is root-equivalent:** any agent in the container can become root on the host (Linux) or in
+the Docker Desktop VM, which reaches your drives (Windows). Enable it only where that is acceptable.
+
+The daemon keeps running after the agent exits. Stop it, once no agent session is left, with
+`docker compose -p ai-dev-workflow-ai down`. Its images and build cache stay in the
+`ai-dev-workflow-ai_docker-data` volume; `docker volume rm ai-dev-workflow-ai_docker-data` deletes them.
+
+## 6. Customize
+
+`.adw/compose.yml` is yours: add a database or other services, publish ports, add
+`node_modules` volumes for nested packages. Keep the `/workspace` bind, the `agent-home` volume,
+the capability set and the `HOST_UID`/`HOST_GID` settings: the runtime depends on them.
+Relative paths in `.adw/compose.yml` resolve against the project root (the launchers pass
+`--project-directory`), so write `./db-init`, not `../db-init`.
+Details: https://github.com/marxxxx/ai-dev-workflow/blob/main/docker/README.md

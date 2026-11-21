@@ -1,0 +1,17 @@
+{
+  "project": {
+    "name": "ai-dev-workflow"
+  },
+  "repository": {
+    "slug": "marxxxx/ai-dev-workflow"
+  },
+  "ticketing": {
+    "backend": "github"
+  },
+  "git": {
+    "prTarget": "main"
+  },
+  "skills": {
+    "show-me": true
+  }
+}

@@ -7,3 +7,4 @@ docker/tools/node_modules/
 spike/
 obj/
 bin/
+.adw/.env
