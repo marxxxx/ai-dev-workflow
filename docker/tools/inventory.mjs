@@ -10,6 +10,7 @@
 //   node docker/tools/inventory.mjs update [--only a,b] apply updates, then sync (network)
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { setDefaultAutoSelectFamilyAttemptTimeout } from 'node:net';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -448,6 +449,10 @@ async function main([command = 'check', ...args]) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  // outdated/update fire many requests at once. Node gives each address a 250 ms connect
+  // attempt by default, which a distant host such as gitea.com (~200 ms connect over IPv4,
+  // no IPv6 route) overruns under that load and fails with ETIMEDOUT.
+  setDefaultAutoSelectFamilyAttemptTimeout(5000);
   main(process.argv.slice(2)).then(code => { process.exitCode = code; }, error => {
     console.error(error.message);
     process.exitCode = 1;
