@@ -4,15 +4,15 @@
     "node": "24.22.3"
   },
   "npmPackages": {
-    "@anthropic-ai/claude-code": "2.1.327",
+    "@anthropic-ai/claude-code": "2.1.330",
     "@azure-devops/mcp": "2.11.0",
-    "@openai/codex": "0.170.0",
-    "@playwright/mcp": "0.0.85",
+    "@openai/codex": "0.171.0",
+    "@playwright/mcp": "0.0.86",
     "@upstash/context7-mcp": "4.7.3",
     "ccusage": "20.0.51",
     "jsonc-parser": "3.3.1",
     "@opencode/cli": "2.3.2",
-    "playwright": "1.66.0-alpha-2026-11-09",
+    "playwright": "1.66.0-alpha-2026-11-18",
     "pnpm": "12.21.0",
     "smol-toml": "1.9.1",
     "typescript": "7.0.2",
@@ -21,21 +21,21 @@
     "yarn": "1.22.22"
   },
   "e2eNpmPackages": {
-    "@agentclientprotocol/claude-agent-acp": "0.108.0",
-    "@agentclientprotocol/codex-acp": "2.7.0",
+    "@agentclientprotocol/claude-agent-acp": "0.109.0",
+    "@agentclientprotocol/codex-acp": "2.8.0",
     "acpx": "0.22.0"
   },
   "systemTools": {
     "azureCliDebianPackage": "2.93.0-1~bookworm",
-    "azureDevOpsCliExtension": "1.0.11",
-    "dockerBuildxDebianPackage": "0.39.0-1~debian.12~bookworm",
+    "azureDevOpsCliExtension": "1.0.12",
+    "dockerBuildxDebianPackage": "0.39.1-1~debian.12~bookworm",
     "dockerCliDebianPackage": "5:29.10.0-1~debian.12~bookworm",
     "dockerComposeDebianPackage": "5.8.0-1~debian.12~bookworm",
     "tea": "0.16.0",
     "uv": "0.13.9"
   },
   "sourceRevisions": {
-    "serena": "0cef825f802d5323f8cb4bda3a5af52bf704770f",
+    "serena": "7f7d6245bf96b60fdf4e752a779917372fd1ee6e",
     "superpowers": "22f0b463e7a5e579904dd6211a520321035526f7"
   },
   "derivedImages": {
