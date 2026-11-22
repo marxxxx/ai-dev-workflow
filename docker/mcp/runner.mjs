@@ -22,6 +22,20 @@ export function startTurn(record, text) {
   return child.pid;
 }
 
+// The worker is started detached, so it leads its own process group: killing the group also ends its acpx prompt and
+// whatever that runs. A pid that is not a group leader is killed alone. A process that is gone already is fine.
+function killWorker(pid) {
+  try {
+    process.kill(-pid);
+    return;
+  } catch { /* not a group leader, or gone */ }
+  try {
+    process.kill(pid);
+  } catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+  }
+}
+
 // Cancels the running turn, closes the acpx session (its owner and adapter exit) and stops the worker. Best effort: a
 // failing acpx call (an unknown name is exit 1) must not keep terminate from freeing the workspace.
 export async function cancelTurn(record) {
@@ -32,13 +46,7 @@ export async function cancelTurn(record) {
     await defaultExec(args.cancel(record.id), { env, timeoutMs: STEP_TIMEOUT_MS });
     await defaultExec(args.close(record.id), { env, timeoutMs: STEP_TIMEOUT_MS });
   } finally {
-    if (record.pid != null) {
-      try {
-        process.kill(record.pid);
-      } catch (error) {
-        if (error.code !== 'ESRCH') throw error;
-      }
-    }
+    if (record.pid != null) killWorker(record.pid);
   }
 }
 

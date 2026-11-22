@@ -231,19 +231,23 @@ test('startTurn runs the worker detached: the fake acpx gets the text on stdin a
   });
 });
 
-test('cancelTurn runs acpx cancel then close and kills the worker; isAlive follows it', async () => {
+test('cancelTurn runs acpx cancel then close and kills the worker with its acpx child; isAlive follows it', async () => {
   const bin = tmp();
   const home = tmp();
   const log = join(bin, 'argv.log');
-  fakeAcpx(bin, `echo "$@" >> "${log}"\ncase " $* " in *" prompt "*) sleep 30;; *) echo some-id;; esac`);
+  const pids = join(bin, 'prompt.pids');
+  fakeAcpx(bin, `echo "$@" >> "${log}"\ncase " $* " in *" prompt "*) sleep 30 & echo "$$ $!" > "${pids}"; wait;; *) echo some-id;; esac`);
   await withEnv({ HOME: home, PATH: `${bin}:${process.env.PATH}` }, async () => {
     const store = createStore(join(home, '.adw-mcp', 'sessions'));
     const record = store.create({ id: ID, harness: 'opencode', task: 'T-1', status: 'running', turn: 1, lastMessage: null, error: null, createdAt: NOW, updatedAt: NOW, pid: null });
     const pid = startTurn(record, 'go');
     assert.equal(isAlive(pid), true);
     await until(() => { try { return readFileSync(log, 'utf8').includes(' prompt '); } catch { return false; } });
+    const children = await until(() => { try { return readFileSync(pids, 'utf8').trim().split(' ').map(Number); } catch { return null; } });
     await cancelTurn({ ...record, pid });
     await until(() => !isAlive(pid));
+    // The worker is a process-group leader (detached): its acpx prompt and what that runs die with it.
+    await until(() => children.every((child) => !isAlive(child)), 3000);
     const lines = readFileSync(log, 'utf8').trim().split('\n');
     assert.match(lines.at(-2), new RegExp(`cancel -s ${ID}$`));
     assert.match(lines.at(-1), new RegExp(`sessions close ${ID}$`));
