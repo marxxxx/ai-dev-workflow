@@ -28,6 +28,12 @@ test('the spec section names no path and is shorter than the spec file; no plan 
   assert.equal(evaluateLocalContract({ ...base(), diff: base().diff + addFile('.tickets/issues/3_x.md', 'z') }).plan_discarded, 1);
 });
 
+test('a condensed spec section re-posted at close-out passes when each section is shorter than the spec file', () => {
+  const twice = TICKET.replace('Condensed scope.', 'v'.repeat(450)).replace('\n---\n## Implementation Summary', `\n---\n## Approved Spec\n${'w'.repeat(450)}\n\n---\n## Implementation Summary`);
+  const diff = base().diff + addFile('docs/superpowers/specs/x.md', 'y'.repeat(800));
+  assert.equal(evaluateLocalContract({ ...base(), ticketFile: twice, diff }).spec_section_condensed, 1);
+});
+
 test('an extra section, wrong status or missing sections fail', () => {
   assert.equal(evaluateLocalContract({ ...base(), ticketFile: TICKET + '\n---\n## Notes\nx\n' }).only_allowed_sections, 0);
   const r = evaluateLocalContract({ ...base(), ticketFile: TICKET.replace('status: review', 'status: in-progress') });

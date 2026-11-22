@@ -31,6 +31,13 @@ test('a condensed spec comment shorter than the spec file passes', () => {
   assert.equal(evaluateContract({ ...good, prDiff }).spec_comment_condensed, 1);
 });
 
+test('a condensed spec re-posted at close-out passes when each comment is shorter than the spec file', () => {
+  const prDiff = good.prDiff + addFile('docs/superpowers/specs/x-design.md', 'y'.repeat(800));
+  const repost = { body: `## Approved Spec\n${'w'.repeat(450)}` };
+  const comments = [{ body: `## Approved Spec\n${'v'.repeat(450)}` }, repost, ...good.comments.slice(1)];
+  assert.equal(evaluateContract({ ...good, comments, prDiff }).spec_comment_condensed, 1);
+});
+
 test('no spec file in the PR still passes the length part', () => {
   assert.equal(evaluateContract(good).spec_comment_condensed, 1);
 });

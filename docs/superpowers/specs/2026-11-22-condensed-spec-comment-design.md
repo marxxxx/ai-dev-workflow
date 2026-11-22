@@ -25,8 +25,8 @@ belong on the ticket, so no ticket text names their paths.
   may not render it), and file (today path only; it gets the same comment).
 - Without a written spec (agreements from the conversation) nothing changes: the agreements are
   posted as today.
-- **Discard the plan before the PR.** Right before pushing and opening the draft PR, if the run
-  wrote a plan file, `agent-dev` asks whether to discard the plan documents, defaulting to yes.
+- **Discard the plan before the PR.** Right before pushing and opening the draft PR, if a plan
+  file exists for this work (also one an earlier, resumed run wrote), `agent-dev` asks whether to discard the plan documents, defaulting to yes.
   On yes, the plan file is not checked in and does not appear in the PR: if it was committed on the
   branch, it is removed from the index (`git rm --cached`) in a commit before the push; the local
   file stays, untracked, for a later resume. On no, nothing changes. The spec is not affected.

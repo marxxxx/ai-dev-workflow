@@ -68,10 +68,10 @@ it occurs, wherever the workflow puts it.
   in the summary instead.
 - **Integration options offered** (merge, PR, keep, discard), or the workflow finishes without
   offering them — do **not** present them: the choice is already made. Base branch
-  `{{git.prTarget}}`. If the run wrote a plan file, ask whether to discard the plan documents
-  (default: yes). On yes, keep it out of the PR: if it is tracked on the branch, `git rm --cached` it
-  and commit; the local file stays for a resume. The spec is not affected. Write the implementation
-  summary (section 3), then push the branch and open a
+  `{{git.prTarget}}`. If a plan file exists for this work (also from an earlier run), ask whether
+  to discard the plan documents (default: yes). On yes, keep it out of the PR: if it is tracked on
+  the branch, `git rm --cached` it and commit; the local file stays for a resume. The spec is not
+  affected. Write the implementation summary (section 3), then push the branch and open a
   **draft pull request** with the ticket include's commands, so a human can review and test before
   publishing it. PR title per **Naming** below; the summary plus the ticket reference is the PR
   description.

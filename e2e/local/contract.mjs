@@ -29,7 +29,7 @@ export function evaluateLocalContract({ ticket, ticketFile, branches, prs = [], 
   return {
     ticket_review: ok(status === 'review'),
     spec_section: ok(spec !== ''),
-    spec_section_condensed: ok(!sections.some((s) => DOC_PATH.test(s.text)) && (specFile === '' || spec.length < specFile.length)),
+    spec_section_condensed: ok(!sections.some((s) => DOC_PATH.test(s.text)) && (specFile === '' || sections.filter((s) => s.title === 'Approved Spec').every((s) => s.text.length < specFile.length))),
     summary_section: ok(summary !== '' && /end[- ]to[- ]end|ende[- ]zu[- ]ende|e2e/i.test(summary)),
     cost_section: ok(body('Cost Summary') !== ''),
     only_allowed_sections: ok(sections.every((s) => ALLOWED.includes(s.title))),

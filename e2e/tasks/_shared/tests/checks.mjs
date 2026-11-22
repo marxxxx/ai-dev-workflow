@@ -25,7 +25,7 @@ export function evaluateContract({ issue, comments, pulls, prDiff, appListening 
     ticket_review: ok(status.length === 1 && status[0] === 'status:review'),
     spec_comment: ok(spec !== ''),
     spec_comment_complete: ok(!/\$\(|\$\{/.test(spec)),
-    spec_comment_condensed: ok(!bodies.some((b) => DOC_PATH.test(b)) && (specFile === '' || spec.length < specFile.length)),
+    spec_comment_condensed: ok(!bodies.some((b) => DOC_PATH.test(b)) && (specFile === '' || bodies.filter((b) => starts(b, 'Approved Spec')).every((b) => b.length < specFile.length))),
     summary_comment: ok(summary !== '' && /end[- ]to[- ]end|ende[- ]zu[- ]ende|e2e/i.test(summary)),
     cost_comment: ok(bodies.some((b) => starts(b, 'Cost Summary'))),
     only_allowed_comments: ok(bodies.every((b) => /^## (Approved Spec|Implementation Summary|Cost Summary)/.test(b.trimStart()))),
