@@ -1,5 +1,6 @@
-// The agent under test runs on the project's own dev image plus a thin layer with acpx and the ACP adapters
-// (e2e/local/image). Built once per adw e2e call when its tag is missing; the project's older layers are pruned.
+// The agent under test runs on the project's own dev image plus a thin layer (e2e/local/image) that adds the fake PR
+// CLIs and links the image's acpx and ACP adapters onto PATH. Built once per adw e2e call when its tag is missing; the
+// project's older layers are pruned.
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';

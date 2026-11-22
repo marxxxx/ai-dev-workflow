@@ -7,7 +7,7 @@ ARG BASE_USER=root
 USER root
 # The ACP tooling ships in the base image (/opt/agent-tools); an older image lacks it.
 RUN test -x /opt/agent-tools/node_modules/.bin/acpx \
-    || { echo "adw e2e: acpx is missing from the dev image (/opt/agent-tools); run npx @strobl_dev/adw upgrade and rebuild the dev image." >&2; exit 1; } \
+    || { echo "adw e2e: acpx is missing from the dev image (/opt/agent-tools); run ./adw.sh once to pull the newest dev image (or rebuild it if .adw/compose.yml builds it), then rerun adw e2e." >&2; exit 1; } \
     && ln -sf /opt/agent-tools/node_modules/.bin/acpx /opt/agent-tools/node_modules/.bin/claude-agent-acp \
        /opt/agent-tools/node_modules/.bin/codex-acp /usr/local/bin/
 # The fake gh, tea and az (pr-cli.mjs): opening a pull request is recorded, never sent to the real host; ahead of any
