@@ -101,7 +101,9 @@ Units: one skill, `agent-dev`. It adds only the ticket edges around the unmodifi
 summary and `review` at the end.
 It names only entry skills, by bare id (OpenCode 2 cannot resolve `superpowers:<skill>`) — the
 superpowers `brainstorming` skill, plus `writing-plans` when resuming an in-progress ticket whose spec
-is already approved — and hooks in at events (spec or plan
+is already approved — declares the worktree preference as *none* (a branch in the current checkout,
+which the host sees; worktrees created in the dev container are unreachable or collide with the
+checkout), and hooks in at events (spec or plan
 handed over for review → a `show-me` view, spec approved, branch created, integration offered), never
 at superpowers' internal skill order — that is theirs to
 change. **Keep it lean**: every rendered byte is read on every run, so do not restate superpowers

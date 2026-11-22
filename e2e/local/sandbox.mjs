@@ -106,9 +106,11 @@ export function collectSandbox({ work, origin, ticket, git = defaultGit }) {
   // The pull requests the e2e layer's fake gh/tea/az recorded (image/pr-cli.mjs).
   const prLog = path.join(work, '.git', 'adw-e2e', 'pr.jsonl');
   const prs = existsSync(prLog) ? readFileSync(prLog, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
-  if (branches.length !== 1) return { ticketFile, branches, prs, bundle: null, diff: '' };
+  // Linked worktrees stay registered even when their directory lives only in the container.
+  const worktrees = git(['-C', work, 'worktree', 'list', '--porcelain']).split('\n').filter((l) => l.startsWith('worktree ')).length;
+  if (branches.length !== 1) return { ticketFile, branches, prs, worktrees, bundle: null, diff: '' };
   const bundle = path.join(path.dirname(origin), 'pr-head.bundle');
   git(['-C', origin, 'bundle', 'create', bundle, 'main', branches[0]]);
   const diff = git(['-C', origin, 'diff', '--no-ext-diff', '--no-textconv', '--no-color', '--src-prefix=a/', '--dst-prefix=b/', `main...${branches[0]}`]);
-  return { ticketFile, branches, prs, bundle, diff };
+  return { ticketFile, branches, prs, worktrees, bundle, diff };
 }

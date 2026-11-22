@@ -290,7 +290,7 @@ async function runPrepared({ opts, d, root, setup }) {
 
         const collected = d.collectSandbox({ work, origin, ticket: opts.ticket });
         const checks = evaluateLocalContract({ ticket: opts.ticket, ticketFile: collected.ticketFile, branches: collected.branches, prs: collected.prs,
-          diff: collected.diff, appListening });
+          diff: collected.diff, appListening, worktrees: collected.worktrees });
         let ownTests = null;
         if (config.testCommand) {
           const r = d.exec('docker', [...composeArgs(judgeEnv, judgeProject), 'run', '--rm', '-T', SERVICE, 'bash', '-lc', config.testCommand],

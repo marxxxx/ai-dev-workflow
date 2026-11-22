@@ -93,6 +93,7 @@ test('collectSandbox: no branch gives no bundle, one branch gives a bundleBranch
     const none = collectSandbox({ ...sb, ticket: 7 });
     assert.deepEqual([none.branches, none.bundle, none.diff, none.prs], [[], null, '', []]);
     assert.match(none.ticketFile, /status: new/);
+    assert.equal(none.worktrees, 1);
 
     g(['checkout', '-qb', 'feat/7'], sb.work);
     writeFileSync(path.join(sb.work, 'f.txt'), 'x\n');
@@ -103,6 +104,11 @@ test('collectSandbox: no branch gives no bundle, one branch gives a bundleBranch
     assert.deepEqual(one.branches, ['feat/7']);
     assert.equal(bundleBranch(one.bundle), 'feat/7');
     assert.match(one.diff, /\+x/);
+    assert.equal(one.worktrees, 1);
+    g(['worktree', 'add', '-q', path.join(dir, 'wt'), '-b', 'wt'], sb.work);
+    assert.equal(collectSandbox({ ...sb, ticket: 7 }).worktrees, 2, 'a linked worktree counts');
+    g(['worktree', 'remove', path.join(dir, 'wt')], sb.work);
+    g(['branch', '-qD', 'wt'], sb.work);
     // What the e2e layer's fake gh/tea/az recorded in the clone's git dir.
     mkdirSync(path.join(sb.work, '.git', 'adw-e2e'));
     writeFileSync(path.join(sb.work, '.git', 'adw-e2e', 'pr.jsonl'), `${JSON.stringify({ tool: 'gh', branch: 'feat/7', draft: true, title: '7: F' })}\n`);
