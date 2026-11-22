@@ -159,6 +159,31 @@ test('terminate cancels before the status changes', async () => {
   assert.deepEqual(seen, ['running']);
 });
 
+test('terminate cancels again when a post started a new turn while it was cancelling', async () => {
+  const { store } = setup();
+  const cancelled = [];
+  const sessions = createSessions({
+    store,
+    startTurn: (record) => 100 + record.turn,
+    cancel: async (record) => {
+      cancelled.push({ turn: record.turn, pid: record.pid });
+      // The first cancel is slow: the worker finishes and a post starts turn 2 meanwhile.
+      if (cancelled.length === 1) {
+        store.update(record.id, { status: 'idle', pid: null });
+        sessions.post({ sessionId: record.id, message: 'go on' });
+      }
+    },
+    isAlive: () => true,
+    now: () => 't',
+    newId: () => '00000000-0000-4000-8000-000000000001',
+  });
+  const { id } = sessions.start({ harness: 'codex', task: 'a' });
+  const done = await sessions.terminate({ sessionId: id });
+  assert.deepEqual(cancelled, [{ turn: 1, pid: 101 }, { turn: 2, pid: 102 }]);
+  assert.equal(done.status, 'terminated');
+  assert.equal(store.get(id).pid, null);
+});
+
 test('terminate on failed or terminated is a no-op returning the record', async () => {
   const { sessions, store, calls } = setup();
   const { id } = sessions.start({ harness: 'codex', task: 'a' });

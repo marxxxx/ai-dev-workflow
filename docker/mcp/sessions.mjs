@@ -92,9 +92,15 @@ export function createSessions({ store, startTurn, cancel, isAlive, now, newId }
     },
 
     async terminate({ sessionId }) {
-      const record = find(sessionId);
+      let record = find(sessionId);
       if (!LIVE.includes(record.status)) return record;
       await cancel(record);
+      // A post (or a finishing worker) can change the turn or the worker while cancel is awaited. Terminating on the
+      // stale record would orphan a worker started meanwhile, so cancel what is there now until nothing changes.
+      for (let latest = find(sessionId); latest.turn !== record.turn || latest.pid !== record.pid; latest = find(sessionId)) {
+        record = latest;
+        await cancel(record);
+      }
       return store.update(record.id, { status: 'terminated', pid: null, updatedAt: now() });
     },
 
