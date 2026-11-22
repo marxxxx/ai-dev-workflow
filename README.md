@@ -162,7 +162,8 @@ review, `agent-dev` leads with a compact view of its design from HumanLayer's
 changes, Mermaid diagrams — so you can judge the approach before reading the file. The file stays
 the record. show-me is user-invoked only (`/show-me` works any time); `agent-dev` reads it at those
 two moments, and once more for the condensed view of the approved spec it posts on the ticket.
-`init` and `upgrade` install it into the project at the commit the adw version pins; `generate` and `check` print a note (exit code unchanged) when it is missing or outdated. Opt out
+`init` and `upgrade` install it into the project at the commit the adw version pins; `generate` and
+`check` print a note (exit code unchanged) when it is missing or outdated. Opt out
 with `"skills": { "show-me": false }` in `.adw/project.json`.
 
 ### End-to-end testing
