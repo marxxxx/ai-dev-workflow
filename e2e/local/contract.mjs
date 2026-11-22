@@ -1,12 +1,13 @@
 // File-backend agent-dev contract checks. Never asserts on superpowers internals.
-export const LOCAL_CONTRACT_CHECKS = ['ticket_review', 'spec_section', 'summary_section', 'cost_section', 'only_allowed_sections', 'branch_pushed', 'branch_naming', 'pr_draft', 'pr_title_naming', 'app_stopped', 'no_screenshots_in_repo'];
+export const LOCAL_CONTRACT_CHECKS = ['ticket_review', 'spec_section', 'summary_section', 'cost_section', 'only_allowed_sections', 'branch_pushed', 'branch_naming', 'pr_draft', 'pr_title_naming', 'app_stopped', 'no_worktree', 'no_screenshots_in_repo'];
 
 const ALLOWED = ['Approved Spec', 'Implementation Summary', 'Cost Summary'];
 
 // Pure: `ticketFile` is the ticket file's TEXT (the CLI reads it), `ticket` its number. `prs` are the pull requests the
 // e2e layer's fake gh/tea/az recorded (image/pr-cli.mjs); the last one of the pushed branch counts.
 // Sections are the `\n---\n## <Title>` blocks agent-dev appends; the first chunk is frontmatter + body.
-export function evaluateLocalContract({ ticket, ticketFile, branches, prs = [], diff, appListening }) {
+// `worktrees`: how many worktrees the clone has; agent-dev works in place, so 1.
+export function evaluateLocalContract({ ticket, ticketFile, branches, prs = [], diff, appListening, worktrees }) {
   const sections = ticketFile.split('\n---\n## ').slice(1).map((s) => ({ title: s.split('\n')[0].trim(), text: s }));
   const body = (t) => sections.filter((s) => s.title === t).map((s) => s.text).join('\n');
   const status = /^status:\s*(\S+)\s*$/m.exec(ticketFile.split('\n---\n')[0])?.[1];
@@ -24,6 +25,7 @@ export function evaluateLocalContract({ ticket, ticketFile, branches, prs = [], 
     pr_draft: ok(pr?.draft === true),
     pr_title_naming: ok(new RegExp(`^${ticket}: \\S`).test(pr?.title ?? '')),
     app_stopped: appListening === null ? null : ok(!appListening),
+    no_worktree: ok(worktrees === 1),
     no_screenshots_in_repo: ok(!/^diff --git a\/\S+\.(png|jpe?g|webp|gif) /mi.test(diff)),
   };
 }

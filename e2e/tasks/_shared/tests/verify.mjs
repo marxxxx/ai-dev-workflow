@@ -49,7 +49,10 @@ if (pr) try {
   ownTests = 0;
 }
 
-const checks = evaluateContract({ issue, comments, pulls, prDiff, appListening: await listening('http://127.0.0.1:3000/health') });
+const worktreeList = run('/workspace', 'git', ['-c', 'safe.directory=*', 'worktree', 'list', '--porcelain']).out;
+write('worktrees.txt', worktreeList);
+const worktrees = worktreeList.split('\n').filter((l) => l.startsWith('worktree ')).length;
+const checks = evaluateContract({ issue, comments, pulls, prDiff, appListening: await listening('http://127.0.0.1:3000/health'), worktrees });
 const reward = { ...checks, own_tests_pass: ownTests };
 write('reward.json', reward);
 write('notes.txt', Object.entries(reward).filter(([, v]) => v !== 1).map(([k, v]) => `${k}=${v}`).join('\n'));

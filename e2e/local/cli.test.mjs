@@ -58,7 +58,7 @@ function stubs(root, over = {}) {
     makeDecide: rec('makeDecide', (a) => { seen.decide = a; return () => ({ action: 'done', stuck: false }); }),
     runConversation: rec('conversation', async (a) => { seen.conversation = a; return { turns: 2, humanAsked: 0, done: true, stuck: false, error: null }; }),
     askHuman: () => 'x',
-    collectSandbox: rec('collect', () => ({ ticketFile: TICKET_FILE, branches: ['7_due'], bundle: '/b.bundle', diff: '',
+    collectSandbox: rec('collect', () => ({ ticketFile: TICKET_FILE, branches: ['7_due'], worktrees: 1, bundle: '/b.bundle', diff: '',
       prs: [{ tool: 'gh', branch: '7_due', draft: true, title: '7: Due dates' }] })),
     draftAcceptance: rec('draft', (a) => { seen.draft = a; return [{ id: 'AC1', text: 'a date shows' }]; }),
     confirmAcceptance: rec('confirm', async ({ draft, file }) => { writeFileSync(file, draft); return parseCriteria(draft); }),
@@ -391,7 +391,7 @@ test('runE2e: no PR head gives the empty outcome; a human answer marks the run n
   const root = project();
   try {
     const s = stubs(root, {
-      collectSandbox: () => ({ ticketFile: '', branches: [], bundle: null, diff: '' }),
+      collectSandbox: () => ({ ticketFile: '', branches: [], worktrees: 1, bundle: null, diff: '' }),
       runConversation: async () => ({ turns: 3, humanAsked: 2, done: true, stuck: false, error: null }),
     });
     const code = await runE2e(opts(root), s.deps);

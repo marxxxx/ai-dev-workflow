@@ -9,7 +9,7 @@ The generator is a zero-dependency Node script, published to npm as
 [`@strobl_dev/adw`](https://www.npmjs.com/package/@strobl_dev/adw). The consuming project does
 **not** need to be a Node project. It works in any repo (C#/.NET, Go, Rust, …) — the only
 requirement is Node on the machine that runs the generator (your dev box and CI). Pin a version
-(e.g. `@0.40.3`) so devs and CI stay in sync.
+(e.g. `@0.41.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -35,7 +35,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes .adw/project.json, prints the recommended tooling
-npx @strobl_dev/adw@0.40.3 init
+npx @strobl_dev/adw@0.41.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -45,12 +45,12 @@ npx @strobl_dev/adw@0.40.3 init
 #    with your coding agent's native /init.)
 
 # 3. generate the platform files
-npx @strobl_dev/adw@0.40.3 generate
+npx @strobl_dev/adw@0.41.0 generate
 
 # 4. commit .adw/project.json and the generated dirs
 ```
 
-Pin the version (`@0.40.3`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the version (`@0.41.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 Versions up to v0.23.0 were only distributed from Git (`npx github:marxxxx/ai-dev-workflow#v0.23.0`).
 npm 12 refuses git specs by default (`EALLOWGIT`); add `--allow-git=all` if you still need one.
@@ -230,6 +230,10 @@ and records the `skills` opt-in. Run
 **`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
 changes the config hash); no `upgrade` step is needed.
 
+**Upgrading to v0.41.0.** `agent-dev` no longer creates git worktrees: it works on the ticket's
+branch in your current checkout, so you can see and check out the work from the host before it is
+pushed. `upgrade` does it. Remove leftover worktrees with `git worktree list` and `git worktree remove`.
+
 **Upgrading to v0.40.3.** The show-me skill is now installed as a copy in `.claude/skills/show-me/`
 instead of a link. A link created on Windows pointed to a host path, so Claude Code in the dev
 container could not load the skill. `upgrade` replaces an existing link.
@@ -282,8 +286,8 @@ the developer journal/handoff, and the e2e include are gone; ticket states shrin
 longer produces; run `upgrade` instead, which removes them and then generates:
 
 ```bash
-npx @strobl_dev/adw@0.40.3 upgrade --dry-run   # list what would change
-npx @strobl_dev/adw@0.40.3 upgrade
+npx @strobl_dev/adw@0.41.0 upgrade --dry-run   # list what would change
+npx @strobl_dev/adw@0.41.0 upgrade
 ```
 
 It deletes these files, but only where they still carry the generator's `DO NOT EDIT` banner (a

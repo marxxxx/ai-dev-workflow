@@ -9,12 +9,13 @@ const good = {
   pulls: [{ title: 'WIP: 1: Due dates', merged: false, base: { ref: 'main' }, head: { ref: '1_due_dates' } }],
   prDiff: 'diff --git a/src/app.mjs b/src/app.mjs\n',
   appListening: false,
+  worktrees: 1,
 };
 
 test('a correct run passes every verifier-side contract check', () => {
   const c = evaluateContract(good);
   assert.ok(Object.values(c).every((v) => v === 1), JSON.stringify(c));
-  assert.equal(Object.keys(c).length, 12);
+  assert.equal(Object.keys(c).length, 13);
 });
 
 test('a short in-chat agreement counts as a complete spec comment', () => {
@@ -41,6 +42,7 @@ test('each deviation fails exactly its check', () => {
     ['pr_draft', { pulls: [{ ...good.pulls[0], title: '1: Due dates' }] }],
     ['branch_naming', { pulls: [{ ...good.pulls[0], head: { ref: 'feature/due' } }] }],
     ['app_stopped', { appListening: true }],
+    ['no_worktree', { worktrees: 2 }],
     ['no_screenshots_in_repo', { prDiff: 'diff --git a/shot.png b/shot.png\nnew file mode 100644\n' }],
   ];
   for (const [check, patch] of cases) {
