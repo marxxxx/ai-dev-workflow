@@ -70,7 +70,8 @@ async function startServer() {
   };
   mkdirSync(settings.HOME);
   mkdirSync(settings.ADW_MCP_WORKSPACE);
-  const saved = Object.fromEntries(Object.keys(settings).map((key) => [key, process.env[key]]));
+  // createRuntime also sets ADW_MCP_TURN_TIMEOUT_SEC; stop() puts it back too.
+  const saved = Object.fromEntries([...Object.keys(settings), 'ADW_MCP_TURN_TIMEOUT_SEC'].map((key) => [key, process.env[key]]));
   Object.assign(process.env, settings);
 
   const logged = [];
@@ -343,8 +344,8 @@ test('createServer picks https only when config.tls is set, reading the files', 
 });
 
 test('alignEnv makes the process environment agree with the config, so workers use the same paths, and drops the token', () => {
-  const config = { token: TOKEN, home: '/data/home', workspace: '/data/ws' };
-  const target = { HOME: '/other', ADW_MCP_WORKSPACE: undefined, PATH: '/bin', ADW_MCP_TOKEN: TOKEN, ADW_MCP_TLS_CERT: '/c.pem', ADW_MCP_PORT: '9000' };
+  const config = { token: TOKEN, home: '/data/home', workspace: '/data/ws', turnTimeoutSec: 14400 };
+  const target = { HOME: '/other', ADW_MCP_WORKSPACE: undefined, PATH: '/bin', ADW_MCP_TOKEN: TOKEN, ADW_MCP_TLS_CERT: '/c.pem', ADW_MCP_PORT: '9000', ADW_MCP_TURN_TIMEOUT_SEC: '' };
   alignEnv(config, target);
   assert.equal(target.HOME, '/data/home');
   assert.equal(target.ADW_MCP_WORKSPACE, '/data/ws');
@@ -355,6 +356,8 @@ test('alignEnv makes the process environment agree with the config, so workers u
   const settings = acpxSettings(target);
   assert.equal(settings.storeDir, join('/data/home', '.adw-mcp', 'sessions'));
   assert.equal(settings.workspace, '/data/ws');
+  assert.equal(target.ADW_MCP_TURN_TIMEOUT_SEC, '14400');
+  assert.equal(settings.timeoutSec, 14400);
 });
 
 test('createRuntime puts the store under <home>/.adw-mcp/sessions and aligns the environment', async (t) => {

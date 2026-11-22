@@ -106,12 +106,14 @@ export function createServer({ config, tools, serverInfo = SERVER_INFO, log = (l
   return factories.https({ ...TIMEOUTS, cert: readFileSync(config.tls.cert), key: readFileSync(config.tls.key) }, handler);
 }
 
-// The runner and the worker read HOME and ADW_MCP_WORKSPACE from the environment, and a worker inherits ours: both must
-// say what the config says, or the server and its workers would look at different stores and workspaces. The token
+// The runner and the worker read HOME, ADW_MCP_WORKSPACE and ADW_MCP_TURN_TIMEOUT_SEC from the environment, and a worker
+// inherits ours: all must say what the config says, or the server and its workers would look at different stores and
+// workspaces, or build different acpx calls for one session. The token
 // (config.token holds it) is removed: workers pass their environment on to acpx and to an agent that runs untrusted input.
 export function alignEnv(config, env = process.env) {
   if (env.HOME !== config.home) env.HOME = config.home;
   if (env.ADW_MCP_WORKSPACE !== config.workspace) env.ADW_MCP_WORKSPACE = config.workspace;
+  env.ADW_MCP_TURN_TIMEOUT_SEC = String(config.turnTimeoutSec);
   delete env.ADW_MCP_TOKEN;
 }
 

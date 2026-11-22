@@ -34,7 +34,7 @@ test('error messages never contain the token', () => {
 
 test('defaults', () => {
   assert.deepEqual(loadConfig({ ADW_MCP_TOKEN: TOKEN }), {
-    token: TOKEN, host: '0.0.0.0', port: 8787, tls: null, home: '/home/dev', workspace: '/workspace',
+    token: TOKEN, host: '0.0.0.0', port: 8787, tls: null, home: '/home/dev', workspace: '/workspace', turnTimeoutSec: 14400,
   });
 });
 
@@ -56,6 +56,17 @@ test('port must be an integer from 1 to 65535', () => {
     }, port);
   }
   assert.equal(loadConfig({ ADW_MCP_TOKEN: TOKEN, ADW_MCP_PORT: '65535' }).port, 65535);
+});
+
+test('turn timeout must be an integer from 60 to 86400; empty is the default', () => {
+  for (const value of ['59', '86401', 'abc', '600.5', '-60', ' 600', '1e3']) {
+    assert.throws(() => loadConfig({ ADW_MCP_TOKEN: TOKEN, ADW_MCP_TURN_TIMEOUT_SEC: value }), {
+      message: 'ADW_MCP_TURN_TIMEOUT_SEC must be an integer from 60 to 86400',
+    }, value);
+  }
+  for (const [value, expected] of [['60', 60], ['86400', 86400], ['7200', 7200], ['', 14400], [undefined, 14400]]) {
+    assert.equal(loadConfig({ ADW_MCP_TOKEN: TOKEN, ADW_MCP_TURN_TIMEOUT_SEC: value }).turnTimeoutSec, expected, String(value));
+  }
 });
 
 test('TLS cert and key must be set together', () => {

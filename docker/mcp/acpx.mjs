@@ -1,13 +1,13 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
+import { DEFAULT_TURN_TIMEOUT_SEC, turnTimeoutSec } from './config.mjs';
 import { adapterCommand } from './harness.mjs';
 
-export const TURN_TIMEOUT_SEC = 1800;
-
-// Where a session runs and which home acpx keeps its state in (~/.acpx); the same for the server and its workers.
+// Where a session runs, which home acpx keeps its state in (~/.acpx) and how long a turn may run; the same for the server
+// and its workers.
 export function acpxSettings(env = process.env) {
   const home = env.HOME ?? '/home/dev';
-  return { home, workspace: env.ADW_MCP_WORKSPACE ?? '/workspace', storeDir: join(home, '.adw-mcp', 'sessions'), timeoutSec: TURN_TIMEOUT_SEC };
+  return { home, workspace: env.ADW_MCP_WORKSPACE ?? '/workspace', storeDir: join(home, '.adw-mcp', 'sessions'), timeoutSec: turnTimeoutSec(env) };
 }
 
 // One argv word per element, in the quoting acpx's --agent parser reads back (single quotes are literal; a quote is
@@ -19,7 +19,7 @@ export const joinCommand = (argv) => argv
 // Global flags go before the subcommand and are identical for every call of a session: acpx finds a named session by
 // adapter command + cwd + name. No .acpxrc.json, so nothing is written into the workspace. The prompt text goes in on
 // stdin (`-f -`), never as an argv word.
-export function acpxArgs({ agent, cwd, timeoutSec = TURN_TIMEOUT_SEC }) {
+export function acpxArgs({ agent, cwd, timeoutSec = DEFAULT_TURN_TIMEOUT_SEC }) {
   const prefix = ['acpx', '--agent', agent, '--approve-all', '--format', 'quiet', '--ttl', '0', '--timeout', String(timeoutSec), '--cwd', cwd];
   return {
     ensure: (session) => [...prefix, 'sessions', 'ensure', '-s', session],

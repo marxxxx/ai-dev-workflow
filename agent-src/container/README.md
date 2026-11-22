@@ -125,6 +125,8 @@ Settings in `.adw/.env`:
 - `ADW_MCP_TLS_CERT` and `ADW_MCP_TLS_KEY` (both or neither): a PEM certificate and key, as paths in
   the container, e.g. `/workspace/certs/mcp.pem` for a file in the project. Over plain HTTP the
   token is readable on the network: set them unless the port stays on a trusted network.
+- `ADW_MCP_TURN_TIMEOUT_SEC` (default `14400`, 4 hours; 60 to 86400): how long one agent turn may
+  run before the session fails.
 
 One session per workspace: while a session is `running` or `idle`, `start_session` refuses another.
 `idle` means the agent waits for an answer or is finished: read `last_message`, then answer with

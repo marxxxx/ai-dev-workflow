@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { acpxArgs, defaultExec, joinCommand } from './acpx.mjs';
+import { acpxArgs, acpxFor, acpxSettings, defaultExec, joinCommand } from './acpx.mjs';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const prefix = (agent) => ['acpx', '--agent', agent, '--approve-all', '--format', 'quiet', '--ttl', '0', '--timeout', '1800', '--cwd', '/workspace'];
@@ -14,9 +14,21 @@ test('acpxArgs share one global-flag prefix and differ only in the subcommand', 
   assert.deepEqual(args.close(ID), [...prefix(agent), 'sessions', 'close', ID]);
 });
 
-test('acpxArgs takes the timeout as a string and defaults it to 1800', () => {
+test('acpxArgs takes the timeout as a string and defaults it to 14400 (4 h)', () => {
   assert.deepEqual(acpxArgs({ agent: 'a', cwd: '/w', timeoutSec: 60 }).cancel(ID).slice(8, 10), ['--timeout', '60']);
-  assert.deepEqual(acpxArgs({ agent: 'a', cwd: '/w' }).cancel(ID).slice(8, 10), ['--timeout', '1800']);
+  assert.deepEqual(acpxArgs({ agent: 'a', cwd: '/w' }).cancel(ID).slice(8, 10), ['--timeout', '14400']);
+});
+
+test('acpxSettings reads the turn timeout from ADW_MCP_TURN_TIMEOUT_SEC, and every call of a session uses it', () => {
+  assert.equal(acpxSettings({}).timeoutSec, 14400);
+  assert.equal(acpxSettings({ ADW_MCP_TURN_TIMEOUT_SEC: '' }).timeoutSec, 14400);
+  const settings = acpxSettings({ ADW_MCP_TURN_TIMEOUT_SEC: '7200' });
+  assert.equal(settings.timeoutSec, 7200);
+  const args = acpxFor('opencode', settings, '');
+  for (const argv of [args.ensure(ID), args.prompt(ID), args.cancel(ID), args.close(ID)]) {
+    assert.deepEqual(argv.slice(8, 10), ['--timeout', '7200']);
+  }
+  assert.throws(() => acpxSettings({ ADW_MCP_TURN_TIMEOUT_SEC: '30' }), { message: 'ADW_MCP_TURN_TIMEOUT_SEC must be an integer from 60 to 86400' });
 });
 
 test('the prompt text never enters argv (it goes in on stdin)', () => {

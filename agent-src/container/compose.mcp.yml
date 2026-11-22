@@ -13,6 +13,7 @@
 #   published port. Inside the container the server always listens on 0.0.0.0:8787.
 # - ADW_MCP_TLS_CERT / ADW_MCP_TLS_KEY (both or neither): container paths of a PEM certificate and
 #   key, so they must live under the project (/workspace/...) or in a mount you add here.
+# - ADW_MCP_TURN_TIMEOUT_SEC (default 14400 = 4 h, 60 to 86400): how long one agent turn may run.
 #
 # SECURITY: anyone who reaches the port with the token runs agents in this project. Over plain HTTP
 # the token is readable on the network: set the TLS paths, or keep the bind on a trusted network.
@@ -32,5 +33,6 @@ services:
       ADW_MCP_PORT: "8787"
       ADW_MCP_TLS_CERT: ${ADW_MCP_TLS_CERT:-}
       ADW_MCP_TLS_KEY: ${ADW_MCP_TLS_KEY:-}
+      ADW_MCP_TURN_TIMEOUT_SEC: ${ADW_MCP_TURN_TIMEOUT_SEC:-}
     ports: !override
       - "${ADW_MCP_BIND:-127.0.0.1}:${ADW_MCP_PORT:-8787}:8787"

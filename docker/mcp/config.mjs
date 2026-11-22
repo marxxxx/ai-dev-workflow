@@ -1,4 +1,15 @@
 const MIN_TOKEN_LENGTH = 32;
+export const DEFAULT_TURN_TIMEOUT_SEC = 4 * 60 * 60;
+
+// How long one turn may run (acpx --timeout). The server and its workers both read it from the environment: it is part
+// of the acpx argv prefix, which must be the same for every call of a session. Empty is the default.
+export function turnTimeoutSec(env = process.env) {
+  const value = env.ADW_MCP_TURN_TIMEOUT_SEC;
+  if (value === undefined || value === '') return DEFAULT_TURN_TIMEOUT_SEC;
+  const sec = /^\d+$/.test(value) ? Number(value) : NaN;
+  if (!Number.isInteger(sec) || sec < 60 || sec > 86400) throw new Error('ADW_MCP_TURN_TIMEOUT_SEC must be an integer from 60 to 86400');
+  return sec;
+}
 
 export function loadConfig(env = process.env) {
   const token = env.ADW_MCP_TOKEN;
@@ -18,6 +29,7 @@ export function loadConfig(env = process.env) {
   if (Boolean(cert) !== Boolean(key)) {
     throw new Error('ADW_MCP_TLS_CERT and ADW_MCP_TLS_KEY must be set together');
   }
+  const timeout = turnTimeoutSec(env);
 
   return {
     token,
@@ -26,5 +38,6 @@ export function loadConfig(env = process.env) {
     tls: cert ? { cert, key } : null,
     home: env.HOME ?? '/home/dev',
     workspace: env.ADW_MCP_WORKSPACE ?? '/workspace',
+    turnTimeoutSec: timeout,
   };
 }
