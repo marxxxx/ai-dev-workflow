@@ -82,7 +82,10 @@ The owner chose approach 1.
 ### Configuration (environment)
 
 - `ADW_MCP_TOKEN` (required, at least 32 characters; otherwise the server exits with a clear message).
-- `ADW_MCP_BIND` (default `127.0.0.1`; set `0.0.0.0` to be reachable from the internet), `ADW_MCP_PORT`.
+- `ADW_MCP_BIND` (default `127.0.0.1`; set `0.0.0.0` to be reachable from the internet) and
+  `ADW_MCP_PORT` (default `8787`) are the **host side of the published port** in
+  `.adw/compose.mcp.yml`. Inside the container the server always listens on `0.0.0.0:8787`
+  (`ADW_MCP_HOST` / `ADW_MCP_PORT` as read by the server, only for running it outside the container).
 - `ADW_MCP_TLS_CERT`, `ADW_MCP_TLS_KEY` (optional paths; both or neither).
 
 ### Protocol
