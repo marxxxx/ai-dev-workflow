@@ -334,6 +334,23 @@ test('cmdInit with container.mcp y keeps an ADW_MCP_TOKEN already in .adw/.env a
   }
 });
 
+test('cmdInit with container.mcp y notes an existing launcher without the mcp command, and not a fresh one', async () => {
+  for (const old of [true, false]) {
+    const { root, cleanup } = makeTmpRoot();
+    const out = captureLog();
+    try {
+      if (old) fs.writeFileSync(path.join(root, 'adw.sh'), '#!/bin/sh\nexec docker compose run --rm ai-dev-workflow "$@"\n');
+      const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'generic', mcp: 'y' } };
+      assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+      if (old) assert.match(out.text(), /Note: adw\.sh has no `mcp` command/);
+      else assert.doesNotMatch(out.text(), /no `mcp` command/);
+    } finally {
+      out.restore();
+      cleanup();
+    }
+  }
+});
+
 /** A fake `npx skills add` runner that records its calls. */
 function fakeSkillRun({ fail = false } = {}) {
   const calls = [];

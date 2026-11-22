@@ -177,9 +177,13 @@ export function writeContainerFiles(projectRoot, { env = {}, ...opts }) {
   if (ensureLine(path.join(projectRoot, '.gitignore'), ENV_FILE)) written.push('.gitignore');
   if (ensureLine(path.join(projectRoot, '.gitattributes'), `${LAUNCHERS.sh} text eol=lf`)) written.push('.gitattributes');
   let envChanged = false;
+  const envFile = path.join(projectRoot, ENV_FILE);
   for (const [key, value] of Object.entries(env)) {
-    if (setEnvVar(path.join(projectRoot, ENV_FILE), key, value)) envChanged = true;
-    else kept.push(key);
+    if (setEnvVar(envFile, key, value)) {
+      envChanged = true;
+      // The MCP token lets anyone who reaches the server run agents: keep it from other local users.
+      if (key === 'ADW_MCP_TOKEN') fs.chmodSync(envFile, 0o600);
+    } else kept.push(key);
   }
   if (envChanged) written.push(ENV_FILE);
   return { written, skipped, kept };
@@ -195,8 +199,8 @@ export function containerWarnings(projectRoot) {
   return [killWarning(projectRoot), pullWarning(projectRoot), mcpLauncherWarning(projectRoot)].filter(Boolean);
 }
 
-// Launchers written before the MCP server have no `mcp` command, so they cannot start .adw/compose.mcp.yml.
-function mcpLauncherWarning(projectRoot) {
+/** Launchers written before the MCP server have no `mcp` command, so they cannot start .adw/compose.mcp.yml. */
+export function mcpLauncherWarning(projectRoot) {
   if (!fs.existsSync(path.join(projectRoot, COMPOSE_FILES.mcp))) return null;
   const old = Object.values(LAUNCHERS).filter((name) => {
     const file = path.join(projectRoot, name);

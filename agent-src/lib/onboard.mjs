@@ -8,7 +8,7 @@ import readline from 'node:readline';
 import { SRC_DIR, PROJECT_FILE, ADW_DIR, argValue } from './constants.mjs';
 import { detectRepoSlug } from './identity.mjs';
 import { readJson, buildProjectConfig } from './config.mjs';
-import { STACKS, DIND_WARNING, MCP_NOTE, detectStack, writeContainerFiles, nextSteps } from './container.mjs';
+import { STACKS, DIND_WARNING, MCP_NOTE, detectStack, writeContainerFiles, nextSteps, mcpLauncherWarning } from './container.mjs';
 import { assertCurrentLayout } from './layout.mjs';
 import { loadSkillPins, installSkills, reportSkills } from './skills.mjs';
 
@@ -251,7 +251,11 @@ export function setUpContainer(projectRoot, { stack, env, mcp = false }, config)
              !(path.isAbsolute(env.AGENT_CA_DIR) && fs.statSync(env.AGENT_CA_DIR, { throwIfNoEntry: false })?.isDirectory())) {
     console.log(`\nWarning: AGENT_CA_DIR=${env.AGENT_CA_DIR} is not an existing absolute directory; the container will not start until it is. Fix it in .adw/.env.`);
   }
-  if (mcp) console.log(`\n${MCP_NOTE}`);
+  if (mcp) {
+    console.log(`\n${MCP_NOTE}`);
+    const launcherNote = mcpLauncherWarning(projectRoot);
+    if (launcherNote) console.log(`\n${launcherNote}`);
+  }
   console.log(`\n${nextSteps({ backend, version: packageVersion() })}`);
 }
 

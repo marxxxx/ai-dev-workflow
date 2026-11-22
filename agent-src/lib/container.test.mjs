@@ -313,7 +313,7 @@ test('nextSteps prefixes every container command with the launcher', () => {
 // the arguments, NUL separated) and fails `pull` when FAKE_PULL_FAILS=1. `config` prints a build:
 // section with FAKE_BUILDABLE=1; FAKE_BUILD_PULL_FAILS / FAKE_BUILD_FAILS fail `build --pull` / every build. Returns each call's
 // arguments with its AGENT_IMAGE, and the stderr.
-const cleanEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^AGENT_(DIND|CA_DIR)$/.test(k)));
+const cleanEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(AGENT_(DIND|CA_DIR)|ADW_MCP_TOKEN)$/.test(k)));
 
 function fakeDocker(root) {
   const bin = path.join(root, 'bin');
@@ -333,16 +333,16 @@ function fakeDocker(root) {
   return { bin, log };
 }
 
-function runLauncher(env = {}, dotenv, legacyDotenv) {
+function runLauncher(env = {}, dotenv, legacyDotenv, { args = ['true'], mcp = false } = {}) {
   const { root, cleanup } = makeTmpRoot();
   try {
-    writeContainerFiles(root, OPTS);
+    writeContainerFiles(root, { ...OPTS, mcp });
     if (dotenv) fs.writeFileSync(path.join(root, '.adw/.env'), dotenv);
     if (legacyDotenv) fs.writeFileSync(path.join(root, '.env.ai-dev'), legacyDotenv);
     const { bin, log } = fakeDocker(root);
-    const result = spawnSync('sh', [path.join(root, 'adw.sh'), 'true'],
+    const result = spawnSync('sh', [path.join(root, 'adw.sh'), ...args],
       { env: { ...cleanEnv(), ...env, PATH: `${bin}:${process.env.PATH}` }, encoding: 'utf8' });
-    const calls = fs.readFileSync(log, 'utf8').split('\n').filter(Boolean)
+    const calls = (fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '').split('\n').filter(Boolean)
       .map((line) => line.split('\0').slice(0, -1).map((a) => (path.isAbsolute(a) ? path.relative(root, a) : a)))
       .map(([image, ...args]) => Object.assign(args, { image }));
     return { status: result.status, stderr: result.stderr, calls };
@@ -371,7 +371,7 @@ test('adw.sh adds the dind overlay only for AGENT_DIND=1, and its certs companio
 
 // The launcher's step before the run: pull, build --pull, build, by their verb.
 const steps = (calls) => calls.map((c) => {
-  const verb = c.find((a) => ['config', 'pull', 'build', 'run'].includes(a));
+  const verb = c.find((a) => ['config', 'pull', 'build', 'run', 'up', 'stop'].includes(a));
   return verb === 'build' && c.includes('--pull') ? 'build --pull' : verb;
 });
 
@@ -421,6 +421,92 @@ test('adw.ps1 mirrors the build-or-pull step of adw.sh', () => {
   assert.match(ps1, /'build', '--pull', 'ai-dev-workflow'/);
   assert.match(ps1, /'build', 'ai-dev-workflow'/);
   assert.match(ps1, /'pull', 'ai-dev-workflow'/);
+});
+
+// The mcp command: a token in .adw/.env, the compose files of a call and what follows them.
+const MCP_DOTENV = `ADW_MCP_TOKEN=${'t'.repeat(48)}\n`;
+const composeFiles = (args) => args.flatMap((a, i) => (args[i - 1] === '-f' ? [a] : []));
+const afterFiles = (args) => args.slice(args.lastIndexOf('-f') + 2);
+const runMcp = (args, { env = {}, dotenv = MCP_DOTENV, mcp = true } = {}) =>
+  runLauncher(env, dotenv, undefined, { args: ['mcp', ...args], mcp });
+
+test('adw.sh mcp updates the image like a normal start, then starts adw-mcp with the MCP overlay', { skip: process.platform === 'win32' }, () => {
+  const { status, stderr, calls } = runMcp([]);
+  assert.equal(status, 0, stderr);
+  assert.deepEqual(steps(calls), ['config', 'pull', 'up']);
+  assert.deepEqual(composeFiles(calls[1]), ['.adw/compose.yml'], 'the pull leaves the MCP overlay out');
+  assert.deepEqual(composeFiles(calls[2]), ['.adw/compose.yml', '.adw/compose.mcp.yml']);
+  assert.deepEqual(afterFiles(calls[2]), ['up', 'adw-mcp']);
+
+  const built = runMcp([], { env: { FAKE_BUILDABLE: '1' } });
+  assert.equal(built.status, 0, built.stderr);
+  assert.deepEqual(steps(built.calls), ['config', 'build --pull', 'up']);
+});
+
+test('adw.sh mcp passes its arguments to up before the service, keeping the usual overlays', { skip: process.platform === 'win32' }, () => {
+  const { status, stderr, calls } = runMcp(['-d'], { dotenv: `${MCP_DOTENV}AGENT_DIND=1\nAGENT_CA_DIR=/certs\n` });
+  assert.equal(status, 0, stderr);
+  assert.deepEqual(composeFiles(calls.at(-1)), ['.adw/compose.yml', '.adw/compose.certs.yml', '.adw/compose.dind.yml',
+    '.adw/compose.dind-certs.yml', '.adw/compose.mcp.yml', '.adw/compose.mcp-certs.yml']);
+  assert.deepEqual(afterFiles(calls.at(-1)), ['up', '-d', 'adw-mcp']);
+});
+
+test('adw.sh mcp down stops adw-mcp only, without an image update', { skip: process.platform === 'win32' }, () => {
+  const { status, stderr, calls } = runMcp(['down']);
+  assert.equal(status, 0, stderr);
+  assert.deepEqual(steps(calls), ['stop']);
+  assert.deepEqual(composeFiles(calls[0]), ['.adw/compose.yml', '.adw/compose.mcp.yml']);
+  assert.deepEqual(afterFiles(calls[0]), ['stop', 'adw-mcp']);
+});
+
+test('adw.sh mcp without the overlay says how to enable it and calls no docker', { skip: process.platform === 'win32' }, () => {
+  const { status, stderr, calls } = runMcp([], { mcp: false });
+  assert.equal(status, 1);
+  assert.match(stderr, /adw init/);
+  assert.match(stderr, /MCP/);
+  assert.deepEqual(calls, []);
+});
+
+test('adw.sh mcp without ADW_MCP_TOKEN says where to set it and calls no docker', { skip: process.platform === 'win32' }, () => {
+  for (const dotenv of ['', 'ADW_MCP_TOKEN=\n']) {
+    for (const args of [[], ['down']]) {
+      const { status, stderr, calls } = runMcp(args, { dotenv });
+      assert.equal(status, 1, `${dotenv} ${args}`);
+      assert.match(stderr, /ADW_MCP_TOKEN/);
+      assert.match(stderr, /\.adw\/\.env/);
+      assert.deepEqual(calls, []);
+    }
+  }
+});
+
+test('adw.ps1 mirrors the mcp command of adw.sh', () => {
+  const ps1 = fileOf(renderContainerFiles({ name: 'Demo', stack: 'generic', backend: 'file', mcp: true }), 'adw.ps1').content;
+  assert.match(ps1, /\$args\[0\] -eq 'mcp'/);
+  assert.match(ps1, /'\.adw\/compose\.mcp\.yml'/);
+  assert.match(ps1, /if \(\$env:AGENT_CA_DIR\) \{[^}]*'\.adw\/compose\.mcp-certs\.yml'/);
+  assert.match(ps1, /'stop'\)[^\n]*'adw-mcp'/);
+  assert.match(ps1, /'up'\)[^\n]*'adw-mcp'/);
+  assert.match(ps1, /ADW_MCP_TOKEN/);
+});
+
+test('writeContainerFiles with mcp: true writes launchers that containerWarnings accepts', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeContainerFiles(root, { ...OPTS, mcp: true });
+    assert.deepEqual(containerWarnings(root), []);
+  } finally {
+    cleanup();
+  }
+});
+
+test('writeContainerFiles makes .adw/.env readable by the owner only when it writes ADW_MCP_TOKEN', { skip: process.platform === 'win32' }, () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    writeContainerFiles(root, { ...OPTS, mcp: true, env: { ADW_MCP_TOKEN: 'fresh' } });
+    assert.equal(fs.statSync(path.join(root, '.adw/.env')).mode & 0o777, 0o600);
+  } finally {
+    cleanup();
+  }
 });
 
 test('.adw/README.md explains the opt-in daemon and how to stop it for this project', () => {
