@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import { applyTurnResult } from './sessions.mjs';
 import { createStore } from './store.mjs';
 import { cancelTurn, isAlive, startTurn } from './runner.mjs';
@@ -11,7 +11,14 @@ import { runTurn } from './worker.mjs';
 const ID = '00000000-0000-4000-8000-000000000001';
 const NOW = '2026-01-01T00:00:00.000Z';
 const now = () => NOW;
-const tmp = () => mkdtempSync(join(tmpdir(), 'adw-worker-'));
+// Every temp dir of this file, removed once its tests are done.
+const dirs = [];
+after(() => { for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
+const tmp = () => {
+  const dir = mkdtempSync(join(tmpdir(), 'adw-worker-'));
+  dirs.push(dir);
+  return dir;
+};
 
 function setup({ turn = 1, status = 'running', harness = 'codex' } = {}) {
   const home = tmp();

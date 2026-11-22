@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import { createStore } from './store.mjs';
 
 const ID = '11111111-1111-4111-8111-111111111111';
@@ -11,7 +11,14 @@ const record = (id, extra = {}) => ({
   id, harness: 'codex', task: 't', status: 'running', turn: 1, lastMessage: null, error: null,
   createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', pid: 42, ...extra,
 });
-const tmp = () => mkdtempSync(join(tmpdir(), 'adw-store-'));
+// Every temp dir of this file, removed once its tests are done.
+const dirs = [];
+after(() => { for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
+const tmp = () => {
+  const dir = mkdtempSync(join(tmpdir(), 'adw-store-'));
+  dirs.push(dir);
+  return dir;
+};
 
 test('create and get round trip', () => {
   const store = createStore(tmp());

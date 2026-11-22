@@ -1,13 +1,22 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import { HARNESSES, SessionError, applyTurnResult, createSessions } from './sessions.mjs';
 import { createStore } from './store.mjs';
 
+// Every temp dir of this file, removed once its tests are done.
+const dirs = [];
+after(() => { for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
+const tmp = () => {
+  const dir = mkdtempSync(join(tmpdir(), 'adw-sessions-'));
+  dirs.push(dir);
+  return dir;
+};
+
 function setup({ alive = () => true } = {}) {
-  const store = createStore(mkdtempSync(join(tmpdir(), 'adw-sessions-')));
+  const store = createStore(tmp());
   const calls = { startTurn: [], cancel: [] };
   let n = 0;
   let pid = 100;
@@ -279,7 +288,7 @@ test('applyTurnResult leaves a terminated session unchanged', async () => {
 });
 
 test('a startTurn that throws leaves a failed session, not a stuck running one', () => {
-  const store = createStore(mkdtempSync(join(tmpdir(), 'adw-sessions-')));
+  const store = createStore(tmp());
   const sessions = createSessions({
     store,
     startTurn: () => { throw new Error('spawn failed'); },

@@ -1,14 +1,21 @@
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import { fallbackCommand } from '../../e2e/local/answerer.mjs';
 import { acpCommand as e2eAcpCommand } from '../../e2e/local/session.mjs';
 import { acpCommand, openingText, prepareHarness, resolveCli } from './harness.mjs';
 
 const HARNESSES = ['claude-code', 'codex', 'opencode'];
-const tmp = () => mkdtempSync(join(tmpdir(), 'adw-harness-'));
+// Every temp dir of this file, removed once its tests are done.
+const dirs = [];
+after(() => { for (const dir of dirs) rmSync(dir, { recursive: true, force: true }); });
+const tmp = () => {
+  const dir = mkdtempSync(join(tmpdir(), 'adw-harness-'));
+  dirs.push(dir);
+  return dir;
+};
 
 test('openingText starts agent-dev with / for Claude Code and $ for the others', () => {
   assert.equal(openingText('claude-code', 'PROJ-1'), '/agent-dev PROJ-1');
