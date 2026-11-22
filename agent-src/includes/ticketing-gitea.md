@@ -23,7 +23,7 @@ Created straight into `{{status.in-progress}}`; the output shows the new issue's
 
 ```bash
 BODY=$(cat <<'BODY_EOF'
-<a few sentences summarizing the spec; spec path>
+<a few sentences summarizing the agreed scope>
 BODY_EOF
 )
 tea issues create --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} \
@@ -43,12 +43,16 @@ tea comments add --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} <numbe
 
 ## Post the spec
 
-Post the agreed scope as a readable comment: heading, the spec path if there is one, then the full
-text. If it exceeds what the server accepts (it rejects the comment), split it at heading boundaries
-into numbered comments (`## {{artifact.spec}} (1/2)`, …), each repeating the path line.
+Post the condensed scope (`agent-dev` section 2, **Scope agreed**) as a readable comment: the
+heading, then the summary and any views. No spec or plan path.
 
 ```bash
-BODY=$({ printf '## {{artifact.spec}}\n`<spec path>`\n\n'; cat <spec path>; })
+BODY=$(cat <<'BODY_EOF'
+## {{artifact.spec}}
+
+<summary and views>
+BODY_EOF
+)
 tea comments add --login "{{ticketing.gitea.login}}" --repo {{repo.slug}} <number> "$BODY"
 ```
 

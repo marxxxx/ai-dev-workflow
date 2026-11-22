@@ -127,7 +127,7 @@ const BACKENDS = {
     review: /status: review/,
     draft: /gh pr create --draft/,
     create: /next_id/,
-    spec: /## Approved Spec\n`<spec path>` \(or the agreements\)\nBODY_EOF/,
+    spec: /## Approved Spec\n<summary and views \(or the agreements\)>\nBODY_EOF/,
   },
   github: {
     project: {
@@ -139,7 +139,7 @@ const BACKENDS = {
     review: /status:review/,
     draft: /gh pr create --draft/,
     create: /gh issue create/,
-    spec: /## Approved Spec[\s\S]*gh issue comment/,
+    spec: /## Post the spec[\s\S]*gh issue comment[\s\S]*## Approved Spec\n\n<summary and views>/,
   },
   gitea: {
     project: {
@@ -151,7 +151,7 @@ const BACKENDS = {
     review: /status:review/,
     draft: /--title "WIP: /,
     create: /tea issues create/,
-    spec: /## Approved Spec[\s\S]*tea comments add/,
+    spec: /## Post the spec[\s\S]*## Approved Spec\n\n<summary and views>[\s\S]*tea comments add/,
   },
   'azure-devops': {
     project: {
@@ -163,7 +163,7 @@ const BACKENDS = {
     review: /status:review/,
     draft: /--draft true/,
     create: /wit_work_item_write\(action: "create"/,
-    spec: /## Approved Spec[\s\S]*wit_work_item_comment_write/,
+    spec: /## Post the spec[\s\S]*wit_work_item_comment_write[\s\S]*## Approved Spec\\n\\n<summary and views>/,
   },
 };
 

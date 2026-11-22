@@ -17,7 +17,7 @@ is the number.
 ```bash
 cat <<'BODY_EOF' | gh issue create --repo {{repo.slug}} --title "<title>" \
   --label "{{status.in-progress}}" --body-file -
-<a few sentences summarizing the spec; spec path>
+<a few sentences summarizing the agreed scope>
 BODY_EOF
 ```
 
@@ -32,13 +32,15 @@ BODY_EOF
 
 ## Post the spec
 
-Post the agreed scope as a readable comment: heading, the spec path if there is one, then the full
-text. If it exceeds GitHub's 65,536-character comment limit, split it at heading boundaries into
-numbered comments (`## {{artifact.spec}} (1/2)`, …), each repeating the path line.
+Post the condensed scope (`agent-dev` section 2, **Scope agreed**) as a readable comment: the
+heading, then the summary and any views. No spec or plan path.
 
 ```bash
-{ printf '## {{artifact.spec}}\n`<spec path>`\n\n'; cat <spec path>; } \
-  | gh issue comment <number> --repo {{repo.slug}} --body-file -
+cat <<'BODY_EOF' | gh issue comment <number> --repo {{repo.slug}} --body-file -
+## {{artifact.spec}}
+
+<summary and views>
+BODY_EOF
 ```
 
 ## Status
