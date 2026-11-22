@@ -123,14 +123,17 @@ Settings in `.adw/.env`:
 - `ADW_MCP_BIND` (default `127.0.0.1`) and `ADW_MCP_PORT` (default `8787`): the host address and
   port. `ADW_MCP_BIND=0.0.0.0` makes the server reachable from the network.
 - `ADW_MCP_TLS_CERT` and `ADW_MCP_TLS_KEY` (both or neither): a PEM certificate and key, as paths in
-  the container, e.g. `/workspace/certs/mcp.pem` for a file in the project. Over plain HTTP the
-  token is readable on the network: set them unless the port stays on a trusted network.
+  the container, e.g. `/workspace/certs/mcp.pem` for a file in the project. Keep the key out of git
+  (a git-ignored directory): agents commit from `/workspace`. Over plain HTTP the token is readable
+  on the network: set them unless the port stays on a trusted network.
 - `ADW_MCP_TURN_TIMEOUT_SEC` (default `14400`, 4 hours; 60 to 86400): how long one agent turn may
   run before the session fails.
 
 One session per workspace: while a session is `running` or `idle`, `start_session` refuses another.
 `idle` means the agent waits for an answer or is finished: read `last_message`, then answer with
-`post_session` or end the session with `terminate_session`, which frees the workspace.
+`post_session` or end the session with `terminate_session`, which frees the workspace. Stopping or
+recreating the server (`./adw.sh mcp down`, or `./adw.sh mcp -d` after a new image) ends a running
+turn and its session as `failed`.
 
 Agents started through MCP get no Docker daemon, even with `AGENT_DIND=1`. Behind a company proxy
 (`AGENT_CA_DIR` set) the launchers add `.adw/compose.mcp-certs.yml` automatically. The server needs

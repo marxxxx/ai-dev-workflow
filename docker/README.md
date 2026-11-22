@@ -25,7 +25,9 @@ The build context is the standalone `docker/` directory. The base includes all
 three agents, local Serena, Playwright MCP and its matching Chromium, Context7,
 Azure DevOps MCP v2, Azure CLI with its `azure-devops` extension, the Gitea CLI
 `tea`, the Docker CLI with `buildx` and `compose` (no daemon), Superpowers, ccusage, `acpx` with the
-Claude and Codex ACP adapters (for `adw e2e` and the MCP server) and the opt-in MCP server itself (`mcp/`). The Node variant adds native compilation tools, a headless Java runtime (for
+Claude and Codex ACP adapters (for `adw e2e` and the MCP server) and the opt-in MCP server itself (`mcp/`). `acpx` and
+the adapters add about 0.9 GB on linux/amd64, mostly the Claude Code and Codex binaries the adapters bundle (they run
+the image's own `claude` and `codex` instead). The Node variant adds native compilation tools, a headless Java runtime (for
 Java-based tooling such as `openapi-generator-cli`), package managers and TypeScript semantic tooling; the .NET variant adds an exact SDK version, the matching `dotnet-ef` tool, Serena's C#
 language server, and trusts the ASP.NET Core HTTPS development certificate for `localhost`. Project dependency
 installation remains the consuming project's responsibility.
