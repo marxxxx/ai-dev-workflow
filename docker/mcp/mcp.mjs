@@ -6,7 +6,7 @@ const failure = (id, code, message) => ({ jsonrpc: '2.0', id: id ?? null, error:
 
 // One JSON-RPC message in, the response out; null when nothing is to be sent back (a notification or a client response).
 // Stateless: no session between calls, so batches (arrays) are not supported.
-export async function handleMessage(message, { tools, serverInfo }) {
+export async function handleMessage(message, { tools, serverInfo, log = (line) => console.error(line) }) {
   if (message === null || typeof message !== 'object' || Array.isArray(message)) return failure(null, -32600, 'invalid request');
   const { id, method, params } = message;
   if (typeof method !== 'string') {
@@ -30,8 +30,10 @@ export async function handleMessage(message, { tools, serverInfo }) {
       if (!tool) return failure(id, -32602, `unknown tool ${params.name}`);
       try {
         return reply(id, await tool.handler(params.arguments));
-      } catch {
-        // Tool handlers report their own failures as results; reaching this is a bug, and its detail stays server-side.
+      } catch (error) {
+        // Tool handlers report their own failures as results; reaching this is a bug. Only the error's name and code are
+        // logged: its message and the arguments may carry task text.
+        log(`adw-mcp: ${tool.name} threw: ${error?.name ?? 'Error'}${error?.code ? ` ${error.code}` : ''}`);
         return failure(id, -32603, 'internal error');
       }
     }

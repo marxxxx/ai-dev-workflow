@@ -14,8 +14,10 @@ const TOKEN = 'integration-test-token-0123456789abcdef';
 const SERVER = fileURLToPath(new URL('./server.mjs', import.meta.url));
 
 // Stands in for acpx: `prompt` records its pid, waits for the gate file (so a test decides when the turn ends), then
-// prints a canned message that echoes the prompt text; `cancel` kills the recorded prompt like the real one does.
+// prints a canned message that echoes the prompt text; `cancel` kills the recorded prompt like the real one does. Every
+// call records whether ADW_MCP_TOKEN is in its environment (never the value).
 const FAKE_ACPX = `#!/bin/sh
+if [ -n "\${ADW_MCP_TOKEN+x}" ]; then echo present >> "$FAKE_ACPX_ENVFILE"; else echo absent >> "$FAKE_ACPX_ENVFILE"; fi
 for word in "$@"; do
   case "$word" in
     prompt) sub=prompt ;;
@@ -62,6 +64,9 @@ async function startServer() {
     PATH: `${bin}:${process.env.PATH}`,
     FAKE_ACPX_PIDFILE: join(root, 'acpx.pid'),
     FAKE_ACPX_GATE: join(root, 'gate'),
+    FAKE_ACPX_ENVFILE: join(root, 'acpx.env'),
+    // As in `main`, the token arrives in the environment; createRuntime must take it out before any worker starts.
+    ADW_MCP_TOKEN: TOKEN,
   };
   mkdirSync(settings.HOME);
   mkdirSync(settings.ADW_MCP_WORKSPACE);
@@ -76,7 +81,7 @@ async function startServer() {
   const { port } = server.address();
 
   const server_ = {
-    port, store, logged, gate: settings.FAKE_ACPX_GATE, pidfile: settings.FAKE_ACPX_PIDFILE,
+    port, store, logged, gate: settings.FAKE_ACPX_GATE, pidfile: settings.FAKE_ACPX_PIDFILE, envfile: settings.FAKE_ACPX_ENVFILE,
     url: `http://127.0.0.1:${port}/mcp`,
     openGate: () => writeFileSync(settings.FAKE_ACPX_GATE, ''),
     closeGate: () => rmSync(settings.FAKE_ACPX_GATE, { force: true }),
@@ -105,6 +110,18 @@ const post = (server, body, headers = { authorization: `Bearer ${TOKEN}` }) => f
   method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body),
 });
 
+// A raw request, so that hop-by-hop headers such as `connection` are seen as sent.
+const raw = (url, { method = 'POST', headers = {}, body } = {}) => new Promise((resolve, reject) => {
+  const request = http.request(url, { method, headers }, (response) => {
+    let text = '';
+    response.setEncoding('utf8');
+    response.on('data', (chunk) => { text += chunk; });
+    response.on('end', () => resolve({ status: response.statusCode, headers: response.headers, body: text }));
+  });
+  request.on('error', reject);
+  request.end(body);
+});
+
 let nextId = 1;
 async function call(server, name, args) {
   const response = await post(server, { jsonrpc: '2.0', id: nextId++, method: 'tools/call', params: { name, arguments: args } });
@@ -131,6 +148,28 @@ test('a request without a token or with a wrong one is 401 without detail', asyn
   }
   assert.equal((await post(server, body, { 'x-api-key': TOKEN })).status, 200);
   assert.equal((await post(server, body)).status, 200);
+});
+
+test('401, 404 and 405 close the connection instead of draining an unread body', async (t) => {
+  const server = await startServer();
+  t.after(() => server.stop());
+  const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' });
+  const cases = [
+    [401, server.url, 'POST', {}],
+    [404, `http://127.0.0.1:${server.port}/other`, 'POST', { authorization: `Bearer ${TOKEN}` }],
+    [405, server.url, 'PUT', { authorization: `Bearer ${TOKEN}` }],
+  ];
+  for (const [status, url, method, headers] of cases) {
+    const response = await raw(url, { method, headers: { 'content-type': 'application/json', ...headers }, body });
+    assert.equal(response.status, status);
+    assert.equal(response.headers.connection, 'close', String(status));
+  }
+});
+
+test('the server limits the time for headers and for the whole request to 30 s', async () => {
+  const server = createServer({ config: { token: TOKEN, tls: null }, tools: [] });
+  assert.equal(server.headersTimeout, 30000);
+  assert.equal(server.requestTimeout, 30000);
 });
 
 test('authentication comes before the body: an unauthorised oversized body is 401', async (t) => {
@@ -284,28 +323,35 @@ test('createServer picks https only when config.tls is set, reading the files', 
     writeFileSync(join(dir, 'key.pem'), 'KEY');
     const made = [];
     const factories = {
-      http: (handler) => { made.push(['http', handler]); return 'http-server'; },
-      https: (options, handler) => { made.push(['https', options, handler]); return 'https-server'; },
+      http: (options, handler) => { made.push(['http', options, handler]); return { kind: 'http-server' }; },
+      https: (options, handler) => { made.push(['https', options, handler]); return { kind: 'https-server' }; },
     };
-    assert.equal(createServer({ config: { token: TOKEN, tls: null }, tools: [], factories }), 'http-server');
+    assert.equal(createServer({ config: { token: TOKEN, tls: null }, tools: [], factories }).kind, 'http-server');
     const tls = { cert: join(dir, 'cert.pem'), key: join(dir, 'key.pem') };
-    assert.equal(createServer({ config: { token: TOKEN, tls }, tools: [], factories }), 'https-server');
+    assert.equal(createServer({ config: { token: TOKEN, tls }, tools: [], factories }).kind, 'https-server');
     assert.deepEqual(made.map((m) => m[0]), ['http', 'https']);
     assert.equal(made[1][1].cert.toString(), 'CERT');
     assert.equal(made[1][1].key.toString(), 'KEY');
-    assert.equal(typeof made[1][2], 'function');
+    for (const [, options, handler] of made) {
+      assert.equal(options.headersTimeout, 30000);
+      assert.equal(options.requestTimeout, 30000);
+      assert.equal(typeof handler, 'function');
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('alignEnv makes the process environment agree with the config, so workers use the same paths', () => {
-  const config = { home: '/data/home', workspace: '/data/ws' };
-  const target = { HOME: '/other', ADW_MCP_WORKSPACE: undefined, PATH: '/bin' };
+test('alignEnv makes the process environment agree with the config, so workers use the same paths, and drops the token', () => {
+  const config = { token: TOKEN, home: '/data/home', workspace: '/data/ws' };
+  const target = { HOME: '/other', ADW_MCP_WORKSPACE: undefined, PATH: '/bin', ADW_MCP_TOKEN: TOKEN, ADW_MCP_TLS_CERT: '/c.pem', ADW_MCP_PORT: '9000' };
   alignEnv(config, target);
   assert.equal(target.HOME, '/data/home');
   assert.equal(target.ADW_MCP_WORKSPACE, '/data/ws');
   assert.equal(target.PATH, '/bin');
+  assert.ok(!('ADW_MCP_TOKEN' in target));
+  assert.equal(target.ADW_MCP_TLS_CERT, '/c.pem');
+  assert.equal(target.ADW_MCP_PORT, '9000');
   const settings = acpxSettings(target);
   assert.equal(settings.storeDir, join('/data/home', '.adw-mcp', 'sessions'));
   assert.equal(settings.workspace, '/data/ws');
@@ -316,6 +362,39 @@ test('createRuntime puts the store under <home>/.adw-mcp/sessions and aligns the
   t.after(() => server.stop());
   const created = await call(server, 'start_session', { harness: 'codex', task: 'x' });
   assert.ok(existsSync(join(process.env.HOME, '.adw-mcp', 'sessions', created.value.session_id, 'session.json')));
+});
+
+test('the token is not in the environment of the runtime, the worker or acpx', async (t) => {
+  const server = await startServer();
+  t.after(() => server.stop());
+  assert.ok(!('ADW_MCP_TOKEN' in process.env));
+  const started = await call(server, 'start_session', { harness: 'codex', task: 'env' });
+  await waitFor(() => existsSync(server.pidfile), 'the fake acpx prompt');
+  server.openGate();
+  await waitForStatus(server, started.value.session_id, 'idle');
+  const seen = readFileSync(server.envfile, 'utf8').trim().split('\n');
+  assert.ok(seen.length >= 2, seen.join(',')); // sessions ensure and prompt
+  assert.deepEqual([...new Set(seen)], ['absent']);
+});
+
+test('main exits 1 with a one-line message, no stack and no token, when the TLS certificate cannot be read', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'adw-mcp-main-'));
+  try {
+    const child = spawnSync(process.execPath, [SERVER], {
+      env: {
+        PATH: process.env.PATH, HOME: dir, ADW_MCP_WORKSPACE: dir, ADW_MCP_TOKEN: TOKEN, ADW_MCP_HOST: '127.0.0.1',
+        ADW_MCP_TLS_CERT: join(dir, 'missing-cert.pem'), ADW_MCP_TLS_KEY: join(dir, 'missing-key.pem'),
+      },
+      encoding: 'utf8', timeout: 20000,
+    });
+    assert.equal(child.status, 1, child.stderr);
+    assert.ok(child.stderr.startsWith('adw-mcp:'), child.stderr);
+    assert.ok(child.stderr.includes('missing-cert.pem'), child.stderr);
+    assert.ok(!child.stderr.includes(TOKEN) && !child.stdout.includes(TOKEN));
+    assert.ok(!child.stderr.includes('    at '), child.stderr);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('main exits 1 with the message for a missing or too short token, without echoing it', () => {

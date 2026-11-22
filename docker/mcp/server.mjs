@@ -15,6 +15,8 @@ import { buildTools } from './tools.mjs';
 export const SERVER_INFO = { name: 'adw-mcp', version: '1.0.0' };
 const MCP_PATH = '/mcp';
 const MAX_BODY_BYTES = 1024 * 1024;
+// Bounds how long a client may take to send the headers and the whole request.
+const TIMEOUTS = { headersTimeout: 30 * 1000, requestTimeout: 30 * 1000 };
 
 class BodyTooLarge extends Error {}
 
@@ -22,6 +24,12 @@ function send(res, status, body, headers = {}) {
   const payload = body === undefined ? '' : JSON.stringify(body);
   res.writeHead(status, { ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...headers });
   res.end(payload);
+}
+
+// Answers and drops the connection: a body nobody reads is not drained (Node would otherwise read and discard it).
+function refuse(req, res, status, body, headers = {}) {
+  res.on('finish', () => req.destroy());
+  send(res, status, body, { ...headers, connection: 'close' });
 }
 
 const rpcError = (code, message) => ({ jsonrpc: '2.0', id: null, error: { code, message } });
@@ -55,11 +63,11 @@ function readBody(req, limit) {
 function requestHandler({ config, tools, serverInfo, log }) {
   async function handle(req, res) {
     const path = (req.url ?? '').split('?')[0];
-    if (path !== MCP_PATH) return send(res, 404, { error: 'not found' });
-    if (req.method !== 'POST') return send(res, 405, { error: 'method not allowed' }, { allow: 'POST' });
+    if (path !== MCP_PATH) return refuse(req, res, 404, { error: 'not found' });
+    if (req.method !== 'POST') return refuse(req, res, 405, { error: 'method not allowed' }, { allow: 'POST' });
     // Before anything is read from the body.
     if (!isAuthorized(req.headers, config.token)) {
-      return send(res, 401, { error: 'unauthorized' }, { 'www-authenticate': 'Bearer' });
+      return refuse(req, res, 401, { error: 'unauthorized' }, { 'www-authenticate': 'Bearer' });
     }
 
     let raw;
@@ -67,8 +75,7 @@ function requestHandler({ config, tools, serverInfo, log }) {
       raw = await readBody(req, MAX_BODY_BYTES);
     } catch (error) {
       if (!(error instanceof BodyTooLarge)) throw error;
-      res.on('finish', () => req.destroy());
-      return send(res, 413, { error: 'payload too large' }, { connection: 'close' });
+      return refuse(req, res, 413, { error: 'payload too large' });
     }
 
     let message;
@@ -77,7 +84,7 @@ function requestHandler({ config, tools, serverInfo, log }) {
     } catch {
       return send(res, 400, rpcError(-32700, 'parse error'));
     }
-    const response = await handleMessage(message, { tools, serverInfo });
+    const response = await handleMessage(message, { tools, serverInfo, log });
     if (response === null) return send(res, 202);
     return send(res, response.error?.code === -32600 ? 400 : 200, response);
   }
@@ -95,15 +102,17 @@ function requestHandler({ config, tools, serverInfo, log }) {
 // `factories` is injectable so that the choice of transport can be tested without a certificate.
 export function createServer({ config, tools, serverInfo = SERVER_INFO, log = (line) => console.error(line), factories = { http: http.createServer, https: https.createServer } }) {
   const handler = requestHandler({ config, tools, serverInfo, log });
-  if (!config.tls) return factories.http(handler);
-  return factories.https({ cert: readFileSync(config.tls.cert), key: readFileSync(config.tls.key) }, handler);
+  if (!config.tls) return factories.http({ ...TIMEOUTS }, handler);
+  return factories.https({ ...TIMEOUTS, cert: readFileSync(config.tls.cert), key: readFileSync(config.tls.key) }, handler);
 }
 
 // The runner and the worker read HOME and ADW_MCP_WORKSPACE from the environment, and a worker inherits ours: both must
-// say what the config says, or the server and its workers would look at different stores and workspaces.
+// say what the config says, or the server and its workers would look at different stores and workspaces. The token
+// (config.token holds it) is removed: workers pass their environment on to acpx and to an agent that runs untrusted input.
 export function alignEnv(config, env = process.env) {
   if (env.HOME !== config.home) env.HOME = config.home;
   if (env.ADW_MCP_WORKSPACE !== config.workspace) env.ADW_MCP_WORKSPACE = config.workspace;
+  delete env.ADW_MCP_TOKEN;
 }
 
 export function createRuntime(config, env = process.env) {
@@ -121,19 +130,24 @@ export function createRuntime(config, env = process.env) {
   return { store, sessions, tools: buildTools(sessions) };
 }
 
+// A startup failure is one line on stderr and exit 1: no stack. None of the messages carries the token.
+function fail(message) {
+  console.error(`adw-mcp: ${message}`);
+  process.exit(1);
+}
+
 export function main(env = process.env) {
   let config;
+  let server;
   try {
     config = loadConfig(env);
+    const { tools } = createRuntime(config);
+    server = createServer({ config, tools });
   } catch (error) {
-    console.error(`adw-mcp: ${error.message}`);
-    process.exit(1);
+    fail(error?.message ?? String(error));
   }
-  const { tools } = createRuntime(config);
-  const server = createServer({ config, tools });
   server.on('error', (error) => {
-    console.error(`adw-mcp: cannot listen on ${config.host}:${config.port}: ${error.code ?? error.message}`);
-    process.exit(1);
+    fail(`cannot listen on ${config.host}:${config.port}: ${error.code ?? error.message}`);
   });
   server.listen(config.port, config.host, () => {
     console.log(`adw-mcp: listening on ${config.host}:${config.port} (${config.tls ? 'https' : 'http'})`);

@@ -51,10 +51,18 @@ test('tools/call with an unknown tool or bad params is -32602', async () => {
   }
 });
 
-test('a handler that throws becomes -32603 without its message', async () => {
-  const reply = await run({ jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'boom' } }, [boom]);
+test('a handler that throws becomes -32603 without its message, and only its name and code are logged', async () => {
+  const logged = [];
+  const failing = { ...boom, handler: async () => { throw Object.assign(new TypeError('secret detail'), { code: 'E_BOOM' }); } };
+  const reply = await handleMessage(
+    { jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'boom', arguments: { task: 'secret argument' } } },
+    { tools: [failing], serverInfo, log: (line) => logged.push(line) },
+  );
   assert.equal(reply.error.code, -32603);
   assert.ok(!JSON.stringify(reply).includes('secret detail'));
+  assert.equal(logged.length, 1);
+  assert.ok(logged[0].includes('boom') && logged[0].includes('TypeError') && logged[0].includes('E_BOOM'), logged[0]);
+  assert.ok(!/secret/.test(logged[0]), logged[0]);
 });
 
 test('an unknown method is -32601', async () => {
