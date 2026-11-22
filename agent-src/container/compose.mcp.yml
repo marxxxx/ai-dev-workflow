@@ -1,7 +1,11 @@
 # Project-owned; written once by adw init. Opt-in overlay: an MCP server that starts and steers
 # agent-dev sessions remotely. ./adw.sh mcp (or .\adw.ps1 mcp) starts it (see .adw/README.md); stop
-# it with `docker compose -p @@SLUG@@-ai down`. It runs as dev in the same image, with the same
+# it with `docker compose -p @@SLUG@@-ai stop adw-mcp`. It runs as dev in the same image, with the same
 # /workspace bind and agent-home volume, so the harness logins of ./adw.sh apply.
+# After `up -d` the server also comes back after a reboot or Docker daemon restart until you stop it
+# explicitly. A startup error (token under 32 characters, bad TLS paths) makes it restart in a loop:
+# fix .adw/.env and stop it.
+# Agents started through MCP get no Docker daemon, even with AGENT_DIND=1.
 #
 # Settings come from .adw/.env:
 # - ADW_MCP_TOKEN (required, 32+ characters): clients send it as a Bearer token or X-Api-Key.
@@ -18,6 +22,7 @@ services:
     extends:
       file: .adw/compose.yml
       service: ai-dev-workflow
+    container_name: !reset null
     command: ["node", "/usr/local/lib/agent-runtime/mcp/server.mjs"]
     tty: false
     stdin_open: false
@@ -27,5 +32,5 @@ services:
       ADW_MCP_PORT: "8787"
       ADW_MCP_TLS_CERT: ${ADW_MCP_TLS_CERT:-}
       ADW_MCP_TLS_KEY: ${ADW_MCP_TLS_KEY:-}
-    ports:
+    ports: !override
       - "${ADW_MCP_BIND:-127.0.0.1}:${ADW_MCP_PORT:-8787}:8787"

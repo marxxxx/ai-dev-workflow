@@ -134,7 +134,7 @@ COPY launch-agent.mjs validate-workspace.mjs workspace-mounts.mjs check-host-art
 COPY mcp/ /usr/local/lib/agent-runtime/mcp/
 RUN set -eux; \
     rm -f /usr/local/lib/agent-runtime/mcp/*.test.mjs; \
-    node --check /usr/local/lib/agent-runtime/mcp/server.mjs; \
+    node --input-type=module -e "await import('/usr/local/lib/agent-runtime/mcp/server.mjs'); await import('/usr/local/lib/agent-runtime/mcp/worker.mjs')"; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/claude; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/codex; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/opencode; \
