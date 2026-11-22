@@ -91,9 +91,10 @@ export function createSessions({ store, startTurn, cancel, isAlive, now, newId }
         .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
     },
 
+    // A failed session is closed too: its acpx session may be left over (a worker that was lost or could not close it).
     async terminate({ sessionId }) {
       let record = find(sessionId);
-      if (!LIVE.includes(record.status)) return record;
+      if (record.status === 'terminated') return record;
       await cancel(record);
       // A post (or a finishing worker) can change the turn or the worker while cancel is awaited. Terminating on the
       // stale record would orphan a worker started meanwhile, so cancel what is there now until nothing changes.

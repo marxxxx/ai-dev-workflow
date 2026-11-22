@@ -31,7 +31,7 @@ function setup({ turn = 1, status = 'running', harness = 'codex' } = {}) {
     prepare: (h, options) => prepared.push({ h, ...options }),
     exec: async (argv, options) => {
       calls.push({ argv, options });
-      const sub = argv.includes('prompt') ? 'prompt' : 'ensure';
+      const sub = ['prompt', 'cancel', 'close'].find((word) => argv.includes(word)) ?? 'ensure';
       return reply(typeof responses === 'function' ? responses(sub, argv) : responses[sub] ?? {});
     },
   });
@@ -77,9 +77,45 @@ test('a non-zero exit fails the session with the last 500 characters of stderr a
 test('a failed ensure fails the session without prompting', async () => {
   const { store, calls, run } = setup();
   await run({ ensure: { status: 1, stderr: '[acpx] error: RUNTIME could not start' } })('go');
-  assert.equal(calls.length, 1);
+  assert.ok(!calls.some((c) => c.argv.includes('prompt')));
   assert.equal(store.get(ID).status, 'failed');
   assert.match(store.get(ID).error, /RUNTIME could not start/);
+});
+
+// With --ttl 0 the queue owner and adapter outlive a failed turn until `sessions close`; a timeout does not cancel the
+// agent either. The worker cancels and closes before the failure frees the workspace.
+test('a failed turn cancels and closes the acpx session before it stores the failure', async () => {
+  for (const [turn, responses] of [
+    [2, { prompt: { status: 1, stderr: '[acpx] error: RUNTIME boom' } }],
+    [2, { prompt: { status: 3, stderr: '[acpx] error: TIMEOUT' } }],
+    [2, { prompt: { status: null, error: Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' }) } }],
+    [1, { ensure: { status: 1, stderr: '[acpx] error: RUNTIME could not start' } }],
+  ]) {
+    const { store, calls, run } = setup({ turn });
+    const statuses = [];
+    const failing = run((sub) => {
+      if (sub === 'cancel' || sub === 'close') statuses.push(store.get(ID).status);
+      return responses[sub] ?? {};
+    });
+    await failing('go');
+    assert.deepEqual(calls.slice(-2).map((c) => c.argv.slice(-3)), [['cancel', '-s', ID], ['sessions', 'close', ID]], JSON.stringify(responses));
+    assert.equal(calls.at(-1).options.env.HOME, calls[0].options.env.HOME);
+    assert.deepEqual(statuses, ['running', 'running'], 'the workspace stays held until the session is closed');
+    assert.equal(store.get(ID).status, 'failed');
+  }
+});
+
+test('a failing cancel or close still stores the failure', async () => {
+  const { store, run } = setup({ turn: 2 });
+  await run((sub) => (sub === 'prompt' ? { status: 1, stderr: 'boom' } : { status: 4, error: Object.assign(new Error('x'), { code: 'ENOENT' }) }))('go');
+  assert.equal(store.get(ID).status, 'failed');
+  assert.match(store.get(ID).error, /boom/);
+});
+
+test('a successful turn neither cancels nor closes', async () => {
+  const { calls, run } = setup({ turn: 2 });
+  await run({ prompt: { stdout: 'ok' } })('go');
+  assert.deepEqual(calls.map((c) => c.argv.includes('prompt')), [true]);
 });
 
 test('quota-like failures are prefixed with quota:', async () => {

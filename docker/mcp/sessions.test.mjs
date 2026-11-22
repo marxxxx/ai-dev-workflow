@@ -184,13 +184,18 @@ test('terminate cancels again when a post started a new turn while it was cancel
   assert.equal(store.get(id).pid, null);
 });
 
-test('terminate on failed or terminated is a no-op returning the record', async () => {
+test('terminate on a failed session cancels and closes it and marks it terminated', async () => {
   const { sessions, store, calls } = setup();
   const { id } = sessions.start({ harness: 'codex', task: 'a' });
-  store.update(id, { status: 'failed', error: 'boom' });
+  store.update(id, { status: 'failed', error: 'boom', pid: null });
   const record = await sessions.terminate({ sessionId: id });
-  assert.equal(record.status, 'failed');
-  assert.equal(calls.cancel.length, 0);
+  assert.equal(record.status, 'terminated');
+  assert.deepEqual(calls.cancel, [id]);
+});
+
+test('terminate on a terminated session is a no-op returning the record', async () => {
+  const { sessions, store, calls } = setup();
+  const { id } = sessions.start({ harness: 'codex', task: 'a' });
   store.update(id, { status: 'terminated' });
   assert.equal((await sessions.terminate({ sessionId: id })).status, 'terminated');
   assert.equal(calls.cancel.length, 0);

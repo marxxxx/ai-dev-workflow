@@ -15,6 +15,7 @@ const QUOTA = {
 };
 const PROMPT_BACKSTOP_MS = 60 * 1000;
 const SETUP_TIMEOUT_MS = 120 * 1000;
+const STEP_TIMEOUT_MS = 60 * 1000;
 
 const decode = (value) => (Buffer.isBuffer(value) ? value.toString('utf8') : String(value ?? ''));
 const tail = (text) => [...text.trim()].slice(-TAIL).join('');
@@ -33,23 +34,33 @@ function failure(harness, run, what) {
 // Runs one turn of `record` and stores its result. Turn 1 also prepares the harness and ensures the acpx session.
 // acpx exits 0 for a cancelled turn too (partial text); a cancel only comes from terminate, which marks the session
 // terminated, and applyTurnResult ignores a result for a session that is not running.
+// A failed turn closes its acpx session before the failure frees the workspace: with --ttl 0 the queue owner and the
+// adapter stay alive until `sessions close`, and on a timeout the agent may still be working. Best effort, like terminate.
 export async function runTurn({ record, text, store, now, exec = defaultExec, settings = acpxSettings(), prepare = prepareHarness, pathEnv }) {
   const { harness, id } = record;
   const args = acpxFor(harness, settings, pathEnv);
   const env = { ...process.env, HOME: settings.home };
   let result;
+  let started = false;
   try {
     if (record.turn === 1) {
       prepare(harness, { home: settings.home });
+      started = true;
       const ensure = await exec(args.ensure(id), { env, timeoutMs: SETUP_TIMEOUT_MS });
       if (ensure.error || ensure.status !== 0) result = failure(harness, ensure, 'acpx sessions ensure');
     }
     if (!result) {
+      started = true;
       const run = await exec(args.prompt(id), { env, input: text, timeoutMs: settings.timeoutSec * 1000 + PROMPT_BACKSTOP_MS });
       result = run.error || run.status !== 0 ? failure(harness, run, 'acpx prompt') : { ok: true, message: decode(run.stdout).trim() };
     }
   } catch (error) {
     result = { ok: false, error: `turn could not run: ${error.message}` };
+  }
+  if (!result.ok && started) {
+    for (const step of [args.cancel, args.close]) {
+      try { await exec(step(id), { env, timeoutMs: STEP_TIMEOUT_MS }); } catch { /* best effort */ }
+    }
   }
   applyTurnResult(store, id, result, now);
 }
