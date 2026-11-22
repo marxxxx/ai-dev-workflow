@@ -84,7 +84,6 @@ export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, ima
     // BuildKit reads `FROM sha256:…` as a Docker Hub repository: the base goes in by its local name, its ID only into the tag.
     docker(['build', '--build-arg', `BASE_IMAGE=${image}`, '--build-arg', `BASE_USER=${user || 'root'}`,
       ...PROXY_ENV.filter((n) => env[n]).flatMap((n) => ['--build-arg', n]),
-      ...(env.AGENT_CA_DIR ? ['--build-context', `certs=${env.AGENT_CA_DIR}`] : []),
       '--label', `${LABEL}=${root}`, '-t', tag, imageDir], { env, stdio: 'inherit' });
     const old = docker(['image', 'ls', '--filter', `label=${LABEL}=${root}`, '--format', '{{.Repository}}:{{.Tag}}']);
     // An image still in use stays; the next build tries again.

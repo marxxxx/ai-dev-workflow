@@ -168,14 +168,14 @@ test('the layer restores the base image user', (t) => {
   assert.ok(calls.find((c) => c.args[0] === 'build').args.includes('BASE_USER=dev'));
 });
 
-test('proxies go to the build by name, company certificates as the certs build context', (t) => {
+test('proxies go to the build by name', (t) => {
   const ref = 'img:5';
   const { calls, opts } = setup(t, [[isConfig, configJson({ image: ref })], baseInspect(ref), layerMissing]);
-  const env = { PROJECT_ROOT: '/proj', HTTPS_PROXY: 'http://user:secret@proxy:3128', no_proxy: 'localhost', AGENT_CA_DIR: '/etc/company-ca' };
+  const env = { PROJECT_ROOT: '/proj', HTTPS_PROXY: 'http://user:secret@proxy:3128', no_proxy: 'localhost' };
   ensureE2eImage({ ...opts, env });
   const build = calls.find((c) => c.args[0] === 'build');
-  const pairs = build.args.flatMap((a, i) => (a === '--build-arg' || a === '--build-context' ? [`${a} ${build.args[i + 1]}`] : []));
-  assert.deepEqual(pairs.filter((p) => !p.includes('BASE_')), ['--build-arg HTTPS_PROXY', '--build-arg no_proxy', '--build-context certs=/etc/company-ca']);
+  const pairs = build.args.flatMap((a, i) => (a === '--build-arg' ? [`${a} ${build.args[i + 1]}`] : []));
+  assert.deepEqual(pairs.filter((p) => !p.includes('BASE_')), ['--build-arg HTTPS_PROXY', '--build-arg no_proxy']);
   assert.ok(!build.args.some((a) => a.includes('secret')), 'proxy values never reach argv');
   assert.equal(build.opts.env, env);
 });
