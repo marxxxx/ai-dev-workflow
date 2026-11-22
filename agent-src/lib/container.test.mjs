@@ -90,6 +90,79 @@ test('renderContainerFiles returns the seven files under .adw/ and the root laun
 });
 
 const OPTS = { name: 'Demo', stack: 'node', backend: 'github' };
+const MCP_FILES = ['.adw/compose.mcp.yml', '.adw/compose.mcp-certs.yml'];
+
+test('renderContainerFiles adds the MCP overlay and its certs companion only with mcp: true', () => {
+  for (const mcp of [undefined, false]) {
+    const paths = renderContainerFiles({ name: 'Demo', stack: 'generic', backend: 'file', mcp }).map((f) => f.path);
+    for (const p of MCP_FILES) assert.ok(!paths.includes(p), `mcp ${mcp}: ${p}`);
+  }
+  const files = renderContainerFiles({ name: 'Demo', stack: 'generic', backend: 'file', mcp: true });
+  assert.deepEqual(files.map((f) => f.path),
+    ['.adw/compose.yml', '.adw/compose.certs.yml', '.adw/compose.dind.yml', '.adw/compose.dind-certs.yml',
+      ...MCP_FILES, 'adw.sh', 'adw.ps1', '.adw/README.md']);
+  for (const f of files) assert.doesNotMatch(f.content, /@@[A-Z_]+@@/, f.path);
+  assert.match(fileOf(files, '.adw/compose.mcp.yml').content, /docker compose -p demo-ai stop adw-mcp/);
+  assert.match(fileOf(files, '.adw/compose.mcp-certs.yml').content, /^ {2}adw-mcp:$/m);
+});
+
+test('writeContainerFiles with mcp: true writes the MCP overlays and keeps an existing ADW_MCP_TOKEN', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.mkdirSync(path.join(root, '.adw'));
+    fs.writeFileSync(path.join(root, '.adw/.env'), 'ADW_MCP_TOKEN=mine\n');
+    const { written, kept } = writeContainerFiles(root, { ...OPTS, mcp: true, env: { ADW_MCP_TOKEN: 'fresh' } });
+    for (const p of MCP_FILES) {
+      assert.ok(written.includes(p), p);
+      assert.ok(fs.existsSync(path.join(root, p)), p);
+    }
+    assert.equal(fs.readFileSync(path.join(root, '.adw/.env'), 'utf8'), 'ADW_MCP_TOKEN=mine\n');
+    assert.deepEqual(kept, ['ADW_MCP_TOKEN']);
+  } finally {
+    cleanup();
+  }
+});
+
+// Launchers before the `mcp` command cannot start the overlay; the current ones name compose.mcp.yml.
+const OLD_LAUNCHER = '#!/bin/sh\nexec docker compose -f .adw/compose.yml run --rm ai-dev-workflow "$@"\n';
+const MCP_LAUNCHER = '#!/bin/sh\nmcp) exec docker compose -f .adw/compose.yml -f .adw/compose.mcp.yml up -d adw-mcp ;;\n';
+
+test('containerWarnings flags launchers without the mcp command when the MCP overlay exists', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.mkdirSync(path.join(root, '.adw'));
+    fs.writeFileSync(path.join(root, '.adw/compose.mcp.yml'), 'services:\n  adw-mcp: {}\n');
+    fs.writeFileSync(path.join(root, 'adw.sh'), OLD_LAUNCHER);
+    fs.writeFileSync(path.join(root, 'adw.ps1'), OLD_LAUNCHER);
+    const [warning, ...rest] = containerWarnings(root);
+    assert.deepEqual(rest, []);
+    assert.match(warning, /Note: adw\.sh, adw\.ps1 /);
+    assert.match(warning, /\.adw\/compose\.mcp\.yml/);
+    assert.match(warning, /delete adw\.sh and adw\.ps1 and run `adw init`/);
+    fs.writeFileSync(path.join(root, 'adw.ps1'), MCP_LAUNCHER);
+    assert.match(containerWarnings(root)[0], /Note: adw\.sh /, 'only the old launcher is named');
+    fs.rmSync(path.join(root, 'adw.ps1'));
+    assert.match(containerWarnings(root)[0], /Note: adw\.sh /, 'a missing launcher is not named');
+  } finally {
+    cleanup();
+  }
+});
+
+test('containerWarnings is silent about the mcp command without the overlay and for current launchers', () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    fs.writeFileSync(path.join(root, 'adw.sh'), OLD_LAUNCHER);
+    fs.writeFileSync(path.join(root, 'adw.ps1'), OLD_LAUNCHER);
+    assert.deepEqual(containerWarnings(root), [], 'no MCP overlay');
+    fs.mkdirSync(path.join(root, '.adw'));
+    fs.writeFileSync(path.join(root, '.adw/compose.mcp.yml'), 'services:\n  adw-mcp: {}\n');
+    fs.writeFileSync(path.join(root, 'adw.sh'), MCP_LAUNCHER);
+    fs.writeFileSync(path.join(root, 'adw.ps1'), MCP_LAUNCHER);
+    assert.deepEqual(containerWarnings(root), [], 'launchers with the mcp command');
+  } finally {
+    cleanup();
+  }
+});
 
 test('writeContainerFiles writes all files into an empty root', () => {
   const { root, cleanup } = makeTmpRoot();

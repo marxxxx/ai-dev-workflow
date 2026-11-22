@@ -62,10 +62,10 @@ function fill(text, values) {
 
 /**
  * The container files for a project, relative to its root, in write order. `slug` overrides the
- * Compose slug derived from `name` and the project directory. Throws when a template still
- * carries a placeholder after rendering.
+ * Compose slug derived from `name` and the project directory; `mcp` adds the opt-in MCP server
+ * overlay and its certs companion. Throws when a template still carries a placeholder after rendering.
  */
-export function renderContainerFiles({ name, stack, backend, giteaLogin = '', projectDir = '', slug: givenSlug }) {
+export function renderContainerFiles({ name, stack, backend, giteaLogin = '', projectDir = '', slug: givenSlug, mcp = false }) {
   const slug = givenSlug || composeSlug(name, path.basename(projectDir));
   const node = stack === 'node';
   const values = {
@@ -83,6 +83,7 @@ export function renderContainerFiles({ name, stack, backend, giteaLogin = '', pr
     { path: COMPOSE_FILES.certs },
     { path: COMPOSE_FILES.dind },
     { path: COMPOSE_FILES.dindCerts },
+    ...(mcp ? [{ path: COMPOSE_FILES.mcp }, { path: COMPOSE_FILES.mcpCerts }] : []),
     { path: LAUNCHERS.sh, mode: 0o755 },
     { path: LAUNCHERS.ps1 },
     { path: README_FILE },
@@ -145,6 +146,16 @@ export const DIND_WARNING = [
   '  Enable it only where that is acceptable. Remove AGENT_DIND from .adw/.env to turn it off.',
 ].join('\n');
 
+/** Printed by `init` when the MCP server is enabled. Never carries the token itself. */
+export const MCP_NOTE = [
+  `MCP server (${COMPOSE_FILES.mcp}): its token, ADW_MCP_TOKEN, is in ${ENV_FILE} (git-ignored).`,
+  `  Start it with ./adw.sh mcp (PowerShell: .\\adw.ps1 mcp). Endpoint: http://localhost:8787/mcp`,
+  `  (host address and port: ADW_MCP_BIND, ADW_MCP_PORT in ${ENV_FILE}). Clients send the token in the`,
+  '  x-api-key header (or Authorization: Bearer).',
+  `  ADW_MCP_BIND=0.0.0.0 in ${ENV_FILE} exposes it to the network: set ADW_MCP_TLS_CERT and`,
+  '  ADW_MCP_TLS_KEY too. Agents it starts have no Docker daemon.',
+].join('\n');
+
 /**
  * Write the container files into `projectRoot`, each only when missing, then make sure
  * `.adw/.env` is git-ignored and `adw.sh` keeps LF endings. `opts.env` settings are added to
@@ -181,7 +192,20 @@ export function writeContainerFiles(projectRoot, { env = {}, ...opts }) {
  * (a resize).
  */
 export function containerWarnings(projectRoot) {
-  return [killWarning(projectRoot), pullWarning(projectRoot)].filter(Boolean);
+  return [killWarning(projectRoot), pullWarning(projectRoot), mcpLauncherWarning(projectRoot)].filter(Boolean);
+}
+
+// Launchers written before the MCP server have no `mcp` command, so they cannot start .adw/compose.mcp.yml.
+function mcpLauncherWarning(projectRoot) {
+  if (!fs.existsSync(path.join(projectRoot, COMPOSE_FILES.mcp))) return null;
+  const old = Object.values(LAUNCHERS).filter((name) => {
+    const file = path.join(projectRoot, name);
+    return fs.existsSync(file) && !fs.readFileSync(file, 'utf8').includes(path.posix.basename(COMPOSE_FILES.mcp));
+  });
+  if (!old.length) return null;
+  return `Note: ${old.join(', ')} ha${old.length === 1 ? 's' : 've'} no \`mcp\` command to start the MCP server of ${COMPOSE_FILES.mcp}. `
+    + `To get it, delete ${old.join(' and ')} and run \`adw init\` (keep .adw/project.json, set up the dev container); it writes `
+    + `the current launcher${old.length === 1 ? '' : 's'} and leaves every existing file untouched.`;
 }
 
 // .adw/compose.yml without comments, or null when there is none.

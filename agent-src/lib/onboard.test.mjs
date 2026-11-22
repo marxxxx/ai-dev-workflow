@@ -8,7 +8,7 @@ import path from 'node:path';
 import { PROJECT_FILE } from './constants.mjs';
 import { PassThrough } from 'node:stream';
 import { cmdInit, createScriptedPrompter, buildProjectConfig } from '../generate.mjs';
-import { createReadlinePrompter } from './onboard.mjs';
+import { askContainer, createReadlinePrompter } from './onboard.mjs';
 import { makeTmpRoot } from '../test-helpers.mjs';
 
 /** Collect console.log output until restore(). */
@@ -250,6 +250,86 @@ test('cmdInit declining both overwrite and container writes nothing', async () =
     assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
     assert.deepEqual(fs.readdirSync(path.join(root, '.adw')), ['project.json']);
   } finally {
+    cleanup();
+  }
+});
+
+test('askContainer: scripted answers without container.mcp decline the MCP server and create no token', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const container = await askContainer(createScriptedPrompter({ container: { enabled: 'y', stack: 'generic' } }), root);
+    assert.equal(container.mcp, false);
+    assert.ok(!('ADW_MCP_TOKEN' in container.env));
+  } finally {
+    cleanup();
+  }
+});
+
+test('askContainer: container.mcp y opts in with a fresh 48-hex-character token', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  try {
+    const ask = () => askContainer(createScriptedPrompter({ container: { enabled: 'y', stack: 'generic', mcp: 'y' } }), root);
+    const [a, b] = [await ask(), await ask()];
+    assert.equal(a.mcp, true);
+    assert.match(a.env.ADW_MCP_TOKEN, /^[0-9a-f]{48}$/);
+    assert.notEqual(a.env.ADW_MCP_TOKEN, b.env.ADW_MCP_TOKEN);
+  } finally {
+    cleanup();
+  }
+});
+
+test('cmdInit container without container.mcp writes and prints nothing about the MCP server', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  const out = captureLog();
+  try {
+    const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'generic' } };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    assert.deepEqual(fs.readdirSync(path.join(root, '.adw')).sort(),
+      ['README.md', 'compose.certs.yml', 'compose.dind-certs.yml', 'compose.dind.yml', 'compose.yml', 'project.json']);
+    assert.ok(!fs.existsSync(path.join(root, '.adw/.env')), 'no token');
+    assert.doesNotMatch(out.text(), /mcp/i);
+  } finally {
+    out.restore();
+    cleanup();
+  }
+});
+
+test('cmdInit with container.mcp y writes the overlays and the token, and prints how to use it without the token', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  const out = captureLog();
+  try {
+    const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'generic', mcp: 'y' } };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    for (const f of ['.adw/compose.mcp.yml', '.adw/compose.mcp-certs.yml']) assert.ok(fs.existsSync(path.join(root, f)), f);
+    const token = fs.readFileSync(path.join(root, '.adw/.env'), 'utf8').match(/^ADW_MCP_TOKEN=([0-9a-f]{48})$/m)?.[1];
+    assert.ok(token, '.adw/.env holds the token');
+    const text = out.text();
+    assert.ok(!text.includes(token), 'the token is never printed');
+    for (const s of ['.adw/.env', 'git-ignored', './adw.sh mcp', '.\\adw.ps1 mcp', 'http://localhost:8787/mcp',
+      'ADW_MCP_BIND', 'ADW_MCP_PORT', 'x-api-key', 'Authorization: Bearer', 'ADW_MCP_BIND=0.0.0.0', 'ADW_MCP_TLS_CERT',
+      'no Docker daemon']) {
+      assert.ok(text.includes(s), s);
+    }
+  } finally {
+    out.restore();
+    cleanup();
+  }
+});
+
+test('cmdInit with container.mcp y keeps an ADW_MCP_TOKEN already in .adw/.env and never prints it', async () => {
+  const { root, cleanup } = makeTmpRoot();
+  const out = captureLog();
+  try {
+    const mine = 'a'.repeat(40);
+    fs.mkdirSync(path.join(root, '.adw'));
+    fs.writeFileSync(path.join(root, '.adw/.env'), `ADW_MCP_TOKEN=${mine}\n`);
+    const answers = { ...GITHUB_ANSWERS, container: { enabled: 'y', stack: 'generic', mcp: 'y' } };
+    assert.equal(await cmdInit(root, { prompter: createScriptedPrompter(answers) }), 0);
+    assert.equal(fs.readFileSync(path.join(root, '.adw/.env'), 'utf8'), `ADW_MCP_TOKEN=${mine}\n`);
+    assert.match(out.text(), /ADW_MCP_TOKEN is already set in \.adw\/\.env/);
+    assert.ok(!out.text().includes(mine));
+  } finally {
+    out.restore();
     cleanup();
   }
 });

@@ -1,13 +1,14 @@
 // Onboarding: prompters (readline / scripted), the single reusable interview, the scaffold
 // fallback, and cmdInit — which resolves a prompter and writes .adw/project.json.
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { SRC_DIR, PROJECT_FILE, ADW_DIR, argValue } from './constants.mjs';
 import { detectRepoSlug } from './identity.mjs';
 import { readJson, buildProjectConfig } from './config.mjs';
-import { STACKS, DIND_WARNING, detectStack, writeContainerFiles, nextSteps } from './container.mjs';
+import { STACKS, DIND_WARNING, MCP_NOTE, detectStack, writeContainerFiles, nextSteps } from './container.mjs';
 import { assertCurrentLayout } from './layout.mjs';
 import { loadSkillPins, installSkills, reportSkills } from './skills.mjs';
 
@@ -191,7 +192,7 @@ export async function askContainer(prompter, projectRoot) {
   if (!yes(enabled)) return { enabled: false };
   const stack = await prompter.askChoice('Container stack', 'container.stack', STACKS, detectStack(projectRoot));
 
-  // Settings for the git-ignored .adw/.env; both opt-ins default to no.
+  // Settings for the git-ignored .adw/.env; every opt-in defaults to no.
   const env = {};
   const dind = await prompter.ask('Give the agent a Docker daemon (Docker overlay)? (y/N)', 'container.dind', 'n');
   if (yes(dind)) {
@@ -202,7 +203,9 @@ export async function askContainer(prompter, projectRoot) {
   if (yes(certs)) {
     env.AGENT_CA_DIR = await prompter.ask('Absolute directory holding the certificates (blank: set it later)', 'container.caDir', '');
   }
-  return { enabled: true, stack, env };
+  const mcp = yes(await prompter.ask('Run an MCP server to start and steer agent sessions remotely? (y/N)', 'container.mcp', 'n'));
+  if (mcp) env.ADW_MCP_TOKEN = crypto.randomBytes(24).toString('hex');
+  return { enabled: true, stack, env, mcp };
 }
 
 /**
@@ -226,7 +229,7 @@ function packageVersion() {
 }
 
 /** Write the container files for `config` and print what happened plus the next steps. */
-export function setUpContainer(projectRoot, { stack, env }, config) {
+export function setUpContainer(projectRoot, { stack, env, mcp = false }, config) {
   const backend = config.ticketing?.backend || 'file';
   const { written, skipped, kept } = writeContainerFiles(projectRoot, {
     name: config.project?.name || path.basename(projectRoot),
@@ -234,6 +237,7 @@ export function setUpContainer(projectRoot, { stack, env }, config) {
     backend,
     giteaLogin: config.ticketing?.gitea?.login || '',
     env,
+    mcp,
   });
   for (const f of written) console.log(`Wrote ${f}`);
   for (const f of skipped) console.log(`${f} exists — left untouched.`);
@@ -247,6 +251,7 @@ export function setUpContainer(projectRoot, { stack, env }, config) {
              !(path.isAbsolute(env.AGENT_CA_DIR) && fs.statSync(env.AGENT_CA_DIR, { throwIfNoEntry: false })?.isDirectory())) {
     console.log(`\nWarning: AGENT_CA_DIR=${env.AGENT_CA_DIR} is not an existing absolute directory; the container will not start until it is. Fix it in .adw/.env.`);
   }
+  if (mcp) console.log(`\n${MCP_NOTE}`);
   console.log(`\n${nextSteps({ backend, version: packageVersion() })}`);
 }
 
