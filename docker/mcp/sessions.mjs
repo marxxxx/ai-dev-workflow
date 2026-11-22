@@ -1,3 +1,5 @@
+import { openingText } from './harness.mjs';
+
 export const HARNESSES = ['claude-code', 'codex', 'opencode'];
 const STATUSES = ['running', 'idle', 'failed', 'terminated'];
 const LIVE = ['running', 'idle'];
@@ -6,8 +8,6 @@ const MAX_MESSAGE_BYTES = 64 * 1024;
 const MARKER = '\n[truncated]';
 
 export class SessionError extends Error {}
-
-const opening = (harness, task) => `${harness === 'claude-code' ? '/' : '$'}agent-dev ${task}`;
 
 function capMessage(message) {
   const buffer = Buffer.from(message ?? '', 'utf8');
@@ -68,7 +68,7 @@ export function createSessions({ store, startTurn, cancel, isAlive, now, newId }
         id: newId(), harness, task, status: 'running', turn: 1, lastMessage: null, error: null,
         createdAt: stamp, updatedAt: stamp, pid: null,
       });
-      return begin(record, opening(harness, task), {});
+      return begin(record, openingText(harness, task), {});
     },
 
     query: ({ sessionId, harness }) => find(sessionId, harness),
