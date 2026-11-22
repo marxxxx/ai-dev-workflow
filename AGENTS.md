@@ -86,7 +86,7 @@ pipeline: **config → tokens → units → renderers → outputs**.
 - **`e2e/local/`** — the `adw e2e` command (`cli.mjs`, dispatched from `generate.mjs`): replays
   `agent-dev` on a consumer project's real ticket in a throwaway clone on the `file` backend, driven
   through the project's ai-dev container plus a locally built layer with `acpx` (`image.mjs`,
-  `e2e/local/image/`; its pins derive from `inventory.json` `e2eNpmPackages`). The ticket is read once, never written.
+  `e2e/local/image/`; the ACP packages come from the base image, pinned in `inventory.json` `npmPackages`). The ticket is read once, never written.
   The layer fakes the PR CLIs (`gh`, `tea`, `az` in `e2e/local/image/pr-cli.mjs`): opening a draft PR is recorded for the
   `pr_draft`/`pr_title_naming` checks, never sent. **A new ticketing backend whose PR command uses another CLI needs a
   fake there too**; `e2e/local/pr-fake.test.mjs` fails for any PR command an `includes/ticketing-*.md` documents unfaked. It ships
@@ -123,7 +123,7 @@ publishes to npm via trusted publishing (it skips versions already on npm).
 ## Container images (`docker/`)
 
 Hand-maintained, not generated. `docker/tools/inventory.json` is the single source for tool pins;
-`docker/tools/package.json`, its lockfile, `e2e/local/image/package.json` and its lockfile, Dockerfile `FROM`/`ARG` pins, the `image:` line of
+`docker/tools/package.json`, its lockfile, Dockerfile `FROM`/`ARG` pins, the `image:` line of
 `agent-src/container/compose.dind.yml` and `agent-src/config/skills.json` (`agentSkills`) are derived — never
 hand-edit them (`node docker/tools/inventory.mjs update | sync | check`). See `docker/README.md`.
 

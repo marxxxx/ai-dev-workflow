@@ -14,7 +14,6 @@ function setup(t, answers = []) {
   const imageDir = path.join(dir, 'image');
   mkdirSync(imageDir);
   writeFileSync(path.join(imageDir, 'Dockerfile'), 'FROM x\n');
-  writeFileSync(path.join(imageDir, 'package-lock.json'), '{}\n');
   writeFileSync(path.join(imageDir, 'pr-cli.mjs'), 'FAKE\n');
   const calls = []; const logs = [];
   const exec = (cmd, args, opts = {}) => {
@@ -22,7 +21,7 @@ function setup(t, answers = []) {
     const hit = answers.find(([match]) => match(args));
     return hit ? hit[1] : { status: 0, stdout: '', stderr: '' };
   };
-  const tag = layerTag(BASE_ID, 'FROM x\n', '{}\n', 'FAKE\n');
+  const tag = layerTag(BASE_ID, 'FROM x\n', 'FAKE\n');
   const opts = { root: '/proj', runDir: path.join(dir, 'run'), composeFiles: ['/proj/.adw/compose.yml'], env: { PROJECT_ROOT: '/proj' },
     exec, log: (s) => logs.push(s), imageDir };
   return { calls, logs, opts, tag };
@@ -47,7 +46,7 @@ test('layerTag is stable and changes with the base image or any layer file', () 
 
 test('builds the layer on the compose image, labels it, prunes older ones and writes the override', (t) => {
   const ref = 'marxx/ai-dev-workflow:node-latest';
-  const tag = layerTag(BASE_ID, 'FROM x\n', '{}\n', 'FAKE\n');
+  const tag = layerTag(BASE_ID, 'FROM x\n', 'FAKE\n');
   const { calls, logs, opts } = setup(t, [
     [isConfig, { status: 0, stdout: JSON.stringify({ name: 'adw-e2e-image', services: { 'ai-dev-workflow': { image: ref }, mail: { image: 'mailpit' } } }) }],
     baseInspect(ref), layerMissing,

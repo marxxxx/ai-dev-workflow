@@ -14,7 +14,7 @@ const LABEL = 'adw.e2e.root';
 const PROXY_ENV = ['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy'];
 
 // Every file the layer is built from (LAYER_FILES) goes into the tag, so a change to any of them rebuilds.
-const LAYER_FILES = ['Dockerfile', 'package-lock.json', 'pr-cli.mjs'];
+const LAYER_FILES = ['Dockerfile', 'pr-cli.mjs'];
 
 export function layerTag(baseId, ...files) {
   const hash = createHash('sha256').update([baseId, ...files].join('\n')).digest('hex');
