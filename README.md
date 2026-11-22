@@ -18,7 +18,7 @@ requirement is Node on the machine that runs the generator (your dev box and CI)
 | `.adw/project.json` | **you** — project identity + ticketing backend choice | yes |
 | `AGENTS.md` | **you** — create with your coding agent's native `/init`; `agent-dev` reads it first (add an [End-to-end testing](#end-to-end-testing) section for agent-run e2e checks) | yes |
 | `.adw/custom/` | **you** (optional) — per-project tweaks to the skill body (see [Customizing the skill](#customizing-the-skill)) | yes |
-| `.adw/compose*.yml`, `.adw/README.md`, `adw.sh`, `adw.ps1` | dev-container files, written once by `init` when you set up the container; yours afterwards (see [Run in a container](#run-in-a-container)) | yes |
+| `.adw/compose*.yml`, `.adw/README.md`, `adw.sh`, `adw.ps1` | dev-container files, written once by `init` when you set up the container; yours afterwards (see [Run in a container](#run-in-a-container)). `.adw/compose.mcp.yml` and `.adw/compose.mcp-certs.yml` only when you enable the [MCP server](#mcp-server-opt-in) | yes |
 | `.adw/.env` | per-machine container settings | no (git-ignored) |
 | `docs/superpowers/{specs,plans}/` | written by superpowers when a change needs them; the agreed scope is also posted to the ticket | yes |
 | `.agents/skills/show-me/`, `.claude/skills/show-me/`, `skills-lock.json` | third-party [show-me](#reviewing-specs-and-plans-with-show-me) skill, installed by `init`/`upgrade` with `npx skills` at the commit this adw version pins; never rendered or checked | yes |
@@ -232,6 +232,12 @@ and records the `skills` opt-in. Run
 `check` in CI to catch a stale or mismatched version. Every generated file carries a
 `DO NOT EDIT — generated from agent-src/…` banner.
 
+**Upgrading to v0.42.0.** New and opt-in: an [MCP server](#mcp-server-opt-in) in the dev container
+that starts and steers `agent-dev` sessions remotely. `upgrade` does not enable it. To enable it,
+delete `adw.sh` and `adw.ps1` (the new ones have the `mcp` command), run `init` again, keep
+`.adw/project.json`, set up the dev container and answer yes to the MCP question. `adw e2e` needs a
+dev image built for v0.42.0 or later (it now takes `acpx` from the image): `./adw.sh` pulls the newest one.
+
 **`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
 changes the config hash); no `upgrade` step is needed.
 
@@ -355,9 +361,9 @@ and asks nothing, the run tells it to carry on (counted as `nudged`) instead of 
 Prerequisites: Docker and a git repo. On the first run `adw e2e` asks for the rest and writes it:
 
 - `.adw/project.json`, if there is none: it offers the `init` interview first;
-- the container files (`.adw/compose.yml`), if `init` did not write them. The run builds a thin layer with
-  `acpx` and the ACP adapters on your dev image (about 480 MB, cached until the image or the pins change; older
-  layers are removed; the build uses your proxy variables and `AGENT_CA_DIR`);
+- the container files (`.adw/compose.yml`), if `init` did not write them. The run builds a thin layer on your
+  dev image (cached until the image or adw changes; older layers are removed). The dev image must be built for
+  v0.42.0 or later, which ships `acpx` and the ACP adapters;
 - the `e2e` block of `.adw/project.json`: the agent's harness and model, the judge model, `testCommand`, provider
   variables and the language, shown before it is written;
 - values that `e2e.env` names but nothing sets (secrets are read without echo). They can be saved to `.adw/.env`
@@ -468,6 +474,16 @@ images install the certificates at startup, so no per-company image build is nee
 
 **End-to-end self-test.** `node e2e/run.mjs run` exercises the whole workflow in Claude Code, Codex
 and OpenCode and compares the result with the previous run — see `docs/adw-e2e/README.md`.
+
+### MCP server (opt-in)
+
+`init` also asks whether to set up an MCP server that starts and steers `agent-dev` sessions
+remotely (default no). On yes it writes `.adw/compose.mcp.yml` (plus a certificate companion) and a
+generated `ADW_MCP_TOKEN` in `.adw/.env`. `./adw.sh mcp -d` starts it on `http://localhost:8787/mcp`,
+`./adw.sh mcp down` stops it; clients send the token in the `x-api-key` header. Sessions run in your
+working tree with your agent logins, on the real ticketing backend. Tools, settings (bind address,
+port, TLS) and security notes: `.adw/README.md`, section 7. Non-interactively: `"mcp": "y"` in the
+`container` answers of `init --answers` (see [`docker/README.md`](docker/README.md)).
 
 ## License
 

@@ -97,3 +97,42 @@ the capability set and the `HOST_UID`/`HOST_GID` settings: the runtime depends o
 Relative paths in `.adw/compose.yml` resolve against the project root (the launchers pass
 `--project-directory`), so write `./db-init`, not `../db-init`.
 Details: https://github.com/marxxxx/ai-dev-workflow/blob/main/docker/README.md
+
+## 7. MCP server (opt-in)
+
+An MCP server in this container lets an MCP client start `agent-dev` on a task and steer it, with
+five tools: `start_session` (harness `claude-code`, `codex` or `opencode`, and the task or ticket),
+`query_session`, `post_session` (answer the agent's question or give feedback), `list_sessions` and
+`terminate_session`. Sessions work like you at the terminal: in this project's working tree, with
+your agent logins, on the real ticketing backend.
+
+```sh
+./adw.sh mcp        # start it (Ctrl+C stops it)
+./adw.sh mcp -d     # start it in the background; it comes back after a reboot until you stop it
+./adw.sh mcp down   # stop it
+```
+
+Endpoint: `http://localhost:8787/mcp`. Clients send `ADW_MCP_TOKEN` from `.adw/.env` in the
+`x-api-key` header (or as `Authorization: Bearer <token>`). There is no OAuth: claude.ai custom
+connectors may not accept a static header token; Mistral Vibe and generic MCP clients can set the header.
+
+Settings in `.adw/.env`:
+
+- `ADW_MCP_TOKEN`: 32 characters or more; `init` generates one. Anyone who reaches the port with it
+  runs agents in this project.
+- `ADW_MCP_BIND` (default `127.0.0.1`) and `ADW_MCP_PORT` (default `8787`): the host address and
+  port. `ADW_MCP_BIND=0.0.0.0` makes the server reachable from the network.
+- `ADW_MCP_TLS_CERT` and `ADW_MCP_TLS_KEY` (both or neither): a PEM certificate and key, as paths in
+  the container, e.g. `/workspace/certs/mcp.pem` for a file in the project. Over plain HTTP the
+  token is readable on the network: set them unless the port stays on a trusted network.
+
+One session per workspace: while a session is `running` or `idle`, `start_session` refuses another.
+`idle` means the agent waits for an answer or is finished: read `last_message`, then answer with
+`post_session` or end the session with `terminate_session`, which frees the workspace.
+
+Agents started through MCP get no Docker daemon, even with `AGENT_DIND=1`. Behind a company proxy
+(`AGENT_CA_DIR` set) the launchers add `.adw/compose.mcp-certs.yml` automatically. The server needs
+Docker Compose 2.24.4 or later (`docker compose version`).
+
+Not set up yet? Run `adw init` again, keep `.adw/project.json`, set up the dev container and answer
+yes to the MCP question. It writes `.adw/compose.mcp.yml` and a token and leaves existing files untouched.
