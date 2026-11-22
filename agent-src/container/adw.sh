@@ -27,6 +27,8 @@ fi
 export PROJECT_ROOT="$root"
 export HOST_UID="${HOST_UID:-$(id -u)}"
 export HOST_GID="${HOST_GID:-$(id -g)}"
+# A running adw-mcp container is not in .adw/compose.yml; without this every call warns about it.
+export COMPOSE_IGNORE_ORPHANS=1
 
 # docker compose with this project's compose files.
 compose() {
@@ -64,10 +66,6 @@ if [ "${1:-}" = mcp ]; then
     echo "adw.sh: the MCP server is not set up. Run adw init again (keep .adw/project.json, set up the dev container) and answer yes to the MCP question." >&2
     exit 1
   fi
-  if [ -z "${ADW_MCP_TOKEN:-}" ]; then
-    echo "adw.sh: ADW_MCP_TOKEN is empty. Set it in .adw/.env (32 characters or more)." >&2
-    exit 1
-  fi
   mcp_compose() {
     if [ -n "${AGENT_CA_DIR:-}" ]; then
       set -- -f "$root/.adw/compose.mcp-certs.yml" "$@"
@@ -76,8 +74,13 @@ if [ "${1:-}" = mcp ]; then
   }
   if [ "${1:-}" = down ]; then
     shift
-    mcp_compose stop "$@" adw-mcp
+    # Compose checks ADW_MCP_TOKEN for every command, stop too: a placeholder lets an empty one stop the server.
+    (export ADW_MCP_TOKEN="${ADW_MCP_TOKEN:-unused}"; mcp_compose stop "$@" adw-mcp)
     exit
+  fi
+  if [ -z "${ADW_MCP_TOKEN:-}" ]; then
+    echo "adw.sh: ADW_MCP_TOKEN is empty. Set it in .adw/.env (32 characters or more)." >&2
+    exit 1
   fi
   update_image
   mcp_compose up "$@" adw-mcp

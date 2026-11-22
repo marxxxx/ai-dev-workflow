@@ -30,6 +30,8 @@ if (Test-Path -LiteralPath $envFile) {
 }
 
 $env:PROJECT_ROOT = $root
+# A running adw-mcp container is not in .adw/compose.yml; without this every call warns about it.
+$env:COMPOSE_IGNORE_ORPHANS = '1'
 # Docker Desktop on Windows maps ownership itself (default 1000:1000); PowerShell 7 on
 # Linux/macOS needs the host IDs like adw.sh.
 if ((Test-Path Variable:IsWindows) -and -not $IsWindows) {
@@ -70,16 +72,23 @@ if ($args.Count -gt 0 -and $args[0] -eq 'mcp') {
     [Console]::Error.WriteLine('adw.ps1: the MCP server is not set up. Run adw init again (keep .adw/project.json, set up the dev container) and answer yes to the MCP question.')
     exit 1
   }
-  if (-not $env:ADW_MCP_TOKEN) {
-    [Console]::Error.WriteLine('adw.ps1: ADW_MCP_TOKEN is empty. Set it in .adw/.env (32 characters or more).')
-    exit 1
-  }
   $mcpArgs = $composeArgs + @('-f', (Join-Path $root '.adw/compose.mcp.yml'))
   if ($env:AGENT_CA_DIR) { $mcpArgs += @('-f', (Join-Path $root '.adw/compose.mcp-certs.yml')) }
   $rest = @($args | Select-Object -Skip 1)
   if ($rest.Count -gt 0 -and $rest[0] -eq 'down') {
-    & docker @($mcpArgs + @('stop') + @($rest | Select-Object -Skip 1) + @('adw-mcp'))
-    exit $LASTEXITCODE
+    # Compose checks ADW_MCP_TOKEN for every command, stop too: a placeholder lets an empty one stop the
+    # server. Only for this call: the session's environment keeps what it had.
+    $token = $env:ADW_MCP_TOKEN
+    if (-not $env:ADW_MCP_TOKEN) { $env:ADW_MCP_TOKEN = 'unused' }
+    try {
+      & docker @($mcpArgs + @('stop') + @($rest | Select-Object -Skip 1) + @('adw-mcp'))
+      $code = $LASTEXITCODE
+    } finally { $env:ADW_MCP_TOKEN = $token }
+    exit $code
+  }
+  if (-not $env:ADW_MCP_TOKEN) {
+    [Console]::Error.WriteLine('adw.ps1: ADW_MCP_TOKEN is empty. Set it in .adw/.env (32 characters or more).')
+    exit 1
   }
   Update-Image
   & docker @($mcpArgs + @('up') + $rest + @('adw-mcp'))
