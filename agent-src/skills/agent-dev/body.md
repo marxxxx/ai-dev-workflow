@@ -11,10 +11,10 @@ when you report cost.
 2. Read `AGENTS.md`.
 3. If a ticket id was given: read the ticket and its comments, then move it to `in-progress`. If it
    already was, this run **resumes** an earlier one. Find where that one stopped, working on the
-   ticket's branch or worktree (see **Naming**) if one exists:
-   - **Spec file, no plan** — the ticket has a `{{artifact.spec}}` comment, and the branch or
-     worktree holds the spec file that carries the ticket reference. Skip brainstorming: invoke the
-     superpowers `writing-plans` skill with that spec, then follow the workflow from there.
+   ticket's branch (see **Naming**) if one exists:
+   - **Spec file, no plan** — the ticket has a `{{artifact.spec}}` comment, and the branch holds the
+     spec file that carries the ticket reference. Skip brainstorming: invoke the superpowers
+     `writing-plans` skill with that spec, then follow the workflow from there.
    - **Spec file and plan** (a plan file for that spec) — development was interrupted. Compare the
      plan's tasks with the branch's commits and working tree to find what is done, confirm that with
      the user, then continue executing the plan from the first unfinished task, as its header says.
@@ -35,6 +35,10 @@ when you report cost.
 Invoke the superpowers `brainstorming` skill and follow the workflow it leads you through, as its skills
 write it. This skill adds only the hooks below. They are events, not steps: apply each one whenever
 it occurs, wherever the workflow puts it.
+
+**Worktree preference, declared by the user: no worktree.** Work on a branch in the current checkout,
+never in a git worktree: the user reviews the work from the host before it is pushed, and a worktree
+created in a dev container is unreachable from there or collides with the checkout.
 
 - **Requirements interview** — a ticket is **context, not a spec**: tickets are often incomplete,
   so feed its content in as background and never skip or shorten the interview because a ticket
@@ -59,7 +63,7 @@ it occurs, wherever the workflow puts it.
   user. Without show-me, the sentences alone. Spec and plan files are local working files: never name
   their paths on the ticket. If the scope changes later in the run, post the final version again at
   close-out.
-- **Branch or worktree created** — name it per **Naming** below.
+- **Branch created** — name it per **Naming** below.
 - **Implementation verified, before integrating** — if the work sits on `{{git.prTarget}}`, move it
   to a branch per **Naming**. Only if the agreed scope says the agent tests end to end: start the
   app as the `AGENTS.md` end-to-end section describes, exercise the changed flows in a browser

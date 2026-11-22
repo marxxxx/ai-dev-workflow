@@ -12,7 +12,8 @@ export function addedText(diff, fileRe) {
     .join('\n');
 }
 
-export function evaluateContract({ issue, comments, pulls, prDiff, appListening }) {
+// `worktrees`: how many worktrees the agent's checkout has (`git worktree list`); agent-dev works in place.
+export function evaluateContract({ issue, comments, pulls, prDiff, appListening, worktrees }) {
   const bodies = comments.map((c) => c.body);
   const status = issue.labels.map((l) => l.name).filter((n) => n.startsWith('status:'));
   const spec = bodies.filter((b) => starts(b, 'Approved Spec')).join('\n');
@@ -33,6 +34,7 @@ export function evaluateContract({ issue, comments, pulls, prDiff, appListening 
     branch_naming: ok(/^1_[a-z0-9_]+$/.test(pr?.head?.ref ?? '')),
     pr_title_naming: ok(/^WIP:\s*1: \S/.test(pr?.title ?? '')),
     app_stopped: ok(!appListening),
+    no_worktree: ok(worktrees === 1),
     no_screenshots_in_repo: ok(!/^diff --git a\/\S+\.(png|jpe?g|webp|gif) /mi.test(prDiff)),
     plan_discarded: ok(!PLAN_IN_DIFF.test(prDiff)),
   };

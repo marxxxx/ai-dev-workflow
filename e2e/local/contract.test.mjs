@@ -9,7 +9,7 @@ const TICKET = [
   '', '---', '## Cost Summary', '12k tokens', '',
 ].join('\n');
 const PR = { tool: 'gh', branch: '3_add_due_dates', draft: true, title: '3: Add due dates', base: 'main', head: null };
-const base = () => ({ ticket: 3, ticketFile: TICKET, branches: ['3_add_due_dates'], prs: [PR], diff: 'diff --git a/src/a.js b/src/a.js\n', appListening: false });
+const base = () => ({ ticket: 3, ticketFile: TICKET, branches: ['3_add_due_dates'], prs: [PR], diff: 'diff --git a/src/a.js b/src/a.js\n', appListening: false, worktrees: 1 });
 
 test('a complete ticket file passes every check', () => {
   const r = evaluateLocalContract(base());
@@ -47,6 +47,10 @@ test('an extra section, wrong status or missing sections fail', () => {
 test('the summary must mention end-to-end testing', () => {
   const t = TICKET.replace('End-to-end check passed.', 'Done.');
   assert.equal(evaluateLocalContract({ ...base(), ticketFile: t }).summary_section, 0);
+});
+
+test('a linked worktree next to the checkout fails no_worktree', () => {
+  assert.equal(evaluateLocalContract({ ...base(), worktrees: 2 }).no_worktree, 0);
 });
 
 test('branches: exactly one, named <n>_slug', () => {
