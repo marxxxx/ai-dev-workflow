@@ -239,6 +239,10 @@ changes the config hash); no `upgrade` step is needed.
 branch in your current checkout, so you can see and check out the work from the host before it is
 pushed. `upgrade` does it. Remove leftover worktrees with `git worktree list` and `git worktree remove`.
 
+The `Approved Spec` ticket comment is now short: 3–5 sentences on what gets built and what does not,
+plus the text views show-me produced, never the spec's file path. When a run resumes with an approved
+spec but no plan, `agent-dev` asks whether to discard a plan left from an earlier run. `upgrade` does it.
+
 **Upgrading to v0.40.3.** The show-me skill is now installed as a copy in `.claude/skills/show-me/`
 instead of a link. A link created on Windows pointed to a host path, so Claude Code in the dev
 container could not load the skill. `upgrade` replaces an existing link.
