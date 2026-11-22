@@ -15,7 +15,7 @@ const good = {
 test('a correct run passes every verifier-side contract check', () => {
   const c = evaluateContract(good);
   assert.ok(Object.values(c).every((v) => v === 1), JSON.stringify(c));
-  assert.equal(Object.keys(c).length, 13);
+  assert.equal(Object.keys(c).length, 15);
 });
 
 test('a short in-chat agreement counts as a complete spec comment', () => {
@@ -23,6 +23,29 @@ test('a short in-chat agreement counts as a complete spec comment', () => {
   const c = evaluateContract({ ...good, comments: [short, ...good.comments.slice(1)] });
   assert.equal(c.spec_comment, 1);
   assert.equal(c.spec_comment_complete, 1);
+});
+
+const addFile = (file, text) => `diff --git a/${file} b/${file}\nnew file mode 100644\n--- /dev/null\n+++ b/${file}\n@@ -0,0 +1 @@\n+${text}\n`;
+
+test('a condensed spec comment shorter than the spec file passes', () => {
+  const prDiff = good.prDiff + addFile('docs/superpowers/specs/x-design.md', 'y'.repeat(600));
+  assert.equal(evaluateContract({ ...good, prDiff }).spec_comment_condensed, 1);
+});
+
+test('a condensed spec re-posted at close-out passes when each comment is shorter than the spec file', () => {
+  const prDiff = good.prDiff + addFile('docs/superpowers/specs/x-design.md', 'y'.repeat(800));
+  const repost = { body: `## Approved Spec\n${'w'.repeat(450)}` };
+  const comments = [{ body: `## Approved Spec\n${'v'.repeat(450)}` }, repost, ...good.comments.slice(1)];
+  assert.equal(evaluateContract({ ...good, comments, prDiff }).spec_comment_condensed, 1);
+});
+
+test('no spec file in the PR still passes the length part', () => {
+  assert.equal(evaluateContract(good).spec_comment_condensed, 1);
+});
+
+test('a discarded plan (gone from the net diff) passes, the ticket file never counts as a plan', () => {
+  const prDiff = good.prDiff + addFile('.tickets/issues/1_due_dates.md', 'z');
+  assert.equal(evaluateContract({ ...good, prDiff }).plan_discarded, 1);
 });
 
 test('a German summary stating the end-to-end status passes', () => {
@@ -44,6 +67,9 @@ test('each deviation fails exactly its check', () => {
     ['app_stopped', { appListening: true }],
     ['no_worktree', { worktrees: 2 }],
     ['no_screenshots_in_repo', { prDiff: 'diff --git a/shot.png b/shot.png\nnew file mode 100644\n' }],
+    ['spec_comment_condensed', { prDiff: good.prDiff + addFile('docs/superpowers/specs/x-design.md', 'y'.repeat(300)) }],
+    ['spec_comment_condensed', { comments: [...good.comments.slice(0, 1), { body: '## Implementation Summary\nEnd-to-end done\nPlan: `docs/superpowers/plans/x.md`' }, good.comments[2]] }],
+    ['plan_discarded', { prDiff: good.prDiff + addFile('docs/superpowers/plans/x.md', 'plan') }],
   ];
   for (const [check, patch] of cases) {
     const c = evaluateContract({ ...good, ...patch });

@@ -26,7 +26,7 @@ title: "<title>"
 status: {{status.in-progress}}
 ---
 
-<the agreed scope; for a written spec, a few sentences summarizing it plus its path>
+<a few sentences summarizing the agreed scope>
 BODY_EOF
 ```
 
@@ -45,15 +45,16 @@ BODY_EOF
 
 ## Post the spec
 
-A written spec already lives in the repository, so the comment is just its path; otherwise it is
-the agreements themselves:
+Post the condensed scope (`agent-dev` section 2, **Scope agreed**) as a section: the heading, then
+the summary and any views. No spec or plan path. Without a written spec, the section holds the
+agreements themselves:
 
 ```bash
 cat >> {{ticketing.dir}}/<number>_<slug>.md <<'BODY_EOF'
 
 ---
 ## {{artifact.spec}}
-`<spec path>` (or the agreements)
+<summary and views (or the agreements)>
 BODY_EOF
 ```
 

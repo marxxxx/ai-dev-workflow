@@ -6,9 +6,9 @@ import * as metrics from './metrics.mjs';
 import { ccusageUsage } from './ccusage.mjs';
 import { isQuota } from './claude.mjs';
 
-export const CONTRACT_CHECKS = ['ticket_open', 'ticket_review', 'spec_comment', 'spec_comment_complete',
+export const CONTRACT_CHECKS = ['ticket_open', 'ticket_review', 'spec_comment', 'spec_comment_complete', 'spec_comment_condensed',
   'summary_comment', 'cost_comment', 'only_allowed_comments', 'pr_draft', 'branch_naming', 'pr_title_naming',
-  'e2e_performed', 'show_me_read', 'app_stopped', 'no_worktree', 'no_screenshots_in_repo'];
+  'e2e_performed', 'show_me_read', 'app_stopped', 'no_worktree', 'no_screenshots_in_repo', 'plan_discarded'];
 
 const DEFAULT_DEPS = { ...metrics, ccusageUsage };
 const readJson = (f) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null);

@@ -1,7 +1,18 @@
 // File-backend agent-dev contract checks. Never asserts on superpowers internals.
-export const LOCAL_CONTRACT_CHECKS = ['ticket_review', 'spec_section', 'summary_section', 'cost_section', 'only_allowed_sections', 'branch_pushed', 'branch_naming', 'pr_draft', 'pr_title_naming', 'app_stopped', 'no_worktree', 'no_screenshots_in_repo'];
+export const LOCAL_CONTRACT_CHECKS = ['ticket_review', 'spec_section', 'spec_section_condensed', 'summary_section', 'cost_section', 'only_allowed_sections', 'branch_pushed', 'branch_naming', 'pr_draft', 'pr_title_naming', 'app_stopped', 'no_worktree', 'no_screenshots_in_repo', 'plan_discarded'];
 
 const ALLOWED = ['Approved Spec', 'Implementation Summary', 'Cost Summary'];
+// A spec or plan path as superpowers writes them; agent-dev never names one on the ticket. Duplicated in
+// e2e/tasks/_shared/tests/checks.mjs, which is not shipped and cannot import this module.
+const DOC_PATH = /\b(?:specs|plans)\/[\w.-]+\.md\b/;
+const PLAN_IN_DIFF = /^diff --git a\/\S*\bplans\/\S+\.md /m;
+
+// The added lines of every file in `diff` whose path matches `fileRe`, without the leading `+`.
+export function addedText(diff, fileRe) {
+  return diff.split(/^diff --git /m).filter((chunk) => fileRe.test(/^a\/(\S+)/.exec(chunk)?.[1] ?? ''))
+    .flatMap((chunk) => chunk.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')).map((l) => l.slice(1)))
+    .join('\n');
+}
 
 // Pure: `ticketFile` is the ticket file's TEXT (the CLI reads it), `ticket` its number. `prs` are the pull requests the
 // e2e layer's fake gh/tea/az recorded (image/pr-cli.mjs); the last one of the pushed branch counts.
@@ -13,10 +24,13 @@ export function evaluateLocalContract({ ticket, ticketFile, branches, prs = [], 
   const status = /^status:\s*(\S+)\s*$/m.exec(ticketFile.split('\n---\n')[0])?.[1];
   const summary = body('Implementation Summary');
   const ok = (v) => (v ? 1 : 0);
+  const spec = body('Approved Spec');
+  const specFile = addedText(diff, /\bspecs\/[\w.-]+\.md$/);
   const pr = branches.length === 1 ? prs.filter((p) => p.branch === branches[0]).at(-1) : undefined;
   return {
     ticket_review: ok(status === 'review'),
-    spec_section: ok(body('Approved Spec') !== ''),
+    spec_section: ok(spec !== ''),
+    spec_section_condensed: ok(!sections.some((s) => DOC_PATH.test(s.text)) && (specFile === '' || sections.filter((s) => s.title === 'Approved Spec').every((s) => s.text.length < specFile.length))),
     summary_section: ok(summary !== '' && /end[- ]to[- ]end|ende[- ]zu[- ]ende|e2e/i.test(summary)),
     cost_section: ok(body('Cost Summary') !== ''),
     only_allowed_sections: ok(sections.every((s) => ALLOWED.includes(s.title))),
@@ -27,6 +41,7 @@ export function evaluateLocalContract({ ticket, ticketFile, branches, prs = [], 
     app_stopped: appListening === null ? null : ok(!appListening),
     no_worktree: ok(worktrees === 1),
     no_screenshots_in_repo: ok(!/^diff --git a\/\S+\.(png|jpe?g|webp|gif) /mi.test(diff)),
+    plan_discarded: ok(!PLAN_IN_DIFF.test(diff)),
   };
 }
 

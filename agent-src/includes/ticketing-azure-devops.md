@@ -25,7 +25,7 @@ Created straight into `{{status.in-progress}}`; the response carries the new wor
 wit_work_item_write(action: "create", project: "{{ticketing.azure.project}}",
   workItemType: "{{ticketing.azure.featureType}}", fields: [
     { name: "System.Title", value: "<title>" },
-    { name: "System.Description", value: "<a few sentences summarizing the spec; spec path>", format: "Markdown" },
+    { name: "System.Description", value: "<a few sentences summarizing the agreed scope>", format: "Markdown" },
     { name: "System.Tags", value: "{{status.in-progress}}" },
     { name: "System.State", value: "{{azureState.in-progress}}" }
   ])
@@ -42,13 +42,12 @@ wit_work_item_comment_write(action: "add", workItemId: <id>,
 
 ## Post the spec
 
-Post the agreed scope as a readable Markdown comment: heading, the spec path if there is one, then
-the full text. If it exceeds what the server accepts (it rejects the comment), split it at heading
-boundaries into numbered comments (`## {{artifact.spec}} (1/2)`, …), each repeating the path line.
+Post the condensed scope (`agent-dev` section 2, **Scope agreed**) as a readable Markdown comment:
+the heading, then the summary and any views. No spec or plan path.
 
 ```text
 wit_work_item_comment_write(action: "add", workItemId: <id>, project: "{{ticketing.azure.project}}",
-  format: "Markdown", text: "## {{artifact.spec}}\n`<spec path>`\n\n<full spec text>")
+  format: "Markdown", text: "## {{artifact.spec}}\n\n<summary and views>")
 ```
 
 ## Status

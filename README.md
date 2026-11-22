@@ -120,25 +120,29 @@ about — the ticket and its comments — and otherwise follows the superpowers 
 1. **Start** — record the start time, read `AGENTS.md`; with a ticket, read it and move it to
    `in-progress`. Without one, it asks whether to **create a ticket**; if you say yes, it creates one
    once brainstorming has settled the scope and uses it for the rest of the run. A ticket already
-   `in-progress` **resumes** where the earlier run stopped: straight to planning if a spec file was
-   approved, to the next unfinished plan task if a plan exists (offering a partial cost summary for
-   the interrupted session), otherwise back into brainstorming with the ticket as context.
+   `in-progress` **resumes** where the earlier run stopped: straight to planning if the ticket has an
+   approved spec and its spec file is in the ticket's branch or worktree, to the next unfinished plan
+   task if a plan exists (offering a partial cost summary for the interrupted session), otherwise
+   back into brainstorming with the ticket as context.
 2. **Brainstorming** — the full requirements interview with you. A ticket (often an upstream ticket
    with too little detail to implement from) is only background context; it never replaces the
    interview. For changes with user-visible behavior it also asks whether the agent should test
    end to end or you prefer to test manually. Superpowers sizes the work: a quick task goes ahead,
    a small change is agreed in chat, a larger one gets a written spec in `docs/superpowers/specs/`.
-   Once the scope is agreed, the ticket must say what gets built: the spec, or the agreements from
-   the conversation, is posted as an **Approved Spec** comment (split into numbered comments if it
-   exceeds the backend's limit; the file backend gets just a spec's path); nothing is posted if the
-   ticket already said everything. The plan, if any, stays in the repo.
+   Once the scope is agreed, the ticket must say what gets built, posted as an **Approved Spec**
+   comment: for a written spec a condensed view of the final version (a few sentences on what gets
+   built and what does not, plus show-me's views where they help), so people can read what was
+   agreed without the full file; otherwise the agreements from the conversation. Nothing is posted
+   if the ticket already said everything. Spec and plan files are local working files: their paths
+   never go onto the ticket, and the plan never does.
 3. **The rest of the superpowers workflow** — whatever superpowers chains from brainstorming
    (today: worktree, plan, implementation with TDD and review, finishing the branch). `agent-dev`
    does not restate that chain; it only hooks in at events (scope agreed, branch created,
    integration offered or the workflow finished), so superpowers releases need no changes here.
    If you chose agent testing, an [end-to-end check](#end-to-end-testing) runs before integrating.
    Instead of superpowers' merge/PR/keep menu, the run always ends with a **draft PR**
-   (Gitea: a `WIP:` title), so a human reviews and tests before publishing it.
+   (Gitea: a `WIP:` title), so a human reviews and tests before publishing it. Before that it asks
+   whether to discard the plan (default yes); if so, the plan file stays local and out of the PR.
 4. **Close-out** — with a ticket, post an **Implementation Summary** comment (approach,
    consequences, possible side effects, what to watch when testing) and a **Cost Summary** comment,
    then move the ticket to `review`. Without a ticket, both are printed instead.
@@ -157,8 +161,9 @@ review, `agent-dev` leads with a compact view of its design from HumanLayer's
 [show-me](https://github.com/humanlayer/skills) skill — pseudocode, call and file trees, `diff`-shaped
 changes, Mermaid diagrams — so you can judge the approach before reading the file. The file stays
 the record. show-me is user-invoked only (`/show-me` works any time); `agent-dev` reads it at those
-two moments. `init` and `upgrade` install it into the project at the commit the adw version pins;
-`generate` and `check` print a note (exit code unchanged) when it is missing or outdated. Opt out
+two moments, and once more for the condensed view of the approved spec it posts on the ticket.
+`init` and `upgrade` install it into the project at the commit the adw version pins; `generate` and
+`check` print a note (exit code unchanged) when it is missing or outdated. Opt out
 with `"skills": { "show-me": false }` in `.adw/project.json`.
 
 ### End-to-end testing

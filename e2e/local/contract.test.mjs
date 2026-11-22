@@ -4,7 +4,7 @@ import { LOCAL_CONTRACT_CHECKS, evaluateLocalContract, appPortFromAgentsMd, e2eS
 
 const TICKET = [
   '---', 'title: "Add due dates"', 'status: review', '---', '', 'Scope.',
-  '', '---', '## Approved Spec', '`docs/spec.md`',
+  '', '---', '## Approved Spec', 'Condensed scope.',
   '', '---', '## Implementation Summary', 'End-to-end check passed.',
   '', '---', '## Cost Summary', '12k tokens', '',
 ].join('\n');
@@ -15,6 +15,23 @@ test('a complete ticket file passes every check', () => {
   const r = evaluateLocalContract(base());
   assert.deepEqual(Object.keys(r), LOCAL_CONTRACT_CHECKS);
   for (const k of LOCAL_CONTRACT_CHECKS) assert.equal(r[k], 1, k);
+});
+
+const addFile = (file, text) => `diff --git a/${file} b/${file}\nnew file mode 100644\n--- /dev/null\n+++ b/${file}\n@@ -0,0 +1 @@\n+${text}\n`;
+
+test('the spec section names no path and is shorter than the spec file; no plan in the diff', () => {
+  const withPath = TICKET.replace('Condensed scope.', 'See `docs/superpowers/specs/x.md`.');
+  assert.equal(evaluateLocalContract({ ...base(), ticketFile: withPath }).spec_section_condensed, 0);
+  assert.equal(evaluateLocalContract({ ...base(), diff: base().diff + addFile('docs/superpowers/specs/x.md', 'tiny') }).spec_section_condensed, 0);
+  assert.equal(evaluateLocalContract({ ...base(), diff: base().diff + addFile('docs/superpowers/specs/x.md', 'y'.repeat(600)) }).spec_section_condensed, 1);
+  assert.equal(evaluateLocalContract({ ...base(), diff: base().diff + addFile('docs/superpowers/plans/x.md', 'plan') }).plan_discarded, 0);
+  assert.equal(evaluateLocalContract({ ...base(), diff: base().diff + addFile('.tickets/issues/3_x.md', 'z') }).plan_discarded, 1);
+});
+
+test('a condensed spec section re-posted at close-out passes when each section is shorter than the spec file', () => {
+  const twice = TICKET.replace('Condensed scope.', 'v'.repeat(450)).replace('\n---\n## Implementation Summary', `\n---\n## Approved Spec\n${'w'.repeat(450)}\n\n---\n## Implementation Summary`);
+  const diff = base().diff + addFile('docs/superpowers/specs/x.md', 'y'.repeat(800));
+  assert.equal(evaluateLocalContract({ ...base(), ticketFile: twice, diff }).spec_section_condensed, 1);
 });
 
 test('an extra section, wrong status or missing sections fail', () => {
