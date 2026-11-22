@@ -212,8 +212,11 @@ test('applyTurnResult: ok sets idle with the message, capped at 64 KiB with a ma
 test('applyTurnResult cuts on a character boundary for multi-byte text', () => {
   const { sessions, store } = setup();
   const { id } = sessions.start({ harness: 'codex', task: 'a' });
-  const record = applyTurnResult(store, id, { ok: true, message: 'é'.repeat(40000) }, () => 'T');
-  assert.equal(record.lastMessage.includes('�'), false);
+  // 'x' shifts every 'é' to an odd offset, so the cut at 65536 falls mid-character.
+  const record = applyTurnResult(store, id, { ok: true, message: 'x' + 'é'.repeat(40000) }, () => 'T');
+  assert.equal(record.lastMessage.includes('\uFFFD'), false);
+  assert.equal(record.lastMessage.endsWith('\n[truncated]'), true);
+  assert.ok(Buffer.byteLength(record.lastMessage) <= 64 * 1024 + '\n[truncated]'.length);
 });
 
 test('applyTurnResult: not ok sets failed with the error', () => {
@@ -222,6 +225,18 @@ test('applyTurnResult: not ok sets failed with the error', () => {
   const record = applyTurnResult(store, id, { ok: false, error: 'exit 1' }, () => 'T');
   assert.equal(record.status, 'failed');
   assert.equal(record.error, 'exit 1');
+});
+
+test('applyTurnResult leaves a failed or idle session unchanged', () => {
+  const { sessions, store } = setup();
+  const { id } = sessions.start({ harness: 'codex', task: 'a' });
+  const failed = store.update(id, { status: 'failed', error: 'worker lost' });
+  assert.deepEqual(applyTurnResult(store, id, { ok: true, message: 'late' }, () => 'T'), failed);
+  assert.equal(store.get(id).status, 'failed');
+  const idle = store.update(id, { status: 'idle', error: null, lastMessage: 'first' });
+  assert.deepEqual(applyTurnResult(store, id, { ok: false, error: 'late' }, () => 'T'), idle);
+  assert.deepEqual(applyTurnResult(store, id, { ok: true, message: 'late' }, () => 'T'), idle);
+  assert.equal(store.get(id).lastMessage, 'first');
 });
 
 test('applyTurnResult leaves a terminated session unchanged', async () => {

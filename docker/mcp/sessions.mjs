@@ -20,7 +20,8 @@ function capMessage(message) {
 export function applyTurnResult(store, id, result, now) {
   const current = store.get(id);
   if (!current) throw new SessionError(`unknown session ${id}`);
-  if (current.status === 'terminated') return current;
+  // Only a running turn takes a result; a late one must not revive failed, idle or terminated sessions.
+  if (current.status !== 'running') return current;
   const patch = result.ok
     ? { status: 'idle', lastMessage: capMessage(result.message), error: null }
     : { status: 'failed', error: result.error ?? 'turn failed' };
