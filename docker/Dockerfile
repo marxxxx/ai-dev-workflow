@@ -130,7 +130,11 @@ RUN set -eux; \
 
 COPY --chmod=0755 configure-agents.sh entrypoint.sh agent-wrapper.sh verify-agent-config.sh verify-tools.sh /usr/local/bin/
 COPY launch-agent.mjs validate-workspace.mjs workspace-mounts.mjs check-host-artifacts.mjs docker-proxy-config.mjs tools/verify-browser.mjs tools/verify-mcp.mjs tools/verify-semantic.mjs tools/verify-versions.mjs /usr/local/lib/agent-runtime/
+# Opt-in MCP session server (the compose.mcp.yml overlay); its unit tests stay out of the image.
+COPY mcp/ /usr/local/lib/agent-runtime/mcp/
 RUN set -eux; \
+    rm -f /usr/local/lib/agent-runtime/mcp/*.test.mjs; \
+    node --check /usr/local/lib/agent-runtime/mcp/server.mjs; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/claude; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/codex; \
     ln -s /usr/local/bin/agent-wrapper.sh /usr/local/bin/opencode; \
