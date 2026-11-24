@@ -54,9 +54,9 @@ becomes the team's history, so every reason is traceable:
    counts as inferred. List only the options a source shows were considered.
 3. The header's date is the decision date when a source gives it, otherwise
    `in force by <date> (<source>)`. Add `recorded retroactively <today>`.
-4. **Open** lists what reviewers should answer, one question per bullet and at most three: who
-   decided and when if unknown, and each inferred reason. Answers from the review go into the ADR
-   with the person who gave them as the source, e.g. `(Jane Doe, review 2026-11-24)`.
+4. **Open** lists what reviewers should answer, one question per bullet and at most three: when
+   it was decided, if no source gives the date, and each inferred reason. Answers from the review go
+   into the ADR with the person who gave them as the source, e.g. `(Jane Doe, review 2026-11-24)`.
 5. Status `Accepted`: the decision is in force.
 6. If the project keeps a list of decisions still to backfill, remove this one from it.
 
