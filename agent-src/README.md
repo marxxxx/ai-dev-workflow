@@ -149,6 +149,7 @@ harnesses read those same files at runtime.
 | Source unit | → Claude | → Codex | → OpenCode |
 |---|---|---|---|
 | `skills/agent-dev` | `.claude/skills/agent-dev/SKILL.md` | `.agents/skills/agent-dev/SKILL.md` + `…/agents/openai.yaml` | `.opencode/skills/agent-dev/SKILL.md` |
+| `skills/adr` | `.claude/skills/adr/SKILL.md` | `.agents/skills/adr/SKILL.md` + `…/agents/openai.yaml` | `.opencode/skills/adr/SKILL.md` |
 | `agents/<name>` (none ship today) | `.claude/agents/<name>.md` | `.codex/agents/<name>.toml` | `.opencode/agents/<name>.md` |
 
 Note: Codex skills are emitted under `.agents/skills/` (the location Codex loads skills from at
