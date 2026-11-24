@@ -14,7 +14,6 @@ function setup(t, answers = []) {
   const imageDir = path.join(dir, 'image');
   mkdirSync(imageDir);
   writeFileSync(path.join(imageDir, 'Dockerfile'), 'FROM x\n');
-  writeFileSync(path.join(imageDir, 'package-lock.json'), '{}\n');
   writeFileSync(path.join(imageDir, 'pr-cli.mjs'), 'FAKE\n');
   const calls = []; const logs = [];
   const exec = (cmd, args, opts = {}) => {
@@ -22,7 +21,7 @@ function setup(t, answers = []) {
     const hit = answers.find(([match]) => match(args));
     return hit ? hit[1] : { status: 0, stdout: '', stderr: '' };
   };
-  const tag = layerTag(BASE_ID, 'FROM x\n', '{}\n', 'FAKE\n');
+  const tag = layerTag(BASE_ID, 'FROM x\n', 'FAKE\n');
   const opts = { root: '/proj', runDir: path.join(dir, 'run'), composeFiles: ['/proj/.adw/compose.yml'], env: { PROJECT_ROOT: '/proj' },
     exec, log: (s) => logs.push(s), imageDir };
   return { calls, logs, opts, tag };
@@ -47,7 +46,7 @@ test('layerTag is stable and changes with the base image or any layer file', () 
 
 test('builds the layer on the compose image, labels it, prunes older ones and writes the override', (t) => {
   const ref = 'marxx/ai-dev-workflow:node-latest';
-  const tag = layerTag(BASE_ID, 'FROM x\n', '{}\n', 'FAKE\n');
+  const tag = layerTag(BASE_ID, 'FROM x\n', 'FAKE\n');
   const { calls, logs, opts } = setup(t, [
     [isConfig, { status: 0, stdout: JSON.stringify({ name: 'adw-e2e-image', services: { 'ai-dev-workflow': { image: ref }, mail: { image: 'mailpit' } } }) }],
     baseInspect(ref), layerMissing,
@@ -169,14 +168,14 @@ test('the layer restores the base image user', (t) => {
   assert.ok(calls.find((c) => c.args[0] === 'build').args.includes('BASE_USER=dev'));
 });
 
-test('proxies go to the build by name, company certificates as the certs build context', (t) => {
+test('proxies go to the build by name', (t) => {
   const ref = 'img:5';
   const { calls, opts } = setup(t, [[isConfig, configJson({ image: ref })], baseInspect(ref), layerMissing]);
-  const env = { PROJECT_ROOT: '/proj', HTTPS_PROXY: 'http://user:secret@proxy:3128', no_proxy: 'localhost', AGENT_CA_DIR: '/etc/company-ca' };
+  const env = { PROJECT_ROOT: '/proj', HTTPS_PROXY: 'http://user:secret@proxy:3128', no_proxy: 'localhost' };
   ensureE2eImage({ ...opts, env });
   const build = calls.find((c) => c.args[0] === 'build');
-  const pairs = build.args.flatMap((a, i) => (a === '--build-arg' || a === '--build-context' ? [`${a} ${build.args[i + 1]}`] : []));
-  assert.deepEqual(pairs.filter((p) => !p.includes('BASE_')), ['--build-arg HTTPS_PROXY', '--build-arg no_proxy', '--build-context certs=/etc/company-ca']);
+  const pairs = build.args.flatMap((a, i) => (a === '--build-arg' ? [`${a} ${build.args[i + 1]}`] : []));
+  assert.deepEqual(pairs.filter((p) => !p.includes('BASE_')), ['--build-arg HTTPS_PROXY', '--build-arg no_proxy']);
   assert.ok(!build.args.some((a) => a.includes('secret')), 'proxy values never reach argv');
   assert.equal(build.opts.env, env);
 });

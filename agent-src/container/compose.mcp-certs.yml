@@ -1,0 +1,16 @@
+# Project-owned; written once by adw init. Companion of the mcp and certs overlays: the MCP
+# server and the agents it starts trust the company root certificates too, so they work behind a
+# TLS-inspecting proxy (adw-mcp extends only .adw/compose.yml, not the certs overlay).
+# ./adw.sh mcp and .\adw.ps1 mcp add it automatically whenever AGENT_CA_DIR is set. Without the
+# launchers, pass it after the mcp overlay:
+#   docker compose --project-directory <project root> -f .adw/compose.yml -f .adw/compose.mcp.yml \
+#     -f .adw/compose.mcp-certs.yml up -d adw-mcp
+services:
+  adw-mcp:
+    volumes:
+      - type: bind
+        source: ${AGENT_CA_DIR:?Set AGENT_CA_DIR to an existing absolute directory holding the company root certificates}
+        target: /etc/agent-certs
+        read_only: true
+        bind:
+          create_host_path: false

@@ -47,8 +47,6 @@
     "e2e/local/defaults.json",
     "e2e/local/image.mjs",
     "e2e/local/image/Dockerfile",
-    "e2e/local/image/package.json",
-    "e2e/local/image/package-lock.json",
     "e2e/local/image/pr-cli.mjs",
     "e2e/lib/llm.mjs",
     "e2e/lib/claude.mjs",
@@ -73,7 +71,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test agent-src/*.test.mjs agent-src/lib/*.test.mjs e2e/lib/*.test.mjs e2e/local/*.test.mjs e2e/tasks/_shared/tests/checks.test.mjs"
+    "test": "node --test agent-src/*.test.mjs agent-src/lib/*.test.mjs e2e/lib/*.test.mjs e2e/local/*.test.mjs e2e/tasks/_shared/tests/checks.test.mjs docker/mcp/*.test.mjs"
   },
   "engines": {
     "node": ">=24"

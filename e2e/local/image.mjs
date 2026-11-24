@@ -1,5 +1,6 @@
-// The agent under test runs on the project's own dev image plus a thin layer with acpx and the ACP adapters
-// (e2e/local/image). Built once per adw e2e call when its tag is missing; the project's older layers are pruned.
+// The agent under test runs on the project's own dev image plus a thin layer (e2e/local/image) that adds the fake PR
+// CLIs and links the image's acpx and ACP adapters onto PATH. Built once per adw e2e call when its tag is missing; the
+// project's older layers are pruned.
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -14,7 +15,7 @@ const LABEL = 'adw.e2e.root';
 const PROXY_ENV = ['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy'];
 
 // Every file the layer is built from (LAYER_FILES) goes into the tag, so a change to any of them rebuilds.
-const LAYER_FILES = ['Dockerfile', 'package-lock.json', 'pr-cli.mjs'];
+const LAYER_FILES = ['Dockerfile', 'pr-cli.mjs'];
 
 export function layerTag(baseId, ...files) {
   const hash = createHash('sha256').update([baseId, ...files].join('\n')).digest('hex');
@@ -84,7 +85,6 @@ export function ensureE2eImage({ root, runDir, composeFiles, env, exec, log, ima
     // BuildKit reads `FROM sha256:…` as a Docker Hub repository: the base goes in by its local name, its ID only into the tag.
     docker(['build', '--build-arg', `BASE_IMAGE=${image}`, '--build-arg', `BASE_USER=${user || 'root'}`,
       ...PROXY_ENV.filter((n) => env[n]).flatMap((n) => ['--build-arg', n]),
-      ...(env.AGENT_CA_DIR ? ['--build-context', `certs=${env.AGENT_CA_DIR}`] : []),
       '--label', `${LABEL}=${root}`, '-t', tag, imageDir], { env, stdio: 'inherit' });
     const old = docker(['image', 'ls', '--filter', `label=${LABEL}=${root}`, '--format', '{{.Repository}}:{{.Tag}}']);
     // An image still in use stays; the next build tries again.

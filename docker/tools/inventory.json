@@ -18,9 +18,7 @@
     "typescript": "7.0.2",
     "typescript-language-server": "6.1.0",
     "typescript-serena": "npm:typescript@5.9.3",
-    "yarn": "1.22.22"
-  },
-  "e2eNpmPackages": {
+    "yarn": "1.22.22",
     "@agentclientprotocol/claude-agent-acp": "0.109.0",
     "@agentclientprotocol/codex-acp": "2.8.0",
     "acpx": "0.22.0"

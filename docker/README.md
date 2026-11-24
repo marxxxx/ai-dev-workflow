@@ -24,7 +24,10 @@ produces `latest` only.
 The build context is the standalone `docker/` directory. The base includes all
 three agents, local Serena, Playwright MCP and its matching Chromium, Context7,
 Azure DevOps MCP v2, Azure CLI with its `azure-devops` extension, the Gitea CLI
-`tea`, the Docker CLI with `buildx` and `compose` (no daemon), Superpowers and ccusage. The Node variant adds native compilation tools, a headless Java runtime (for
+`tea`, the Docker CLI with `buildx` and `compose` (no daemon), Superpowers, ccusage, `acpx` with the
+Claude and Codex ACP adapters (for `adw e2e` and the MCP server) and the opt-in MCP server itself (`mcp/`). `acpx` and
+the adapters add about 0.9 GB on linux/amd64, mostly the Claude Code and Codex binaries the adapters bundle (they run
+the image's own `claude` and `codex` instead). The Node variant adds native compilation tools, a headless Java runtime (for
 Java-based tooling such as `openapi-generator-cli`), package managers and TypeScript semantic tooling; the .NET variant adds an exact SDK version, the matching `dotnet-ef` tool, Serena's C#
 language server, and trusts the ASP.NET Core HTTPS development certificate for `localhost`. Project dependency
 installation remains the consuming project's responsibility.
@@ -62,18 +65,20 @@ stack (`node`, `dotnet` or `generic`) and writes, each only when missing:
 |---|---|
 | `.adw/compose.yml` | The service, preset with the matching published image and a stable Compose project name (`name: <project>-ai`) |
 | `.adw/compose.certs.yml` | Company root-certificate overlay, added automatically when `AGENT_CA_DIR` is set |
+| `.adw/compose.mcp.yml`, `.adw/compose.mcp-certs.yml` | Only with the MCP server opt-in: the `adw-mcp` service and its certificate companion (see [Smoke test the MCP server](#smoke-test-the-mcp-server)) |
 | `adw.sh`, `adw.ps1` | The single launch command for POSIX shells and PowerShell |
 | `.adw/README.md` | Start, agent logins, the login for the project's ticketing backend, proxy setup |
 
 It also git-ignores `.adw/.env` and pins `adw.sh` to LF in `.gitattributes`, then prints the
-exact next steps. Two opt-in questions (both default to no) write settings into `.adw/.env`,
+exact next steps. Three opt-in questions (all default to no) write settings into `.adw/.env`,
 never overriding a key already set there: the Docker overlay sets `AGENT_DIND=1` after printing
-its isolation warning, and company certificates set `AGENT_CA_DIR` to the directory you name — or
-leave it empty, with a hint, when you answer blank. The files belong to the project from then on;
+its isolation warning, company certificates set `AGENT_CA_DIR` to the directory you name — or
+leave it empty, with a hint, when you answer blank — and the MCP server writes its two overlays
+and a generated `ADW_MCP_TOKEN` (`.adw/.env` is then readable by you only). The files belong to the project from then on;
 `generate` never touches them. A project that already has `.adw/project.json` gets them by running
 `init` again and declining the overwrite. Non-interactively: `init --answers <file>` with
-`"container": { "enabled": "y", "stack": "node", "dind": "y", "certs": "y", "caDir": "/abs/certs" }`
-(`dind`, `certs` and `caDir` optional).
+`"container": { "enabled": "y", "stack": "node", "dind": "y", "certs": "y", "caDir": "/abs/certs", "mcp": "y" }`
+(`dind`, `certs`, `caDir` and `mcp` optional).
 
 Run the project's host-side generation first, then from the project root:
 
@@ -89,6 +94,9 @@ POSIX hosts, load the optional git-ignored `.adw/.env` (per-machine settings suc
 `AGENT_IMAGE`, `AGENT_CA_DIR`, proxy variables; never overriding the environment) and run
 `docker compose … run --rm ai-dev-workflow <args>`. Arguments pass through unchanged and no
 flags are added; in PowerShell quote a bare `--` as `'--'`, which PowerShell otherwise consumes.
+The one exception is `mcp`: `./adw.sh mcp [up options]` starts the opt-in MCP server
+(`up [options] adw-mcp` with `.adw/compose.mcp.yml`, plus `.adw/compose.mcp-certs.yml` when
+`AGENT_CA_DIR` is set) and `./adw.sh mcp down` stops it (`stop adw-mcp`).
 
 No host `HOME` variable or home bind is needed. Docker Desktop uses the default
 container IDs `1000:1000`; it mediates ownership for Windows bind mounts. Paths
@@ -467,6 +475,56 @@ Limits:
   [`compose.dind-certs.yml`](../agent-src/container/compose.dind-certs.yml)
   when `AGENT_CA_DIR` is set, so that the daemon trusts it. It accepts PEM files only. Trust inside the `RUN` steps of the project's own Dockerfiles stays the
   project's responsibility.
+
+## Smoke test the MCP server
+
+The unit and HTTP tests (`node --test docker/mcp/*.test.mjs`) drive the server with a fake `acpx`.
+After a change to `docker/mcp/`, `launch-agent.mjs` or the ACP pins, run the real path once per
+harness (`claude-code`, `codex`, `opencode`) in a project with the MCP server enabled and the
+harness logged in (`./adw.sh claude` etc.). Sessions run `agent-dev` on the project's **real
+ticketing backend**: use a throwaway ticket, and afterwards close it and delete the branch the agent
+created. To test a local build, set `AGENT_IMAGE` in `.adw/.env` to its tag first.
+
+```sh
+./adw.sh mcp -d
+export ADW_MCP_TOKEN=$(sed -n 's/^ADW_MCP_TOKEN=//p' .adw/.env)
+URL=http://localhost:8787/mcp
+call() {
+  curl -sS -w '\nHTTP %{http_code}\n' "$URL" -H "x-api-key: $ADW_MCP_TOKEN" -H 'content-type: application/json' -d "$1"
+}
+tool() {  # tool <name> <arguments as JSON>
+  call '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"'"$1"'","arguments":'"$2"'}}'
+}
+```
+
+Then, with the expected answer:
+
+```sh
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST "$URL" -d '{}'
+#   401 (no token)
+call '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'
+#   HTTP 200, "serverInfo":{"name":"adw-mcp",...}
+call '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+#   HTTP 200, the tools start_session, query_session, post_session, list_sessions, terminate_session
+tool start_session '{"harness":"claude-code","task":"<throwaway ticket, e.g. #123>"}'
+#   HTTP 200, "status":"running","turn":1 and the session_id
+SID=<session_id>
+tool query_session '{"session_id":"'"$SID"'"}'
+#   "running"; repeat until "idle" (minutes): last_message holds the agent's first question
+tool post_session '{"session_id":"'"$SID"'","message":"<your answer>"}'
+#   "running","turn":2; query again until "idle"
+tool terminate_session '{"session_id":"'"$SID"'"}'
+#   "status":"terminated"
+tool list_sessions '{}'
+#   the session, terminated
+./adw.sh mcp down
+```
+
+Every tool call answers HTTP 200; a refused call has `"isError":true` and a short message, e.g. a
+second `start_session` while a session is `running` or `idle`, or `post_session` while it is
+`running`. A session that ends `failed` names the cause in `error` (a missing login, a quota). The
+server's own log: `docker compose -p <name>-ai logs adw-mcp`. Check on the ticket that `agent-dev`
+moved it to in progress.
 
 ## Tool inventory, updates and verification
 

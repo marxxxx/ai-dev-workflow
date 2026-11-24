@@ -23,6 +23,8 @@ export const COMPOSE_FILES = {
   certs: '.adw/compose.certs.yml',
   dind: '.adw/compose.dind.yml',
   dindCerts: '.adw/compose.dind-certs.yml',
+  mcp: '.adw/compose.mcp.yml',
+  mcpCerts: '.adw/compose.mcp-certs.yml',
 };
 export const LAUNCHERS = { sh: 'adw.sh', ps1: 'adw.ps1' };
 

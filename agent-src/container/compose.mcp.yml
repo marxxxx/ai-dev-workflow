@@ -1,0 +1,38 @@
+# Project-owned; written once by adw init. Opt-in overlay: an MCP server that starts and steers
+# agent-dev sessions remotely. ./adw.sh mcp (or .\adw.ps1 mcp) starts it (see .adw/README.md); stop
+# it with `docker compose -p @@SLUG@@-ai stop adw-mcp`. It runs as dev in the same image, with the same
+# /workspace bind and agent-home volume, so the harness logins of ./adw.sh apply.
+# After `up -d` the server also comes back after a reboot or Docker daemon restart until you stop it
+# explicitly. A startup error (token under 32 characters, bad TLS paths) makes it restart in a loop:
+# fix .adw/.env and stop it.
+# Agents started through MCP get no Docker daemon, even with AGENT_DIND=1.
+#
+# Settings come from .adw/.env:
+# - ADW_MCP_TOKEN (required, 32+ characters): clients send it as a Bearer token or X-Api-Key.
+# - ADW_MCP_BIND (default 127.0.0.1) and ADW_MCP_PORT (default 8787) are the HOST side of the
+#   published port. Inside the container the server always listens on 0.0.0.0:8787.
+# - ADW_MCP_TLS_CERT / ADW_MCP_TLS_KEY (both or neither): container paths of a PEM certificate and
+#   key, so they must live under the project (/workspace/...) or in a mount you add here.
+# - ADW_MCP_TURN_TIMEOUT_SEC (default 14400 = 4 h, 60 to 86400): how long one agent turn may run.
+#
+# SECURITY: anyone who reaches the port with the token runs agents in this project. Over plain HTTP
+# the token is readable on the network: set the TLS paths, or keep the bind on a trusted network.
+services:
+  adw-mcp:
+    # Relative to the project root like every path here (the launchers pass --project-directory).
+    extends:
+      file: .adw/compose.yml
+      service: ai-dev-workflow
+    container_name: !reset null
+    command: ["node", "/usr/local/lib/agent-runtime/mcp/server.mjs"]
+    tty: false
+    stdin_open: false
+    restart: unless-stopped
+    environment:
+      ADW_MCP_TOKEN: ${ADW_MCP_TOKEN:?Set ADW_MCP_TOKEN in .adw/.env}
+      ADW_MCP_PORT: "8787"
+      ADW_MCP_TLS_CERT: ${ADW_MCP_TLS_CERT:-}
+      ADW_MCP_TLS_KEY: ${ADW_MCP_TLS_KEY:-}
+      ADW_MCP_TURN_TIMEOUT_SEC: ${ADW_MCP_TURN_TIMEOUT_SEC:-}
+    ports: !override
+      - "${ADW_MCP_BIND:-127.0.0.1}:${ADW_MCP_PORT:-8787}:8787"

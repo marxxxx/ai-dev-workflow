@@ -25,14 +25,10 @@ const LOCKFILE = 'tools/package-lock.json';
 const DIND_OVERLAY = '../agent-src/container/compose.dind.yml';
 // Read by adw init/upgrade, which install these skills into consuming projects with `npx skills`.
 const SKILLS_CONFIG = '../agent-src/config/skills.json';
-// The ACP tooling adw e2e layers on a project's dev image (e2e/local/image), never part of the dev images.
-const E2E_PACKAGE_JSON = '../e2e/local/image/package.json';
-const E2E_LOCKFILE = '../e2e/local/image/package-lock.json';
-const DERIVED_FILES = [PACKAGE_JSON, E2E_PACKAGE_JSON, 'Dockerfile', 'Dockerfile.dotnet', DIND_OVERLAY, SKILLS_CONFIG];
+const DERIVED_FILES = [PACKAGE_JSON, 'Dockerfile', 'Dockerfile.dotnet', DIND_OVERLAY, SKILLS_CONFIG];
 // Each npm group and the package.json + lockfile derived from it.
 const NPM_GROUPS = [
   { key: 'npmPackages', manifest: PACKAGE_JSON, lockfile: LOCKFILE },
-  { key: 'e2eNpmPackages', manifest: E2E_PACKAGE_JSON, lockfile: E2E_LOCKFILE },
 ];
 
 const DOCKERFILE_ARGS = {
@@ -251,7 +247,7 @@ export async function resolveUpdates(inventory, sources) {
     return packuments.get(name);
   };
   const resolved = {};
-  for (const group of ['npmPackages', 'e2eNpmPackages']) {
+  for (const group of ['npmPackages']) {
     for (const [name, spec] of Object.entries(inventory[group] ?? {})) {
       if (follows[name]) continue;
       const document = await packument(aliasTarget(name, spec));
@@ -303,7 +299,7 @@ export async function resolveUpdates(inventory, sources) {
 }
 
 export function inventoryNames(inventory) {
-  return ['baseImage', 'dindImage', ...Object.keys(inventory.npmPackages), ...Object.keys(inventory.e2eNpmPackages ?? {}),
+  return ['baseImage', 'dindImage', ...Object.keys(inventory.npmPackages),
     ...Object.keys(inventory.systemTools), ...Object.keys(inventory.sourceRevisions), ...Object.keys(inventory.derivedImages),
     'skills', ...Object.keys(inventory.agentSkills.skills)];
 }
