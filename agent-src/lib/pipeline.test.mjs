@@ -104,6 +104,8 @@ test('adr marks unsourced reasons of a backfill, follows the project convention 
       assert.match(body, /`\(inferred — confirm\)`/, `${p}: unsourced reasons are marked`);
       assert.match(body, /Follow the project's convention/, `${p}: convention first`);
       assert.match(body, /Superseded by ADR-NNNN/);
+      assert.match(body, /Separate items are bullets, one per line/, `${p}: lists are bullets, not run-on lines`);
+      assert.match(body, /\n## Evidence\n- /, `${p}: evidence is a bullet list`);
       assert.doesNotMatch(body, /\{\{.*?\}\}/);
     }
   } finally {

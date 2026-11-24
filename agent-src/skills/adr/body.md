@@ -22,6 +22,9 @@ belong in the ADR:
   belongs in the architecture docs and the code; link them under **Evidence**.
 - A doc that disagrees with the code is a ticket, not part of the ADR.
 - Context and drivers are one list, **Why**; a reason appears once.
+- Separate items are bullets, one per line: every reason, option, consequence, open question and
+  source. A bullet holds one item in one or two sentences. The header line holds only the status,
+  the date and the tickets the decision belongs to; every other reference goes under **Evidence**.
 
 ## New decision
 
@@ -51,9 +54,9 @@ becomes the team's history, so every reason is traceable:
    counts as inferred. List only the options a source shows were considered.
 3. The header's date is the decision date when a source gives it, otherwise
    `in force by <date> (<source>)`. Add `recorded retroactively <today>`.
-4. **Open** names, in one or two lines, what reviewers should answer: who decided and when if
-   unknown, and each inferred reason. Answers from the review go into the ADR with the person who
-   gave them as the source, e.g. `(Jane Doe, review 2026-11-24)`.
+4. **Open** lists what reviewers should answer, one question per bullet and at most three: who
+   decided and when if unknown, and each inferred reason. Answers from the review go into the ADR
+   with the person who gave them as the source, e.g. `(Jane Doe, review 2026-11-24)`.
 5. Status `Accepted`: the decision is in force.
 6. If the project keeps a list of decisions still to backfill, remove this one from it.
 
@@ -62,7 +65,7 @@ becomes the team's history, so every reason is traceable:
 ```markdown
 # ADR-NNNN: <the decision, as a short statement>
 
-<Accepted | Superseded by ADR-NNNN | Deprecated> · <YYYY-MM-DD> · <tickets, pull requests>
+<Accepted | Superseded by ADR-NNNN | Deprecated> · <YYYY-MM-DD> · <the tickets the decision belongs to>
 
 ## Decision
 <1–3 sentences: what was decided, concretely enough to check code against.>
@@ -77,7 +80,9 @@ becomes the team's history, so every reason is traceable:
 - <3–5 bullets: what this means for future work, good and bad.>
 
 ## Open
-<Backfill only, while anything is unanswered: one or two lines of questions.>
+- <Backfill only, while anything is unanswered: one question per bullet, at most three.>
 
-Evidence: <pull requests, tickets, docs, related ADRs and conventions>
+## Evidence
+- <One bullet per doc, link, related ADR or convention.>
+- <Tickets and pull requests: one bullet per kind, e.g. "PRs 2302, 2658, 3449".>
 ```
