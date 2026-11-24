@@ -16,6 +16,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     APP_USER=dev \
     APP_HOME=/home/dev \
     AGENT_TOOLS_PACKAGE=/opt/agent-tools/package.json \
+    AZURE_CORE_COLLECT_TELEMETRY=false \
     AZURE_EXTENSION_DIR=/opt/azure-cli/extensions \
     PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright \
     UV_INSTALL_DIR=/usr/local/bin \

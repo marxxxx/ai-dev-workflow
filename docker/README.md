@@ -183,6 +183,7 @@ The same Azure CLI login serves the pinned `azure-devops` CLI extension (`az dev
 `AZURE_EXTENSION_DIR` (`/opt/azure-cli/extensions`), not in the home volume, so image
 updates replace it. Set a default organization with
 `az devops configure --defaults organization=https://dev.azure.com/<org>`.
+Azure CLI telemetry is off in every image (`AZURE_CORE_COLLECT_TELEMETRY=false`).
 
 ADO API login and Git remote authentication are separate. For GitHub, `gh auth login`
 followed by `gh auth setup-git` stores credentials in this project's runtime home.
