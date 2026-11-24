@@ -9,7 +9,7 @@ The generator is a zero-dependency Node script, published to npm as
 [`@strobl_dev/adw`](https://www.npmjs.com/package/@strobl_dev/adw). The consuming project does
 **not** need to be a Node project. It works in any repo (C#/.NET, Go, Rust, …) — the only
 requirement is Node on the machine that runs the generator (your dev box and CI). Pin a version
-(e.g. `@0.41.1`) so devs and CI stay in sync.
+(e.g. `@0.42.0`) so devs and CI stay in sync.
 
 ## What lands in your repo
 
@@ -21,6 +21,7 @@ requirement is Node on the machine that runs the generator (your dev box and CI)
 | `.adw/compose*.yml`, `.adw/README.md`, `adw.sh`, `adw.ps1` | dev-container files, written once by `init` when you set up the container; yours afterwards (see [Run in a container](#run-in-a-container)) | yes |
 | `.adw/.env` | per-machine container settings | no (git-ignored) |
 | `docs/superpowers/{specs,plans}/` | written by superpowers when a change needs them; the agreed scope is also posted to the ticket | yes |
+| `docs/adr/` (or your project's ADR folder) | **you** — [architecture decision records](#architecture-decisions-adrs), written by the `adr` skill, for example when an `agent-dev` run makes an architecture decision | yes |
 | `.agents/skills/show-me/`, `.claude/skills/show-me/`, `skills-lock.json` | third-party [show-me](#reviewing-specs-and-plans-with-show-me) skill, installed by `init`/`upgrade` with `npx skills` at the commit this adw version pins; never rendered or checked | yes |
 | `.claude/`, `.codex/`, `.opencode/`, `.agents/` | generated output | yes (review diffs on update) |
 | `.mcp.json` | merged (azure-devops backend only) — the shared `ado` server entry; other servers preserved | yes |
@@ -35,7 +36,7 @@ updates with it. See [`agent-src/README.md`](agent-src/README.md) for how the so
 
 ```bash
 # 1. run the guided onboarding — writes .adw/project.json, prints the recommended tooling
-npx @strobl_dev/adw@0.41.1 init
+npx @strobl_dev/adw@0.42.0 init
 
 # 2. (the interview sets project identity, repository, and ticketing.backend.
 #    For azure-devops it also captures org/project + process template and pre-fills
@@ -45,12 +46,12 @@ npx @strobl_dev/adw@0.41.1 init
 #    with your coding agent's native /init.)
 
 # 3. generate the platform files
-npx @strobl_dev/adw@0.41.1 generate
+npx @strobl_dev/adw@0.42.0 generate
 
 # 4. commit .adw/project.json and the generated dirs
 ```
 
-Pin the version (`@0.41.1`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
+Pin the version (`@0.42.0`) so devs and CI stay in sync — a C# repo has no lockfile to do it for you.
 
 Versions up to v0.23.0 were only distributed from Git (`npx github:marxxxx/ai-dev-workflow#v0.23.0`).
 npm 12 refuses git specs by default (`EALLOWGIT`); add `--allow-git=all` if you still need one.
@@ -134,7 +135,9 @@ about — the ticket and its comments — and otherwise follows the superpowers 
    built and what does not, plus show-me's views where they help), so people can read what was
    agreed without the full file; otherwise the agreements from the conversation. Nothing is posted
    if the ticket already said everything. Spec and plan files are local working files: their paths
-   never go onto the ticket, and the plan never does.
+   never go onto the ticket, and the plan never does. Before the design is settled it reads your
+   ADRs for the area, and with the scope it settles whether the change makes an
+   [architecture decision](#architecture-decisions-adrs).
 3. **The rest of the superpowers workflow** — whatever superpowers chains from brainstorming
    (today: worktree, plan, implementation with TDD and review, finishing the branch). `agent-dev`
    does not restate that chain; it only hooks in at events (scope agreed, branch created,
@@ -144,7 +147,8 @@ about — the ticket and its comments — and otherwise follows the superpowers 
    (Gitea: a `WIP:` title), so a human reviews and tests before publishing it. Before that it asks
    whether to discard the plan (default yes); if so, the plan file stays local and out of the PR.
 4. **Close-out** — with a ticket, post an **Implementation Summary** comment (approach,
-   consequences, possible side effects, what to watch when testing) and a **Cost Summary** comment,
+   consequences, possible side effects, what to watch when testing, the ADRs the change adds or
+   supersedes) and a **Cost Summary** comment,
    then move the ticket to `review`. Without a ticket, both are printed instead.
 
 Names derive from the ticket's number and a short version of its title: branch
@@ -188,6 +192,28 @@ that into commands for the OS it runs on. Cover:
 - the **test-locator attribute** to select elements by (for example `data-testid`).
 
 Without that section, the agent tells you during brainstorming if you ask it to test end to end.
+
+### Architecture decisions (ADRs)
+
+Specs and plans are working files; they do not keep the *why* of a decision for later readers. The
+generated `adr` skill (`/adr`, Codex: `$adr`) writes an architecture decision record instead, and
+`agent-dev` uses it at three events:
+
+- **Approaches compared** — it reads the ADRs for the area; an approach that contradicts an
+  accepted ADR is named as superseding it.
+- **Scope agreed** — it settles with you whether the change makes an architecture decision (one your
+  ADR guidance lists, or one expensive to reverse: a new dependency, module boundaries, storage, a
+  public API, a security default). If so, it records the ADR on the branch once the implementation is
+  verified, and the PR review accepts it. The Implementation Summary names the ADRs.
+- **Close-out** — an earlier, unrecorded decision the work relied on is named as a backfill
+  candidate.
+
+The skill follows your project's convention (found through `AGENTS.md` and your ADR folder: location,
+numbering, template, index); without one it asks before introducing `docs/adr/`. Accepted ADRs are
+never rewritten, only superseded. For past decisions it has a **backfill** mode: every reason ends
+with its source (commit, PR, ticket, document) or is marked `(inferred — confirm)`, and inferred
+reasons and unknown fields go under *Open* for reviewers, so a guess never becomes the
+team's history. Point `AGENTS.md` at your ADR folder so agents find it.
 
 ### Cost summary
 
@@ -234,6 +260,11 @@ and records the `skills` opt-in. Run
 
 **`adw e2e` first-run setup.** The first `adw e2e` run after this update starts a new baseline (`e2e.language`
 changes the config hash); no `upgrade` step is needed.
+
+**Upgrading to v0.42.0.** A second generated skill, `adr`, lands next to `agent-dev`
+(`.claude/skills/adr/`, `.agents/skills/adr/`, `.opencode/skills/adr/`), and `agent-dev` asks about
+architecture decisions (see [Architecture decisions](#architecture-decisions-adrs)). Add your ADR
+folder to `AGENTS.md`; `upgrade` does the rest.
 
 **Upgrading to v0.41.0.** `agent-dev` no longer creates git worktrees: it works on the ticket's
 branch in your current checkout, so you can see and check out the work from the host before it is
@@ -295,8 +326,8 @@ the developer journal/handoff, and the e2e include are gone; ticket states shrin
 longer produces; run `upgrade` instead, which removes them and then generates:
 
 ```bash
-npx @strobl_dev/adw@0.41.1 upgrade --dry-run   # list what would change
-npx @strobl_dev/adw@0.41.1 upgrade
+npx @strobl_dev/adw@0.42.0 upgrade --dry-run   # list what would change
+npx @strobl_dev/adw@0.42.0 upgrade
 ```
 
 It deletes these files, but only where they still carry the generator's `DO NOT EDIT` banner (a

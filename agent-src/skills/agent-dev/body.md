@@ -46,6 +46,9 @@ created in a dev container is unreachable from there or collides with the checko
   user flows), also ask the user whether you should test it end to end in the running app or they
   prefer to test it manually. If they want you to but `AGENTS.md` has no end-to-end section, say so
   right away. Record the answer, together with the checks it covers, in the agreed scope.
+- **Approaches compared** — read the project's architecture decision records (ADRs) for the area
+  first; `AGENTS.md` says where they are. If an approach contradicts an accepted ADR, tell the user:
+  choosing it means superseding that ADR.
 - **Spec or plan written, handed to the user for review** — lead with a **show-me** view of its
   design, so the user can judge it without reading the whole file; the file stays the record.
   show-me is user-invoked only, so read `.agents/skills/show-me/SKILL.md` and follow it. If it is
@@ -63,13 +66,20 @@ created in a dev container is unreachable from there or collides with the checko
   user. Without show-me, the sentences alone. Spec and plan files are local working files: never name
   their paths on the ticket. If the scope changes later in the run, post the final version again at
   close-out.
+- **Scope agreed: architecture decision?** — settle with the user whether the agreed design makes an
+  architecture decision: one the project's ADR guidance lists, or one that is expensive to reverse
+  and that a later reader would question (a new technology or dependency, module boundaries or how
+  modules communicate, data model or storage, a public API, a cross-cutting policy such as a
+  security default). Following an existing ADR or convention, a bug fix, or a local change is not
+  one. A spec does not record a decision: it is a working file. Record the answer in the agreed scope.
 - **Branch created** — name it per **Naming** below.
 - **Implementation verified, before integrating** — if the work sits on `{{git.prTarget}}`, move it
   to a branch per **Naming**. Only if the agreed scope says the agent tests end to end: start the
   app as the `AGENTS.md` end-to-end section describes, exercise the changed flows in a browser
   (Playwright), capture evidence (screenshots outside the repo, or observations), and shut the app
   down. If there is no such section, no browser tooling, or startup fails, do not block: report it
-  in the summary instead.
+  in the summary instead. If the agreed scope includes an architecture decision, record it now with
+  the `adr` skill, from the design and the code as built, and commit it on the branch.
 - **Integration options offered** (merge, PR, keep, discard), or the workflow finishes without
   offering them — do **not** present them: the choice is already made. Base branch
   `{{git.prTarget}}`. If a plan file exists for this work (also from an earlier run), ask whether
@@ -103,6 +113,8 @@ The `{{artifact.implementationSummary}}` — at most about 250 words:
 **Possible side effects** — what else this could affect.
 **Watch when testing** — concrete things to check. State the end-to-end status: tested by the
 agent (what, with evidence), left to manual testing at the user's request, or not tested (why).
+**Decisions** — the ADRs this change adds or supersedes, or none. Name any earlier, unrecorded
+decision the work relied on as a candidate to backfill.
 PR: <link, added once the draft PR exists>
 ```
 
@@ -120,5 +132,6 @@ ticket at `in-progress`. Failed attempts then still count toward the ticket's co
 
 - Never close the ticket; acceptance is human.
 - Never merge and never publish the draft PR; both belong to the human reviewer.
+- Never change the context or decision of an accepted ADR; supersede it with a new one.
 - Post nothing to the ticket beyond the agreed scope, the implementation summary, and the cost
   comments.

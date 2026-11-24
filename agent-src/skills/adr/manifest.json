@@ -1,0 +1,15 @@
+{
+  "name": "adr",
+  "description": "Use when recording an architecture decision for {{project.name}} as an ADR: a new decision agreed for a change, a decision that replaces an earlier ADR, or a past decision documented retroactively (backfill). Also use when the user runs /adr or $adr.",
+  "platforms": {
+    "claude": {},
+    "codex": {},
+    "opencode": {}
+  },
+  "interface": {
+    "display_name": "{{project.name}} ADR",
+    "short_description": "Record, supersede or backfill an architecture decision",
+    "default_prompt": "Use $adr to record this {{project.name}} architecture decision."
+  },
+  "tokens": {}
+}

@@ -59,11 +59,53 @@ const AGENT_DEV_PATHS = [
   path.join('.opencode', 'skills', 'agent-dev', 'SKILL.md'),
 ];
 
-test('renderAll emits only the agent-dev skill plus the ticketing and cost includes', () => {
+const ADR_PATHS = [
+  path.join('.claude', 'skills', 'adr', 'SKILL.md'),
+  path.join('.agents', 'skills', 'adr', 'SKILL.md'),
+  path.join('.agents', 'skills', 'adr', 'agents', 'openai.yaml'),
+  path.join('.opencode', 'skills', 'adr', 'SKILL.md'),
+];
+
+test('renderAll emits only the agent-dev and adr skills plus the ticketing and cost includes', () => {
   const { root, cleanup } = tmpProject();
   try {
     const paths = renderAll(root).map((o) => o.path).sort();
-    assert.deepEqual(paths, [...AGENT_DEV_PATHS, '.agents/includes/cost.md', '.agents/includes/ticketing.md'].sort());
+    assert.deepEqual(paths, [...AGENT_DEV_PATHS, ...ADR_PATHS, '.agents/includes/cost.md', '.agents/includes/ticketing.md'].sort());
+  } finally {
+    cleanup();
+  }
+});
+
+test('agent-dev settles architecture decisions and records them with the adr skill', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const outputs = renderAll(root);
+    for (const p of AGENT_DEV_PATHS.filter((p) => p.endsWith('SKILL.md'))) {
+      const body = outputs.find((o) => o.path === p).content;
+      assert.match(body, /\*\*Approaches compared\*\* — read the project's architecture decision records/);
+      assert.match(body, /\*\*Scope agreed: architecture decision\?\*\*/);
+      assert.match(body, /record it now with\s+the `adr` skill/);
+      assert.match(body, /\*\*Decisions\*\* — the ADRs this change adds or supersedes, or none/);
+      assert.match(body, /Never change the context or decision of an accepted ADR/);
+    }
+  } finally {
+    cleanup();
+  }
+});
+
+test('adr marks unsourced reasons of a backfill, follows the project convention and never links a spec', () => {
+  const { root, cleanup } = tmpProject();
+  try {
+    const outputs = renderAll(root);
+    for (const p of ADR_PATHS.filter((p) => p.endsWith('SKILL.md'))) {
+      const body = outputs.find((o) => o.path === p).content;
+      assert.match(body, /\nname: adr\n/);
+      assert.match(body, /an ADR never links one/, `${p}: specs and plans are not records`);
+      assert.match(body, /`\(inferred — confirm\)`/, `${p}: unsourced reasons are marked`);
+      assert.match(body, /Follow the project's convention/, `${p}: convention first`);
+      assert.match(body, /Superseded by ADR-NNNN/);
+      assert.doesNotMatch(body, /\{\{.*?\}\}/);
+    }
   } finally {
     cleanup();
   }

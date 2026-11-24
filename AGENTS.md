@@ -96,9 +96,10 @@ pipeline: **config → tokens → units → renderers → outputs**.
   *printed*, never installed or documented with install steps — except the pinned skills of
   `skills.mjs`, which it offers to install.
 
-Units: one skill, `agent-dev`. It adds only the ticket edges around the unmodified superpowers chain:
+Units: two skills. `agent-dev` adds only the ticket edges around the unmodified superpowers chain:
 `in-progress` at the start, the approved spec as a comment, and the implementation summary, cost
-summary and `review` at the end.
+summary and `review` at the end, plus the architecture-decision hooks. `adr` records, supersedes
+and backfills architecture decision records; `agent-dev` calls it, and users can invoke it directly.
 It names only entry skills, by bare id (OpenCode 2 cannot resolve `superpowers:<skill>`) — the
 superpowers `brainstorming` skill, plus `writing-plans` when resuming an in-progress ticket whose spec
 is already approved — declares the worktree preference as *none* (a branch in the current checkout,
