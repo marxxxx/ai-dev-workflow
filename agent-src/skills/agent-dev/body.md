@@ -104,17 +104,30 @@ Both names derive from the ticket: its number, and a **short title** (its title 
 
 ## 3. Close-out
 
-The `{{artifact.implementationSummary}}` — at most about 250 words:
+The `{{artifact.implementationSummary}}` — at most about 250 words. Under each heading, one bullet
+per distinct point; never run several points together in one paragraph:
 
 ```markdown
 ## {{artifact.implementationSummary}}
-**Approach** — what was built and how.
-**Consequences** — behavior, API, data, or config changes.
-**Possible side effects** — what else this could affect.
-**Watch when testing** — concrete things to check. State the end-to-end status: tested by the
-agent (what, with evidence), left to manual testing at the user's request, or not tested (why).
-**Decisions** — the ADRs this change adds or supersedes, or none. Name any earlier, unrecorded
-decision the work relied on as a candidate to backfill.
+
+**Approach**
+- <what was built and how>
+
+**Consequences**
+- <a behavior, API, data, or config change>
+
+**Possible side effects**
+- <what else this could affect>
+
+**Watch when testing**
+- <a concrete thing to check>
+- <end-to-end status: tested by the agent (what, with evidence), left to manual testing at the
+  user's request, or not tested (why)>
+
+**Decisions**
+- <an ADR this change adds or supersedes, or none>
+- <an earlier, unrecorded decision the work relied on, as a candidate to backfill>
+
 PR: <link, added once the draft PR exists>
 ```
 

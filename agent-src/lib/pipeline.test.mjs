@@ -85,7 +85,7 @@ test('agent-dev settles architecture decisions and records them with the adr ski
       assert.match(body, /\*\*Approaches compared\*\* — read the project's architecture decision records/);
       assert.match(body, /\*\*Scope agreed: architecture decision\?\*\*/);
       assert.match(body, /record it now with\s+the `adr` skill/);
-      assert.match(body, /\*\*Decisions\*\* — the ADRs this change adds or supersedes, or none/);
+      assert.match(body, /\*\*Decisions\*\*\n- <an ADR this change adds or supersedes, or none>/);
       assert.match(body, /Never change the context or decision of an accepted ADR/);
     }
   } finally {
